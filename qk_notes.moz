@@ -154,6 +154,7 @@
 	mg_notelen=0
 	mg_gen=0
 	sg_type=[0,0,0,0]
+	sg_sel_beat=4
 	sg_lo=0
 	sg_hi=127
 	sg_gen=[0,0,0,0]
@@ -2105,8 +2106,14 @@ endif
   
   SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
   SetKnobValue 1, TranslateScale sg_type[seq_ch], 0, 5, 0, 127
-  SetKnobValue 2, TranslateScale sg_lo, 0, 127, 0, 127
-  if sg_type[seq_ch] = 0
+  if note_set_type=0 and (sg_type[seq_ch]>=2 and sg_type[seq_ch]<=3)
+		SetKnobValue 2, TranslateScale sg_sel_beat, 0, 4, 0, 127
+	elseif sg_type[seq_ch]=0		  
+		SetKnobValue 2, TranslateScale sg_lo, 0, 127, 0, 127
+  else
+		SetKnobValue 2, 0
+  endif
+	if sg_type[seq_ch] = 0
 	 	SetKnobValue 3, TranslateScale sg_hi, 0, 127, 0, 127
   else
   	SetKnobValue 3, TranslateScale sg_gen[seq_ch], 0, 31, 0, 127
@@ -2142,7 +2149,10 @@ endif
   	if sg_type[seq_ch] = 0
 		  SetKnobValue 2, TranslateScale sg_lo, 0, 127, 0, 127
 	  	SetKnobValue 3, TranslateScale sg_hi, 0, 127, 0, 127
-	  else
+	  elseif note_set_type=0 and (sg_type[seq_ch]>=2 and sg_type[seq_ch]<=3)
+			SetKnobValue 2, TranslateScale sg_sel_beat, 0, 4, 0, 127
+			SetKnobValue 3, TranslateScale sg_gen[seq_ch], 0, 31, 0, 127
+		else
 	  	SetKnobValue 2, 0
 		  SetKnobValue 3, TranslateScale sg_gen[seq_ch], 0, 31, 0, 127
 	  endif
@@ -2158,6 +2168,8 @@ endif
 	endif
 	if LastKnob=2 and sg_type[seq_ch]=0
     sg_lo = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
+	elseif note_set_type=0 and (sg_type[seq_ch]>=2 and sg_type[seq_ch]<=3)
+		sg_sel_beat = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 4
 	endif
   if LastKnob = 3
     if sg_type[seq_ch]=0
@@ -2206,9 +2218,16 @@ endif
  	if sg_type[seq_ch]=0 //# only required for CC and VELO
 	 	LabelKnob 2, {LO: }, sg_lo
 	 	LabelKnob 3, {HI: }, sg_hi
+	elseif note_set_type=0 and (sg_type[seq_ch]>=2 and sg_type[seq_ch]<=3)
+	  if sg_sel_beat<=3
+			LabelKnob 2, {Beat }, sg_sel_beat+1
+		else
+			LabelKnob 2, {Beats 1-4}
+		endif
+		LabelKnob 3, {Gen! }, sg_gen[seq_ch]
 	else
 	  LabelKnob 2, { }
-	  if note_set_type=1 and (sg_type[seq_ch]>=1 and sg_type[seq_ch]<=3)
+	  if note_set_type=1 and (sg_type[seq_ch]>=2 and sg_type[seq_ch]<=3)
 	  	//# single noteset type cant do arps or melo
 	  	LabelKnob 3, {n/a}
 		else
