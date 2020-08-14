@@ -1,0 +1,2985 @@
+@OnLoad
+  SetShortName {BEATS}
+  ShowLayout 2
+  LabelPads {_QK:BEATS}
+  if unassigned scene_durs
+	  ResetNoteStates FALSE // #reset the locker with the value FALSE!
+	  mode = 0 //# modes of operation
+	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:PatternLocked
+	  kontroller_slave=TRUE //# KONTROLLER APP updates scenes for slaves
+	  SetMetroPPQN 4
+	  ppqn = 4 
+	  scene_change_requested = -1 //# on pad down has next scene number
+	  pattn_change_requested = -1 //# on pad down has next pattn number
+	  scene_change_pattn_reset = TRUE //# Goto pattn 0 when user changes scene
+	  scene_changed = FALSE
+	  in_mode_select = FALSE //# Toggle for changing modes mode
+	  number_of_modes = 16 //# Change in operational mode 
+	  in_seq_mode = FALSE //# editing pattern steps mode
+	  allow_mode_chg_playbk = TRUE //# Mode change during playback
+	  return_to_song_mode_requested = FALSE //# used for switching on new bar 
+	  use_turn_around = TRUE //# last pattn as turn around on last bar of scene
+	  //# used for LED feedback
+	  send_cc_back_to_knobs = FALSE 
+	  knob1_cc = 121 //# Used for sending midi feedback to LED knobs
+	  knob2_cc = 122
+	  knob3_cc = 123
+	  knob4_cc = 124
+    Call @InitKnobVariables //# All knob settings on load
+	  Call @SetupSequences
+	  Call @LoadDrumPatterns
+	  Call @LoadRampPatterns
+	  Call @SetupScales
+		Call @SetupKnobset0
+  	Call @SetupLayout
+	endif 
+ @End
+
+@InitKnobVariables
+	//# Any knobset knob should have a setting here
+	scn_duration = 0 
+	pattn_duration = 0
+	
+	//# select 0-15 -- display 1-16 so 9 shows as 10
+	seq_ch=0 //# the sequence lane 0-3
+	seq_type=0 //# sequence lane to edit. Step, Note, Velo, CC
+	euc_type=0
+	rot_type=0
+	timer_intervals=[500, 700, 150, 150, 700]
+	label_style=4 //#0-3 seq_types, 4 all_seq_type_sel_ch, 5_all_ch's_al_seq's
+	label_view_mode=4 //# A toggle for the settings pad. 4 or 5. Updates label_style also, which is used more frequently for sequence editing
+	
+  input_restrict=0
+  presets=[]
+  preset_num=0
+  move_all_dir=0
+  step_val=0
+  copy_paste_status=0 //# Copy paste 0=off; 1=Copied; 2=Paste
+  return_to_mode=0 //# Copy paste on completion
+	
+	//# Color Scheme
+	col_scene = 2
+	col_sel_scene = 4
+	col_pattn = 2
+	col_sel_pattn = 4
+	col_rec_pattn = 1 //# in record mode
+	col_pattn_waiting = 1 //# selected waiting for notes
+	col_pending = 3
+	loop_col = 6
+	col_del_pattn = 1
+	col_mode_select = 6 //# Mode selection buttons
+	col_unused = 0
+	col_seq_pad_on=4
+	col_seq_pad_off=0
+	col_seq_pad_rec=1
+	col_seq_pad_sust=4
+	col_seq_pad_outside=5
+	col_sel_step=3
+	col_mutate=6
+@End
+
+@SetupSequences
+  midi_out_chs=[8,8,8,8]
+  cc_vals=[32,48,65,81]
+  scene_durs = [0,0,0,0,0,0,0,0]
+  scene_swing = [0,0,0,0,0,0,0,0]
+  pattn_durs=[] //# Pattern durations in beats
+  pattn_octs=[] //# Octave adjust
+  
+  //# Sequence general setup
+	in_seq_mode = FALSE
+
+	//# Playhead position
+	current_scene = 0 // #0-7 Pads 0-7
+  current_pattn = 0 // #0-7 Pads 8-15
+	//# selected step for editing on the current playing scene/pattn
+	sel_step = 0 
+	
+  //# All sequences 8scenes x 8patterns x 16 steps. Each 1024 cells
+	//# slot = (sel_scene*128) + (sel_pattn*16) + sel_step 
+	//# STEPS
+	FillArray seq0_steps, 0, 1024
+	FillArray seq1_steps, 0, 1024
+	FillArray seq2_steps, 0, 1024
+	FillArray seq3_steps, 0, 1024
+	
+	//# NOTES
+	FillArray seq0_notes, 1, 1024
+	FillArray seq1_notes, 4, 1024
+	FillArray seq2_notes, 7, 1024
+	FillArray seq3_notes, 11, 1024
+	
+	//# OCTS
+	FillArray seq0_octs, 3, 1024
+	FillArray seq1_octs, 3, 1024
+	FillArray seq2_octs, 3, 1024
+	FillArray seq3_octs, 3, 1024
+	
+	//# VELO
+	FillArray seq0_velos, 100, 1024
+	FillArray seq1_velos, 100, 1024
+	FillArray seq2_velos, 100, 1024
+	FillArray seq3_velos, 100, 1024
+	
+	//# CC
+	FillArray seq0_ccs, -1, 1024
+	FillArray seq1_ccs, -1, 1024
+	FillArray seq2_ccs, -1, 1024
+	FillArray seq3_ccs, -1, 1024
+	
+	//# Euclydian mode settings per channel, per scene, per pattern
+	//# euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
+	//# All info stored in euc_vals. Each sequence has the following...
+	e_note_pos=0 //# number of euc notes ON in the sequence
+	e_rot_pos=1   //# Rotation for a sequence 0-15
+	e_len_pos=2 //# Length of the sequence 1-16 steps
+	e_rate_pos=3  //# Rate division for seq. see pulses_per_note
+	euc_vals=[]
+	//# access using eg: euc_vals[euc_slot + e_rot_pos] 
+	//# MetroPulse settings
+	curr_steps=[0,0,0,0] //# current note 
+	in_mid_step=[0,0,0,0] //# for slow rates metroPulse can be between steps
+	pulses_per_note = [1,2,4,8,16] //# a divisor to give metroPulses per note
+	//# curr_rate = pulses_per_note[euc_vals[euc_slot + e_rate_pos]]
+	curr_pattn_pulses=[0,0,0,0] //# one for each seq_ch. relative to MetroPulse
+	//# stored midi note num for current playing note. for sending OFF notes
+	//# stored at time midi note on is sent. see @OnMetroPulse
+	playing_notes=[0,0,0,0]
+	steps_record_mode=FALSE //# steps mode: tap on step or tap any step record step at playhead
+	
+	//# MEL & SEQ GENERATION
+	mg_density=0
+	mg_range=0
+	mg_notelen=0
+	mg_gen=0
+	sg_type=[0,2,3,5]
+	sg_lo=0
+	sg_hi=127
+	sg_gen=[0,0,0,0]
+	//# Mutation / Morph
+	mutable_steps=[1,2,3, 5,6,7, 9,10,11, 13,14,15] //# steps we allow mutation
+	step_mutation = [0,0,0,0] //# on/off mutation per ch
+	velo_mutation = [0,0,0,0] //# +/- range for mutation amt per ch
+	cc_mutation = [0,0,0,0] //# +/- range for mutation amt per ch
+	mutate_step=[-1,-1,-1,-1] //# THE rnd step which will mutate per channel 
+@End
+
+@SetupScales
+	//# Scale definitions for midi out key, scale handling xss
+	//# 3 types of scale input: Common. Fixed, Single 
+	note_set_type=0 //# type of input selected 
+	noteset_len=13 //# array length for a scale. see common scales below...
+	scale_root = 0 // # root note of sel scale 
+	sel_scale = 0 // # an index to some scale types
+	curr_scale=[] //# current scale array
+	
+	//# Common scales
+	common_scales[0]     = [0,1,2,3,4,5,6,7, 8, 9,10,11] //#	Chromatic
+	
+	//# Fixed notesets (always 8 notes long)
+	num_fixed_notesets=6
+	fixed_notesets[0]    = [49,51,54,56,58,61, 63, 66] //# [RuisDEF]
+	fixed_notesets[1*15] = [36,38,39,42,45,46, 48, 50] //# [RuisGM]
+	fixed_notesets[2*15] = [49,51,54,56,58,61, 61, 61] //# [RuisFM K-SC-HH-PP]
+	fixed_notesets[3*15] = [24,48,60,72,84,96,108,120] //# [RuisNoir]
+	fixed_notesets[4*15] = [60,62,64,65,67,69, 71, 72] //# [Patt'ng.2]
+	fixed_notesets[5*15] = [36,38,39,42,43,46, 47, 50] //# [EG Pulse]
+	
+	//# Single noteset (always 4 notes long, 1 for each channel)
+	s_noteset=[49,54,58,61]
+
+	Call @GetMidiINPUTScale //# set up init scale for midi input	
+@End
+
+@GetMidiINPUTScale
+	//# set the allowed notes for input xgmis
+	scale_slot = sel_scale*15
+  
+  if note_set_type=0 //# common scales
+  	for i = 0 to 15
+			curr_scale[i] = (common_scales[scale_slot + i] + scale_root) % 12
+		endfor
+	  noteset_len=12
+	  FillArray seq0_notes, 0, 1024
+		FillArray seq1_notes, 3, 1024
+		FillArray seq2_notes, 6, 1024
+		FillArray seq3_notes, 10, 1024
+	elseif note_set_type=1 //# fixed note sets
+		CopyArray fixed_notesets[scale_slot], curr_scale, 8
+		noteset_len=8
+		FillArray seq0_notes, 0, 1024
+		FillArray seq1_notes, 2, 1024
+		FillArray seq2_notes, 4, 1024
+		FillArray seq3_notes, 6, 1024
+	elseif note_set_type=2 //# single note for each channel
+		CopyArray s_noteset, curr_scale, 4
+		noteset_len=4
+		FillArray seq0_notes, 0, 1024
+		FillArray seq1_notes, 2, 1024
+		FillArray seq2_notes, 4, 1024
+		FillArray seq3_notes, 6, 1024
+	endif
+	
+	Log (NoteName curr_scale[0]), { }, (NoteName curr_scale[1]), { }, (NoteName curr_scale[2]), { }, (NoteName curr_scale[3]), { }, (NoteName curr_scale[4]), { }, (NoteName curr_scale[5]), { }, (NoteName curr_scale[6]), { }, (NoteName curr_scale[7]), { }, (NoteName curr_scale[8]), { }, (NoteName curr_scale[9]), { }, (NoteName curr_scale[10]), { }, (NoteName curr_scale[11]), { }, (NoteName curr_scale[12]), { }, (NoteName curr_scale[13])
+@End
+		
+
+@OnHostStart
+	//# Start beat count on same beat as host
+	//# In AUM getting HostBeat to start on 0 seems flaky
+	//# Fixed by BramBos in June2020
+	Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
+	SetMetroSwing scene_swing[current_scene] 
+	if (HostBeat = 0) and (HostBar = 0)
+		//# starting playback from beginning		
+		
+		//# SEQUENCE MODE RESETS...
+		curr_pattn_pulses=[0,0,0,0] //# reset metroPulse count for each seq.
+		curr_steps=[0,0,0,0]
+		in_mid_step=[0,0,0,0]
+		
+		pattn_beat_count = -1
+		scene_beat_count = -1
+		scene_changed = FALSE
+		if (songmode = 0)
+			current_scene = 0
+			current_pattn = 0
+		elseif (songmode = 1)
+			current_pattn = 0
+		endif
+	else
+		//# continuing playback
+		//# Could do nothing and allow continue with vars unchanged
+		//# but in case use can jump timeline we are doing this to keep HostBeat aligned and pattn/Scene at same relative positions.
+		scene_completed_bars = scene_beat_count % HostBeatsPerMeasure
+		pattn_completed_bars = pattn_beat_count % HostBeatsPerMeasure
+		scene_beat_count = scene_completed_bars + HostBeat
+		pattn_beat_count = pattn_completed_bars + HostBeat
+		
+		//# TODO:- take into account song position!!!
+		curr_pattn_pulses=[0,0,0,0] //# reset metroPulse count for each seq.
+		curr_steps=[0,0,0,0]
+		in_mid_step=[0,0,0,0]
+		
+	endif
+	Log {---- Host Started ----}
+	Call @SetupLayout
+@End
+
+@OnHostStop
+  Call @SetupLayout
+  scene_beat_count = 0
+	pattn_beat_count = 0
+  for i = 0 to 3
+  	if playing_notes[i]
+		  SendMIDINoteOff midi_out_chs[i], playing_notes[i], 127
+		  playing_notes[i] = 0
+		endif
+	endfor  
+  Log {---- Host Stopped ---- }, scene_beat_count, { - }, pattn_beat_count 
+  Call @SetupLayout
+@End 
+
+@OnMetroPulse
+	//# Play notes/Update counts - pulses and step positions all seq_chs xomp
+	for ch = 0 to 3
+		euc_slot=(current_scene*128)+(current_pattn*16)+(ch*4)
+		curr_rate = pulses_per_note[euc_vals[euc_slot + e_rate_pos]]
+		curr_seq_len = 16 - (euc_vals[euc_slot + e_len_pos])
+		in_mid_step[ch] = (curr_pattn_pulses[ch]) % curr_rate
+		
+		if not in_mid_step[ch]
+			Call @PlayCurrentNotes
+			//# Highlight current step if in seq_mode
+			if in_seq_mode and (ch=seq_ch)
+				FlashPad curr_steps[seq_ch]
+			endif	
+		endif	
+		
+		//# if ch=0 //# Log some info....
+			//#Log {EUCSLOT:}, euc_slot, { curr_rate:16/}, curr_rate, { curr_seq_len:}, curr_seq_len, { curr_step:}, curr_steps[ch], { mid_step:}, in_mid_step[ch], { CMP:}, CurrentMetroPulse+1, { CPP:},curr_pattn_pulses[ch]+1
+		//# endif
+		
+		//# increment the pattern pulse
+		curr_pattn_pulses[ch] = curr_pattn_pulses[ch] + 1
+		
+		if in_mid_step[ch] = curr_rate-1 //# last pulse b4
+			//# increment pattern or reset
+			if curr_steps[ch] >= curr_seq_len-1
+				curr_pattn_pulses[ch]=0
+				curr_steps[ch]=0
+				//# generate step to mutate
+				if step_mutation[ch]>0 and step_mutation[ch]<=50
+					mchnce=(Random 0,99) < (step_mutation[ch]*2) 
+				elseif step_mutation[ch]>=51
+					mchnce=(Random 0,99) < (step_mutation[ch]-50)*2
+				endif 
+				if mchnce //# chance a mutable step generated
+					mutate_step[ch] = mutable_steps[(Random 0,11)]
+				else
+					mutate_step[ch] = -1
+				endif
+				if in_seq_mode					
+					for i = 0 to 15
+						sel_pad = i
+						step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
+						Call @ColorSequencePad
+						LatchPad i, NO
+					endfor
+				endif
+			else
+				curr_steps[ch] = curr_steps[ch] + 1
+			endif
+		endif
+	endfor
+@End
+
+@PlayCurrentNotes
+	//# Play current notes & send CC data. All seq_ch's xpcn
+	//# handle turn off old and sending new note
+	step_slot=(current_scene*128)+(current_pattn*16)+curr_steps[ch]
+	
+	//# check sus_prev on new step per ch because this data stored array per ch
+	sus_prev_note = FALSE
+	if ch=0
+		step_type = seq0_steps[step_slot]
+	elseif ch=1
+		step_type = seq1_steps[step_slot]
+	elseif ch=2
+		step_type = seq2_steps[step_slot]
+	elseif ch=3
+		step_type = seq3_steps[step_slot]
+	endif
+	
+	if step_mutation[ch]>=1 and (mutate_step[ch] = curr_steps[ch])
+		//# mutate this step
+		if step_type=0
+			mutated_step=1 //# turn on steps
+		elseif step_type>0 and step_mutation[ch]>=51 
+			mutated_step=0 //# only turn off steps if step_mut>50
+		endif
+		step_type=mutated_step
+	endif
+			
+	if (step_type<2) and playing_notes[ch]>0 //# turn off old note
+	  SendMIDINoteOff midi_out_chs[ch], playing_notes[ch], 127
+	  playing_notes[ch]=0 
+	endif 
+	
+	if ch=0 
+		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
+			note_val=curr_scale[seq0_notes[step_slot]]
+		else //# ScaleDegree stored. Convert to note
+			oct_num = seq0_octs[step_slot]
+			scale_degree = seq0_notes[step_slot]
+			note_val = (oct_num*12) + (curr_scale[scale_degree]) 
+		endif
+		velo_val = seq0_velos[step_slot]
+		cc_val = seq0_ccs[step_slot]
+	elseif ch=1
+		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
+			note_val=curr_scale[seq1_notes[step_slot]]
+		else //# ScaleDegree stored. Convert to note
+			oct_num = seq1_octs[step_slot]
+			scale_degree = seq1_notes[step_slot]
+			note_val = (oct_num*12) + (curr_scale[scale_degree]) 
+		endif
+		velo_val = seq1_velos[step_slot]
+		cc_val = seq1_ccs[step_slot]
+	elseif ch=2
+		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
+			note_val=curr_scale[seq2_notes[step_slot]]
+		else //# ScaleDegree stored. Convert to note
+			oct_num = seq2_octs[step_slot]
+			scale_degree = seq2_notes[step_slot]
+			note_val = (oct_num*12) + (curr_scale[scale_degree]) 
+		endif
+		velo_val = seq2_velos[step_slot]
+		cc_val = seq2_ccs[step_slot]
+	elseif ch=3
+		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
+			note_val=curr_scale[seq3_notes[step_slot]]
+		else //# ScaleDegree stored. Convert to note
+			oct_num = seq3_octs[step_slot]
+			scale_degree = seq3_notes[step_slot]
+			note_val = (oct_num*12) + (curr_scale[scale_degree]) 
+		endif
+		velo_val = seq3_velos[step_slot]
+		cc_val = seq3_ccs[step_slot]
+	endif
+	oct_adj=12 //# handles octave 3 is from note 48 not from 36
+	if note_set_type=0
+		note_val = note_val + oct_adj
+	endif
+	if cc_val >= 0 //# send cc message FIRST, so note plays at cc val setting
+		if cc_mutation[ch]>=1 //# mutate cc
+			cc_mutate_val = Random -cc_mutation[ch], cc_mutation[ch]
+			//#Log {MUTATTION RANGE: }, -cc_mutation[ch], { to }, cc_mutation[ch], { B4CCVAL }, cc_val, { MUTVAL}, cc_mutate_val, { SUM }, Clip (cc_val+mutate_val), 0, 127
+			cc_val = Clip (cc_val+cc_mutate_val), 0, 127
+		endif
+		SendMIDICC midi_out_chs[ch], cc_vals[ch], cc_val
+	endif
+	if step_type=1 //# turn on new note
+		if velo_mutation[ch]>=1 //# mutate velo_val
+			mutate_val = Random -velo_mutation[ch], velo_mutation[ch]
+			velo_val = Clip (velo_val+mutate_val), 0, 127
+			Log {Mutate velo amt: }, mutate_val
+		endif
+		SendMIDINoteOn midi_out_chs[ch], note_val, velo_val
+		playing_notes[ch]= note_val
+		Log {NotePlayed: }, note_val, { CMP: }, CurrentMetroPulse
+	endif
+	
+@End
+
+
+@OnNewBar
+	Log {--- new bar ---}
+@End 
+
+@OnNewBeat
+	Log {--- new beat ---}
+	//# increment beat counts xonb
+	scene_beat_count = scene_beat_count + 1
+	pattn_beat_count = pattn_beat_count + 1
+	
+	//# Handle Scene and Pattern changes
+	current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
+	pattn_slot = (current_scene * 8) + (current_pattn)
+	current_pattn_duration = pattn_durs[pattn_slot]
+	
+	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
+	
+	//# Log {Scene beats left: }, current_scene_duration - scene_beat_count
+	//# Log {Pattern beats left: }, current_pattn_duration - pattn_beat_count
+  time_for_turnaround = FALSE
+  if use_turn_around
+  	Call @TimeForTurnaround
+  endif
+  
+	//# Pattern progression -- Order of operations
+	if (scene_change_requested > -1) and (HostBeat=0)
+		//# user requested scene change and its a new bar (& return to song)
+		//# Log {Handling scene change request. It a new bar}
+		Call @HandleSceneChange
+	elseif (scene_beat_count >= current_scene_duration)
+		//# its time to increment scene
+		Call @HandleSceneChange
+	elseif (pattn_change_requested > -1) and (HostBeat=0)
+  	//# User requested pattn change & its a new beat
+ 		Call @HandlePatternChange
+ 	elseif time_for_turnaround
+ 		Call @HandlePatternChange
+	elseif (pattn_beat_count >= current_pattn_duration)
+		Call @HandlePatternChange
+	endif
+	Call @LogCurrentInfo
+@End
+
+@TimeForTurnaround
+	//# Under these conditions jump to last pattn for 1 bar before scene change
+	//# 2nd last pattn in scene has no duration. Last pattn has 4 beat duration
+	//# Mode must be in song or scene lock
+	//# must be 1 bar before scene ends
+	pattn6 = pattn_durs[(current_scene * 8) + 6]
+	pattn7 = pattn_durs[(current_scene * 8) + 7]
+	//# Log {Pattern6 dur: }, pattn6, { Pattern7 dur: }, pattn7
+	//# Log {SBC: }, scene_beat_count, { SC_DUR: }, current_scene_duration, { HBPM: }, HostBeatsPerMeasure
+	//# Log scene_beat_count, { === }, (current_scene_duration - HostBeatsPerMeasure)
+	if (songmode <= 1) and (pattn6 = 0) and (pattn7 = 4) and (current_pattn <= 5) and (scene_beat_count = current_scene_duration - HostBeatsPerMeasure)
+		time_for_turnaround = TRUE
+		//# Log {Its TURN AROUND TIME!!}
+	endif
+@End
+
+@HandleSceneChange
+	//# Work out which scene is next xhsc
+	scene_changed = TRUE
+  if scene_change_requested > -1
+  	current_scene = scene_change_requested
+  	if return_to_song_mode_requested
+  		songmode = 0
+	else
+	  	songmode = 1 //# lock to scene if user requests
+  	endif
+  	return_to_song_mode_requested = FALSE
+  elseif (songmode > 0)
+  	current_scene = current_scene
+  elseif (current_scene = 7) //# End of song 
+    current_scene = 0 //# TODO: Handle end of song
+  elseif (scene_durs[current_scene+1] <= 0)
+  	//# also song end
+  	current_scene = 0 //# no duration in next scene return to beginning
+  else
+    current_scene = current_scene + 1 //# Going to next
+  endif
+  scene_beat_count = 0
+	pattn_beat_count = 0
+  SetMetroSwing scene_swing[current_scene]
+  Log {----- SCENE CHANGE -----}, {S}, current_scene+1, { SWING: }, scene_swing[current_scene], {%}
+  Call @HandlePatternChange //# Scene change effect pattn change
+@End
+
+@HandlePatternChange
+	//# Work out what the next pattn is xhcc
+	pattn_slot = (current_scene * 8) + (current_pattn)
+	if (pattn_change_requested > -1)
+		current_pattn = pattn_change_requested
+		pattn_change_requested = -1 //# reset request flag
+		if songmode <= 2
+			songmode = 2 //# Lock to pattn if user requests pattn change
+ 		endif
+ 	elseif (scene_change_requested > -1) //# also handle pattn change
+		//# Log {Scene change requested handling pattn reset}
+		current_pattn = 0
+  	scene_change_requested = -1
+  	scene_changed = FALSE
+  elseif scene_changed
+		//# reset pattn to 0 on scene change if songmode < 2
+		if (songmode <= 1)
+			//# Log {Scene changed reset pattn to 0}
+			current_pattn = 0
+		endif
+		scene_changed = FALSE
+	elseif (songmode = 2) //# Loop current pattn & Scene
+    current_pattn = current_pattn
+  elseif (current_pattn = 7) //# Wrap playback
+    current_pattn = 0
+  elseif (time_for_turnaround)
+  	//# play last pattn for one bar as a turn around before scene change
+  	current_pattn = 7
+  elseif (pattn_durs[pattn_slot+1] <= 0)
+  	current_pattn = 0 //# no duration no next pattn (pattn_slot + 10)
+  else
+    current_pattn = current_pattn + 1
+  endif
+  pattn_beat_count = 0 //# reset pattn beat count on new pattn
+  
+  //# SEQUENCE MODE RESETS.	..
+  curr_pattn_pulses=[0,0,0,0] //# reset metroPulse count for each seq.
+  curr_steps=[0,0,0,0] //# reset steps for each seq.
+	in_mid_step=[0,0,0,0]
+  
+  //# Label pads
+  LabelPads {_QK:BEATS  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
+  Log {----- PATTERN CHANGE -----}, {S}, current_scene+1, { P}, current_pattn+1, { PS}, pattn_slot
+  Call @SetupLayout
+@End
+
+@LogCurrentInfo
+	pattn_slot = (current_scene * 8) + (current_pattn)
+	current_pattn_duration = pattn_durs[pattn_slot]
+	current_scene_duration = scene_durs[current_scene]
+	Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { Pattern:}, current_pattn+1, { }, pattn_beat_count+1, {/}, current_pattn_duration, { beats}, { Mode: }, mode, { HostBeat: }, HostBeat+1, { PS:}, pattn_slot
+@End
+
+@OnPadDown
+	//# Splitting this event into separate handlers xopd
+	if in_mode_select and (LastPad <= (number_of_modes - 1))
+		if (HostRunning and (LastPad > 0) and NOT allow_mode_chg_playbk)
+			Exit //# Only return to song allowed in playback
+		elseif LastPad=14
+			Exit //# Not in use
+		elseif (HostRunning and (LastPad>=3 and LastPad<=5))
+			Exit //# Not allowed in playback
+		elseif (LastPad=6) and not (mode=9 or mode=11 or mode<=1)
+			Exit //# COPY PASTE not allowed
+		elseif (LastPad=7) and not (mode<=1 or mode>=8)
+			Exit //# DELETE not allowed
+		elseif (LastPad=2) //# Toggle KONTROLLER SLAVE MODE
+			kontroller_slave = not kontroller_slave
+			if kontroller_slave
+				LabelPad 2, {KONTROLLER SLAVE ON}
+			else
+				LabelPad 2, {KONTROLLER SLAVE OFF}
+			endif
+		elseif (LastPad>=3 and LastPad<=5) or (LastPad=13 or LastPad=15)
+    	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
+    	LabelPad 6, { } //# CopyPaste not allowed
+    	LabelPad 7, { } //# Delete not allowed here
+    	for i = 0 to 15
+    		LatchPad mode, NO
+    	endfor
+			//# toggle label view mode
+    	if LastPad=15
+				if label_view_mode=5
+					label_view_mode=4
+					LabelPad 15, {SEQ VIEW     }, {  CHANNEL}
+					LabelPad 13, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
+				else
+					label_view_mode=5
+					LabelPad 15, {SEQ VIEW     }, {  ALL}
+					LabelPad 13, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CHS1-4}
+				endif
+				label_style=label_view_mode
+				FlashPad 15
+			elseif LastPad=13
+				Call @ReverseSequence
+				in_mode_select=FALSE
+				in_seq_mode=TRUE
+				Call @SetupLayout
+				Log {Sequence reversed!}
+			else
+				mode = LastPad
+	    	Call @OnPadDown_KnobSetSelect
+			endif
+			LatchPad mode, YES
+    elseif (LastPad>=8 and LastPad<=12)
+    	if LastPad = 8
+	      Call @SetupKnobset6 //# SEQUENCE SETUP
+	    elseif LastPad = 9
+	      Call @SetupKnobset5 //# SEQUENCE STEPS EDIT
+	    elseif LastPad = 10
+	      Call @SetupKnobset7 //# MUTATE
+	    elseif LastPad = 11
+	    	//# Create random ramp vals
+			 	for i = 0 to 47
+		 	 		r[i] = Random 0,15 //# options [0,1....,15]
+			 	endfor 
+	      Call @SetupKnobset8 //# SEQ GEN
+	    elseif LastPad = 12
+	      Call @SetupKnobset9 //# ROTATION
+	    endif
+	    mode=LastPad
+    	in_mode_select = FALSE
+    	in_seq_mode = TRUE
+    elseif (HostRunning and LastPad=0)
+    	//# Return to song mode requested
+    	return_to_song_mode_requested = TRUE
+    	scene_change_requested = current_scene
+    	in_mode_select = FALSE
+    	songmode = 0
+    	mode = 0
+    	ColorPad 0, col_pending
+	    ColorPad 8, col_pending
+	  elseif LastPad=6 and ((mode=9) or (mode=11) or (mode<=1))//# COPY PASTE
+	  	//# Copy/Paste pad hit so 'copy' current scene/pattn/seq xcp
+			return_to_mode=mode
+			mode=6
+			copied_scene = current_scene
+			copied_pattn = current_pattn
+			copied_seq_pad = sel_step
+			copied_ch = seq_ch //# for copying to another channel store here
+			copy_paste_status=1 //# COPY
+			in_mode_select = FALSE
+			if return_to_mode=9 or return_to_mode=11
+				in_seq_mode=TRUE
+				Call @OnPadDown_KnobSetSelect
+			endif
+		elseif (LastPad=7) //# reset mode
+			return_to_mode=mode
+			mode=7
+			if return_to_mode>=8
+				in_seq_mode=TRUE
+				Call @OnPadDown_KnobSetSelect
+				LabelPads {DELETE: Select a step to reset [SHIFT to exit]}
+			else
+				LabelPads {DELETE: Select a scene or pattn slot to reset [SHIFT to exit]}
+			endif
+			in_mode_select = FALSE
+		else
+			mode = LastPad
+			Log {MODE:}, mode
+			in_mode_select = FALSE
+		endif
+		//# Handle mode change
+		if mode = 0
+			LabelPads {_QK:BEATS     PLAYBACK MODE: Loop whole song}
+			songmode = 0
+			in_seq_mode = FALSE
+		elseif mode=1
+			LabelPads {_QK:BEATS  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
+			in_seq_mode = FALSE
+		endif
+		if send_cc_back_to_knobs
+			Call @SendMidiCCBackToKnobs
+		endif
+		Call @SetupLayout
+		if (copy_paste_status=1) and return_to_mode<=7 
+			//# CP activated for scenePatt mode
+			LabelPads {Copied Scene}, current_scene+1, { and Pattern}, current_pattn+1, {. Select a SCENE or PATTERN slot to paste to}
+		elseif (copy_paste_status=1) and return_to_mode=9 
+			//# CP activated for seq mode
+			LabelPads {STEP COPY: Copied Scene}, current_scene+1, { Pattern}, current_pattn+1, { STEP}, sel_step+1, {. Select STEP slot [... and ch] to paste to}
+			ColorPad sel_step, col_sel_step
+		elseif (copy_paste_status=1) and return_to_mode=11
+			//# CP activated for seq mode
+			LabelPads {SEQ COPY: Copied Scene}, current_scene+1, { Pattern}, current_pattn+1, { CH}, seq_ch+1, {. Select a Channel then hit pad to paste (16steps)}
+			ColorPad sel_step, col_sel_step
+		endif
+	//# NOT IN MODE SELECT......
+	elseif (NOT in_mode_select and NOT in_seq_mode)
+		//# handle mode actions if record or reset else do knob scene change
+		Call @OnPadDown_ScenePatternChange
+	 	Call @OnPadDown_KnobSetSelect
+		if (mode = 3) and (LastPad > 7)
+			Call @SetupLayout
+	  	rec_pattn_note_count = 0
+  		LabelPad current_pattn+8, {...waiting}
+  		ColorPad current_pattn+8, col_pattn_waiting
+		elseif (mode = 6) //# COPY/PASTE
+    	//# only call CP if pad and copy mode correspond
+    	if copy_mode=0 and LastPad<=7
+	    	copy_paste_status=2 //# PASTE
+    		return_to_mode=0
+    		Call @CopyPaste //# copy paste scene
+	    elseif copy_mode=1 and LastPad>=8 
+	    	copy_paste_status=2 //# PASTE
+    		return_to_mode=0
+    		Call @CopyPaste //# copy paste pattn
+	    endif
+		elseif (mode = 7) and (LastPad <= 7) //# reset mode
+    	Log {Reset scene called}
+    	reset_type=0
+    	Call @ResetScenePatternSequence   
+ 	 	elseif (mode = 7) and (LastPad >= 7)
+    	Log {Reset pattn called}
+    	reset_type=1
+    	Call @ResetScenePatternSequence
+  	endif
+  elseif (NOT in_mode_select and in_seq_mode)
+  	if mode=8 and not steps_record_mode//# Step sequence mode
+  		sel_pad=LastPad //# for updating step label info
+  		Log {Updating sel pad type for pad: }, sel_pad
+  		Call @UpdateSelStepType //# 0=off; 1=on;
+  	elseif (mode>=11 and mode<=13)
+  		sel_pad=LastPad //# for updating step label info
+  		Log {Updating sel pad type for pad: }, sel_pad
+  		Call @UpdateSelStepType //# 0=off; 1=on; 
+  	elseif mode=8 and steps_record_mode
+  		step_slot=(current_scene*128)+(current_pattn*16)
+			if seq_ch=0
+				seq0_steps[step_slot + curr_steps[seq_ch]] = 1 
+			elseif seq_ch=1
+				seq1_steps[step_slot + curr_steps[seq_ch]] = 1
+			elseif seq_ch=2
+				seq2_steps[step_slot + curr_steps[seq_ch]] = 1
+			elseif seq_ch=3
+				seq3_steps[step_slot + curr_steps[seq_ch]] = 1
+			endif
+  	elseif (mode = 6) //# COPY/PASTE
+    	copy_paste_status=2 //# PASTE
+    	Call @CopyPaste
+    	copy_paste_status=0 //# CP OFF
+  	elseif (mode = 7)
+  		reset_type=2 //# reset a sequence pad
+    	Call @ResetScenePatternSequence
+  	else	
+  		Log {STEP SELECTED }, LastPad+1
+  	endif
+  	sel_step=LastPad
+  	Call @SetupLayout
+  endif
+@End
+
+@OnPadDown_ScenePatternChange
+	//# handle scene/pattn change xopds
+  if (LastPad >= 0 and LastPad <= 7)
+  	//# Scene change
+  	Log { SCENE CHANGE REQUESTED }
+	  scene_change_requested = LastPad
+  	if NOT HostRunning //# immediate change else newbeat/bar handles
+  		Call @HandleSceneChange 
+  	endif
+	elseif (LastPad >= 8 and LastPad <= 15) 	
+  	//# User Pattern change 
+  	Log { CHORD CHANGE REQUESTED }
+  	pattn_change_requested = LastPad - 8 //# chrd 0-7
+  	if NOT HostRunning //# immediate change else newbeat/bar handles
+  		Call @HandlePatternChange 
+  	endif
+  endif
+	Call @SetupLayout	
+@End
+
+@OnPadDown_KnobSetSelect
+  //# choose a knob set based on pad type xopdk
+  if (NOT in_mode_select) and (NOT in_seq_mode)
+    if LastPad <= 7
+      Call @SetupKnobset0 //# Scenepads
+    elseif LastPad >= 8 
+      Call @SetupKnobset1 //# Pattern pads
+    endif
+  elseif (NOT in_mode_select) and in_seq_mode
+  	if mode=8
+  		Call @SetupKnobset6
+  	elseif mode=9
+  		Call @SetupKnobset5
+  	elseif mode=10
+  		Call @SetupKnobset7 //# RND_VAR
+  	elseif mode=11
+  		Call @SetupKnobset8 //# SEQ GEN
+  	elseif mode=12
+  		Call @SetupKnobset9 //# ROTATION
+  	elseif mode=6 and return_to_mode=9
+  		Call @SetupKnobset5 //# EDIT
+  	elseif mode=6 and return_to_mode=11
+  		Call @SetupKnobset8 //# SEQ GEN
+  	else
+  		mode=9
+  		Call @SetupKnobset5 //# EDIT
+  	endif
+  elseif in_mode_select
+    if LastPad = 3
+      Call @SetupKnobset3 //# Midi out key scale
+    elseif LastPad = 4
+      Call @SetupKnobset2 //# MIDI OUT CHS
+    elseif LastPad = 5
+    	Call @SetupKnobset4 //# CC# VALS
+    endif
+  endif
+  if send_cc_back_to_knobs
+    Call @SendMidiCCBackToKnobs
+  endif
+@End
+
+@SendMidiCCBackToKnobs
+	//# Update controller knob vals with midi cc
+	//# Log {Updating Twister... }, Round GetKnobValue 0
+	SendMidiCC 0, knob1_cc, Round GetKnobValue 0
+	SendMidiCC 0, knob2_cc, Round GetKnobValue 1
+	SendMidiCC 0, knob3_cc, Round GetKnobValue 2
+	SendMidiCC 0, knob4_cc, Round GetKnobValue 3
+@End
+
+@OnMidiCC
+	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
+	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
+	if kontroller_slave=1
+		if (MIDIByte2<=7) and (MIDIChannel=15)
+			//# handle scene duration change
+			scene_durs[MIDIByte2] = MIDIByte3
+			Call @SetupLayout
+		elseif (MIDIByte2=8) and (MIDIChannel=15)
+			//# handle scene change requested (ie: PadDown Scene change)
+			scene_change_requested = MIDIByte3
+			if NOT HostRunning //# immediate change else newbeat/bar handles
+	  		Call @HandleSceneChange 
+	  	endif
+		elseif (HostRunning and MIDIByte2=9 and MIDIByte3>0)
+    	//# handle return to song mode requested
+    	return_to_song_mode_requested = TRUE
+    	scene_change_requested = MIDIByte3
+    	in_mode_select = FALSE
+    	songmode = 0
+    	mode = 0
+    	ColorPad 0, col_pending
+	    ColorPad 8, col_pending
+		elseif (MIDIByte2=9 and MIDIByte3>0 and not HostRunning)
+			in_mode_select = FALSE
+    	songmode = 0
+    	mode = 0
+    	Call @SetupLayout
+			ColorPad current_scene, col_pending
+	    ColorPad current_pattn+8, col_pending
+	  elseif (MIDIByte2=10) //# Global swing
+	  	swng=MIDIByte3
+	  	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
+	  	Call @SetupLayout
+		endif
+	endif
+@End
+
+@ReverseSequence
+	//# reverse a sequence
+	start_ch=0
+	end_ch=3
+	if label_style=4 //# only reverse current channel
+		start_ch=seq_ch
+		end_ch=seq_ch
+	endif
+	for ch = start_ch to end_ch
+		copy_seq_ch=ch
+		paste_seq_ch=ch
+		//# Copy all 16 steps to temp arrays
+		steps_to_copy=16
+		copy_slot=(current_scene*128)+(current_pattn*16)
+		Call @CopySequencePad
+		//# create temp arrays
+		temp_steps=[]
+		temp_notes=[]
+		temp_octs=[]
+		temp_velos=[]
+		temp_ccs=[]		
+		CopyArray copied_seq_steps, temp_steps, 16
+		CopyArray copied_seq_notes, temp_notes, 16
+		CopyArray copied_seq_octs, temp_octs, 16
+		CopyArray copied_seq_velos, temp_velos, 16
+		CopyArray copied_seq_ccs, temp_ccs, 16
+		//# Paste steps in reverse one by one
+		steps_to_copy=1
+		for i = 0 to 15
+			paste_slot=(current_scene*128)+(current_pattn*16) + (15-i)	
+			copied_seq_steps = [temp_steps[i]]
+			copied_seq_notes = [temp_notes[i]]
+			copied_seq_octs = [temp_octs[i]]
+			copied_seq_velos = [temp_velos[i]]
+			copied_seq_ccs = [temp_ccs[i]]
+			Call @PasteSequencePad
+		endfor
+	endfor
+@End
+
+@ResetScenePatternSequence
+	//# handle reset of a scene, pattern or sequence step xrsps
+	//# reset sequence single channel use ALL knob in edit mode	  
+  
+  //# notes to reset to per seq_ch		
+	if note_set_type=0 //# scale mode
+		reset_note_vals=[0,3,6,10]
+	elseif note_set_type=1 //# fixed note set
+		reset_note_vals=[0,1,5,2]
+	elseif note_set_type=1 //# kit 4 notes only
+		reset_note_vals=[0,1,2,3]
+	endif
+	
+	reset_all_channels=TRUE
+	
+  if reset_type=0 //# Reset scene
+	  //# Reset scene: Duration, Txpose, Preset, modes for ch's 1-4, out ch's ON1-4, pgm_chg_msg
+	  scene_durs[LastPad] = 0
+	  pattn_slot = (LastPad * 8)
+		pattn_durs[current_scene*8] = [0,0,0,0,0,0,0,0]
+		pattn_octs[current_scene*8] = [0,0,0,0,0,0,0,0]
+		paste_slot=(LastPad*128)
+		steps_to_copy=(16*8)
+		Log {Scene }, LastPad +1, { reset. All pattns for scene reset}
+		
+		//# Also RESET euclidean info 4types, 4chs, 8patts
+		euc_reset_slot=(current_scene*128)			
+		FillArray euc_vals[euc_reset_slot], 0, (4*4*8)
+		
+	elseif reset_type=1 //# reset pattern
+		pattn_slot = (current_scene * 8) + (LastPad - 8) 
+  	pattn_durs[pattn_slot] = 0
+  	pattn_octs[pattn_slot] = 0
+  	paste_slot=(current_scene*128)+((LastPad-8)*16)
+		steps_to_copy=16
+		Log {Pattern }, LastPad +1, { S}, current_scene+1, { reset}
+		
+		//# Also RESET euclidean info 4types, 4chs = 16steps to copy
+		euc_reset_slot=(current_scene*128)+((LastPad-8)*16)
+		FillArray euc_vals[euc_reset_slot], 0, 16
+		
+ 	elseif reset_type=2 //# reset seq step
+ 		paste_slot=(current_scene*128)+(current_pattn*16)+LastPad
+		steps_to_copy=1
+		if label_view_mode=4 //#copypaste seq_ch only
+			reset_all_channels=FALSE
+			Log {Step }, LastPad +1, { reset}
+		endif
+ 	endif 
+	
+	//# Create empty arrays to reset to
+	FillArray copied_seq_steps, 0, steps_to_copy 
+	FillArray copied_seq_octs, 3, steps_to_copy
+	FillArray copied_seq_velos, 100, steps_to_copy
+	FillArray copied_seq_ccs, -1, steps_to_copy
+	if reset_all_channels		
+		for i = 0 to 3
+			FillArray copied_seq_notes, reset_note_vals[i], steps_to_copy
+			paste_seq_ch=i
+			Call @PasteSequencePad
+		endfor
+	else
+		paste_seq_ch=seq_ch //# single channel only
+		FillArray copied_seq_notes, reset_note_vals[seq_ch], steps_to_copy
+		Call @PasteSequencePad
+	endif
+	Call @SetupLayout
+@End
+
+@CopyPaste
+	//# copy paste scenes. patterns. sequences xcp
+	if LastPad <=7 and not in_seq_mode
+		//# copy pasting a scene
+		Log {Pasting scene to }, current_scene+1 
+		LabelPads {Copied scene }, copied_scene+1, { to scene }, LastPad+1
+		scene_durs[LastPad] = scene_durs[copied_scene] 
+		//# CopyArray source, dest, cells 
+		CopyArray pattn_durs[copied_scene * 8], pattn_durs[LastPad * 8], 8
+		CopyArray pattn_octs[copied_scene * 8], pattn_octs[LastPad * 8], 8
+		//# Also copy sequence information
+		copy_slot=(copied_scene*128)
+		paste_slot=(LastPad*128)
+		steps_to_copy=(16*8)
+		for i = 0 to 3
+			copy_seq_ch=i
+			Call @CopySequencePad
+			paste_seq_ch=i
+			Call @PasteSequencePad
+		endfor
+		//# Also copy euclidean info 4types, 4chs, 8patts
+		euc_copy_slot=(copied_scene*128)
+		euc_paste_slot=(current_scene*128)			
+		CopyArray euc_vals[euc_copy_slot], euc_vals[euc_paste_slot], (4*4*8)
+		
+		//# Exit copy paste
+	elseif LastPad >= 8 and not in_seq_mode
+		//# handle copy pasting a pattern
+		LabelPads	{Copied S}, copied_scene+1, { Pattern }, copied_pattn+1, { to }, { S}, current_scene+1, { Pattern }, LastPad-7
+		pattn_slot_from = (copied_scene*8) + copied_pattn
+		pattn_slot_to = (current_scene*8) + (LastPad-8)
+		pattn_durs[pattn_slot_to] = pattn_durs[pattn_slot_from]
+		pattn_octs[pattn_slot_to] = pattn_octs[pattn_slot_from]
+		//# Also copy sequence information
+		copy_slot=(copied_scene*128)+(copied_pattn*16)
+		paste_slot=(current_scene*128)+((LastPad-8)*16)
+		steps_to_copy=16
+		for i = 0 to 3
+			copy_seq_ch=i
+			Call @CopySequencePad
+			paste_seq_ch=i
+			Call @PasteSequencePad
+		endfor
+		//# Also copy euclidean info 4types, 4chs = 16steps to copy
+		euc_copy_slot=(copied_scene*128)+(copied_pattn*16)
+		euc_paste_slot=(current_scene*128)+((LastPad-8)*16)
+		CopyArray euc_vals[euc_copy_slot], euc_vals[euc_paste_slot], 16
+		
+		//# Exit copy paste
+	elseif in_seq_mode and return_to_mode=9 //# edit mode copy single pads
+		//# handle copypaste a single seq_pad
+		copy_slot=(current_scene*128)+(current_pattn*16)+copied_seq_pad
+		paste_slot=(current_scene*128)+(current_pattn*16)+LastPad
+		steps_to_copy=1
+		if label_view_mode=4 //#copypaste seq_ch only
+			copy_seq_ch=copied_ch
+			Call @CopySequencePad
+			paste_seq_ch=seq_ch
+			Call @PasteSequencePad
+		elseif label_view_mode=5 //# copypaste all seq_chs
+			for i = 0 to 3
+				copy_seq_ch=i
+				Call @CopySequencePad
+				paste_seq_ch=i
+				Call @PasteSequencePad
+			endfor
+		endif
+		
+	elseif in_seq_mode and return_to_mode=11 //# Seq mode copy all 16 steps
+		copy_slot=(current_scene*128)+(current_pattn*16)
+		paste_slot=(current_scene*128)+(current_pattn*16)
+		steps_to_copy=16
+		copy_seq_ch=copied_ch
+		Call @CopySequencePad
+		paste_seq_ch=seq_ch
+		Call @PasteSequencePad
+		//# Also copy euclidean 
+		euc_copy_slot=(current_scene*128)+(current_pattn*16)+(copy_seq_ch*4)
+		euc_paste_slot=(current_scene*128)+(current_pattn*16)+(paste_seq_ch*4)
+		CopyArray euc_vals[euc_copy_slot], euc_vals[euc_paste_slot], 4
+	endif
+	copied_scene = -1 //# reset
+	copied_pattn = -1
+	copied_seq_pad = -1
+	copy_paste_status=0 //# off
+	mode=return_to_mode
+	Call @SetupLayout
+@End
+
+@CopySequencePad
+	//# Copy part of COPY/PASTE sequence pad. xcsp
+	//# Separate so user can swithc ch between copy and paste
+	copied_seq_steps=[] //# put data into temp array
+	copied_seq_notes=[]
+	copied_seq_octs=[]
+	copied_seq_velos=[]
+	copied_seq_ccs=[]
+	if copy_seq_ch=0
+		//# copy...
+		CopyArray seq0_steps[copy_slot], copied_seq_steps, steps_to_copy 
+		CopyArray seq0_notes[copy_slot], copied_seq_notes, steps_to_copy
+		CopyArray seq0_octs[copy_slot], copied_seq_octs, steps_to_copy
+		CopyArray seq0_velos[copy_slot], copied_seq_velos, steps_to_copy
+		CopyArray seq0_ccs[copy_slot], copied_seq_ccs, steps_to_copy
+	elseif copy_seq_ch=1
+		//# copy...
+		CopyArray seq1_steps[copy_slot], copied_seq_steps, steps_to_copy 
+		CopyArray seq1_notes[copy_slot], copied_seq_notes, steps_to_copy
+		CopyArray seq1_octs[copy_slot], copied_seq_octs, steps_to_copy
+		CopyArray seq1_velos[copy_slot], copied_seq_velos, steps_to_copy
+		CopyArray seq1_ccs[copy_slot], copied_seq_ccs, steps_to_copy
+	elseif copy_seq_ch=2
+		//# copy...
+		CopyArray seq2_steps[copy_slot], copied_seq_steps, steps_to_copy 
+		CopyArray seq2_notes[copy_slot], copied_seq_notes, steps_to_copy
+		CopyArray seq2_octs[copy_slot], copied_seq_octs, steps_to_copy
+		CopyArray seq2_velos[copy_slot], copied_seq_velos, steps_to_copy
+		CopyArray seq2_ccs[copy_slot], copied_seq_ccs, steps_to_copy
+	elseif copy_seq_ch=3
+		//# copy...
+		CopyArray seq3_steps[copy_slot], copied_seq_steps, steps_to_copy 
+		CopyArray seq3_notes[copy_slot], copied_seq_notes, steps_to_copy
+		CopyArray seq3_octs[copy_slot], copied_seq_octs, steps_to_copy
+		CopyArray seq3_velos[copy_slot], copied_seq_velos, steps_to_copy
+		CopyArray seq3_ccs[copy_slot], copied_seq_ccs, steps_to_copy
+	endif
+@End
+
+@PasteSequencePad
+	//# PASTE portion of copy/paste sequence pad xpsp
+	euc_slot=(current_scene*128)+(current_pattn*16)+(paste_seq_ch*4)
+	if paste_seq_ch=0
+		CopyArray copied_seq_steps, seq0_steps[paste_slot], steps_to_copy 
+		CopyArray copied_seq_notes, seq0_notes[paste_slot], steps_to_copy
+		CopyArray copied_seq_octs, seq0_octs[paste_slot], steps_to_copy
+		CopyArray copied_seq_velos, seq0_velos[paste_slot], steps_to_copy
+		CopyArray copied_seq_ccs, seq0_ccs[paste_slot], steps_to_copy
+	elseif paste_seq_ch=1
+		CopyArray copied_seq_steps, seq1_steps[paste_slot], steps_to_copy 
+		CopyArray copied_seq_notes, seq1_notes[paste_slot], steps_to_copy
+		CopyArray copied_seq_octs, seq1_octs[paste_slot], steps_to_copy
+		CopyArray copied_seq_velos, seq1_velos[paste_slot], steps_to_copy
+		CopyArray copied_seq_ccs, seq1_ccs[paste_slot], steps_to_copy
+	elseif paste_seq_ch=2
+		CopyArray copied_seq_steps, seq2_steps[paste_slot], steps_to_copy 
+		CopyArray copied_seq_notes, seq2_notes[paste_slot], steps_to_copy
+		CopyArray copied_seq_octs, seq2_octs[paste_slot], steps_to_copy
+		CopyArray copied_seq_velos, seq2_velos[paste_slot], steps_to_copy
+		CopyArray copied_seq_ccs, seq2_ccs[paste_slot], steps_to_copy
+	elseif paste_seq_ch=3
+		CopyArray copied_seq_steps, seq3_steps[paste_slot], steps_to_copy 
+		CopyArray copied_seq_notes, seq3_notes[paste_slot], steps_to_copy
+		CopyArray copied_seq_octs, seq3_octs[paste_slot], steps_to_copy
+		CopyArray copied_seq_velos, seq3_velos[paste_slot], steps_to_copy
+		CopyArray copied_seq_ccs, seq3_ccs[paste_slot], steps_to_copy
+	endif
+@End
+
+@SetupKnobset0
+	//# Scene settings
+	knob_set = 0
+	LabelKnobs {Scene }, current_scene+1, { setup}
+	LabelKnob 0, {Duration}
+	LabelKnob 1, {Swing }, scene_swing[current_scene], {%}
+	LabelKnob 2, { }
+	LabelKnob 3, { }
+	SetKnobValue 0, TranslateScale scene_durs[current_scene], 0, 32, 0, 127
+	SetKnobValue 1, TranslateScale scene_swing[current_scene], 0, 100, 0, 127
+@End
+
+@KnobChangeSet0
+	//# scene settings xs0
+	if LastKnob = 0
+	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
+	  if scn_duration <> scene_durs[current_scene] 	
+		  scene_durs[current_scene] = scn_duration
+	  	LabelKnob 0 , {Dur }, scn_duration
+	  endif
+  endif
+  if LastKnob = 1
+	  scn_swing = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 100
+	  if scn_swing <> scene_swing[current_scene] 	
+		  scene_swing[current_scene] = scn_swing
+	  	LabelKnob 1, {Swing }, scene_swing[current_scene], {%}
+	  	SetMetroSwing scene_swing[current_scene]
+	  endif
+  endif
+  scn_to_label = current_scene
+  Call @LabelScenePad
+@End
+
+@SetupKnobset1
+  //# PATTN SETUP KNBS
+  knob_set = 1
+  LabelKnobs {Pattern }, current_pattn+1, { setup} 
+  pattn_slot = (current_scene * 8) + current_pattn
+  
+  patt_dur = pattn_durs[pattn_slot]
+  patt_bars = Div patt_dur, 4
+  patt_beats = (patt_dur % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
+  patt_oct = pattn_octs[pattn_slot]
+	
+  SetKnobValue 2, TranslateScale patt_dur, 0, 64, 0, 127
+  SetKnobValue 3, TranslateScale patt_oct, -1, 1, 0, 127
+  SetKnobValue 0, 0
+  SetKnobValue 1, 0
+  LabelKnob 2, {DUR: }, patt_bars, {.}, patt_beats
+  LabelKnob 3, {OCT: }, patt_oct
+  LabelKnob 0, { }
+  LabelKnob 1, { }
+@End
+
+@KnobChangeSet1
+  //# PATTN SETUP KNOBS xs1
+  pattn_slot = (current_scene * 8) + current_pattn
+  if LastKnob = 2
+	  pattn_duration = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 64
+	  if pattn_duration <> pattn_durs[pattn_slot] 
+		  pattn_durs[pattn_slot] = pattn_duration
+		  dur_bars = Div pattn_duration, 4
+			dur_beats = (pattn_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
+	  	LabelKnob 2 , {Dur }, dur_bars, {.}, dur_beats
+  	endif
+  endif
+  if LastKnob = 3
+    patt_oct = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 1
+    if patt_oct <> pattn_octs[pattn_slot] 
+    	pattn_octs[pattn_slot] = patt_oct
+    	LabelKnob 3, {OCT: }, patt_oct
+    endif
+  endif
+  if LastKnob = 0
+    //# not in use
+    LabelKnob 0, { }
+  endif
+  if LastKnob = 1
+    //# not in use
+    LabelKnob 1, { }
+  endif
+  pattn_to_label = current_pattn+8
+  Call @LabelPatternPad
+@End
+
+@SetupKnobset2
+  //# MIDI OUT CHANNELS xs2
+  knob_set = 2
+  LabelKnobs {MIDI OUT CHANNELS} 
+  
+  SetKnobValue 0, TranslateScale midi_out_chs[0], 0, 15, 0, 127
+  SetKnobValue 1, TranslateScale midi_out_chs[1], 0, 15, 0, 127
+  SetKnobValue 2, TranslateScale midi_out_chs[2], 0, 15, 0, 127
+  SetKnobValue 3, TranslateScale midi_out_chs[3], 0, 15, 0, 127
+  
+  LabelKnob 0, {CH1: }, midi_out_chs[0]+1
+  LabelKnob 1, {CH2: }, midi_out_chs[1]+1
+  LabelKnob 2, {CH3: }, midi_out_chs[2]+1
+  LabelKnob 3, {CH4: }, midi_out_chs[3]+1
+  LabelPads {Set midi out channels}
+@End
+
+@KnobChangeSet2
+  //# MIDI OUT CHANNELS xs2
+  ch = Round TranslateScale (GetKnobValue LastKnob), 0, 127, 0, 15
+	midi_out_chs[LastKnob] = ch  
+	
+	LabelKnob 0, {CH1: }, midi_out_chs[0]+1
+  LabelKnob 1, {CH2: }, midi_out_chs[1]+1
+  LabelKnob 2, {CH3: }, midi_out_chs[2]+1
+  LabelKnob 3, {CH4: }, midi_out_chs[3]+1	
+  LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]     [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+@End
+
+
+@SetupKnobset3
+  //# NOTE SET xs3
+  knob_set = 3
+  LabelPads {Select a noteset type}
+  
+SetKnobValue 0, TranslateScale note_set_type, 0, 2, 0, 127
+SetKnobValue 3, 0
+Call @LabelSet3
+
+if note_set_type=0
+	//# Allow note input from a selected scale
+	  SetKnobValue 1, TranslateScale scale_root, 0, 11, 0, 127
+  	SetKnobValue 2, 0
+  elseif note_set_type=1 
+  	//# Fixed set of notes to select from eg: RuismakerFM 
+  	SetKnobValue 1, TranslateScale sel_scale, 0, num_fixed_notesets, 0, 127
+  elseif note_set_type=2
+  	//# Single note assigned to each channel for kit style setup
+  	SetKnobValue 1, TranslateScale seq_ch, 0, 3, 0, 127
+  	SetKnobValue 2, TranslateScale s_noteset[seq_ch], 24, 96, 0, 127
+  endif
+@End
+
+@KnobChangeSet3
+  //# NOTE SET
+  if LastKnob = 0
+  	ns_type = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 2
+	  if ns_type <> note_set_type
+	    note_set_type=ns_type
+	    Call @GetMidiINPUTScale
+	  endif
+	  if note_set_type=0
+  		//# Allow note input from all - CHROMATIC
+		  SetKnobValue 1, TranslateScale scale_root, 0, 11, 0, 127
+	  	SetKnobValue 2, 0
+	  elseif note_set_type=1 
+	  	//# Fixed set of notes to select from eg: RuismakerFM 
+	  	SetKnobValue 1, TranslateScale sel_scale, 0, num_fixed_notesets, 0, 127
+	  elseif note_set_type=2
+	  	//# Single note assigned to each channel for kit style setup
+	  	SetKnobValue 1, TranslateScale seq_ch, 0,3, 0, 127
+	  	SetKnobValue 2, TranslateScale s_noteset[seq_ch], 24, 96, 0, 127
+	  endif
+  endif
+  if LastKnob = 1
+  	if note_set_type=0
+	    sr = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 11
+	    if sr <> scale_root
+		    scale_root=sr
+		    Call @GetMidiINPUTScale
+		  endif
+	  elseif note_set_type=1
+	  	scale = round TranslateScale (GetKnobValue 1), 0, 127, 0, num_fixed_notesets
+	  	if scale <> sel_scale
+		    sel_scale=scale
+		    Call @GetMidiINPUTScale
+		  endif
+	  elseif note_set_type=2
+	  	seq_ch = round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
+	  	SetKnobValue 2, TranslateScale s_noteset[seq_ch], 24, 96, 0, 127
+	  endif
+  endif
+  if LastKnob = 2
+    if note_set_type=0
+	    sel_scale = 0
+		Call @GetMidiINPUTScale
+	  elseif note_set_type=1
+	  	//# not in use
+	  elseif note_set_type=2
+	  	s_noteset[seq_ch] = round TranslateScale (GetKnobValue 2), 0, 127, 24, 96
+	  endif
+endif
+Call @GetMidiINPUTScale
+  if LastKnob = 3
+  	//# not in use
+  endif
+  Call @LabelSet3
+@End
+
+@LabelSet3
+	//# xls3
+	if note_set_type=0
+  	LabelPad 3, {NOTESET       }, (NoteName, scale_root), { Chromatic}
+  elseif note_set_type=1
+  	if sel_scale=0
+	  	LabelPad 3, {NOTESET   [RuisDEF]}
+  	elseif sel_scale=1
+	  	LabelPad 3, {NOTESET   [RuisGM]}
+	  elseif sel_scale=2
+	  	LabelPad 3, {NOTESET   [RuisFM]}
+	  elseif sel_scale=3
+	  	LabelPad 3, {NOTESET   [RuisNoir]}
+	  elseif sel_scale=4
+	  	LabelPad 3, {NOTESET   [Patt'ng.2]}
+	  elseif sel_scale=5
+	  	LabelPad 3, {NOTESET   [EG Pulse]}
+	  endif
+  elseif note_set_type=2
+  	LabelPad 3, {  KIT NOTES  [}, s_noteset[0], {-}, s_noteset[1], {]    [}, s_noteset[2], {-}, s_noteset[3], {]}   
+  endif
+  if knob_set=3
+  	LabelKnobs {NOTESET}
+  	if note_set_type=0
+  		//# Allow note input from a selected scale
+		  LabelKnob 0, {Chromatic}
+	  	LabelKnob 1, {Key }, (NoteName, scale_root)
+	  	LabelKnob 2, { }
+	  elseif note_set_type=1 
+	  	//# Fixed set of notes to select from eg: RuismakerFM 
+	  	LabelKnob 0, {FIXED}
+	  	LabelKnob 1, {P}, sel_scale
+	  	LabelKnob 2, { }
+	  elseif note_set_type=2
+	  	//# Single note assigned to each channel for kit style setup
+	  	LabelKnob 0, {KIT}
+	  	LabelKnob 1, {CH: }, seq_ch+1
+	  	LabelKnob 2, s_noteset[seq_ch], { }, (NoteName s_noteset[seq_ch], yes)
+	  endif
+	  LabelKnob 3, { }
+  endif
+@End
+
+@SetupKnobset4
+  //# CC VALS
+  knob_set = 4
+  LabelKnobs {CC VALS PER CH} 
+  
+  SetKnobValue 0, TranslateScale cc_vals[0], 0, 127, 0, 127
+  SetKnobValue 1, TranslateScale cc_vals[1], 0, 127, 0, 127
+  SetKnobValue 2, TranslateScale cc_vals[2], 0, 127, 0, 127
+  SetKnobValue 3, TranslateScale cc_vals[3], 0, 127, 0, 127
+  
+  LabelKnob 0, {CH1: }, cc_vals[0]
+  LabelKnob 1, {CH2: }, cc_vals[1]
+  LabelKnob 2, {CH3: }, cc_vals[2]
+  LabelKnob 3, {CH4: }, cc_vals[3]
+  LabelPads {Set the CC value to send with each channel }
+@End
+
+@KnobChangeSet4
+  //# CC VALS
+  cc = Round TranslateScale (GetKnobValue LastKnob), 0, 127, 0, 127
+  cc_vals[LastKnob] = cc
+	 
+	LabelKnob 0, {CH1: }, cc_vals[0]
+  LabelKnob 1, {CH2: }, cc_vals[1]
+  LabelKnob 2, {CH3: }, cc_vals[2]
+  LabelKnob 3, {CH4: }, cc_vals[3]	
+  LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]   [}, cc_vals[2],{-}, cc_vals[3],{]}
+@End
+
+@GetStepVal
+//# Step val is the value for editing ch,scene,pattn,step,seq_type xgsv
+sel_pad_type=1 //# set so visible when editing. not saved
+if seq_type=0
+ 	  //# note val 0-13 (off; 1-12; rnd)
+  	seq_type_min=0
+  	seq_type_max=noteset_len-1
+  	if seq_ch=0
+	  	step_val=seq0_notes[step_slot]
+	  elseif seq_ch=1
+	  	step_val=seq1_notes[step_slot]
+	  elseif seq_ch=2
+	  	step_val=seq2_notes[step_slot]
+	  elseif seq_ch=3
+	  	step_val=seq3_notes[step_slot]
+	  endif
+  elseif seq_type=1
+  	//# oct val 0 to 6
+  	seq_type_min=0
+  	if note_set_type=0
+	  	seq_type_max=6
+	  	if seq_ch=0
+		  	step_val=seq0_octs[step_slot]
+		  elseif seq_ch=1
+		  	step_val=seq1_octs[step_slot]
+		  elseif seq_ch=2
+		  	step_val=seq2_octs[step_slot]
+		  elseif seq_ch=3
+		  	step_val=seq3_octs[step_slot]
+		  endif
+	  elseif note_set_type>0
+	  	seq_type_max=0
+	  	step_val=0
+	  endif
+  elseif seq_type=2
+  	//# velo val 0-127
+  	seq_type_min=0
+  	seq_type_max=127
+  	if seq_ch=0
+	  	step_val=seq0_velos[step_slot]
+	  elseif seq_ch=1
+	  	step_val=seq1_velos[step_slot]
+	  elseif seq_ch=2
+	  	step_val=seq2_velos[step_slot]
+	  elseif seq_ch=3
+	  	step_val=seq3_velos[step_slot]
+	  endif
+  elseif seq_type=3
+  	//#  ccval -1-127 (off + 0-127)
+  	seq_type_min=-1
+  	seq_type_max=127
+  	if seq_ch=0
+	  	step_val=seq0_ccs[step_slot]
+	  elseif seq_ch=1
+	  	step_val=seq1_ccs[step_slot]
+	  elseif seq_ch=2
+	  	step_val=seq2_ccs[step_slot]
+	  elseif seq_ch=3
+	  	step_val=seq3_ccs[step_slot]
+	  endif
+  elseif seq_type=4
+  	//#  step off-on-sus_prev 
+  	seq_type_min=0
+  	seq_type_max=1
+  	if seq_ch=0
+	  	step_val=seq0_steps[step_slot]
+	  elseif seq_ch=1
+	  	step_val=seq1_steps[step_slot]
+	  elseif seq_ch=2
+	  	step_val=seq2_steps[step_slot]
+	  elseif seq_ch=3
+	  	step_val=seq3_steps[step_slot]
+	  endif
+  endif
+@End
+
+@SetStepVal
+//# Step val is the value for editing ch,scene,pattn,step,seq_type	
+  sel_pad_type=1 //# set so visible when editing.
+  if seq_ch=0 //# assuming you edit you want step on  
+  	if seq0_steps[step_slot]=0
+	  	seq0_steps[step_slot]=1
+  	endif
+  elseif seq_ch=1
+  	if seq1_steps[step_slot]=0
+  		seq1_steps[step_slot]=1
+  	endif
+  elseif seq_ch=2
+  	if seq2_steps[step_slot]=0
+  		seq2_steps[step_slot]=1
+  	endif
+  elseif seq_ch=3
+  	if seq3_steps[step_slot]=0
+	  	seq3_steps[step_slot]=1
+  	endif
+  endif
+  if seq_type=0
+ 	  //# step_val here is index to curr_scale	  	
+  	if seq_ch=0
+	  	seq0_notes[step_slot]=step_val
+	  elseif seq_ch=1
+	  	seq1_notes[step_slot]=step_val
+	  elseif seq_ch=2
+	  	seq2_notes[step_slot]=step_val
+	  elseif seq_ch=3
+	  	seq3_notes[step_slot]=step_val
+	  endif
+  elseif seq_type=1
+  	//# oct val 1 to 5
+  	if note_set_type=0
+	  	if seq_ch=0
+		  	seq0_octs[step_slot]=step_val
+		  elseif seq_ch=1
+		  	seq1_octs[step_slot]=step_val
+		  elseif seq_ch=2
+		  	seq2_octs[step_slot]=step_val
+		  elseif seq_ch=3
+		  	seq3_octs[step_slot]=step_val
+		  endif
+		endif
+  elseif seq_type=2
+  	//# velo val 0-127
+  	if seq_ch=0
+	  	seq0_velos[step_slot]=step_val
+	  elseif seq_ch=1
+	  	seq1_velos[step_slot]=step_val
+	  elseif seq_ch=2
+	  	seq2_velos[step_slot]=step_val
+	  elseif seq_ch=3
+	  	seq3_velos[step_slot]=step_val
+	  endif
+  elseif seq_type=3
+  	//#  ccval -1-127 (off + 0-127)
+  	if seq_ch=0
+	  	seq0_ccs[step_slot]=step_val
+	  elseif seq_ch=1
+	  	seq1_ccs[step_slot]=step_val
+	  elseif seq_ch=2
+	  	seq2_ccs[step_slot]=step_val
+	  elseif seq_ch=3
+	  	seq3_ccs[step_slot]=step_val
+	  endif
+  elseif seq_type=4
+  	//#  STEP off-on
+  	if seq_ch=0
+	  	seq0_steps[step_slot]=step_val
+	  elseif seq_ch=1
+	  	seq1_steps[step_slot]=step_val
+	  elseif seq_ch=2
+	  	seq2_steps[step_slot]=step_val
+	  elseif seq_ch=3
+	  	seq3_steps[step_slot]=step_val
+	  endif
+	  sel_pad_type=step_val
+  endif
+@End
+
+@SetupKnobset5
+  //# PATTERN EDIT xs5
+  knob_set = 5
+  //# currently selected step/pad (out of 16) in a pattern xgpss
+step_slot=(current_scene*128)+(current_pattn*16)+sel_step
+//# plus current pattern on current scene
+pattn_slot = (current_scene * 8) + current_pattn
+
+  Call @GetStepVal //# sets step_val
+  
+  if Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3 <> seq_ch
+	  SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
+  endif	
+  SetKnobValue 1, TranslateScale seq_type, 0, 4, 0, 127
+  SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
+  if Round TranslateScale (GetKnobValue 3), 0, 127, -1, 1 <> move_all_dir
+  	SetKnobValue 3, TranslateScale 0, -1, 1, 0, 127
+  endif
+  
+  move_all_dir=0
+  
+  Call @LabelSet5Knobs
+@End
+
+@KnobChangeSet5
+  //# PATTERN EDIT xpe
+  //# currently selected step/pad (out of 16) in a pattern xgpss
+step_slot=(current_scene*128)+(current_pattn*16)+sel_step
+//# plus current pattern on current scene
+pattn_slot = (current_scene * 8) + current_pattn
+  
+  if LastKnob = 0 //# SEQ_CH
+    seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
+    Call @GetStepVal
+    SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
+	Call @SetupLayout
+  endif
+  if LastKnob = 1 //# SEQ_TO_EDIT
+    seq_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 4
+    Call @GetStepVal
+    SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
+  endif
+  if (LastKnob=2) //# STEP VAL FOR SEQ
+    step_val = Round TranslateScale (GetKnobValue 2), 0, 127, seq_type_min, seq_type_max
+    Call @SetStepVal
+  endif
+  if (LastKnob=3) //# ALL STEPS
+    move_all_dir = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 1
+  	if move_all_dir <> 0
+  		timer_type=0
+  		ResetTimer
+  		SetTimerInterval (timer_intervals[seq_type])
+  		StartTimer
+  	else	
+  		StopTimer
+  		label_style=label_view_mode
+  		Call @SetupLayout
+			Call @GetStepVal
+    	SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
+  	endif
+  endif
+  Call @LabelSet5Knobs
+	
+  sel_pad = sel_step
+  step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
+  Call @LabelSequencePad
+@End
+
+@OnTimer
+	//# Route to correct timer function
+	timer_rpts=timer_rpts+1
+	if timer_type=0
+		Call @MoveAllSteps
+	elseif timer_type=1
+		Call @RotateSequence
+	endif
+@End
+
+@MoveAllSteps
+	//# Timer for notes move xot
+	for i = 0 to 15
+		slot=(current_scene*128)+(current_pattn*16)+i
+		if (seq_type=0) and (seq_ch=0) and note_set_type<=1
+			new_index = Clip (seq0_notes[slot] + move_all_dir), 0, noteset_len-1
+			seq0_notes[slot] = new_index
+		
+		elseif (seq_type=0) and (seq_ch=1) and note_set_type<=1
+			new_index = Clip (seq1_notes[slot] + move_all_dir), 0, noteset_len-1
+			seq1_notes[slot] = new_index
+		
+		elseif (seq_type=0) and (seq_ch=2) and note_set_type<=1
+			new_index = Clip (seq2_notes[slot] + move_all_dir), 0, noteset_len-1
+			seq2_notes[slot] = new_index
+			
+		elseif (seq_type=0) and (seq_ch=3) and note_set_type<=1
+			new_index = Clip (seq3_notes[slot] + move_all_dir), 0, noteset_len-1
+			seq3_notes[slot] = new_index
+		
+		elseif (seq_type=1) and (seq_ch=0)
+			seq0_octs[slot] = Clip (seq0_octs[slot]+move_all_dir), 0, 6
+		elseif (seq_type=1) and (seq_ch=1)
+			seq1_octs[slot] = Clip (seq1_octs[slot]+move_all_dir), 0, 6
+		elseif (seq_type=1) and (seq_ch=2)
+			seq2_octs[slot] = Clip (seq2_octs[slot]+move_all_dir), 0, 6
+		elseif (seq_type=1) and (seq_ch=3)
+			seq3_octs[slot] = Clip (seq3_octs[slot]+move_all_dir), 0, 6
+		elseif (seq_type=2) and (seq_ch=0)
+			seq0_velos[slot] = Clip (seq0_velos[slot]+ move_all_dir), 0, 127
+		elseif (seq_type=2) and (seq_ch=1)
+			seq1_velos[slot] = Clip (seq1_velos[slot]+ move_all_dir), 0, 127
+		elseif (seq_type=2) and (seq_ch=2)
+			seq2_velos[slot] = Clip (seq2_velos[slot]+ move_all_dir), 0, 127
+		elseif (seq_type=2) and (seq_ch=3)
+			seq3_velos[slot] = Clip (seq3_velos[slot]+ move_all_dir), 0, 127
+		elseif (seq_type=3) and (seq_ch=0)
+			seq0_ccs[slot] = Clip (seq0_ccs[slot]+ move_all_dir), -1, 127
+		elseif (seq_type=3) and (seq_ch=1)
+			seq1_ccs[slot] = Clip (seq1_ccs[slot]+ move_all_dir), -1, 127
+		elseif (seq_type=3) and (seq_ch=2)
+			seq2_ccs[slot] = Clip (seq2_ccs[slot]+ move_all_dir), -1, 127
+		elseif (seq_type=3) and (seq_ch=3)
+			seq3_ccs[slot] = Clip (seq3_ccs[slot]+ move_all_dir), -1, 127
+		elseif (seq_type=4) and (seq_ch=0)
+			seq0_steps[slot] = Clip (seq0_steps[slot]+ move_all_dir), 0, 2
+		elseif (seq_type=4) and (seq_ch=1)
+			seq1_steps[slot] = Clip (seq1_steps[slot]+ move_all_dir), 0, 2
+		elseif (seq_type=4) and (seq_ch=2)
+			seq2_steps[slot] = Clip (seq2_steps[slot]+ move_all_dir), 0, 2
+		elseif (seq_type=4) and (seq_ch=3)
+			seq3_steps[slot] = Clip (seq3_steps[slot]+ move_all_dir), 0, 2
+		endif
+	endfor
+	label_style=seq_type
+	Call @LabelAllSequencePads
+@End
+
+@RotateSequence
+	//# rotate a selected sequence. requires args rotation(-1 or +1), old_seq
+	step_slot=(current_scene*128)+(current_pattn*16)
+	FillArray old_notes, 0, 16
+	FillArray old_octs, 0, 16
+	FillArray old_velos, 0, 16
+	FillArray old_ccs, 0, 16
+	FillArray old_steps, 0, 16
+	FillArray new_notes, 0, 16
+	FillArray new_octs, 0, 16
+	FillArray new_velos, 0, 16
+	FillArray new_ccs, 0, 16
+	FillArray new_steps, 0, 16
+	if seq_ch=0
+		CopyArray seq0_notes[step_slot], old_notes, 16
+		CopyArray seq0_octs[step_slot], old_octs, 16
+		CopyArray seq0_velos[step_slot], old_velos, 16
+		CopyArray seq0_ccs[step_slot], old_ccs, 16
+		CopyArray seq0_steps[step_slot], old_steps, 16
+	elseif seq_ch=1
+		CopyArray seq1_notes[step_slot], old_notes, 16
+		CopyArray seq1_octs[step_slot], old_octs, 16
+		CopyArray seq1_velos[step_slot], old_velos, 16
+		CopyArray seq1_ccs[step_slot], old_ccs, 16
+		CopyArray seq1_steps[step_slot], old_steps, 16
+	elseif seq_ch=2
+		CopyArray seq2_notes[step_slot], old_notes, 16
+		CopyArray seq2_octs[step_slot], old_octs, 16
+		CopyArray seq2_velos[step_slot], old_velos, 16
+		CopyArray seq2_ccs[step_slot], old_ccs, 16
+		CopyArray seq2_steps[step_slot], old_steps, 16
+	elseif seq_ch=3
+		CopyArray seq3_notes[step_slot], old_notes, 16
+		CopyArray seq3_octs[step_slot], old_octs, 16
+		CopyArray seq3_velos[step_slot], old_velos, 16
+		CopyArray seq3_ccs[step_slot], old_ccs, 16
+		CopyArray seq3_steps[step_slot], old_steps, 16
+	endif
+	for i = 0 to 15
+		if rot_dir=-1
+			old_index=(i+1)%16
+		elseif rot_dir=1
+			old_index=i-1
+			if old_index<0
+				old_index=15
+			endif
+		endif
+		new_notes[i] = old_notes[old_index]
+		new_octs[i]  = old_octs[old_index]
+		new_velos[i] = old_velos[old_index]
+		new_ccs[i]   = old_ccs[old_index]
+		new_steps[i] = old_steps[old_index]
+	endfor
+	
+	if seq_ch=0
+		if (rot_type=0) or (rot_type=1)
+			CopyArray new_notes, seq0_notes[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=2)
+			CopyArray new_octs, seq0_octs[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=3)
+			CopyArray new_velos, seq0_velos[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=4)
+			CopyArray new_ccs, seq0_ccs[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=5)
+			CopyArray new_steps, seq0_steps[step_slot], 16	
+		endif
+	elseif seq_ch=1
+		if (rot_type=0) or (rot_type=1)
+			CopyArray new_notes, seq1_notes[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=2)
+			CopyArray new_octs, seq1_octs[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=3)
+			CopyArray new_velos, seq1_velos[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=4)
+			CopyArray new_ccs, seq1_ccs[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=5)
+			CopyArray new_steps, seq1_steps[step_slot], 16
+		endif
+	elseif seq_ch=2
+		if (rot_type=0) or (rot_type=1)
+			CopyArray new_notes, seq2_notes[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=2)
+			CopyArray new_octs, seq2_octs[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=3)
+			CopyArray new_velos, seq2_velos[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=4)
+			CopyArray new_ccs, seq2_ccs[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=5)
+			CopyArray new_steps, seq2_steps[step_slot], 16	
+		endif
+	elseif seq_ch=3
+		if (rot_type=0) or (rot_type=1)
+			CopyArray new_notes, seq3_notes[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=2)
+			CopyArray new_octs, seq3_octs[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=3)
+			CopyArray new_velos, seq3_velos[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=4)
+			CopyArray new_ccs, seq3_ccs[step_slot], 16
+		endif
+		if (rot_type=0) or (rot_type=5)
+			CopyArray new_steps, seq3_steps[step_slot], 16	
+		endif
+	endif
+	CopyArray new_steps, n, 16
+Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]
+	Call @LabelAllSequencePads
+@end
+
+@LabelSet5Knobs
+	LabelKnobs {CH}, seq_ch+1, { SC}, current_scene+1, { PT}, current_pattn+1, { STEP}, sel_step+1
+	//# KNOB 0
+	LabelKnob 0, {CH: }, seq_ch+1
+	//# KNOB 1
+	if seq_type=0
+		LabelKnob 1, {NOTE}
+	elseif seq_type=1
+		LabelKnob 1, {OCT.}
+	elseif seq_type=2
+		LabelKnob 1, {VELO}
+	elseif seq_type=3
+		LabelKnob 1, {CC}
+	elseif seq_type=4
+		LabelKnob 1, {STEP}
+	endif
+	//# KNOB2
+	if (step_val=-1) and (seq_type=3)
+	  LabelKnob 2, {Ignore}
+	elseif (seq_type=0)
+		if note_set_type=0
+			LabelKnob 2, NoteName curr_scale[step_val]
+		elseif note_set_type>=1
+			LabelKnob 2, (NoteName curr_scale[step_val], YES), { (}, curr_scale[step_val],{)}
+		endif
+	elseif seq_type=1
+		LabelKnob 2, step_val
+	elseif seq_type=4
+		if step_val=0
+			LabelKnob 2, {Off}
+		elseif step_val=1
+			LabelKnob 2, {On}
+		endif
+	else
+		LabelKnob 2, step_val
+	endif
+	//# KNOB3
+	if note_set_type=12
+		LabelKnob 3, { }
+	else 
+		if (move_all_dir<0)
+		  LabelKnob 3, {<<<}
+		elseif (move_all_dir>0)
+			LabelKnob 3, {>>>}
+		else
+			LabelKnob 3, {<<ALL>>}
+		endif
+	endif
+@End
+
+@SetupKnobset6
+  //# EUCLIDIAN SEQUENCE SETUP xes
+  knob_set = 6
+  LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { STEPS} 
+  euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
+  euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
+  
+  if euc_type=0 //#notes
+  	k2min=0
+  	k2max=16
+  elseif euc_type=1 //#rotation
+  	k2min=0
+  	k2max=15
+  elseif euc_type=2 //#length
+  	k2min=0
+  	k2max=15
+  elseif euc_type=3 //#rate
+  	k2min=0
+  	k2max=4
+  endif
+  
+	//# euc_type: #notes, rotation, length, rate	
+  if Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3 <> seq_ch
+	  SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
+  endif
+  SetKnobValue 1, TranslateScale euc_type, 0, 3, 0, 127
+  SetKnobValue 2, TranslateScale euc_vals[euc_slot + euc_type], k2min, k2max, 0, 127
+  SetKnobValue 3, TranslateScale steps_record_mode, 0, 1, 0, 127
+
+  LabelKnob 0, {CH: }, seq_ch+1
+  if euc_type=0
+		LabelKnob 1, {#NOTES}
+	elseif euc_type=1
+		LabelKnob 1, {ROT}	
+	elseif euc_type=2
+		LabelKnob 1, {LENGTH}	
+	elseif euc_type=4
+		LabelKnob 1, {RATE}	
+	endif
+  if euc_type=2
+	  LabelKnob 2, {Steps:}, (16 - euc_vals[euc_slot + euc_type])
+	elseif euc_type=3 and euc_vals[euc_slot + euc_type]=0
+		LabelKnob 2, {16ths}
+	elseif euc_type=3 and euc_vals[euc_slot + euc_type]=1
+  	LabelKnob 2, {8ths}
+  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=2
+  	LabelKnob 2, {1/4Notes}
+  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=3
+  	LabelKnob 2, {1/2Notes}
+  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=4
+	LabelKnob 2, {1/1Notes}
+  else
+  	LabelKnob 2, {Val }, euc_vals[euc_slot + euc_type]
+  endif
+  if steps_record_mode
+	  LabelKnob 3, {RecON}
+	else
+		LabelKnob 3, {RecOFF}
+	endif
+@End
+
+@KnobChangeSet6
+  //# EUCLIDEAN STEP SEQ and PRESETSxs6
+  LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { STEPS}
+	euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
+  if LastKnob = 0 //# seq ch to edit
+  	seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
+	  SetKnobValue 2, TranslateScale euc_vals[euc_slot+euc_type], k2min, k2max, 0, 127
+	Call @LabelAllSequencePads
+  endif
+  if LastKnob = 1 //# type to edit
+  	euc_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
+	SetKnobValue 2, TranslateScale euc_vals[euc_slot+euc_type], k2min, k2max, 0, 127
+	if euc_type=0 //#notes
+	  	k2min=0
+	  	k2max=16
+	  elseif euc_type=1 //#rotation
+	  	k2min=0
+	  	k2max=15
+	  elseif euc_type=2 //#length
+	  	k2min=1
+	  	k2max=15
+	  elseif euc_type=3 //#rate
+	  	k2min=0
+	  	k2max=4
+	  endif
+  endif
+  if LastKnob = 2
+	  e_val = Round TranslateScale (GetKnobValue 2), 0, 127, k2min, k2max	
+  	if e_val <> euc_vals[euc_slot+euc_type]
+  		euc_vals[euc_slot+euc_type] = e_val
+  		rotation  = euc_vals[euc_slot+1]
+  		if euc_type <> 3 //# Rate
+	  		num_notes = euc_vals[euc_slot]
+				num_steps = (16 - euc_vals[euc_slot+2]) //# length
+				if num_notes>0
+					Call @GetEuclideanSteps
+  			else
+  				new_notes = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+  			endif
+  			Call @ApplyEuclideanSteps
+  			Call @SetupLayout
+  		endif
+  	endif
+  endif
+  if LastKnob = 3
+  	srm = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
+  	if srm <> steps_record_mode
+  		steps_record_mode=srm
+  		Call @LabelAllSequencePads
+  	endif
+  endif
+
+  LabelKnob 0, {CH: }, seq_ch+1
+  if euc_type=0
+		LabelKnob 1, {#NOTES}
+	elseif euc_type=1
+		LabelKnob 1, {ROT}	
+	elseif euc_type=2
+		LabelKnob 1, {LENGTH}	
+	elseif euc_type=3
+		LabelKnob 1, {RATE}	
+	endif
+  if euc_type=2
+	  LabelKnob 2, {Steps:}, (16 - euc_vals[euc_slot + euc_type])
+	elseif euc_type=3 and euc_vals[euc_slot + euc_type]=0
+		LabelKnob 2, {16ths}
+	elseif euc_type=3 and euc_vals[euc_slot + euc_type]=1
+  	LabelKnob 2, {8ths}
+  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=2
+  	LabelKnob 2, {1/4Notes}
+  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=3
+  	LabelKnob 2, {1/2Notes}
+  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=4
+  	LabelKnob 2, {1/1Notes}
+  else
+  	LabelKnob 2, {Val }, euc_vals[euc_slot + euc_type]
+  endif
+  if steps_record_mode
+	  LabelKnob 3, {RecON}
+	else
+		LabelKnob 3, {RecOFF}
+	endif
+
+  sel_pad = sel_step
+@End
+
+@GetEuclideanSteps
+	//# calc euc steps based on 3 inputs xges
+	new_notes = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+  width = num_notes / num_steps
+  prev_step = 1
+  for i = 0 to num_steps - 1
+    curr_step = RoundDown ( i * width )
+    if curr_step <> prev_step
+      pos = (i + rotation) % num_steps
+      new_notes[pos] = 1
+    endif
+    prev_step = curr_step
+  endfor
+  CopyArray new_notes, n, 16
+  Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]   
+@End
+
+@ApplyEuclideanSteps
+	//# apply euc steps to a seq_steps location xaes
+	step_slot=(current_scene*128)+(current_pattn*16)		
+	if seq_ch=0
+		CopyArray new_notes, seq0_steps[step_slot], 16 
+elseif seq_ch=1
+	CopyArray new_notes, seq1_steps[step_slot], 16
+elseif seq_ch=2
+	CopyArray new_notes, seq2_steps[step_slot], 16
+elseif seq_ch=3
+	CopyArray new_notes, seq3_steps[step_slot], 16
+endif
+@End
+
+@SetupKnobset7
+  //# MUTATION xs7
+  knob_set = 7
+  LabelPads {MUTATION: Evolving Velocity, CC, & Step mutation - all scenes }
+  LabelKnobs {MUTATION AMOUNT} 
+  
+  SetKnobValue 0, TranslateScale seq_ch, 0, 2, 0, 127
+  SetKnobValue 1, TranslateScale step_mutation[seq_ch], 0, 100, 0, 127
+  SetKnobValue 2, TranslateScale velo_mutation[seq_ch], 0, 64, 0, 127
+  SetKnobValue 3, TranslateScale cc_mutation[seq_ch], 0, 127, 0, 127
+	
+  LabelKnob 0, {CH: }, seq_ch+1
+  if step_mutation[seq_ch]>0 and step_mutation[seq_ch]<51 
+	  LabelKnob 1, {+STP}, step_mutation[seq_ch]*2, {%} 
+	elseif step_mutation[seq_ch]>=51 
+		LabelKnob 1, {+-STP}, (step_mutation[seq_ch]-50)*2, {%}
+	else
+		LabelKnob 1, {STEP OFF}
+	endif
+  LabelKnob 2, {VELO }, velo_mutation[seq_ch]
+	LabelKnob 3, {CC }, cc_mutation[seq_ch]
+@End
+
+@KnobChangeSet7
+  //# MUTATION
+  if LastKnob = 0
+    new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
+    if new_seq_ch <> seq_ch
+		seq_ch=new_seq_ch
+		Call @LabelAllSequencePads
+		SetKnobValue 1, TranslateScale step_mutation[seq_ch], 0, 100, 0, 127
+		SetKnobValue 2, TranslateScale velo_mutation[seq_ch], 0, 64, 0, 127
+		SetKnobValue 3, TranslateScale cc_mutation[seq_ch], 0, 127, 0, 127
+    endif
+  endif
+  if LastKnob = 1
+  	step_mutation[seq_ch] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 100
+endif
+  if LastKnob = 2
+    velo_mutation[seq_ch] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 64
+  endif
+  if LastKnob = 3
+    cc_mutation[seq_ch] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+  endif
+  
+  LabelKnob 0, {CH: }, seq_ch+1
+  if step_mutation[seq_ch]>0 and step_mutation[seq_ch]<51 
+	  LabelKnob 1, {+STP}, step_mutation[seq_ch]*2, {%} 
+	elseif step_mutation[seq_ch]>=51 
+		LabelKnob 1, {+-STP}, (step_mutation[seq_ch]-50)*2, {%}
+	else
+		LabelKnob 1, {STEP OFF}
+	endif
+  LabelKnob 2, {VELO }, velo_mutation[seq_ch]
+	LabelKnob 3, {CC }, cc_mutation[seq_ch]
+@End
+
+@SetupKnobset8
+  //# SEQ GENERATION for Steps, Notes, Velo, CC
+  knob_set = 8
+  LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { SEQ GEN}
+  LabelPads {SEQUENCE GENERATION CH}, seq_ch+1, {: Select CH, SEQ TYPE, [...HI, LO]. Gen! knob generates}
+  
+  SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
+  SetKnobValue 1, TranslateScale sg_type[seq_ch], 0, 6, 0, 127
+  SetKnobValue 2, TranslateScale sg_lo, 0, 127, 0, 127
+  if sg_type[seq_ch] = 0
+	 	SetKnobValue 3, TranslateScale sg_hi, 0, 127, 0, 127
+  else
+  	SetKnobValue 3, TranslateScale sg_gen[seq_ch], 0, 31, 0, 127
+  endif
+	Call @LabelSeqGenKnobs
+@End
+
+@KnobChangeSet8
+  //# SEQ GEN xs8
+  if LastKnob = 0
+    new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
+	if new_seq_ch <> seq_ch
+		seq_ch=new_seq_ch
+		label_style=4
+		  if sg_type[seq_ch]=5
+		  	label_style=2
+		  elseif sg_type[seq_ch]=6
+		  	label_style=3
+		  endif
+		Call @LabelAllSequencePads
+		SetKnobValue 1, TranslateScale sg_type[seq_ch], 0, 6, 0, 127
+		if sg_type[seq_ch] = 0
+			 	SetKnobValue 3, TranslateScale sg_hi, 0, 127, 0, 127
+		  else
+		  	SetKnobValue 3, TranslateScale sg_gen[seq_ch], 0, 31, 0, 127
+		  endif
+	endif
+endif
+  if LastKnob = 1
+    sg_type[seq_ch] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
+  	if sg_type[seq_ch] = 0
+		  SetKnobValue 2, TranslateScale sg_lo, 0, 127, 0, 127
+	  	SetKnobValue 3, TranslateScale sg_hi, 0, 127, 0, 127
+	  else
+	  	SetKnobValue 2, 0
+		  SetKnobValue 3, TranslateScale sg_gen[seq_ch], 0, 31, 0, 127
+	  endif
+	  label_style=4
+	  if sg_type[seq_ch]=5
+	  	label_style=2
+	  elseif sg_type[seq_ch]=6
+	  	label_style=3
+	  endif
+	  Call @LabelAllSequencePads
+endif
+if LastKnob=2 and sg_type[seq_ch]=0
+    sg_lo = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
+endif
+  if LastKnob = 3
+    if sg_type[seq_ch]=0
+    	sg_hi = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+    else
+      gen = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 31
+    	if gen <> sg_gen[seq_ch]
+    		sg_gen[seq_ch] = gen
+    		Call @GenerateSequence
+    		Call @LabelAllSequencePads
+    	endif
+    endif
+endif
+	Call @LabelSeqGenKnobs  
+@End
+
+@LabelSeqGenKnobs
+	LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { SEQ GEN}
+	LabelPads {SEQUENCE GENERATION CH}, seq_ch+1, {: Select a CH, SEQ TYPE, [...HI, LO]. Gen! knob generates}
+	
+	if sg_type[seq_ch]=0
+		LabelKnob 1, {SET RANGE}
+		label_style=4
+ 	elseif sg_type[seq_ch]=1
+ 		LabelKnob 1, {KIK}
+ 		label_style=4
+ 	elseif sg_type[seq_ch]=2
+ 		LabelKnob 1, {SNR}
+ 		label_style=4
+ 	elseif sg_type[seq_ch]=3
+ 		LabelKnob 1, {HATS}
+ 		label_style=4
+ 	elseif sg_type[seq_ch]=4
+ 		LabelKnob 1, {PERC}
+ 		label_style=4
+ 	elseif sg_type[seq_ch]=5
+ 		LabelKnob 1, {VELO}
+ 		label_style=2
+ 	elseif sg_type[seq_ch]=6
+ 		LabelKnob 1, {CC}
+ 		label_style=3
+ 	endif
+ 	LabelKnob 0, {CH: }, seq_ch+1
+ 	if sg_type[seq_ch]=0 //# only required for CC and VELO
+	 	LabelKnob 2, {LO: }, sg_lo
+	 	LabelKnob 3, {HI: }, sg_hi
+	else
+	  LabelKnob 2, { }
+	  LabelKnob 3, {Gen! }, sg_gen[seq_ch]
+	endif
+@End
+
+@GenerateSequence
+	//# generate a sequence for a seq_ch xgs
+	p_slot = (current_scene*128)+(current_pattn*16)
+	range = sg_hi - sg_lo
+	if range < 0
+		Log {BAD RANGE! Will use 0}
+		range = 0
+	endif    
+	
+	//# GET PATTERN into general array p
+	p=[]
+	loc = sg_gen[seq_ch] * 16
+	log kiks[160]
+	if sg_type[seq_ch]=1 //# kik pattern
+		CopyArray kiks[loc], p, 16 
+		Log {A KIK Sequence has been generated}
+	elseif sg_type[seq_ch]=2 //# snr pattern
+		CopyArray snrs[sg_gen[seq_ch] * 16], p, 16
+	elseif sg_type[seq_ch]=3 //# hat pattern
+		CopyArray hat1[sg_gen[seq_ch] * 16], p, 16
+	elseif sg_type[seq_ch]=4 //# perc pattern
+		CopyArray perc[sg_gen[seq_ch] * 16], p, 16
+	elseif sg_type[seq_ch]=5 //# velo pattern
+		CopyArray ramps[sg_gen[seq_ch] * 16], p, 16
+	elseif sg_type[seq_ch]=6 //# cc pattern
+		CopyArray ramps[sg_gen[seq_ch] * 16], p, 16
+	endif
+	
+	//# Apply HAUS DRUM PATTERNS
+	if sg_type[seq_ch]<=4 
+		for i = 0 to 15
+			//# Get the right value to paste
+			step=0 //# step type
+			v=sg_hi //# velo
+			if p[i]=1
+				step=1
+			elseif p[i]=2
+				step=1
+				v=sg_lo
+			endif
+			//# paste depending on seq_ch
+			if seq_ch=0
+				seq0_steps[p_slot+i] = step
+				seq0_velos[p_slot+i] = Clip v, 0, 127
+			elseif seq_ch=1
+				seq1_steps[p_slot+i] = step
+				seq1_velos[p_slot+i] = Clip v, 0, 127
+			elseif seq_ch=2
+				seq2_steps[p_slot+i] = step
+				seq2_velos[p_slot+i] = Clip v, 0, 127
+			elseif seq_ch=3
+				seq3_steps[p_slot+i] = step
+				seq3_velos[p_slot+i] = Clip v, 0, 127
+			endif
+		endfor			
+	endif	
+	
+	//# APPLY VELO PATTERNS		
+	if sg_type[seq_ch]=5
+		for i = 0 to 15
+			//# Get the right value to paste
+			v = (Round (p[i]/15 * range)) + sg_lo //# velo
+			//# paste depending on seq_ch
+			if seq_ch=0
+				seq0_velos[p_slot+i] = Clip v, 0, 127 
+			elseif seq_ch=1
+				seq1_velos[p_slot+i] = Clip v, 0, 127
+			elseif seq_ch=2
+				seq2_velos[p_slot+i] = Clip v, 0, 127
+			elseif seq_ch=3
+				seq3_velos[p_slot+i] = Clip v, 0, 127
+			endif
+		endfor
+	endif
+	
+	//# APPLY CC PATTERNS		
+	if sg_type[seq_ch]=6
+		for i = 0 to 15
+			//# Get the right value to paste
+			v = (Round (p[i]/16 * range)) + sg_lo //# velo
+			//# paste depending on seq_ch
+			if seq_ch=0
+				seq0_ccs[p_slot+i] = Clip v, 0, 127 
+			elseif seq_ch=1
+				seq1_ccs[p_slot+i] = Clip v, 0, 127
+			elseif seq_ch=2
+				seq2_ccs[p_slot+i] = Clip v, 0, 127
+			elseif seq_ch=3
+				seq3_ccs[p_slot+i] = Clip v, 0, 127
+			endif
+		endfor
+	endif
+@End
+
+@SetupKnobset9
+  //# ROTATION
+  Log {KNOBSET 9 setup}
+  knob_set = 9
+  LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { ROTATE}
+  rot_dir=0 //# reset on setup knobs
+  SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
+  SetKnobValue 1, TranslateScale rot_type, 0, 5, 0, 127
+  SetKnobValue 2, TranslateScale rot_dir, -1, 1, 0, 127
+  SetKnobValue 3, 0
+
+  LabelKnob 0, {CH: }, seq_ch+1
+  if rot_type=0
+		LabelKnob 1, {ALL}
+	elseif rot_type=1
+		LabelKnob 1, {NOTE}
+	elseif rot_type=2
+		LabelKnob 1, {OCT.}
+	elseif rot_type=3
+		LabelKnob 1, {VELO}
+	elseif rot_type=4
+		LabelKnob 1, {CC}
+	elseif rot_type=5
+		LabelKnob 1, {STEP}
+	endif
+	if rot_dir=0
+		LabelKnob 2, {< ROT >}
+  elseif rot_dir=-1
+  	LabelKnob 2, {<<< ROT}
+  else
+  	LabelKnob 2, {ROT >>>}
+  endif
+  LabelKnob 3, { } //# not in use
+@End
+
+@KnobChangeSet9
+  //# ROTATION xs9
+  LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { ROTATE}
+  if LastKnob = 0
+    new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
+	if new_seq_ch <> seq_ch
+		seq_ch=new_seq_ch
+		Call @LabelAllSequencePads
+	endif
+endif
+  if LastKnob = 1
+    rot_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 5
+endif
+  if LastKnob = 2
+    rot_dir = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 1
+    if rot_dir <> 0
+  		timer_type=1
+  		ResetTimer
+  		SetTimerInterval (400)
+  		StartTimer
+  		timer_rpts=0
+  	else	
+  		StopTimer
+	endif
+  endif
+  if LastKnob = 3
+  	//# not in use
+  endif
+  
+  LabelKnob 0, {CH: }, seq_ch+1
+  if rot_type=0
+		LabelKnob 1, {ALL}
+	elseif rot_type=1
+		LabelKnob 1, {NOTE}
+	elseif rot_type=2
+		LabelKnob 1, {OCT.}
+	elseif rot_type=3
+		LabelKnob 1, {VELO}
+	elseif rot_type=4
+		LabelKnob 1, {CC}
+	elseif rot_type=5
+		LabelKnob 1, {STEP}
+	endif
+	if rot_dir=0
+		LabelKnob 2, {<ROT>}
+  elseif rot_dir=-1
+  	LabelKnob 2, {<<< ROT}
+  else
+  	LabelKnob 2, {ROT >>>}
+  endif
+  LabelKnob 3, { }
+@End
+
+@OnKnobChange
+	//# Knob change router xokc
+  if knob_set = 0 
+    Call @KnobChangeSet0 //# scene settings
+  elseif knob_set = 1
+    Call @KnobChangeSet1 //# pattn settings
+  elseif knob_set = 2
+    Call @KnobChangeSet2 //# MIDI OUT CHANNELS
+  elseif knob_set = 3
+    Call @KnobChangeSet3 //# scale / instr type
+  elseif knob_set = 4
+    Call @KnobChangeSet4 //# CC# VALS
+  elseif knob_set = 5
+    Call @KnobChangeSet5 //# SEQUENCE STEPS EDIT
+  elseif knob_set = 6
+    Call @KnobChangeSet6 //# SEQUENCE SETUP
+  elseif knob_set = 7
+    Call @KnobChangeSet7 //# MUTATE
+  elseif knob_set = 8
+    Call @KnobChangeSet8 //# SEQ GENERATION
+  elseif knob_set = 9
+    Call @KnobChangeSet9 //# ROTATION
+  endif
+@End  
+	
+@OnShiftDown
+	//# xosd
+	if in_mode_select
+		in_mode_select = FALSE
+		if mode>=8
+			in_seq_mode=TRUE
+		endif			
+		Call @OnPadDown_KnobSetSelect				
+		Call @SetupLayout
+	else
+		// #Mode selection for Knobs n Pads
+		in_mode_select = TRUE
+		in_seq_mode=FALSE
+		if mode=6 or mode=7 //# in cp or del shift will exit
+			mode=return_to_mode //# cancel cp/del
+		endif
+		copy_paste_status=0 //# In case COPYPASTE aborted
+		LabelPads {_QK:BEATS  SETTINGS:      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
+		//# disable knobs on entry to settings to prevent overwrite
+		knob_set=99
+		LabelKnobs { }
+		LabelPads {_QK:BEATS Settings}
+		LabelKnob 0, { }
+		LabelKnob 1, { }
+		LabelKnob 2, { }
+		LabelKnob 3, { }
+		
+		for i = 0 to (number_of_modes - 1)
+			ColorPad i, col_mode_select
+			LabelPad i, { } //# empty label to overwrite pattn info
+			if i = 0
+				LatchPad i, NO
+				if (songmode = 0)
+					LabelPad i, {PLAYSONG: Active }
+				elseif (songmode = 1)
+					LabelPad i, {PLAYSONG: Scene locked}
+				elseif (songmode = 2)
+					LabelPad i, {PLAYSONG: Pattern locked}
+				else
+					LabelPad i, {PLAYSONG: Disabled}
+				endif
+			elseif i = 1
+				LatchPad i, NO
+				LabelPad i, {SCENES/PATTERNS}
+			elseif i = 2
+				LatchPad i, NO
+				if kontroller_slave
+					LabelPad i, {KONTROLLER SLAVE ON}
+				else
+					LabelPad i, {KONTROLLER SLAVE OFF}
+				endif 
+			elseif i = 3
+				LatchPad i, NO
+				if NOT HostRunning
+					Call @LabelSet3
+				endif
+			elseif i = 4
+				LatchPad i, NO
+				if NOT HostRunning
+					LabelPad i, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]     [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+				endif
+			elseif i = 5
+				LatchPad i, NO
+				if NOT HostRunning
+					LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]   [}, cc_vals[2],{-}, cc_vals[3],{]}
+				endif
+			elseif i = 6
+				LatchPad i, NO
+				if mode<=1
+					if LastPad<=7 //# copy scene or chord
+						LabelPad i, {COPY/PASTE }, {SCENE }, current_scene+1
+						copy_mode=0 //# copy scene
+					else
+						LabelPad i, {COPY/PASTE }, {PATTERN }, current_pattn+1
+						copy_mode=1  //# copy pattn. allows switch scene b4 paste
+					endif
+				elseif mode=9
+					LabelPad i, {COPY/PASTE }, {STEP }, sel_step+1
+				elseif mode=11
+					LabelPad i, {COPY/PASTE }, {SEQ CH}, seq_ch+1
+				endif
+			elseif i = 7
+				LatchPad i, NO
+				if (mode>=8 or mode<=1)
+					LabelPad i, {DELETE  }
+				endif
+			elseif i = 8
+				LatchPad i, NO
+				LabelPad i, {STEPS}
+			elseif i = 9
+				LatchPad i, NO
+				LabelPad i, {EDIT}
+			elseif i = 10
+				LatchPad i, NO
+				LabelPad i, {MUTATE}
+			elseif i = 11
+				LatchPad i, NO
+				LabelPad i, {SEQ GEN }, seq_ch+1
+			elseif i = 12
+				LatchPad i, NO
+				LabelPad i, {ROTATE}
+			elseif i = 13
+				LatchPad i, NO
+				if label_style=4
+					LabelPad i, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
+				elseif label_style=5
+					LabelPad i, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CHS1-4}
+				endif
+			elseif i = 14
+				LatchPad i, NO
+				LabelPad i, { } //# MEL GEN IN NOTES
+			elseif i = 15
+				LatchPad i, NO
+				if label_view_mode=5
+					LabelPad i, {SEQ VIEW     }, {  ALL}
+				elseif label_view_mode=4
+					LabelPad i, {SEQ VIEW     }, {  CHANNEL}
+				endif
+			endif
+		endfor
+		LatchPad mode, YES
+	endif
+@End
+
+@LabelScenePad
+	//# Set scn_to_label var before calling
+	sc_dur = scene_durs[scn_to_label]
+	LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}, {     Swing }, scene_swing[scn_to_label], {%}
+@End
+
+@LabelPatternPad
+	//# Set pattn_to_label var before calling xlcp
+	pattn_slot = (current_scene * 8) + (pattn_to_label-8)
+	cd = pattn_durs[pattn_slot]
+	cd_bars = Div cd, 4
+	lc_beats = (cd % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
+	LabelPad, pattn_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}
+@End
+
+@SetupLayout
+	//#xsl setup layout pads
+  if in_mode_select
+  	Exit
+  elseif in_seq_mode
+  	Call @SetupSeqLayout
+  else
+	 //# Setup scene pads
+   for i = 0 to 7  
+	    if scene_durs[i] > 0
+		    ColorPad i, col_scene
+				scn_to_label = i
+				Call @LabelScenePad
+	  	else
+	  		ColorPad i, col_unused
+	  		LabelPad i, { }
+	  	endif
+	    LatchPad i, NO
+	    if (scene_durs[i] > 0) and (mode = 7) and NOT in_mode_select
+	      ColorPad i, col_del_pattn
+	    endif
+	  endfor		  
+	  //# Setup pattn pads  
+    for i = 8 to 15
+	    pattn_slot = (current_scene*8) + (i-8)
+	    LatchPad i, NO
+	    if pattn_durs[pattn_slot] > 0
+	    	ColorPad i, col_pattn
+	    	pattn_to_label = i
+	    	Call @LabelPatternPad
+	    else
+	  		ColorPad i, col_unused
+	  		LabelPad i, { }
+	  	endif
+	    if (mode = 7) and (pattn_durs[pattn_slot] > 0)
+		  	ColorPad i, col_del_pattn
+		  endif
+	  endfor
+		//# Handle current scene and pattn colors
+	  if (songmode = 0) //# Playthru no lock
+	  	ColorPad current_scene, col_sel_scene
+	  	ColorPad current_pattn+8, col_sel_pattn
+	  elseif (songmode = 1) //# Lock to scene
+	    ColorPad current_pattn+8, col_sel_pattn
+	    LatchPad current_scene, YES
+	  elseif (songmode = 2)
+	  	LatchPad current_scene, YES
+	    LatchPad current_pattn+8, YES
+	  endif
+	  if (mode > 1)
+	  	LatchPad current_scene, YES
+	  	LatchPad current_pattn+8, YES
+		endif
+		//# Handle pending pattn and scene changes in playback
+	  if HostRunning and (songmode <=2)
+	  	if pattn_change_requested >= 0
+	  		ColorPad pattn_change_requested+8, col_pending
+	  	endif
+	  	if scene_change_requested >= 0
+	  		ColorPad scene_change_requested, col_pending
+	  	endif
+	  endif
+	  //# Call @OnPadDown_KnobSetSelect
+	endif
+@End
+
+@SetupSeqLayout
+	//# sequence mode layout xssl
+	if mode = 8
+  Call @SetupKnobset6 //# SEQUENCE STEPS EDIT
+  label_style=4
+  LabelPads {SEQUENCE STEPS: Knobs generate Euclidean steps. Pads toggle state or record steps}
+elseif mode = 9
+	label_style=label_view_mode
+  Call @SetupKnobset5 //# SEQUENCE EDIT ALL TYPES
+  LabelPads {SEQUENCE EDIT: Tap pad to select. Use knobs to edit.}
+elseif mode = 10
+	label_style=label_view_mode
+  Call @SetupKnobset7 //# MELODY GENERATION
+elseif mode = 11
+	label_style=label_view_mode
+  Call @SetupKnobset8 //# SEQUENCE GENERATION
+elseif mode = 12
+    label_style=label_view_mode
+  Call @SetupKnobset9 //# ROTATE
+  LabelPads {ROTATE SEQUENCE: Select CH, type and use <ROT> to rotate.}
+endif 
+Call @LabelAllSequencePads
+@End
+
+@UpdateSelStepType
+	//# change a seq pad from on to off
+	step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
+	if seq_ch=0
+		seq0_steps[step_slot] = (seq0_steps[step_slot]+1)%2
+	elseif seq_ch=1
+		seq1_steps[step_slot] = (seq1_steps[step_slot]+1)%2
+	elseif seq_ch=2
+		seq2_steps[step_slot] = (seq2_steps[step_slot]+1)%2
+	elseif seq_ch=3
+		seq3_steps[step_slot] = (seq3_steps[step_slot]+1)%2
+	endif
+	Call @LabelSequencePad
+@End
+
+@LabelAllSequencePads
+	//# label all sequence pads xlasp
+	for i = 0 to 15
+		sel_pad = i
+		step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
+		Call @ColorSequencePad
+		Call @LabelSequencePad
+		LatchPad i, NO
+	endfor
+@End
+
+@ColorSequencePad
+	//# ColorPad Is the selected pad off - on - sustain prev.
+if (seq_ch=0) 
+	sel_pad_type = seq0_steps[step_slot]
+elseif (seq_ch=1)
+	sel_pad_type = seq1_steps[step_slot]
+elseif (seq_ch=2)
+	sel_pad_type = seq2_steps[step_slot]
+elseif (seq_ch=3)
+	sel_pad_type = seq3_steps[step_slot]
+endif
+
+padColor=col_seq_pad_on
+if sel_pad_type=0 and not steps_record_mode //# stored value
+	padColor=col_seq_pad_off
+elseif sel_pad_type=0 and steps_record_mode //# recsteps on
+	padColor=col_seq_pad_rec
+elseif sel_pad_type=2
+	padColor=col_seq_pad_sust
+endif
+if (step_mutation[seq_ch]>=1) and (mutate_step[seq_ch]=sel_pad) 
+		padColor=col_mutate //# highlight mutating step
+endif
+if (mode=7) and (sel_pad_type>0) //# delete reset pads mode
+	padColor=col_seq_pad_rec
+endif
+//# Off pads past pattn length
+if sel_pad >= pattn_length
+	padColor = col_seq_pad_outside
+endif
+//# Selected step
+if (sel_pad=sel_step) and (mode=9)
+	ColorPad sel_pad, col_sel_step
+else
+  	ColorPad sel_pad, padColor
+endif
+@End
+
+@LabelSequencePad
+  //# label sequence pads xlsp
+euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
+pattn_length = (16 - euc_vals[euc_slot+2])
+
+//# Pad labeling notes, velo, cc etc
+  x=15
+  if note_set_type=0
+  	o0=seq0_octs[step_slot]+1
+  	o1=seq1_octs[step_slot]+1
+  	o2=seq2_octs[step_slot]+1
+  	o3=seq3_octs[step_slot]+1
+  	n0=curr_scale[seq0_notes[step_slot]] + (12 * o0) 
+	  n1=curr_scale[seq1_notes[step_slot]] + (12 * o1)
+	  n2=curr_scale[seq2_notes[step_slot]] + (12 * o2)
+	  n3=curr_scale[seq3_notes[step_slot]] + (12 * o3)
+  elseif note_set_type>=1
+  	n0=curr_scale[seq0_notes[step_slot]]
+	  n1=curr_scale[seq1_notes[step_slot]]
+	  n2=curr_scale[seq2_notes[step_slot]]
+	  n3=curr_scale[seq3_notes[step_slot]]
+endif
+n=[n0,n1,n2,n3]
+  v0=seq0_velos[step_slot]
+  v1=seq1_velos[step_slot]
+  v2=seq2_velos[step_slot]
+  v3=seq3_velos[step_slot]
+  v0r=RoundUp (seq0_velos[step_slot]/x)
+  v1r=RoundUp (seq1_velos[step_slot]/x)
+  v2r=RoundUp (seq2_velos[step_slot]/x)
+  v3r=RoundUp (seq3_velos[step_slot]/x)
+  v=[v0,v1,v2,v3]
+cc0=seq0_ccs[step_slot]
+cc1=seq1_ccs[step_slot]
+cc2=seq2_ccs[step_slot]
+cc3=seq3_ccs[step_slot]
+cc0r=RoundUp (seq0_ccs[step_slot]/x)
+cc1r=RoundUp (seq1_ccs[step_slot]/x)
+cc2r=RoundUp (seq2_ccs[step_slot]/x)
+cc3r=RoundUp (seq3_ccs[step_slot]/x)
+cc=[cc0,cc1,cc2,cc3]
+	
+if (label_style=5) //# label all channels + all values
+  	LabelPad sel_pad, (NoteName n3 ,YES), {_v},v3r,{cc},cc3r,{ }, ,(NoteName n2, YES), {_v},v2r,{cc},cc2r,{ }, (NoteName n1, YES), {_v},v1r,{cc},cc1r,{ }, (NoteName n0, YES), {_v},v0r,{cc},cc0r
+  elseif (label_style=4) //# label selected channel + all values
+  	LabelPad sel_pad, (NoteName n[seq_ch], YES), {     }, n[seq_ch], {          v},v[seq_ch],{  cc},cc[seq_ch]
+  elseif (label_style=0) or (label_style=1) 
+  	//# label selected channel note and octave only
+  	LabelPad sel_pad, (NoteName n[seq_ch], YES)
+  elseif (label_style=2) //# label selected channel velo only
+  	LabelPad sel_pad, {VEL: }, v[seq_ch]
+elseif (label_style=3) //# label selected channel cc only
+  	if cc[seq_ch]=-1
+  		LabelPad sel_pad, {CC: off}
+  	else
+  		LabelPad sel_pad, {CC: }, cc[seq_ch]
+  	endif
+  endif
+  //# Pad labelling for steps mode
+  if (mode=8 or mode=6 or mode=7) and sel_pad_type=0 and not label_style=5
+  	//# extra modes for copy/paste and delete
+  	LabelPad sel_pad, { }
+  elseif (mode=8 or mode=6 or mode=7) and sel_pad_type=2
+  	LabelPad sel_pad, {==>}
+  endif
+  //# Pad labelling for other seq modes
+  if (mode>=9) and (mode<=12) and sel_pad_type=0 and label_style=4
+  	LabelPad sel_pad, { }
+  elseif (mode>=9) and (mode<=12) and sel_pad_type=2  and label_style=4
+  	LabelPad sel_pad, {==>}
+  endif
+  //# Hide data for pads outside seq length
+  if sel_pad >= pattn_length
+	LabelPad sel_pad, { }
+endif
+@End
+
+@LoadDrumPatterns
+	Log {--- LOADING DRUM PATTERNS ---}
+	//# Instant Haus HOUSE patterns 0-15 xgd xlsp
+	//# Instant Haus Breaks patterns 16-31
+	//# Hat1 32 patterns; hat2 32 patterns
+	//# 0=off; 1=Loud 2=Soft 3=Loud OHH; 4=Soft OHH
+	kiks[0*16]  = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	kiks[1*16]  = [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0]
+	kiks[2*16]  = [1,0,0,0, 1,0,2,0, 1,0,0,0, 1,0,2,0]
+	kiks[3*16]  = [1,0,0,0, 1,0,0,0, 1,0,0,2, 1,0,0,0]
+	kiks[4*16]  = [1,0,0,0, 1,2,0,0, 1,0,0,0, 1,0,2,0]
+	kiks[5*16]  = [1,0,0,0, 1,2,0,0, 1,0,0,0, 1,0,0,0]
+	kiks[6*16]  = [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,2,0,0]
+	kiks[7*16]  = [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,2]
+	kiks[8*16]  = [1,0,0,0, 1,0,0,0, 1,2,0,0, 1,0,2,0]
+	kiks[9*16]  = [1,0,0,0, 1,0,0,0, 1,2,0,0, 1,0,0,0]
+	kiks[10*16] = [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,2,0]
+	kiks[11*16] = [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0]
+	kiks[12*16] = [1,0,2,0, 1,0,0,0, 1,0,0,2, 1,0,2,0]
+	kiks[13*16] = [1,0,0,2, 1,0,0,0, 1,0,2,0, 1,0,0,0]
+	kiks[14*16] = [1,0,0,0, 1,0,2,0, 1,0,0,2, 1,0,2,0]
+	kiks[15*16] = [1,0,0,0, 1,0,0,2, 1,0,2,0, 1,0,0,2]
+	kiks[16*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	kiks[17*16] = [1,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0]
+	kiks[18*16] = [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0]
+	kiks[19*16] = [1,0,0,0, 0,0,2,1, 0,0,1,0, 0,0,0,2]
+	kiks[20*16] = [1,0,0,0, 0,0,1,1, 0,0,0,0, 0,0,1,0]
+	kiks[21*16] = [1,0,0,2, 0,0,1,1, 0,0,0,2, 0,2,1,0]
+	kiks[22*16] = [1,0,0,2, 0,0,0,0, 1,0,0,0, 1,2,0,0]
+	kiks[23*16] = [1,0,0,0, 0,2,0,0, 1,0,0,0, 1,0,2,0]
+	kiks[24*16] = [1,0,0,0, 0,2,0,0, 1,0,0,0, 0,0,2,0]
+	kiks[25*16] = [1,0,0,0, 0,0,0,0, 1,0,0,2, 1,0,0,0]
+	kiks[26*16] = [1,0,0,0, 1,2,0,0, 0,0,0,1, 0,0,0,0]
+	kiks[27*16] = [1,0,2,0, 1,2,0,0, 0,0,0,1, 0,0,0,0]
+	kiks[28*16] = [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0]
+	kiks[29*16] = [1,0,1,0, 0,0,0,0, 1,0,0,1, 0,0,0,0]
+	kiks[30*16] = [1,0,1,0, 1,0,0,2, 0,0,0,0, 0,0,0,0]
+	kiks[31*16] = [1,0,0,0, 1,0,0,2, 0,0,0,0, 1,0,1,0]
+	
+	snrs[0*16]  = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	snrs[1*16]  = [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0]
+	snrs[2*16]  = [0,0,0,0, 2,1,0,0, 0,0,0,0, 2,1,0,0]
+	snrs[3*16]  = [0,0,0,0, 1,2,0,0, 0,0,0,0, 0,1,0,0]
+	snrs[4*16]  = [0,0,0,0, 1,0,0,0, 0,0,0,2, 0,0,1,0]
+	snrs[5*16]  = [0,0,0,0, 1,0,0,0, 0,0,0,2, 1,0,0,0]
+	snrs[6*16]  = [0,0,0,0, 1,0,0,0, 0,0,0,1, 0,0,0,0]
+	snrs[7*16]  = [0,0,0,0, 1,0,0,0, 0,2,0,0, 1,2,0,1]
+	snrs[8*16]  = [0,0,0,0, 1,0,0,0, 0,0,0,2, 0,1,0,0]
+	snrs[9*16]  = [0,0,0,0, 1,0,0,2, 0,0,0,0, 1,0,0,0]
+	snrs[10*16] = [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,2]
+	snrs[11*16] = [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0]
+	snrs[12*16] = [0,0,0,2, 1,0,0,0, 0,0,2,0, 1,0,0,0]
+	snrs[13*16] = [0,0,0,2, 1,0,0,0, 0,0,2,2, 1,0,0,2]
+	snrs[14*16] = [0,0,0,2, 1,0,2,0, 0,0,0,2, 1,0,0,0]
+	snrs[15*16] = [0,0,0,2, 1,0,0,2, 0,0,2,0, 1,0,0,2]
+	snrs[16*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	snrs[17*16] = [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0]
+	snrs[18*16] = [0,0,0,2, 1,0,0,0, 0,1,0,0, 1,0,0,2]
+	snrs[19*16] = [0,2,0,2, 1,0,0,0, 0,0,0,0, 1,0,1,0]
+	snrs[20*16] = [0,0,0,0, 1,0,0,0, 0,2,0,0, 1,0,0,0]
+	snrs[21*16] = [0,0,0,2, 1,0,0,0, 0,1,0,2, 1,0,1,2]
+	snrs[22*16] = [0,0,0,2, 1,0,0,0, 2,1,2,0, 0,0,1,2]
+	snrs[23*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,0,2]
+	snrs[24*16] = [0,0,0,0, 1,0,0,0, 0,1,0,0, 2,0,0,0]
+	snrs[25*16] = [0,0,0,1, 0,0,0,0, 0,0,0,0, 1,0,0,0]
+	snrs[26*16] = [0,0,0,0, 1,2,0,0, 0,0,0,0, 1,0,0,0]
+	snrs[27*16] = [0,0,0,2, 1,0,0,0, 0,0,0,2, 1,0,0,0]
+	snrs[28*16] = [0,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,2,0]
+	snrs[29*16] = [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,2]
+	snrs[30*16] = [0,1,0,1, 0,0,0,0, 1,0,0,0, 0,0,0,0]
+	snrs[31*16] = [0,0,0,2, 0,0,0,0, 1,0,0,0, 0,0,0,2]
+	
+	perc[0*16]  = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	perc[1*16]  = [0,0,0,0, 0,0,1,0, 0,0,0,2, 0,0,0,0]
+	perc[2*16]  = [0,0,0,2, 0,0,0,1, 0,0,0,1, 0,0,0,0]
+	perc[3*16]  = [0,0,0,0, 0,0,0,0, 0,0,1,2, 0,0,0,0]
+	perc[4*16]  = [0,0,0,0, 0,0,2,0, 0,0,0,0, 0,2,0,1]
+	perc[5*16]  = [0,0,0,0, 0,0,2,0, 0,0,0,1, 0,0,1,0]
+	perc[6*16]  = [0,0,0,0, 0,0,0,0, 0,0,0,1, 0,0,1,0]
+	perc[7*16]  = [0,0,1,0, 0,0,0,1, 0,0,0,2, 0,0,1,2]
+	perc[8*16]  = [0,0,1,0, 0,0,0,1, 0,0,1,0, 0,0,1,0]
+	perc[9*16]  = [0,0,0,0, 0,0,0,1, 0,0,1,0, 0,0,1,0]
+	perc[10*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,1,0]
+	perc[11*16] = [0,0,1,2, 0,0,1,2, 0,0,1,2, 0,0,1,2]
+	perc[12*16] = [0,0,1,2, 0,0,1,2, 0,0,0,2, 0,0,0,2]
+	perc[13*16] = [0,0,1,2, 0,0,0,1, 0,0,0,1, 0,0,1,2]
+	perc[14*16] = [0,0,1,2, 0,0,1,1, 0,0,1,2, 0,1,0,2]
+	perc[15*16] = [0,0,1,2, 0,0,1,0, 0,0,1,1, 1,0,1,0]
+	perc[16*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	perc[17*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,1,0]
+	perc[18*16] = [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0]
+	perc[19*16] = [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0]
+	perc[20*16] = [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,2]
+	perc[21*16] = [0,0,0,0, 0,0,0,0, 0,0,0,2, 0,0,1,0]
+	perc[22*16] = [0,0,0,0, 0,2,0,0, 0,0,0,1, 0,0,1,0]
+	perc[23*16] = [0,0,0,0, 0,2,0,0, 0,0,0,1, 0,0,0,0]
+	perc[24*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,2,0,1]
+	perc[25*16] = [0,0,0,0, 0,0,0,0, 0,0,1,2, 0,0,0,0]
+	perc[26*16] = [0,0,0,2, 0,0,1,0, 0,0,0,1, 0,0,0,0]
+	perc[27*16] = [0,0,0,0, 0,1,0,0, 0,0,0,2, 0,0,0,0]
+	perc[28*16] = [0,0,1,0, 0,0,2,0, 1,2,1,2, 1,0,0,0]
+	perc[29*16] = [0,0,1,0, 0,0,2,0, 1,1,0,0, 1,0,0,0]
+	perc[30*16] = [0,0,1,0, 0,0,2,0, 1,0,0,2, 1,0,2,2]
+	perc[31*16] = [0,0,1,2, 0,0,1,0, 0,2,0,2, 1,0,0,2]
+	
+	hat1[0*16]  = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	hat1[1*16] = [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0]
+	hat1[2*16]  = [0,2,1,0, 0,0,1,0, 0,0,1,0, 0,1,0,2]
+	hat1[3*16]  = [0,2,1,0, 0,0,1,0, 0,0,1,2, 0,2,1,0]
+	hat1[4*16]  = [0,2,1,0, 0,0,1,0, 0,0,1,2, 0,0,1,0]
+	hat1[5*16]  = [0,2,1,0, 0,0,1,2, 0,0,1,0, 0,0,1,2]
+	hat1[6*16]  = [0,2,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,2]
+	hat1[7*16]  = [0,2,1,0, 0,0,1,2, 0,0,1,0, 0,0,1,0]
+	hat1[8*16]  = [0,0,1,0, 0,0,1,2, 0,0,1,0, 0,2,1,0]
+	hat1[9*16]  = [0,0,1,0, 0,0,1,2, 0,0,1,0, 0,0,1,0]
+	hat1[10*16] = [0,0,1,2, 0,0,1,2, 0,0,1,2, 0,0,1,2]
+	hat1[12*16] = [1,0,0,2, 0,1,0,0, 1,0,0,0, 1,0,2,0]
+	hat1[11*16] = [0,0,1,2, 0,0,1,0, 0,0,1,2, 0,0,1,0]
+	hat1[13*16] = [2,2,1,2, 2,2,2,1, 1,2,2,1, 2,2,0,0]
+	hat1[14*16] = [2,1,2,2, 2,1,2,2, 2,1,2,2, 2,1,2,2]
+	hat1[15*16] = [2,0,2,2, 2,0,2,2, 2,0,2,2, 2,0,2,2]
+	hat1[16*16] = [2,0,2,0, 2,0,2,0, 2,0,2,0, 2,0,2,2]
+	hat1[17*16] = [1,0,2,0, 2,0,2,0, 1,0,2,0, 2,0,2,0]
+	hat1[18*16] = [0,2,1,0, 0,0,2,0, 2,2,1,0, 0,0,0,0]
+	hat1[19*16] = [0,2,2,0, 2,2,0,1, 0,2,2,0, 2,0,2,1]
+	hat1[20*16] = [2,0,2,2, 2,0,2,2, 2,0,2,2, 2,0,2,2]
+	hat1[21*16] = [0,2,2,0, 2,0,2,0, 2,0,2,0, 2,0,2,2]
+	hat1[22*16] = [2,0,2,0, 2,0,1,0, 2,0,2,0, 2,0,1,0]
+	hat1[23*16] = [2,2,1,1, 2,2,1,1, 2,2,1,1, 2,2,1,1]
+	hat1[24*16] = [0,0,1,0, 0,0,2,0, 1,2,1,2, 1,0,0,0]
+	hat1[25*16] = [0,0,1,0, 0,0,2,0, 1,1,0,0, 1,0,0,0]
+	hat1[26*16] = [0,0,1,0, 0,0,2,0, 1,0,0,2, 1,0,2,2]
+	hat1[27*16] = [0,0,1,2, 0,0,1,0, 0,2,0,2, 1,0,0,2]
+	hat1[28*16] = [0,0,1,2, 0,0,1,2, 0,0,0,2, 0,0,0,2]
+	hat1[29*16] = [0,0,1,2, 0,0,0,1, 0,0,0,1, 0,0,1,2]
+	hat1[30*16] = [0,0,1,2, 0,0,1,1, 0,0,1,2, 0,1,0,2]
+	hat1[31*16] = [0,0,1,2, 0,0,1,0, 0,0,1,1, 1,0,1,0]
+@End
+
+@LoadRampPatterns
+	Log {--- LOADING RAMP PATTERNS ---}
+	//# Ramps for Arp, Velo and CC generations xgr
+ 	//# convert to VELO or CC# = Round (val/16*127)
+ 	//# convert to NOTE = Round (val/16*12)
+ 	//# Create random vals
+ 	for i = 0 to 47
+ 		r[i] = Random 0,15
+ 	endfor 
+	ramps[0*16]  = [0,0,0,0,     0,0,0,0,      0,0,0,0,     0,0,0,0] 
+	ramps[1*16]  = [0,1,2,3,     4,5,6,7,      8,9,10,11,   12,13,14,15] //# UP1
+	ramps[2*16]  = [0,2,4,6,     8,10,12,15,   0,2,4,6,     8,10,12,15] //# UP2
+	ramps[3*16]  = [0,5,10,15,   0,5,10,15,    0,5,10,15,   0,5,10,15] //# UP4
+	ramps[4*16]  = [15,14,13,12, 11,10,9,8,    7,6,5,4,     3,2,1,0] //# DN1
+	ramps[5*16]  = [15,12,10,8,  6,4,2,0,      15,12,10,8,  6,4,2,0] //# DN2
+	ramps[6*16]  = [15,10,5,0,   15,10,5,0,    15,10,5,0,   15,10,5,0] //# DN4
+	ramps[7*16]  = [15,12,10,8,  6,4,2,0,      0,2,4,6,     8,10,12,15] //# DNUP1
+	ramps[8*16]  = [15,10,5,0,   0,5,10,15,    15,10,5,0,   0,5,10,15] //# DNUP2
+	ramps[9*16]  = [0,2,4,6,     8,10,12,15,   15,12,10,8,  6,4,2,0] //# UPDN1
+	ramps[10*16] = [0,5,10,15,   15,10,5,0,    0,5,10,15,   15,10,5,0] //# UPDN2
+	ramps[11*16] = [8,15,8,15,   8,15,8,15,    8,15,8,15,   8,15,8,15] //# LH
+	ramps[12*16] = [15,8,15,8,   15,8,15,8,    15,8,15,8,   15,8,15,8] //# HL
+	ramps[13*16] = [0,15,0,15,   0,15,0,15,    0,15,0,15,   0,15,0,15] //# LH2
+	ramps[14*16] = [15,0,15,0,   15,0,15,0,    15,0,15,0,   15,0,15,0] //# HL2
+	ramps[15*16] = [8,8,15,15,   8,8,15,15,    8,8,15,15,   8,8,15,15] //# LLHH
+	ramps[16*16] = [0,0,15,15,   0,0,15,15,    0,0,15,15,   0,0,15,15] //# LLHH2
+	ramps[17*16] = [15,15,8,8,   15,15,8,8,    15,15,8,8,   15,15,8,8] //# HHLL
+	ramps[18*16] = [15,15,0,0,   15,15,0,0,    15,15,0,0,   15,15,0,0] //# HHLL2
+	ramps[19*16] = [8,8,8,15,    8,8,8,15,     8,8,8,15,    8,8,8,15] //# LLLH
+	ramps[20*16] = [0,0,0,15,    0,0,0,15,     0,0,0,15,    0,0,0,15] //# LLLH2
+	ramps[21*16] = [15,15,15,8,  15,15,15,8,   15,15,15,8,  15,15,15,8] //# HHHL
+	ramps[22*16] = [15,15,15,0,  15,15,15,0,   15,15,15,0,  15,15,15,0] //# HHHL2
+	ramps[23*16] = [11,12,13,14, 11,12,13,14,  11,12,13,14, 11,12,13,14] //# mm
+	ramps[24*16] = [14,13,12,11, 14,13,12,11,  14,13,12,11, 14,13,12,11] //# mm2
+	ramps[25*16] = [10,15,15,15, 10,15,15,15,  10,15,15,15, 10,15,15,15] //# sc1
+	ramps[26*16] = [10,10,15,15, 10,10,15,15,  10,10,15,15, 10,10,15,15] //# sc2
+	ramps[27*16] = [4,15,15,15,  4,15,15,15,   4,15,15,15,  4,15,15,15] //# sc3
+	ramps[28*16] = [r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9],r[10],r[11],r[12],r[13],r[14],r[15]] //# RND1 regen on setup (no need to do when range changes)
+	ramps[29*16] = [r[16],r[17],r[18],r[19],r[20],r[21],r[22],r[23],r[24],r[25],r[26],r[27],r[28],r[29],r[30],r[31]] //# RND2
+	ramps[30*16] = [r[32],r[33],r[34],r[35],r[36],r[37],r[38],r[39],r[40],r[41],r[42],r[43],r[44],r[45],r[46],r[47]] //# RND3
+	ramps[31*16] = [15,15,15,15, 15,15,15,15,  15,15,15,15, 15,15,15,15]  //#FULL
+@End
+

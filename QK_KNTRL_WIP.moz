@@ -1,0 +1,186 @@
+//# MOZAIC KOMPOSER SUITE
+//# KONTROLLER APP
+//# Handles messages to all connected instances for:
+//# Synchronised scene change... and other stuff to come
+@OnLoad
+	SetShortName {KNTRL}
+	ShowLayout 2
+	labelPads {QUANTUM KOMPOSER - MASTER KNTRL}
+	if unassigned scene_durs
+		Call @LoadScenePresets
+		edit_scene=0
+		locked_to_scene=0
+		songmode=0
+		//# Color Scheme
+		col_scene=2
+		col_sel_scene=3
+		col_unused=0
+		Call @InitVariables
+		Call @SetupKnobset0
+		Call @SetupLayout
+	endif
+@End
+
+@InitVariables
+	//# Any variable that is set during project and needs to be saved for recall
+	scene_durs=[0,0,0,0,0,0,0,0]
+	global_swing=0
+	scene_preset=0
+	kick=10
+	lowtom=70
+	snare=30
+	clap=50
+	hhc=62
+	hho=63
+	rimshot=102
+	woodblock=101
+	perc1=103
+	perc2=104
+	claves=110
+	ride=65
+	crash=64
+	
+	//# cc numbers used
+	//# cc's 0-7 are for scene duration
+	cc_rtn_to_song_mode=9
+	cc_swing=10
+@End
+
+@OnKnobChange
+	if knob_set=0
+		Call @KnobChangeSet0
+	endif
+@End
+
+@OnPadDown
+	//# xopd
+	if LastPad<=7
+		SendMIDICC 15, 8, LastPad
+		songmode=1 //# Lock to selected scene
+		edit_scene=LastPad
+		locked_to_scene=LastPad
+		Call @SetupKnobset0
+	elseif LastPad=8
+		songmode=0 //# return to song mode
+		SendMIDICC 15, cc_rtn_to_song_mode, 1
+	elseif LastPad=9 //#update all scene durations
+		for i = 0 to 7
+			SendMIDICC 15, i, scene_durs[i]
+		endfor
+	elseif LastPad=10 //# setup Ruismaker kit
+		Call @SetupRuismakerKit
+	endif
+	Call @SetupLayout
+@End 
+
+@SetupKnobset0
+	//# Scene settings
+	knob_set = 0
+	LabelKnobs {Scene setup}
+	Call @LabelKnobs
+	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
+	SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
+	SetKnobValue 2, TranslateScale scene_preset, 0, 7, 0, 127
+	SetKnobValue 3, TranslateScale global_swing, 0, 100, 0, 127 
+@End
+
+@KnobChangeSet0
+	//# scene settings xs0
+	if LastKnob = 0
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		if val <> edit_scene
+			edit_scene = val
+			Call @LabelKnobs
+			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
+		endif
+	endif
+	if LastKnob = 1
+		scn_duration = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32
+		scene_durs[edit_scene] = scn_duration
+		Call @LabelKnobs
+		SendMIDICC 15, edit_scene, scene_durs[edit_scene] 
+	endif
+	if LastKnob = 2
+		val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
+		if val <> scene_preset
+			scene_preset = val
+			CopyArray scene_presets[scene_preset*8], scene_durs, 8
+			Call @LabelKnobs
+			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
+		endif
+	endif
+	if LastKnob = 3
+		val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
+		if val <> global_swing
+			global_swing = val
+			Call @LabelKnobs
+			SendMIDICC 15, cc_swing, global_swing
+		endif
+	endif
+	Call @SetupLayout
+@End
+
+@SetupRuismakerKit
+	//# Send midi to select instruments
+	SendMIDICC 8, 22, kick
+	SendMIDICC 8, 23, lowtom
+	SendMIDICC 8, 24, snare
+	SendMIDICC 8, 25, clap
+	SendMIDICC 8, 26, hhc
+	SendMIDICC 8, 27, hho
+	SendMIDICC 8, 28, perc1
+	SendMIDICC 8, 29, perc2
+@End
+
+@SetupLayout
+	//# Setup scene pads
+	for i = 0 to 7  
+		if scene_durs[i] > 0
+			ColorPad i, col_scene
+			scn_to_label = i
+			Call @LabelScenePad
+		else
+			ColorPad i, col_unused
+			LabelPad i, { }
+		endif
+		LatchPad i, NO
+		ColorPad edit_scene, col_sel_scene
+  endfor
+	if (songmode = 0)
+		LabelPad 8, {PLAYSONG: Active }
+		LatchPad 8, YES
+	elseif (songmode = 1)
+		LabelPad 8, {PLAYSONG: Locked S}, locked_to_scene+1
+		LatchPad 8, NO
+		LatchPad locked_to_scene, YES
+	endif
+	LabelPad 9, {UPDATE ALL}
+	labelPad 10, {SETUP RUISMAKER}
+@End
+
+@LabelScenePad
+	//# Set scn_to_label var before calling
+	sc_dur = scene_durs[scn_to_label]
+	LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}
+@End
+
+@LabelKnobs
+	if knob_set=0
+		LabelKnob 0, {Scene }, edit_scene+1
+		LabelKnob 1, {Bars }, scene_durs[edit_scene]
+		LabelKnob 2, {Preset }, scene_preset+1
+		LabelKnob 3, {G-Swing }, global_swing
+	endif
+@End
+
+@LoadScenePresets
+	//# Easy load scene presets for template songs
+	scene_presets[0*8]=[ 0, 0, 0, 0, 0, 0, 0, 0]
+	scene_presets[1*8]=[ 4, 8,16,16, 4,16, 8, 4]
+	scene_presets[2*8]=[ 8, 8,16,16,12,32, 8, 8]
+	scene_presets[3*8]=[ 8, 8,16,16, 8,16, 8, 8]
+	scene_presets[4*8]=[16,16,16, 8, 8,16,16,16]
+	scene_presets[5*8]=[16,16,32,16, 8,16,16,16]
+	scene_presets[6*8]=[16,32,16, 8, 8,16,32,16]
+	scene_presets[7*8]=[16,32,32,16,16,16,32,16]
+@End
