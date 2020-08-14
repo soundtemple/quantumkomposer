@@ -634,10 +634,8 @@
 	      Call @SetupKnobset7 //# MUTATE
 	    elseif LastPad = 11
 	    	//# Create random ramp vals
-			 	for i = 0 to 47
-		 	 		r[i] = Random 0,15 //# options [0,1....,15]
-			 	endfor 
-	      Call @SetupKnobset8 //# SEQ GEN
+			 	Call @LoadRampPatterns
+				Call @SetupKnobset8 //# SEQ GEN
 	    elseif LastPad = 12
 	      Call @SetupKnobset9 //# ROTATION
 	    endif
@@ -2535,9 +2533,9 @@ if note_set_type=0
 				LabelPad i, {ROTATE}
 			elseif i = 13
 				LatchPad i, NO
-				if label_style=4
+				if label_view_mode=4
 					LabelPad i, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
-				elseif label_style=5
+				elseif label_view_mode=5
 					LabelPad i, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CHS1-4}
 				endif
 			elseif i = 14
