@@ -25,6 +25,7 @@
 	  knob2_cc = 122
 	  knob3_cc = 123
 	  knob4_cc = 124
+		mchnce=100
     Call @InitKnobVariables //# All knob settings on load
 	  Call @SetupSequences
 	  Call @LoadDrumPatterns
