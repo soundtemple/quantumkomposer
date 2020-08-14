@@ -1,8 +1,5 @@
 # README
 
-Date Created: Aug 14, 2020 10:19 AM
-Status: Not Started
-
 ### Quantum Komposer
 
 A suite of scripts making electronic music on the iPad. The scripts are written for use in the Mozaic app by Bram Bos.
