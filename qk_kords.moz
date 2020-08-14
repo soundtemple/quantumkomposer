@@ -538,7 +538,6 @@
 		Call @SetupKnobset4
 	elseif mode = 10
 		LabelPads {SEQ A MODES:  0.OFF 1.Chord, 2.RoundToChord, 3.+NonChord, 4.Bass, 5.Root, 6.Third, 7.Fifth 8.THRU}
-		songmode = 1 //# Lock to scene
 		Call @SetupKnobset3
 	elseif mode = 11
 		LabelPads {SEQ B MIDI CHANNELS: Midi thru _QK:KORDS from sequences to instruments}
@@ -947,7 +946,7 @@
 		//# recorded chords saved as played and sorted. Any val
 		octave_incoming_note = Div midi_note, 12
 		chord_note_octave_adj = (octave_incoming_note - 3) * 12
-		bass_note_octave_adj = (octave_incoming_note - 2) * 12
+		bass_note_octave_adj = (octave_incoming_note - 4) * 12
 		if sc_harm_mode = 3
 			HAR_NOTE_OCTAVE = bass_note_octave_adj + 36
 		else
@@ -2146,7 +2145,6 @@
 		LabelPads {_QK:KORDS Scene: }, current_scene+1, { Chord: }, current_chord+1
 		if (mode >= 1)
 			mode = 0
-			songmode = 1 //# exit to scene lock
 			knob_set = 1
 		endif		
 		Call @SetupLayout
