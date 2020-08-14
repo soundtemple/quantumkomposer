@@ -965,7 +965,7 @@
 		//# Positions based on root inversion, non-re-ordered chord notes
 		if incoming_is_chord_note and sc_harm_mode = 3 //# Bass only
 			Log {CONVERT ALL TO BASS}
-			HAR_NOTE_OUT = chord_bank[chord_slot + bass_slot]
+			HAR_NOTE_OUT = chord_bass
 		elseif (incoming_is_chord_note and sc_harm_mode = 4) //# Root only
 			Log {CONVERT ALL TO ROOT}
 			HAR_NOTE_OUT = chord_root
@@ -1200,7 +1200,8 @@
 	chord_root = chord_root + HAR_NOTE_OCTAVE
 	chord_3rd = chord_3rd + HAR_NOTE_OCTAVE
 	chord_5th = chord_5th + HAR_NOTE_OCTAVE
-	//# chord_bass is always in range 0-11
+	//# presets use actual note. chord select uses raw. so use % to cover
+	chord_bass = chord_bass%12 + HAR_NOTE_OCTAVE 
 @End
 	
 @HumanizeVelocity
@@ -1208,7 +1209,7 @@
   humanize_velocity = 80 // #50-100 Lower = more variation
   	dip_velocity_pct = 60 // #50-100 Reduce velocity by %
 	humanize_pct = (Random humanize_velocity, 100 ) / 100
-	sinputVelocity = MidiVelocity
+	inputVelocity = MidiVelocity
 	if NOT MidiVelocity
 		inputVelocity = 100
 	endif
