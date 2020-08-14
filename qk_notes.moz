@@ -80,7 +80,7 @@
 @End
 
 @SetupSequences
-  midi_out_chs=[8,8,8,8]
+  midi_out_chs=[4,5,6,7]
   cc_vals=[32,48,65,81]
   scene_durs = [0,0,0,0,0,0,0,0]
   scene_swing = [0,0,0,0,0,0,0,0]
@@ -105,7 +105,7 @@
 	FillArray seq3_steps, 0, 1024
 	
 	//# NOTES
-	FillArray seq0_notes, 1, 1024
+	FillArray seq0_notes, 0, 1024
 	FillArray seq1_notes, 4, 1024
 	FillArray seq2_notes, 7, 1024
 	FillArray seq3_notes, 11, 1024
@@ -207,10 +207,10 @@
 			curr_scale[i] = (common_scales[scale_slot + i] + scale_root) % 12
 		endfor
 	  noteset_len=12
-	  FillArray seq0_notes, 0, 1024
-		FillArray seq1_notes, 3, 1024
-		FillArray seq2_notes, 6, 1024
-		FillArray seq3_notes, 10, 1024
+	  //FillArray seq0_notes, 0, 1024 Useful in BEATS but in NOTES not so
+		//FillArray seq1_notes, 3, 1024
+		//FillArray seq2_notes, 6, 1024
+		//FillArray seq3_notes, 10, 1024
 	elseif note_set_type=1 //# single note for each channel
 		CopyArray s_noteset, curr_scale, 4
 		noteset_len=4
@@ -631,14 +631,9 @@
 	    elseif LastPad = 10
 	      Call @SetupKnobset7 //# MUTATE
 	    elseif LastPad = 11
-	    	//# Create random arp vals
-				for i = 0 to 47
-			 		a[i] = Random 0,3 //# options [1,3,5,7]
-			 	endfor	 	
-		 	 	//# Create random ramp vals
-			 	for i = 0 to 47
-		 	 		r[i] = Random 0,15 //# options [0,1....,15]
-			 	endfor 
+	    	//# Create random arp and ramp vals
+				Call @LoadArpPatterns
+	  		Call @LoadRampPatterns
 	      Call @SetupKnobset8 //# SEQ GEN
 	    elseif LastPad = 12
 	      Call @SetupKnobset9 //# ROTATION
@@ -2109,7 +2104,7 @@ endif
   LabelPads {SEQUENCE GENERATION CH}, seq_ch+1, {: Select CH, SEQ TYPE, [...HI, LO]. Gen! knob generates}
   
   SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
-  SetKnobValue 1, TranslateScale sg_type[seq_ch], 0, 4, 0, 127
+  SetKnobValue 1, TranslateScale sg_type[seq_ch], 0, 5, 0, 127
   SetKnobValue 2, TranslateScale sg_lo, 0, 127, 0, 127
   if sg_type[seq_ch] = 0
 	 	SetKnobValue 3, TranslateScale sg_hi, 0, 127, 0, 127
@@ -2128,13 +2123,13 @@ endif
 			label_style=4
 			  if sg_type[seq_ch]=1 or sg_type[seq_ch]=2
 			  	label_style=1
-			  elseif sg_type[seq_ch]=3
-			  	label_style=2
 			  elseif sg_type[seq_ch]=4
+			  	label_style=2
+			  elseif sg_type[seq_ch]=5
 			  	label_style=3
 			  endif
 			Call @LabelAllSequencePads
-			SetKnobValue 1, TranslateScale sg_type[seq_ch], 0, 4, 0, 127
+			SetKnobValue 1, TranslateScale sg_type[seq_ch], 0, 5, 0, 127
 			if sg_type[seq_ch] = 0
 				 	SetKnobValue 3, TranslateScale sg_hi, 0, 127, 0, 127
 			  else
@@ -2143,7 +2138,7 @@ endif
 		endif
 	endif
   if LastKnob = 1
-    sg_type[seq_ch] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 4
+    sg_type[seq_ch] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 5
   	if sg_type[seq_ch] = 0
 		  SetKnobValue 2, TranslateScale sg_lo, 0, 127, 0, 127
 	  	SetKnobValue 3, TranslateScale sg_hi, 0, 127, 0, 127
@@ -2152,11 +2147,11 @@ endif
 		  SetKnobValue 3, TranslateScale sg_gen[seq_ch], 0, 31, 0, 127
 	  endif
 	  label_style=4
-	  if sg_type[seq_ch]=1 or sg_type[seq_ch]=2
+	  if sg_type[seq_ch]>=1 and sg_type[seq_ch]<=3 
 	  	label_style=1
-	  elseif sg_type[seq_ch]=3
-	  	label_style=2
 	  elseif sg_type[seq_ch]=4
+	  	label_style=2
+	  elseif sg_type[seq_ch]=5
 	  	label_style=3
 	  endif
 	  Call @LabelAllSequencePads
@@ -2168,7 +2163,7 @@ endif
     if sg_type[seq_ch]=0
     	sg_hi = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
     else
-	    if note_set_type=1 and (sg_type[seq_ch]=1 or sg_type[seq_ch]=2)
+	    if note_set_type=1 and (sg_type[seq_ch]>=1 and sg_type[seq_ch]<=3)
 	  		//# single noteset type cant do arps or melo
 	  		Log {Single noteset cant do Arps or Melo}
 	  	else			
@@ -2198,9 +2193,12 @@ endif
  		LabelKnob 1, {MELO}
  		label_style=1
  	elseif sg_type[seq_ch]=3
+ 		LabelKnob 1, {RYTM}
+ 		label_style=1
+		elseif sg_type[seq_ch]=4
  		LabelKnob 1, {VELO}
  		label_style=2
- 	elseif sg_type[seq_ch]=4
+ 	elseif sg_type[seq_ch]=5
  		LabelKnob 1, {CC}
  		label_style=3
  	endif
@@ -2210,7 +2208,7 @@ endif
 	 	LabelKnob 3, {HI: }, sg_hi
 	else
 	  LabelKnob 2, { }
-	  if note_set_type=1 and (sg_type[seq_ch]=1 or sg_type[seq_ch]=2)
+	  if note_set_type=1 and (sg_type[seq_ch]>=1 and sg_type[seq_ch]<=3)
 	  	//# single noteset type cant do arps or melo
 	  	LabelKnob 3, {n/a}
 		else
@@ -2235,9 +2233,12 @@ endif
 		CopyArray arps[sg_gen[seq_ch] * 16], p, 16
 	elseif sg_type[seq_ch]=2 //# mel pattern
 		Log {need to create these}
-	elseif sg_type[seq_ch]=3 //# velo pattern
+	elseif sg_type[seq_ch]=3 //# rytm pattern
+		Log {need to create these}
+		p=[1,2,2,0, 1,0,1,0, 1,2,2,2, 0,0,1,2]
+	elseif sg_type[seq_ch]=4 //# velo pattern
 		CopyArray ramps[sg_gen[seq_ch] * 16], p, 16
-	elseif sg_type[seq_ch]=4 //# cc pattern
+	elseif sg_type[seq_ch]=5 //# cc pattern
 		CopyArray ramps[sg_gen[seq_ch] * 16], p, 16
 	endif
 	
@@ -2245,20 +2246,25 @@ endif
 	if sg_type[seq_ch]=1
 		for i = 0 to 15
 			//# Get the right value to paste
-			if note_set_type=0 //# common scales
-				n = curr_scale[p[i]] //# note
-			elseif note_set_type=1 //# fixed notes
-				n = seq_ch
+			seq_octave=3 //# default octave
+			note_index = index_to_scale_degrees[p[i]]
+			if note_index=12
+				seq_octave=4 //# up1 when arp pattern uses 8
 			endif
+			n = curr_scale[note_index%12] //# note
 			//# paste depending on seq_ch
 			if seq_ch=0
-				seq0_notes[p_slot+i] = n 
+				seq0_notes[p_slot+i] = n
+				seq0_octs[p_slot+i] = seq_octave
 			elseif seq_ch=1
 				seq1_notes[p_slot+i] = n
+				seq1_octs[p_slot+i] = seq_octave
 			elseif seq_ch=2
 				seq2_notes[p_slot+i] = n
+				seq2_octs[p_slot+i] = seq_octave
 			elseif seq_ch=3
 				seq3_notes[p_slot+i] = n
+				seq3_octs[p_slot+i] = seq_octave
 			endif
 		endfor
 	endif
@@ -2288,8 +2294,24 @@ endif
 		endfor
 	endif
 	
-	//# APPLY VELO PATTERNS		
+	//# Apply RHYTHM PATTERNS
 	if sg_type[seq_ch]=3
+		for i = 0 to 15
+		//# paste depending on seq_ch
+			if seq_ch=0
+				seq0_steps[p_slot+i] = p[i]
+			elseif seq_ch=1
+				seq1_steps[p_slot+i] = p[i]
+			elseif seq_ch=2
+				seq2_steps[p_slot+i] = p[i]
+			elseif seq_ch=3
+				seq3_steps[p_slot+i] = p[i]
+			endif
+		endfor			
+	endif	
+	
+	//# APPLY VELO PATTERNS		
+	if sg_type[seq_ch]=4
 		for i = 0 to 15
 			//# Get the right value to paste
 			v = (Round (p[i]/15 * range)) + sg_lo //# velo
@@ -2307,7 +2329,7 @@ endif
 	endif
 	
 	//# APPLY CC PATTERNS		
-	if sg_type[seq_ch]=4
+	if sg_type[seq_ch]=5
 		for i = 0 to 15
 			//# Get the right value to paste
 			v = (Round (p[i]/16 * range)) + sg_lo //# velo
@@ -2541,9 +2563,9 @@ endif
 				LabelPad i, {ROTATE}
 			elseif i = 13
 				LatchPad i, NO
-				if label_style=4
+				if label_view_mode=4
 					LabelPad i, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
-				elseif label_style=5
+				elseif label_view_mode=5
 					LabelPad i, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CHS1-4}
 				endif
 			elseif i = 14
@@ -2870,7 +2892,7 @@ endif
 	index_to_scale_degrees = [rest,0,2,4,5,7,8,11,12]
 	arps=[]
 	//# eg: index_to_scale_degrees[arps[0*16][0]]
-	arps[0*16]  = [0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0] //# empty
+	arps[0*16]  = [1,1,1,1,  1,1,1,1,  1,1,1,1,  1,1,1,1] //# reset
 	arps[1*16]  = [1,1,1,1,  3,3,3,3,  5,5,5,5,  7,7,7,7] //# UP1
 	arps[2*16]  = [1,1,3,3,  5,5,7,7,  1,1,3,3,  5,5,7,7] //# UP2
 	arps[3*16]  = [1,3,5,7,  1,3,5,7,  1,3,5,7,  1,3,5,7] //# UP4
@@ -2881,7 +2903,7 @@ endif
 	arps[8*16]  = [7,5,3,1,  1,3,5,7,  7,5,3,1,  1,3,5,7] //# DNUP2
 	arps[9*16]  = [1,1,3,3,  5,5,7,7,  7,7,5,5,  3,3,1,1] //# UPDN1
 	arps[10*16] = [1,3,5,7,  7,5,3,1,  1,3,5,7,  7,5,3,1] //# UPDN2
-	arps[11*16] = [1,5,1,5,  1,5,1,5,  1,5,1,5,  1,5,1,7] //# LH
+	arps[11*16] = [1,5,1,5,  1,5,1,5,  1,5,1,5,  1,5,1,8] //# LH
 	arps[12*16] = [1,8,1,8,  1,8,1,8,  1,8,1,8,  1,8,1,8] //# LH2
 	arps[13*16] = [5,1,5,1,  5,1,5,1,  5,1,5,1,  5,1,5,1] //# HL
 	arps[14*16] = [8,1,8,1,  8,1,8,1,  8,1,8,1,  8,1,8,1] //# HL2
@@ -2899,7 +2921,7 @@ endif
 	arps[26*16] = [1,1,2,2,  3,3,4,4,  5,5,6,6,  7,7,8,8] //# RISE1
 	arps[27*16] = [8,7,6,5,  4,3,2,1,  8,7,6,5,  4,3,2,1] //# FALL2
 	arps[28*16] = [1,2,3,4,  5,6,7,8,  1,2,3,4,  5,6,7,8] //# RISE2
-	arps[29*16] = [a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10],a[11],a[12],a[13],a[14],a[15]] //# RND1 chord notes only
-	arps[30*16] = [a[16],a[17],a[18],a[19],a[20],a[21],a[22],a[23],a[24],a[25],a[26],a[27],a[28],a[29],a[30],a[31]] //# RND2 1-3-5-7
+	arps[29*16] = [a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10],a[11],a[12],a[13],a[14],a[15]] //# RND1 
+	arps[30*16] = [a[16],a[17],a[18],a[19],a[20],a[21],a[22],a[23],a[24],a[25],a[26],a[27],a[28],a[29],a[30],a[31]] //# RND2
 	arps[31*16] = [a[32],a[33],a[34],a[35],a[36],a[37],a[38],a[39],a[40],a[41],a[42],a[43],a[44],a[45],a[46],a[47]] //# RND3 Regen on setup 
 @End
