@@ -1336,35 +1336,35 @@ Call @GetMidiINPUTScale
 	//# xls3
 	if note_set_type=0
   	if sel_scale=0
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { Chromatic}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Chromatic}
 	  elseif sel_scale=1
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { Major}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Major}
 	  elseif sel_scale=2
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { MelMinor}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { MelMinor}
 	  elseif sel_scale=3
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { HarMinor}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { HarMinor}
 	  elseif sel_scale=4
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { NatMinor}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { NatMinor}
 	  elseif sel_scale=5
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { Dorian}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Dorian}
 	  elseif sel_scale=6
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { Phrygian}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Phrygian}
 	  elseif sel_scale=7
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { Lydian}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Lydian}
 	  elseif sel_scale=8
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { Mixolydian}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Mixolydian}
 	  elseif sel_scale=9
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { Locrian}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Locrian}
 	  elseif sel_scale=10
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { _QK:Major}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { _QK:Major}
 	  elseif sel_scale=11
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { _QK:Minor}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { _QK:Minor}
 	  elseif sel_scale=12
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { Major Pent}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Major Pent}
 	  elseif sel_scale=13
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { Minor Pent}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Minor Pent}
 	  elseif sel_scale=14
-	  	LabelPad 3, {KEY/SCALE       }, (NoteName, scale_root), { Blues}
+	  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Blues}
 	  endif
   elseif note_set_type=1
   	LabelPad 3, {FIXED NOTES  [}, s_noteset[0], {-}, s_noteset[1], {]    [}, s_noteset[2], {-}, s_noteset[3], {]}   
@@ -1374,7 +1374,7 @@ Call @GetMidiINPUTScale
   	if note_set_type=0
   		//# Allow note input from a selected scale
 		  LabelKnob 0, {SCALE}
-	  	LabelKnob 1, {Key }, (NoteName, scale_root)
+	  	LabelKnob 1, {Key }, (NoteName scale_root)
 	  	LabelKnob 2, {Scale}
 	  elseif note_set_type=1
 	  	//# Single note assigned to each channel for kit style setup
@@ -1810,7 +1810,7 @@ pattn_slot = (current_scene * 8) + current_pattn
 		endif
 	endif
 	CopyArray new_steps, n, 16
-//# Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]
+	//# Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]
 	Call @LabelAllSequencePads
 @end
 
@@ -2121,26 +2121,26 @@ endif
 @KnobChangeSet8
   //# SEQ GEN xs8 
   if LastKnob = 0
-    new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
-	if new_seq_ch <> seq_ch
-		seq_ch=new_seq_ch
-		label_style=4
-		  if sg_type[seq_ch]=1 or sg_type[seq_ch]=2
-		  	label_style=1
-		  elseif sg_type[seq_ch]=3
-		  	label_style=2
-		  elseif sg_type[seq_ch]=4
-		  	label_style=3
-		  endif
-		Call @LabelAllSequencePads
-		SetKnobValue 1, TranslateScale sg_type[seq_ch], 0, 4, 0, 127
-		if sg_type[seq_ch] = 0
-			 	SetKnobValue 3, TranslateScale sg_hi, 0, 127, 0, 127
-		  else
-		  	SetKnobValue 3, TranslateScale sg_gen[seq_ch], 0, 31, 0, 127
-		  endif
+		new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
+		if new_seq_ch <> seq_ch
+			seq_ch=new_seq_ch
+			label_style=4
+			  if sg_type[seq_ch]=1 or sg_type[seq_ch]=2
+			  	label_style=1
+			  elseif sg_type[seq_ch]=3
+			  	label_style=2
+			  elseif sg_type[seq_ch]=4
+			  	label_style=3
+			  endif
+			Call @LabelAllSequencePads
+			SetKnobValue 1, TranslateScale sg_type[seq_ch], 0, 4, 0, 127
+			if sg_type[seq_ch] = 0
+				 	SetKnobValue 3, TranslateScale sg_hi, 0, 127, 0, 127
+			  else
+			  	SetKnobValue 3, TranslateScale sg_gen[seq_ch], 0, 31, 0, 127
+			  endif
+		endif
 	endif
-endif
   if LastKnob = 1
     sg_type[seq_ch] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 4
   	if sg_type[seq_ch] = 0
@@ -2159,10 +2159,10 @@ endif
 	  	label_style=3
 	  endif
 	  Call @LabelAllSequencePads
-endif
-if LastKnob=2 and sg_type[seq_ch]=0
+	endif
+	if LastKnob=2 and sg_type[seq_ch]=0
     sg_lo = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
-endif
+	endif
   if LastKnob = 3
     if sg_type[seq_ch]=0
     	sg_hi = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
@@ -2179,7 +2179,7 @@ endif
 	    	endif
 	    endif
     endif
-endif
+	endif
 	Call @LabelSeqGenKnobs  
 @End
 
@@ -2211,8 +2211,8 @@ endif
 	  LabelKnob 2, { }
 	  if note_set_type=1 and (sg_type[seq_ch]=1 or sg_type[seq_ch]=2)
 	  	//# single noteset type cant do arps or melo
-	  	LabelKnob 3, {n/a},
-	  else
+	  	LabelKnob 3, {n/a}
+		else
 		  LabelKnob 3, {Gen! }, sg_gen[seq_ch]
 		endif
 	endif
@@ -2364,14 +2364,14 @@ endif
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { ROTATE}
   if LastKnob = 0
     new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
-	if new_seq_ch <> seq_ch
-		seq_ch=new_seq_ch
-		Call @LabelAllSequencePads
+		if new_seq_ch <> seq_ch
+			seq_ch=new_seq_ch
+			Call @LabelAllSequencePads
+		endif
 	endif
-endif
-  if LastKnob = 1
-    rot_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 5
-endif
+	if LastKnob = 1
+		rot_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 5
+	endif
   if LastKnob = 2
     rot_dir = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 1
     if rot_dir <> 0
@@ -2382,7 +2382,7 @@ endif
   		timer_rpts=0
   	else	
   		StopTimer
-	endif
+		endif
   endif
   if LastKnob = 3
   	//# not in use
@@ -2573,7 +2573,7 @@ endif
 	cd = pattn_durs[pattn_slot]
 	cd_bars = Div cd, 4
 	lc_beats = (cd % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
-	LabelPad, pattn_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}
+	LabelPad pattn_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}
 @End
 
 @SetupLayout
@@ -2645,25 +2645,25 @@ endif
 @SetupSeqLayout
 	//# sequence mode layout xssl
 	if mode = 8
-  Call @SetupKnobset6 //# SEQUENCE STEPS EDIT
-  label_style=4
-  LabelPads {SEQUENCE STEPS: Knobs generate Euclidean steps. Pads toggle state or record steps}
-elseif mode = 9
-	label_style=label_view_mode
-  Call @SetupKnobset5 //# SEQUENCE EDIT ALL TYPES
-  LabelPads {SEQUENCE EDIT: Tap pad to select. Use knobs to edit.}
-elseif mode = 10
-	label_style=label_view_mode
-  Call @SetupKnobset7 //# MELODY GENERATION
-elseif mode = 11
-	label_style=label_view_mode
-  Call @SetupKnobset8 //# SEQUENCE GENERATION
-elseif mode = 12
-    label_style=label_view_mode
-  Call @SetupKnobset9 //# ROTATE
-  LabelPads {ROTATE SEQUENCE: Select CH, type and use <ROT> to rotate.}
-endif 
-Call @LabelAllSequencePads
+	  Call @SetupKnobset6 //# SEQUENCE STEPS EDIT
+	  label_style=4
+	  LabelPads {SEQUENCE STEPS: Knobs generate Euclidean steps. Pads toggle state or record steps}
+	elseif mode = 9
+		label_style=label_view_mode
+	  Call @SetupKnobset5 //# SEQUENCE EDIT ALL TYPES
+	  LabelPads {SEQUENCE EDIT: Tap pad to select. Use knobs to edit.}
+	elseif mode = 10
+		label_style=label_view_mode
+	  Call @SetupKnobset7 //# MELODY GENERATION
+	elseif mode = 11
+		label_style=label_view_mode
+	  Call @SetupKnobset8 //# SEQUENCE GENERATION
+	elseif mode = 12
+	    label_style=label_view_mode
+	  Call @SetupKnobset9 //# ROTATE
+	  LabelPads {ROTATE SEQUENCE: Select CH, type and use <ROT> to rotate.}
+	endif 
+	Call @LabelAllSequencePads
 @End
 
 @UpdateSelStepType
@@ -2694,52 +2694,52 @@ Call @LabelAllSequencePads
 
 @ColorSequencePad
 	//# ColorPad Is the selected pad off - on - sustain prev.
-if (seq_ch=0) 
-	sel_pad_type = seq0_steps[step_slot]
-elseif (seq_ch=1)
-	sel_pad_type = seq1_steps[step_slot]
-elseif (seq_ch=2)
-	sel_pad_type = seq2_steps[step_slot]
-elseif (seq_ch=3)
-	sel_pad_type = seq3_steps[step_slot]
-endif
-
-padColor=col_seq_pad_on
-if sel_pad_type=0 and not steps_record_mode //# stored value
-	padColor=col_seq_pad_off
-elseif sel_pad_type=0 and steps_record_mode //# recsteps on
-	padColor=col_seq_pad_rec
-elseif sel_pad_type=2
-	padColor=col_seq_pad_sust
-endif
-
-if (step_mutation[seq_ch]>=1) and (mutate_step[seq_ch]=sel_pad) 
-		padColor=col_mutate //# highlight mutating step
-endif
-
-if (mode=7) and (sel_pad_type>0) //# delete reset pads mode
-	padColor=col_seq_pad_rec
-endif
-
-//# Off pads past pattn length
-if sel_pad >= pattn_length
-	padColor = col_seq_pad_outside
-endif
-
-//# Selected step
-if (sel_pad=sel_step) and (mode=9)
-	ColorPad sel_pad, col_sel_step
-else
-  	ColorPad sel_pad, padColor
-endif
+	if (seq_ch=0) 
+		sel_pad_type = seq0_steps[step_slot]
+	elseif (seq_ch=1)
+		sel_pad_type = seq1_steps[step_slot]
+	elseif (seq_ch=2)
+		sel_pad_type = seq2_steps[step_slot]
+	elseif (seq_ch=3)
+		sel_pad_type = seq3_steps[step_slot]
+	endif
+	
+	padColor=col_seq_pad_on
+	if sel_pad_type=0 and not steps_record_mode //# stored value
+		padColor=col_seq_pad_off
+	elseif sel_pad_type=0 and steps_record_mode //# recsteps on
+		padColor=col_seq_pad_rec
+	elseif sel_pad_type=2
+		padColor=col_seq_pad_sust
+	endif
+	
+	if (step_mutation[seq_ch]>=1) and (mutate_step[seq_ch]=sel_pad) 
+			padColor=col_mutate //# highlight mutating step
+	endif
+	
+	if (mode=7) and (sel_pad_type>0) //# delete reset pads mode
+		padColor=col_seq_pad_rec
+	endif
+	
+	//# Off pads past pattn length
+	if sel_pad >= pattn_length
+		padColor = col_seq_pad_outside
+	endif
+	
+	//# Selected step
+	if (sel_pad=sel_step) and (mode=9)
+		ColorPad sel_pad, col_sel_step
+	else
+	  	ColorPad sel_pad, padColor
+	endif
 @End
 
 @LabelSequencePad
   //# label sequence pads xlsp
-euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
-pattn_length = (16 - euc_vals[euc_slot+2])
-
-//# Pad labeling notes, velo, cc etc
+	euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
+	pattn_length = (16 - euc_vals[euc_slot+2])
+	
+	//# Pad labeling notes, velo, cc etc
   x=15
   if note_set_type=0
   	o0=seq0_octs[step_slot]+1
@@ -2755,8 +2755,8 @@ pattn_length = (16 - euc_vals[euc_slot+2])
 	  n1=curr_scale[seq1_notes[step_slot]]
 	  n2=curr_scale[seq2_notes[step_slot]]
 	  n3=curr_scale[seq3_notes[step_slot]]
-endif
-n=[n0,n1,n2,n3]
+	endif
+	n=[n0,n1,n2,n3]
   v0=seq0_velos[step_slot]
   v1=seq1_velos[step_slot]
   v2=seq2_velos[step_slot]
@@ -2766,18 +2766,18 @@ n=[n0,n1,n2,n3]
   v2r=RoundUp (seq2_velos[step_slot]/x)
   v3r=RoundUp (seq3_velos[step_slot]/x)
   v=[v0,v1,v2,v3]
-cc0=seq0_ccs[step_slot]
-cc1=seq1_ccs[step_slot]
-cc2=seq2_ccs[step_slot]
-cc3=seq3_ccs[step_slot]
-cc0r=RoundUp (seq0_ccs[step_slot]/x)
-cc1r=RoundUp (seq1_ccs[step_slot]/x)
-cc2r=RoundUp (seq2_ccs[step_slot]/x)
-cc3r=RoundUp (seq3_ccs[step_slot]/x)
-cc=[cc0,cc1,cc2,cc3]
+	cc0=seq0_ccs[step_slot]
+	cc1=seq1_ccs[step_slot]
+	cc2=seq2_ccs[step_slot]
+	cc3=seq3_ccs[step_slot]
+	cc0r=RoundUp (seq0_ccs[step_slot]/x)
+	cc1r=RoundUp (seq1_ccs[step_slot]/x)
+	cc2r=RoundUp (seq2_ccs[step_slot]/x)
+	cc3r=RoundUp (seq3_ccs[step_slot]/x)
+	cc=[cc0,cc1,cc2,cc3]
 	
-if (label_style=5) //# label all channels + all values
-  	LabelPad sel_pad, (NoteName n3 ,YES), {_v},v3r,{cc},cc3r,{ }, ,(NoteName n2, YES), {_v},v2r,{cc},cc2r,{ }, (NoteName n1, YES), {_v},v1r,{cc},cc1r,{ }, (NoteName n0, YES), {_v},v0r,{cc},cc0r
+	if (label_style=5) //# label all channels + all values
+  	LabelPad sel_pad, (NoteName n3 ,YES), {_v},v3r,{cc},cc3r,{ }, (NoteName n2, YES), {_v},v2r,{cc},cc2r,{ }, (NoteName n1, YES), {_v},v1r,{cc},cc1r,{ }, (NoteName n0, YES), {_v},v0r,{cc},cc0r
   elseif (label_style=4) //# label selected channel + all values
   	LabelPad sel_pad, (NoteName n[seq_ch], YES), {     }, n[seq_ch], {          v},v[seq_ch],{  cc},cc[seq_ch]
   elseif (label_style=0) or (label_style=1) 
@@ -2785,7 +2785,7 @@ if (label_style=5) //# label all channels + all values
   	LabelPad sel_pad, (NoteName n[seq_ch], YES)
   elseif (label_style=2) //# label selected channel velo only
   	LabelPad sel_pad, {VEL: }, v[seq_ch]
-elseif (label_style=3) //# label selected channel cc only
+	elseif (label_style=3) //# label selected channel cc only
   	if cc[seq_ch]=-1
   		LabelPad sel_pad, {CC: off}
   	else
@@ -2807,8 +2807,8 @@ elseif (label_style=3) //# label selected channel cc only
   endif
   //# Hide data for pads outside seq length
   if sel_pad >= pattn_length
-	LabelPad sel_pad, { }
-endif
+		LabelPad sel_pad, { }
+	endif
 @End
 
 @LoadRampPatterns
