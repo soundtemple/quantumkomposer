@@ -118,7 +118,7 @@
 	num_scale_types = 4
   
   //# scene config:
-  //# [duration, txpose, preset, mg1-4_modes, out_ch1-4, pgmchg]
+  //# [duration, txpose, preset, mg1-4_modes, out_ch1-4 modes, pgmchg]
   //# MG Modes determine how harmonization occurs per scene
   sc_txp_slot = 1
   sc_preset_slot = 2
@@ -142,7 +142,7 @@
   //# Create empty chord and scene arrays
   for s = 0 to 7 
 	  //# Create 8 scene arrays in scene_bank
-	  scene_bank[s*sc_size] = [0,6,1,0,0,0,0,0,0,0,0,-1]
+	  scene_bank[s*sc_size] = [0,6,1,2,2,2,2,1,8,8,9,-1]
 		for c = 0 to 7
 			//# Create 8 chord arrays for each scene
 			chord_bank[(s*100) + (c*10)] = [-1, -1, -1, -1, 0, 0, -1,-1]
