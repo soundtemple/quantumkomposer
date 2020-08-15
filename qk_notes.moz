@@ -164,6 +164,10 @@
 	velo_mutation = [0,0,0,0] //# +/- range for mutation amt per ch
 	cc_mutation = [0,0,0,0] //# +/- range for mutation amt per ch
 	mutate_step=[-1,-1,-1,-1] //# THE rnd step which will mutate per channel 
+	
+	//# Melody generation
+	rythm1=[0,0,0,1,  0,0,1,0,   0,0,1,1,   0,0,1,2,   0,1,2,2,  0,0,0,0,   1,0,0,0,   1,0,1,0,   1,0,1,1,   1,0,1,2,   1,0,2,0,   1,0,2,1,   1,0,2,2,   1,2,0,0,   1,2,1,0,   1,2,1,1,   1,2,1,2,   1,2,2,0,   1,2,2,1,   1,2,2,2]
+	rythm2=[0,0,0,1,  0,0,1,0,   0,0,1,1,   0,0,1,2,   0,1,2,2,  0,0,0,0,   1,0,0,0,   1,0,1,0,   1,0,1,1,   1,0,1,2,   1,0,2,0,   1,0,2,1,   1,0,2,2,   1,2,0,0,   1,2,1,0,   1,2,1,1,   1,2,1,2,   1,2,2,0,   1,2,2,1,   1,2,2,2,   2,0,0,0,    2,0,0,1,    2,0,1,0,    2,0,1,1,    2,0,1,2,    2,2,0,0,    2,2,0,1,    2,2,1,0,    2,2,1,1,    2,2,2,0,    2,2,2,1,    2,2,2,2]
 @End
 
 @SetupScales
@@ -2254,11 +2258,10 @@ endif
 		Log {need to create these}
 	elseif sg_type[seq_ch]=3 //# rytm pattern
 		Log {need to create these}
-		rythm=[0,0,0,1,  0,0,1,0,   0,0,1,1,   0,0,1,2,   0,1,2,2,  0,0,0,0,   1,0,0,0,   1,0,1,0,   1,0,1,1,   1,0,1,2,   1,0,2,0,   1,0,2,1,   1,0,2,2,   1,2,0,0,   1,2,1,0,   1,2,1,1,   1,2,1,2,   1,2,2,0,   1,2,2,1,   1,2,2,2]
-		CopyArray rythm[(Random 0,19)*4], p[0], 4
-		CopyArray rythm[(Random 0,19)*4], p[4], 4
-		CopyArray rythm[(Random 0,19)*4], p[8], 4
-		CopyArray rythm[(Random 0,19)*4], p[12], 4
+		CopyArray rythm1[(Random 0,19)*4], p[0], 4
+		CopyArray rythm2[(Random 0,19)*4], p[4], 4
+		CopyArray rythm2[(Random 0,19)*4], p[8], 4
+		CopyArray rythm2[(Random 0,19)*4], p[12], 4
 	elseif sg_type[seq_ch]=4 //# velo pattern
 		CopyArray ramps[sg_gen[seq_ch] * 16], p, 16
 	elseif sg_type[seq_ch]=5 //# cc pattern
