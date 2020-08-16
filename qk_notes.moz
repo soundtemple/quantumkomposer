@@ -194,6 +194,7 @@
 	common_scales[14*12] = [0,0,3,3,3,5,6,7,10,10,10,10] //#	Blues
 	
 	//# Melody generation scale degrees
+	starting_indexes = [0,2,4,6] //# for Root, 3rd, 5th 7th
 	mel_gen_scale_degrees[0]     = [0,2,4,5,7,9,11] //#	Chromatic use major
 	mel_gen_scale_degrees[1*12]  = [0,2,4,5,7,9,11] //#	Major
 	mel_gen_scale_degrees[2*12]  = [0,2,3,5,7,8,10] //#	NatMin
@@ -209,6 +210,7 @@
 	mel_gen_scale_degrees[12*12] = [0,0,2,4,7,7, 9] //#	Major Pent
 	mel_gen_scale_degrees[13*12] = [0,0,3,5,7,7,10] //#	Minor Pent
 	mel_gen_scale_degrees[14*12] = [0,0,3,5,7,6,10] //#	Blues
+	index_last_note_p = 0 //# Calc note variable for recalling last note to be played
 	
 	Call @GetMidiINPUTScale //# set up init scale for midi input	
 @End
@@ -222,8 +224,11 @@
 	endfor
 	noteset_len=12
 	
-	mel_gen_scale_degs=[]
-	CopyArray mel_gen_scale_degrees[scale_slot], mel_gen_scale_degs, 12
+	for i = 0 to 6
+		mel_gen_scale_degs[i] = (mel_gen_scale_degrees[scale_slot + i] + scale_root) % 12 
+	endfor
+	
+	Log {MEL GEN SCALE DEGS: }, (NoteName mel_gen_scale_degs[0]),(NoteName mel_gen_scale_degs[1]),(NoteName mel_gen_scale_degs[2]),(NoteName mel_gen_scale_degs[3]),(NoteName mel_gen_scale_degs[4]),(NoteName mel_gen_scale_degs[5]),(NoteName mel_gen_scale_degs[6])
 	
 	Log (NoteName curr_scale[0]), { }, (NoteName curr_scale[1]), { }, (NoteName curr_scale[2]), { }, (NoteName curr_scale[3]), { }, (NoteName curr_scale[4]), { }, (NoteName curr_scale[5]), { }, (NoteName curr_scale[6]), { }, (NoteName curr_scale[7]), { }, (NoteName curr_scale[8]), { }, (NoteName curr_scale[9]), { }, (NoteName curr_scale[10]), { }, (NoteName curr_scale[11]), { }
 @End
@@ -2250,12 +2255,12 @@ endif
 	elseif sg_type[seq_ch]=2 //# mel pattern
 		if sg_gen[seq_ch] < 8
 			first_note = starting_indexes[0]
-		elseif sg_gen[seq_ch] >= 8
+		elseif sg_gen[seq_ch]>=8 and sg_gen[seq_ch]<16 
 			first_note = starting_indexes[1]
-		elseif sg_gen[seq_ch] >= 16
+		elseif sg_gen[seq_ch] >= 16 and sg_gen[seq_ch]<24
 			first_note = starting_indexes[2]
 		elseif sg_gen[seq_ch] >= 24
-			first_note = starting_indexes[3]
+			first_note = starting_indexes[3] 
 		endif
 		first_note_set = FALSE
 	elseif sg_type[seq_ch]=3 //# arp pattern
@@ -2371,79 +2376,80 @@ endif
 @CalculateNoteChoice
 	//# returns an index to a scale degree [0-6] which has to be converted to the curr_scale style 
 	//# based on strong and weak beats and move size from previous note index
-	curr_slot=i
-	next_slot=i+1
-	prev_slot=i-1
+	move=0
+	curr_slot=p_slot+i
+	next_slot=p_slot+i+1
+	prev_slot=p_slot+i-1
 	if i=0
-		prev_slot=i //# we dont use but just so no error
+		prev_slot=p_slot+i //# we dont use but just so no error
 	elseif i=15
-		next_slot=i //# we dont use but just so no error
+		next_slot=p_slot+i //# we dont use but just so no error
 	endif
 	//# surrounding steps info for calculating curr note index
 	if seq_ch=0
-		curr_step_type = seq0_notes[curr_slot]
-		next_step_type = seq0_notes[next_slot]
-		prev_step_type = seq0_notes[prev_slot]
+		curr_step_type = seq0_steps[curr_slot]
+		next_step_type = seq0_steps[next_slot]
+		prev_step_type = seq0_steps[prev_slot]
 	elseif seq_ch=1
-		curr_step_type = seq1_notes[curr_slot]
-		next_step_type = seq1_notes[next_slot]
-		prev_step_type = seq1_notes[prev_slot]
+		curr_step_type = seq1_steps[curr_slot]
+		next_step_type = seq1_steps[next_slot]
+		prev_step_type = seq1_steps[prev_slot]
 	elseif seq_ch=2
-		curr_step_type = seq2_notes[curr_slot]
-		next_step_type = seq2_notes[next_slot]
-		prev_step_type = seq2_notes[prev_slot]
+		curr_step_type = seq2_steps[curr_slot]
+		next_step_type = seq2_steps[next_slot]
+		prev_step_type = seq2_steps[prev_slot]
 	elseif seq_ch=3
-		curr_step_type = seq3_notes[curr_slot]
-		next_step_type = seq3_notes[next_slot]
-		prev_step_type = seq3_notes[prev_slot]
+		curr_step_type = seq3_steps[curr_slot]
+		next_step_type = seq3_steps[next_slot]
+		prev_step_type = seq3_steps[prev_slot]
 	endif
-
+	
+	weak_beat=i%2
+	prev_note = p[index_last_note_p] //# expressed as scale degree [0-6]
+	prev_note_passing_note = p[index_last_note_p]%2=1 //# odd scale degree [0-6]
 	//# current note index calculation
-	if (curr_step_type = 1) and i%2
-		//# handle weak beat
-		if first_note_set
-			if i=15 //# last note so add chord note
-				//# move to nearby chord note
-				move = Random -1,1
-				if (p[i-1] + move)%2 //#non-chord
-					p[i] = p[i-1] + move + 1
-				else
-					p[i] = p[i-1] + move
-				endif
-			else //# add_passing_note
-				p[i] = p[i-1] + move
-			endif
-		else //# first note not set yet
-			p[i] = first_note 
-			first_note_set = TRUE
+	if (curr_step_type=1) and not first_note_set
+		p[i] = first_note 
+		first_note_set = TRUE
+		index_last_note_p = i //# step=1 note set
+		Log {first note set },i+1 
+	elseif (curr_step_type=1) and first_note_set and not weak_beat
+	  if i>0 and prev_step_type=1 and prev_note_passing_note
+			//# force nearby chord note
+			move = Random -1,1
+			p[i] = prev_note + move //# will always be 1 scale degree from chord note
+			Log {prev note passing note setting chord note on }, i+1
+		else
+			//# allow any chord note
+			new_index = Random 0,3
+			p[i] = starting_indexes[new_index]
+			Log {allowing any chord note on },i+1
 		endif
-	elseif  (curr_step_type = 1) and not i%2
-		//# handle strong beat
-		if first_note_set
-			if prev_step_type = 1
-				//# move to nearby chord note
-				move = Random -1, 1
-				if (p[i-1] + move)%2 //#non-chord
-					p[i] = p[i-1] + move + 1
-				else
-					p[i] = p[i-1] + move
-				endif	
-			else
-				//# allow any chord note
-				new_index = Random 0,3
-				p[i] = starting_indexes[new_index]
-			endif			
-		else //# first note not set yet
-			p[i] = first_note 
-			first_note_set = TRUE
+		index_last_note_p = i //# step=1 note set
+	elseif (curr_step_type=1) and first_note_set and weak_beat
+	  if i<15 and next_step_type=1
+			//# allow passing note
+			move = Random -2,2
+			p[i] = prev_note + move
+			Log {allowing passing or chord note on },i+1
+		else
+		  //# nearby chord note
+			move_options = [-2,0,2] //# prev_note is strong therefore chord note
+			move = move_options[(Random 0,2)]
+			p[i] = prev_note + move
+			Log {nearby chord note to previous on },i+1
 		endif
-	else //# step must be a 0 or 2 (off or sus_prev)
-		//# set a relevant dummy note in case rytm is changed
-		p[i] = first_note
+		index_last_note_p = i //# step=1 note set
+	elseif curr_step_type <> 1 and i=0
+		p[i] = first_note //# set a relevant dummy note in case rytm changes
+		index_last_note_p = i //# step=1 note set not_played but default until first real
+	elseif curr_step_type <> 1 and i>0
+		p[i] = prev_note //# set a relevant dummy note in case rytm changes
+		//# no index_last_note_p no step=1 not played 
 	endif
 	//# finally if p[i] has gone outside the range [0-6]
 	if p[i]>=0
-		p[i] = p[i]%6 
+		p[i] = p[i]%7
 	else
 		p[i] = 7 + p[i] //# -ve number wrap back to end ie: -1 goes to 6
 	endif
