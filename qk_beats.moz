@@ -220,8 +220,6 @@
 		FillArray seq2_notes, 4, 1024
 		FillArray seq3_notes, 6, 1024
 	endif
-	
-	Log (NoteName curr_scale[0]), { }, (NoteName curr_scale[1]), { }, (NoteName curr_scale[2]), { }, (NoteName curr_scale[3]), { }, (NoteName curr_scale[4]), { }, (NoteName curr_scale[5]), { }, (NoteName curr_scale[6]), { }, (NoteName curr_scale[7]), { }, (NoteName curr_scale[8]), { }, (NoteName curr_scale[9]), { }, (NoteName curr_scale[10]), { }, (NoteName curr_scale[11]), { }, (NoteName curr_scale[12]), { }, (NoteName curr_scale[13])
 @End
 		
 
