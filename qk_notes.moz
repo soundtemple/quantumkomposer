@@ -2176,6 +2176,10 @@ endif
 			else //# no beat previous step so no sus prev available
 			  p[i] = Random 0,1
 			endif
+			thin = Random sg_gen[seq_ch], 32 // pattern density thin - thick
+			if thin > sg_gen[seq_ch] * 2
+				p[i]=0 //# pad off for thinner patterns
+			endif
 		endfor
 	elseif sg_type[seq_ch]=2 //# mel pattern
 		if sg_gen[seq_ch] < 8
