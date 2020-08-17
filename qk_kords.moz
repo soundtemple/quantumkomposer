@@ -18,7 +18,8 @@
 	  allow_mode_chg_playbk = TRUE //# Mode change during playback
 	  return_to_song_mode_requested = FALSE //# used for switching on new bar 
 	  rec_chord_note_count = 0 //# recording notes in chord slot
-	  use_turn_around = TRUE //# last chord as turn around on last bar of scene
+	  send_pgm_chg_to_note_gen_apps_on_scene_change=FALSE
+		use_turn_around = TRUE //# last chord as turn around on last bar of scene
 	  //# used for LED feedback
 	  midi_channel_conflict = FALSE //# allowing midi OUT channel conflicts
 	  send_cc_back_to_knobs = FALSE 
@@ -130,14 +131,13 @@
   sc_och2_slot = 8
   sc_och3_slot = 9
   sc_och4_slot = 10
-	sc_pgmchg_slot = 11
   sc_size = 15 //# ^ above slots + duration = 11 + 4 spare for even sizing 
-  
+  rnd_scene_chg=FALSE //# will select rnd scene on (auto) change not user change
   //# chord = [note1, note2, note3, note4, duration, inv, bass]
   dur_slot = 4 //# fixed location for duration
   inv_slot = 5
   bass_slot = 6
-  patt_slot = 7
+  sugg_slot = 7 //# for chord suggestion selected choice
  
   //# Create empty chord and scene arrays
   for s = 0 to 7 
@@ -332,18 +332,12 @@
   else
     current_scene = current_scene + 1 //# Going to next
   endif
-  //# Send a program change message on new scene 
-  pgm_chg_num = scene_bank[(current_scene * sc_size) + sc_pgmchg_slot]
-  if pgm_chg_num >= 0
-  	chA = midi_channels_used[1]
-  	chB = midi_channels_used[2]
-  	chC = midi_channels_used[3]
-  	chD = midi_channels_used[4]
-	  Log {Sending Program change: }, pgm_chg_num 
-	  SendMIDIProgramChange chA, pgm_chg_num
-	  SendMIDIProgramChange chB, pgm_chg_num+10
-	  SendMIDIProgramChange chC, pgm_chg_num+20
-	  SendMIDIProgramChange chD, pgm_chg_num+30
+  //# Send pgm chg msg back to apps generating midi to change preset eg: StepPolyArpUnit 
+  if send_pgm_chg_to_note_gen_apps_on_scene_change
+		SendMIDIProgramChange midi_channels_used[1], current_scene+1
+	  SendMIDIProgramChange midi_channels_used[2], current_scene+1
+	  SendMIDIProgramChange midi_channels_used[3], current_scene+1
+	  SendMIDIProgramChange midi_channels_used[4], current_scene+1
   endif
   Call @ResetBeatCounts
   Log {----- SCENE CHANGE -----}, {S}, current_scene+1
@@ -384,17 +378,7 @@
     current_chord = current_chord + 1
   endif
   chord_beat_count = 0 //# reset chord beat count on new chord
-  
-  //# send cc11 per chord message for pattern change in step poly arp
-  chord_slot = (current_scene * 100) + ((current_chord) * 10)
-  spa_pattern = chord_bank[chord_slot + patt_slot]
-  if spa_pattern >= 0
-  	if spa_pattern = 16 //# select a random pattern
-  		spa_pattern = Random 0, 15
-  	endif
-  	Log {Changing SPA pattern }, spa_pattern
-	  SendMIDICC 0, 21, spa_pattern
-	endif  
+  	
   if HostRunning
 	  Call @SendOutChordNotes
   endif
@@ -1324,6 +1308,16 @@
 	Call @SetupLayout 
 @End
 
+@SuggestChord
+	//# Make a chord suggestion based on previous chord. Update current chord slot
+	prev_chord_slot = (current_scene * 100) + (prev_chord * 10)
+	chord_slot = (current_scene * 100) + (current_chord * 10)
+	suggested_chord_notes=[0,4,7,11]
+	for i = 0 to 3
+		chord_bank[chord_slot+i] = suggested_chord_notes[i]
+	endfor
+@End
+
 @SetupKnobset0
 	//# Scene settings
 	knob_set = 0
@@ -1331,19 +1325,18 @@
 	scn_duration = scene_bank[current_scene * sc_size]
 	scn_txpose = scene_bank[(current_scene * sc_size) + sc_txp_slot]
 	scn_preset = scene_bank[(current_scene * sc_size) + sc_preset_slot]
-	scn_pgm_chg = scene_bank[(current_scene * sc_size) + sc_pgmchg_slot]
 	LabelKnob 0, {Duration}
 	LabelKnob 1, {Transpose}
 	LabelKnob 2, {Preset }, scn_preset
-	if scn_pgm_chg >= 0
-		LabelKnob 3, {PChg }, scn_pgm_chg 
+	if rnd_scene_chg = 0
+		LabelKnob 3, {RndScOFF} 
 	else
-		LabelKnob 3, {PChg }, {Off}
+		LabelKnob 3, {RndScON}
 	endif
 	SetKnobValue 0, TranslateScale scn_duration, 0, 32, 0, 127
 	SetKnobValue 1, TranslateScale scn_txpose, 0, 12, 0, 127
 	SetKnobValue 2, TranslateScale scn_preset, 1, num_sc_presets, 0, 127
-	SetKnobValue 3, TranslateScale scn_pgm_chg, -1, 8, 0, 127 
+	SetKnobValue 3, TranslateScale rnd_scene_chg, 0, 1, 0, 127 
 @End
 
 @SetupKnobset1
@@ -1354,7 +1347,7 @@
 	chrd_duration = chord_bank[chord_slot + dur_slot]
 	chrd_inversion = chord_bank[chord_slot + inv_slot]
 	chrd_bass = chord_bank[chord_slot + bass_slot]
-	chrd_patt = chord_bank[chord_slot + patt_slot]
+	chrd_sugg = chord_bank[chord_slot + sugg_slot]
 	if chrd_bass >= 0 //# leave -1 if not set
 		chrd_bass = chord_bank[chord_slot + bass_slot] % 12
 	endif
@@ -1362,14 +1355,8 @@
 		LabelKnob 1, {REC CH }, midi_channels_used[0] + 1
 		SetKnobValue 1, TranslateScale midi_channels_used[0], 0, 15, 0, 127
 	else
-		if chrd_patt = 16
-			LabelKnob 1, {CC21 RND}
-		elseif chrd_patt >= 0
-			LabelKnob 1, {CC21: }, chrd_patt+1
-		else
-			LabelKnob 1, {CC21 Off}
-		endif
-		SetKnobValue 1, TranslateScale chrd_patt, -1, 16, 0, 127
+		LabelKnob 1, {Suggest}, chrd_sugg+1
+		SetKnobValue 1, TranslateScale chrd_sugg, 0, 16, 0, 127
 	endif
 	LabelKnob 0, {Duration}	
 	LabelKnob 2, {Inv }, chrd_inversion
@@ -1781,15 +1768,12 @@
   	Call @ChangeScenePreset
   endif
   if LastKnob = 3
-	  scn_pgm_chg = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 8
-	  if scn_pgm_chg <> scene_bank[(current_scene * sc_size) + sc_pgmchg_slot]
-	  	scene_bank[(current_scene * sc_size) + sc_pgmchg_slot] = scn_pgm_chg
-	  	if scn_pgm_chg >=0
-		  	LabelKnob 3, {PChg }, scn_pgm_chg
-		  else
-		  	LabelKnob 3, {PChg }, {Off}
-		  endif
-	  endif
+	  rnd_scene_chg = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
+		if rnd_scene_chg = 0
+				LabelKnob 3, {RndScOFF} 
+			else
+				LabelKnob 3, {RndScON}
+		endif
   endif
   scn_to_label = current_scene
   Call @LabelScenePad
@@ -1814,17 +1798,12 @@
 	  endif
 	else
 		if LastKnob = 1
-		  chrd_patt = Round TranslateScale (GetKnobValue 1), 0, 127, -1, 16
-			if chrd_patt <> chord_bank[chord_slot + patt_slot] 
-		  	chord_bank[chord_slot + patt_slot] = chrd_patt
-		  	if chrd_patt = 16
-					LabelKnob 1, {CC21 RND}
-		  	elseif chrd_patt >= 0
-					LabelKnob 1, {CC21: }, chrd_patt+1
-				else
-					LabelKnob 1, {CC21 Off}
-				endif
-	  	endif
+		  chrd_sugg = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 16
+			if chrd_sugg <> chord_bank[chord_slot + sugg_slot] 
+		  	chord_bank[chord_slot + sugg_slot] = chrd_sugg
+		  	LabelKnob 1, {Suggest}, chrd_sugg
+	  		//# TODO:- handle Call @SuggestChord
+			endif
 	  endif
   endif
   if LastKnob = 2
@@ -2264,16 +2243,11 @@
 	sc_dur = scene_bank[scn_to_label * sc_size]
 	sc_txp = txpose_labels[scene_bank[(scn_to_label * sc_size) + sc_txp_slot]]
 	sc_preset = scene_bank[(scn_to_label * sc_size) + sc_preset_slot]
-	sc_pgchg = scene_bank[(scn_to_label * sc_size) + sc_pgmchg_slot]
 	sc_txpm = sc_txp - 3
 	if sc_txpm < 0
 		sc_txpm = sc_txpm + 12
 	endif
-	if sc_pgchg >= 0
-	  LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}, {    }, (NoteName sc_txp), {/}, (NoteName sc_txpm), {m(}, txpose_array[scene_bank[(scn_to_label * sc_size) + sc_txp_slot]], {st) }, {  P}, sc_preset, { PC}, sc_pgchg
-	else
-		LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}, {    }, (NoteName sc_txp), {/}, (NoteName sc_txpm), {m(}, txpose_array[scene_bank[(scn_to_label * sc_size) + sc_txp_slot]], {st) }, {  P}, sc_preset, { PC}, {-}
-	endif
+	LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}, {    }, (NoteName sc_txp), {/}, (NoteName sc_txpm), {m(}, txpose_array[scene_bank[(scn_to_label * sc_size) + sc_txp_slot]], {st) }, {  P}, sc_preset
 @End
 
 @LabelChordPad
