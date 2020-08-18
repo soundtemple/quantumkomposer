@@ -57,7 +57,7 @@
   step_val=0
   copy_paste_status=0 //# Copy paste 0=off; 1=Copied; 2=Paste
   return_to_mode=0 //# Copy paste on completion
-	
+	rnd_scene_chg=FALSE //# will select rnd scene on (auto) change not user change
 	//# Color Scheme
 	col_scene = 2
 	col_sel_scene = 4
@@ -82,9 +82,9 @@
 @SetupSequences
   midi_out_chs=[4,5,6,7]
   cc_vals=[32,48,65,81]
-  scene_durs = [0,0,0,0,0,0,0,0]
+  scene_durs = [1,0,0,0,0,0,0,0]
   scene_swing = [0,0,0,0,0,0,0,0]
-  pattn_durs=[] //# Pattern durations in beats
+  pattn_durs=[4] //# Pattern durations in beats
   pattn_octs=[] //# Octave adjust
   
   //# Sequence general setup
@@ -500,7 +500,12 @@
   	//# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
   else
-    current_scene = current_scene + 1 //# Going to next
+    rnd_scene = Random 0,7 //# only move to rnd scene if it has a duration
+    if rnd_scene_chg and scene_durs[rnd_scene]>0
+			current_scene = rnd_scene
+		else
+			current_scene = current_scene + 1 //# Going to next
+		endif
   endif
   scene_beat_count = 0
 	pattn_beat_count = 0
@@ -1127,9 +1132,14 @@
 	LabelKnob 0, {Duration}
 	LabelKnob 1, {Swing }, scene_swing[current_scene], {%}
 	LabelKnob 2, { }
-	LabelKnob 3, { }
+	if rnd_scene_chg = 0
+		LabelKnob 3, {RndScOFF} 
+	else
+		LabelKnob 3, {RndScON}
+	endif
 	SetKnobValue 0, TranslateScale scene_durs[current_scene], 0, 32, 0, 127
 	SetKnobValue 1, TranslateScale scene_swing[current_scene], 0, 100, 0, 127
+	SetKnobValue 3, TranslateScale rnd_scene_chg, 0, 1, 0, 127
 @End
 
 @KnobChangeSet0
@@ -1149,6 +1159,14 @@
 	  	SetMetroSwing scene_swing[current_scene]
 	  endif
   endif
+	if LastKnob = 3
+	  rnd_scene_chg = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
+		if rnd_scene_chg = 0
+				LabelKnob 3, {RndScOFF} 
+			else
+				LabelKnob 3, {RndScON}
+		endif
+	endif
   scn_to_label = current_scene
   Call @LabelScenePad
 @End
