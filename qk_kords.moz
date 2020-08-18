@@ -68,7 +68,6 @@
 	//# Midi channel options Mozaic uses 0-15 - we display 1-16
 	//# Record Chords Ch [0]. EXT MIDI IN CH's [1-4]
 	//# INT MIDI IN CH's [5-8]. Midi OUT CH's' [9-12] for outgoing chords. 
-
 	midi_channels_used = [3,4,5,6,7,8,9,10,11,12,13,14,15]
 	
 	//# enable chords to be saved 
@@ -114,7 +113,6 @@
 	current_scene = 0 // #0-7 Pads 0-7
   current_chord = 0 // #0-7 Pads 8-15
 	num_scale_types = 4
-  
   //# scene config: [duration, txpose, preset, mg1-4_modes, out_ch1-4 modes]
   //# MG Modes determine how harmonization occurs per scene
   sc_txp_slot = 1
@@ -674,16 +672,14 @@
 	endif	
 	
 	//# Update chord pads
-	Log {Chord notes }, chord_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th
-	Log {7th VAL: }, chord_bank[chord_slot + 3], { BASS VAL: }, chord_bank[chord_slot + bass_slot]
+	Log {Chord notes }, chord_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th, { 7th VAL: }, chord_bank[chord_slot + 3], { BASS VAL: }, chord_bank[chord_slot + bass_slot]
 	chrd_to_label = current_chord+8
 	Call @LabelChordPad
 @End
 
 @SaveConstructedChordPad
 	//# save to pad in construct mode  			
-	//# chord to be updated
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
+	chord_slot = (current_scene * 100) + ((current_chord) * 10) //# chord to be updated
 	
 	//# Set fields not updated here. Default if new else saved
 	chrd_duration = 4 //# default value for new chord
@@ -705,14 +701,7 @@
 	chord_bank[chord_slot + 2] = chord_5th
 	chord_bank[chord_slot + 3] = chord_7th
 
-	
-	//# Update chord pads
-	Log {Root: }, (NoteName constructed_root)
-	Log {3rd interval: }, c3rd_intervals[constructed_3rd]
-	Log {5th interval: }, c5th_intervals[constructed_5th]
-	Log {7th interval: }, c7th_intervals[constructed_7th]
-	Log {Chord notes }, constructed_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th
-	Log {7th VAL: }, chord_bank[chord_slot + 3], { BASS VAL: }, chord_bank[chord_slot + bass_slot]
+	Log {Root: }, (NoteName constructed_root), { 3rd: }, c3rd_intervals[constructed_3rd], { 5th: }, c5th_intervals[constructed_5th], { 7th: }, c7th_intervals[constructed_7th], { Chord notes }, constructed_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th, { 7th: }, chord_bank[chord_slot + 3], { BASS: }, chord_bank[chord_slot + bass_slot]
 	chrd_to_label = current_chord+8
 	Call @LabelChordPad
 @End
@@ -1311,12 +1300,59 @@
 
 @SuggestChord
 	//# Make a chord suggestion based on previous chord. Update current chord slot
-	prev_chord_slot = (current_scene * 100) + (prev_chord * 10)
-	chord_slot = (current_scene * 100) + (current_chord * 10)
-	suggested_chord_notes=[0,4,7,11]
-	for i = 0 to 3
-		chord_bank[chord_slot+i] = suggested_chord_notes[i]
-	endfor
+	suggested_chord_notes=[]
+	n1=0 //prev_root
+	n2=4 //prev_3rd
+	n3=7 //prev_5th
+	n4=11 //prev_7th
+	d=4 //duration
+	i=0 //inversion
+	if current_scene>0 and current_chord=0 //# use last chord prev_scene
+		for i = 0 to 7
+			test_slot = ((current_scene-1) * 100) + (i * 10)
+			if chord_bank[chord_slot+dur_slot] > 0 //# chord has duration so use it	
+					prev_chord_slot=test_slot
+	  	endif
+		endfor
+		n1=chord_bank[prev_chord_slot]%12
+		n2=chord_bank[prev_chord_slot+1]%12
+		n3=chord_bank[prev_chord_slot+2]%12
+		n4=chord_bank[prev_chord_slot+3]%12
+		d=chord_bank[prev_chord_slot+4]%12
+		i=chord_bank[prev_chord_slot+5]%12
+	elseif current_chord>0
+		prev_chord_slot = ((current_scene) * 100) + ((current_chord-1) * 10)
+		n1=chord_bank[prev_chord_slot]%12
+		n2=chord_bank[prev_chord_slot+1]%12
+		n3=chord_bank[prev_chord_slot+2]%12
+		n4=chord_bank[prev_chord_slot+3]%12
+		d=chord_bank[prev_chord_slot+4]%12
+		i=chord_bank[prev_chord_slot+5]%12
+	endif
+	//# chord = [note1, note2, note3, note4, duration, inv, bass]
+	chord_suggest_bank[0*10]  = [n1,   n2,    n3,   n4,    d,i,n1]
+	chord_suggest_bank[1*10]  = [n1,   n1+2,  n3,   -1,    d,i,n1] //sus2
+	chord_suggest_bank[2*10]  = [n1,   n1+3,  n3,   -1,    d,i,n1] //minor
+	chord_suggest_bank[3*10]  = [n1,   n1+4,  n3,   -1,    d,i,n1] //major
+	chord_suggest_bank[4*10]  = [n1,   n1+5,  n3,   -1,    d,i,n1] //sus4
+	chord_suggest_bank[5*10]  = [n1,   n1+3,  n1+7, n1+10, d,i,n1] //minor7
+	chord_suggest_bank[6*10]  = [n1,   n1+4,  n1+7, n1+11, d,i,n1] //major7
+	chord_suggest_bank[7*10]  = [n1,   n1+4,  n1+7, n1+10, d,i,n1] //dom7
+	chord_suggest_bank[8*10]  = [n2,   n2+4,  n2+7, -1,    d,i,n1] //chords based from 3rd as root
+	chord_suggest_bank[9*10]  = [n2,   n2+3,  n2+7, -1,    d,i,n1]
+	chord_suggest_bank[10*10] = [n2,   n2+4,  n2+7, n2+11, d,i,n1]
+	chord_suggest_bank[11*10] = [n2,   n2+3,  n2+7, n2+10, d,i,n1]
+	chord_suggest_bank[12*10] = [n3,   n3+4,  n4+7, -1,    d,i,n1] //chords based from 5th as root
+	chord_suggest_bank[13*10] = [n3,   n3+3,  n4+7, -1,    d,i,n1]
+	chord_suggest_bank[14*10] = [n3,   n3+4,  n4+7, n3+11, d,i,n1]
+	chord_suggest_bank[15*10] = [n3,   n3+3,  n4+7, n3+10, d,i,n1]
+	chord_suggest_bank[16*10] = [n1+9, n1+12, n2+12, -1,   d,i,n1] //chords based from root-3rd 
+	
+	//# Update the current chord with suggested notes
+	chord_slot = (current_scene * 100) + (current_chord * 10) //# chord to update
+	CopyArray chord_suggest_bank[chrd_sugg*10], chord_bank[chord_slot], 7
+	chrd_to_label = current_chord+8
+	Call @LabelChordPad
 @End
 
 @SetupKnobset0
@@ -1803,7 +1839,7 @@
 			if chrd_sugg <> chord_bank[chord_slot + sugg_slot] 
 		  	chord_bank[chord_slot + sugg_slot] = chrd_sugg
 		  	LabelKnob 1, {Suggest}, chrd_sugg
-	  		//# TODO:- handle Call @SuggestChord
+	  		Call @SuggestChord
 			endif
 	  endif
   endif
