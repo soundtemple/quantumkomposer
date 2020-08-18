@@ -66,12 +66,9 @@
 	constructed_7th = 3
 	
 	//# Midi channel options Mozaic uses 0-15 - we display 1-16
-	//# Record Chords Ch [0]
-	//# EXT MIDI IN CH's [1-4]
-	//# INT MIDI IN CH's [5-8]
-	//# Midi OUT CH's' [9-12] for outgoing chords. 
-	//# ie Direct to arp or instrument
-	
+	//# Record Chords Ch [0]. EXT MIDI IN CH's [1-4]
+	//# INT MIDI IN CH's [5-8]. Midi OUT CH's' [9-12] for outgoing chords. 
+
 	midi_channels_used = [3,4,5,6,7,8,9,10,11,12,13,14,15]
 	
 	//# enable chords to be saved 
@@ -118,8 +115,7 @@
   current_chord = 0 // #0-7 Pads 8-15
 	num_scale_types = 4
   
-  //# scene config:
-  //# [duration, txpose, preset, mg1-4_modes, out_ch1-4 modes, pgmchg]
+  //# scene config: [duration, txpose, preset, mg1-4_modes, out_ch1-4 modes]
   //# MG Modes determine how harmonization occurs per scene
   sc_txp_slot = 1
   sc_preset_slot = 2
@@ -133,7 +129,8 @@
   sc_och4_slot = 10
   sc_size = 15 //# ^ above slots + duration = 11 + 4 spare for even sizing 
   rnd_scene_chg=FALSE //# will select rnd scene on (auto) change not user change
-  //# chord = [note1, note2, note3, note4, duration, inv, bass]
+  
+	//# chord = [note1, note2, note3, note4, duration, inv, bass]
   dur_slot = 4 //# fixed location for duration
   inv_slot = 5
   bass_slot = 6
@@ -151,9 +148,9 @@
 	
   //# indexing them by scene size (sc_size). Sample scenes
   //# eg scene2 ... scene_bank[sc_size * sc#(0-7)] = [2,6,0,0,0,0,0,1,1,1,1]
-  
-  //# Example chords: increment in 10's in each scene, new scenes on the 100
-  //# eg: chord_bank[0] = [60, 64, 67, 71, 4, 0, -1] //# Scene1 Chord 1
+  scene_bank[0] = [1,6,1,2,2,2,2,1,8,8,9,-1]
+	//# Example chords: increment in 10's in each scene, new scenes on the 100
+  chord_bank[0] = [60, 64, 67, 71, 4, 0, 48] //# Scene1 Chord 1
   //# eg: chord_bank[10] = [67, 71, 74, 77, 8, 0, -1] //# Scene1 Chord 2
   //# eg: chord_bank[100] = [65, 69, 72, 76, 8, 0, -1] //# Scene2 Chord 1
   //# eg: chord_bank[110] = [69, 72, 76, 79, 4, 0, -1] //# Scene2 Chord 1
@@ -169,7 +166,6 @@
 	midi_in_scales[30] = [0,2,3,5,7,9,10]  // #minor_mel
 	midi_in_scales[40] = [0,2,3,5,7,9,11]  // #minor_har
 	Call @GetMidiInScale
-	
 	//# Setup Chord notes out - Options for how notes sent out
 	cno_labels = [-1,0,1,3,5,7,15,135,1357,150,1350]
 	cno_choices = 10 //# len(cno_labels) - 1
@@ -330,7 +326,12 @@
   	//# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
   else
-    current_scene = current_scene + 1 //# Going to next
+		rnd_scene = Random 0,7 //# only move to rnd scene if it has a duration
+    if rnd_scene_chg and scene_bank[rnd_scene*sc_size]>0
+			current_scene = rnd_scene
+		else
+			current_scene = current_scene + 1 //# Going to next
+		endif
   endif
   //# Send pgm chg msg back to apps generating midi to change preset eg: StepPolyArpUnit 
   if send_pgm_chg_to_note_gen_apps_on_scene_change
