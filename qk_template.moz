@@ -1,40 +1,50 @@
+//# MOZAIC KOMPOSER SUITE
+//# KONTROLLER APP
+//# Handles messages to all connected instances for:
+//# Synchronised scene change... and other stuff 
 @OnLoad
 	SetShortName {KNTRL} 
 	ShowLayout 2
 	LabelPads {_QK:KNTRL}
-	if unassigned scene_bank //# duration in first scene
+	if unassigned scene_durs //# duration in first scene
 		ResetNoteStates FALSE // #reset the locker with the value FALSE!
-		mode = 0 //# See @HandleModeChange for modes
+		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 		SetMetroPPQN 4
-		ppqn = 4 
+		ppqn = 4
+		edit_scene=0
+		locked_to_scene=0
 		scene_change_requested = -1 //# on pad down has next scene number
 		in_mode_select = FALSE //# Toggle for changing modes mode
 		number_of_modes = 16 //# Change in operational mode 
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
+		curr_channel=0 //# 0-15 KNTRL channel 0 default _:QK instances
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupKnobset0
-		Call @SetupLayout
+		Call @SetupLayoutScenes
 	endif
 @End
 
 @InitKnobVariables
 	//# Any knobset knob should have a setting here
 	current_scene = 0 // #0-7 Pads 0-7
-	sc_size=5
-	durs=[4,8,0,0,0,0,0,0]
-	for s = 0 to 7 
-	  //# Create 8 scene arrays in scene_bank
-	  scene_bank[s*sc_size] = [durs[s],0,0,0,0]
-	endfor
+	scene_durs=[4,8,0,0,0,0,0,0]
+	scene_names=[0,1,2,3,4,5,6,7]
+	global_swing=0
+	scene_preset=0
 	//# Color Scheme
 	col_scene = 2
 	col_sel_scene = 4
+	col_edit_scene = 3
 	col_pending = 3
 	loop_col = 6
 	col_del_chord = 1
 	col_mode_select = 6 //# Mode selection buttons
 	col_unused = 0
+	//# cc numbers used for communication with _:QK instances on CH1
+	//# cc's 0-7 are for scene duration
+	cc_rtn_to_song_mode=9
+	cc_swing=10
 @End
 
 @OnHostStart
@@ -53,13 +63,11 @@
 		scene_beat_count = scene_completed_bars + HostBeat
 	endif
 	Log {---- Host Started ----}
-	Call @SetupLayout
 @End
 
 @OnHostStop
   scene_beat_count = 0
   Log {---- Host Stopped ---- }, scene_beat_count, { - }
-  Call @SetupLayout
 @End 
 
 
@@ -67,7 +75,7 @@
 	//# increment beat counts xonb
 	scene_beat_count = scene_beat_count + 1
 	//# Handle Scene and Chord changes
-	current_scene_duration = scene_bank[current_scene * sc_size]  * HostBeatsPerMeasure //# IN BEATS!
+	current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
 	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
 	
 	if (scene_change_requested > -1) and (HostBeat = 0)
@@ -80,6 +88,195 @@
 	endif
 	Call @LogCurrentInfo
 @End
+
+@OnNewBar
+@End
+
+@OnShiftDown
+	//# xosd
+	if in_mode_select //# Exit SHIFT MODE
+		in_mode_select = FALSE	
+		if mode=0		
+			Call @SetupLayoutScenes
+		elseif mode=1
+			Call @SetupLayoutChannels
+		elseif mode=2
+			Call @SetupLayoutKntrl
+		elseif mode=3
+			Call @SetupLayoutAutom
+		elseif mode=4
+			Call @SetupLayoutLFOS
+		endif  
+	else
+		// #Mode selection for Knobs n Pads
+		in_mode_select = TRUE
+		ShowLayout 2
+		LabelPads {_QK:KNTRL SETTINGS:   (shift to exit)}
+		for i = 0 to 15
+			ColorPad i, col_mode_select
+			LatchPad i, NO
+		endfor
+		for i = 8 to 12
+			ColorPad i, col_unused
+		endfor
+		if (songmode = 0)
+				LabelPad 0, {PLAYSONG: Active }
+			elseif (songmode = 1)
+				LabelPad 0, {PLAYSONG: Scene locked}
+			elseif (songmode = 2)
+				LabelPad 0, {PLAYSONG: Chord locked}
+			else
+				LabelPad 0, {PLAYSONG: Disabled}
+		endif
+		LabelPad 1, {SCENES}
+		LabelPad 2, {_QK:KNTRL}
+		LabelPad 3, {CHANNELS}
+		LabelPad 4, {CH }, curr_channel, {   KNTRL }
+		LabelPad 5, {CH }, curr_channel, { AUTOM.}
+		LabelPad 6, {AUTOM. SETUP}
+		LabelPad 7, {LFO's}
+		LabelPad 8, { }
+		LabelPad 9, { }
+		LabelPad 10, { }
+		LabelPad 11, { }
+		LabelPad 12, { }
+		ColorPad 13, 1
+		ColorPad 14, 1
+		ColorPad 15, 3
+		LabelPad 13, {REWIND}
+		LabelPad 14, {STOP}
+		LabelPad 15, {PLAY}
+	endif
+	Call @UpdateCurrentKnobset
+@End
+
+@OnShiftUp
+@End
+
+@OnPadDown
+	//# Pad Down actions
+	if in_mode_select
+		if (LastPad>=8 and LastPad<=12)
+			Log {Mode not in use}
+			Exit //# Not in use
+		elseif LastPad=0
+    	//# Return to song mode requested
+    	return_to_song_mode_requested = TRUE
+    	scene_change_requested = current_scene
+    	in_mode_select = FALSE
+    	songmode = 0
+    	mode = 0
+    	ColorPad 0, col_pending
+	    ColorPad 8, col_pending
+			LabelPads {_QK:KNTRL   PLAYBACK MODE: Loop whole song}
+			Call @SetupKnobset0
+			Call @SetupLayoutScenes
+		elseif LastPad=1
+		  in_mode_select = FALSE
+			mode=0
+			Call @SetupKnobset0
+			Call @SetupLayoutScenes
+		elseif LastPad=2
+		  in_mode_select = FALSE
+			curr_channel=0
+			mode=2
+			Call @SetupKnobset2 //# KNTRL Mode _QK:Instances
+			Call @SetupLayoutKntrl
+		elseif LastPad=3
+		  in_mode_select = FALSE
+			mode=1
+			Call @SetupKnobset1 //# Channels mode curr_channel
+			Call @SetupLayoutChannels
+		elseif LastPad=4
+		  in_mode_select = FALSE
+			mode=2
+			Call @SetupKnobset2 //# KNTRL Mode for curr_channel
+			Call @SetupLayoutKntrl
+		elseif LastPad=5
+		  in_mode_select = FALSE
+			mode=3
+			Call @SetupKnobset3 //# AUTOM. Mode for curr_channel
+			Call @SetupLayoutAutom
+		elseif LastPad=6
+			Call @SetupKnobset4 //# AUTOM. SETUP stay in settings
+		elseif LastPad=7
+			mode=4
+			Call @SetupKnobset5 //# LFO's
+			Call @SetupLayoutLFOS
+		elseif LastPad>=13 and LastPad<=15
+			Call @HandleTransportRequest
+		endif
+	elseif NOT in_mode_select
+		if mode=0  //SCENES MODE
+			Call @PadDownScenesMode
+		elseif mode=1 // channels mode
+			Call @PadDownChannelsMode
+		elseif mode=2 // kntrl mode
+			Call @PadDownKntrlMode
+		elseif mode=4 // lfo's mode
+			Call @PadDownLFOSMode
+		endif
+	endif
+@End
+
+@PadDownScenesMode
+	if mode=0 and (LastPad >= 0 and LastPad <= 7) //SCENES MODE
+		Log { SCENE CHANGE REQUESTED }
+		scene_change_requested = LastPad
+		SendMIDICC 15, 8, LastPad
+		songmode=1 //# Lock to selected scene
+		edit_scene=LastPad
+		locked_to_scene=LastPad
+		if NOT HostRunning //# immediate change else newbeat/bar handles
+			Call @HandleSceneChange 
+		endif
+		Call @SetupKnobset0
+		Call @SetupLayoutScenes
+	elseif mode=0 and LastPad>=13 and LastPad<=15
+		Call @HandleTransportRequest
+	elseif mode=0 and LastPad=8
+		songmode=0 //# return to song mode
+		SendMIDICC 15, cc_rtn_to_song_mode, 1
+	elseif mode=0 and LastPad=9 //#update all scene durations
+		for i = 0 to 7
+			SendMIDICC 15, i, scene_durs[i]
+		endfor
+	endif
+@End
+
+@PadDownChannelsMode
+	Log {New channel is: }, LastPad
+	curr_channel = LastPad 
+@End
+
+@PadDownKntrlMode
+	if curr_channel=0 and LastPad>=0 and LastPad<=7
+		Log {Pad down in KNTRL mode _QK:CHANNEL}
+	elseif curr_channel=0 and LastPad>=13 and LastPad<=15
+		Call @HandleTransportRequest
+	elseif curr_channel=0 and LastPad>=8 and LastPad<=12
+		Log {This pad is unused atm in KNTRL channel _QK}
+	else
+		Log {Pad down on normal KNTRL Pad }
+	endif
+@End
+
+@PadDownLFOSMode
+	Log {Pad down in LFO's mode}
+@End
+
+
+@HandleTransportRequest
+	//# Transport buttons handling
+	if LastPad=13
+		Log {Map to AUM rewind}
+	elseif LastPad=14
+		Log {Map to AUM stop}
+	elseif lastPad=15
+		Log {Map to AUM Play}
+	endif
+@End
+
 
 @HandleSceneChange
 	//# Work out which scene is next xhsc
@@ -98,7 +295,7 @@
   	current_scene = current_scene
   elseif (current_scene = 7) //# End of song. Loop back to beginning 
     current_scene = 0 
-  elseif scene_bank[(current_scene * sc_size) + sc_size] <= 0
+  elseif scene_durs[current_scene + 1] <= 0
   	//# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
   else
@@ -106,74 +303,176 @@
   endif
   scene_beat_count = 0
   Log {----- SCENE CHANGE -----}, {S}, current_scene+1
-	Call @SetupLayout
+	Call @SetupLayoutScenes
 @End
 
 @LogCurrentInfo
-	current_scene_duration = scene_bank[current_scene * sc_size]
+	current_scene_duration = scene_durs[current_scene]
 	Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
 	LabelPads {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
 @End
 
-@OnPadDown
-	//# Splitting this event into separate handlers xopd
-	if in_mode_select
-		if (LastPad>=2)
-			Log {Mode not in use}
-			Exit //# Not in use
-		elseif (HostRunning and LastPad=0)
-    	//# Return to song mode requested
-    	return_to_song_mode_requested = TRUE
-    	scene_change_requested = current_scene
-    	in_mode_select = FALSE
-    	songmode = 0
-    	mode = 0
-    	ColorPad 0, col_pending
-	    ColorPad 8, col_pending
-		else
-			mode = LastPad
-			Log {MODE:}, mode
-			in_mode_select = FALSE
-		endif
-		Call @HandleModeChange
-	elseif NOT in_mode_select
-		//# handle scene/chord change xopds
-		if (LastPad >= 0 and LastPad <= 7)
-			//# Scene change
-			Log { SCENE CHANGE REQUESTED }
-			scene_change_requested = LastPad
-			if NOT HostRunning //# immediate change else newbeat/bar handles
-				Call @HandleSceneChange 
+@SetupLayoutScenes
+	//#xsl setup layout for Scenes mode
+	ShowLayout 2
+	if mode=0 or mode=1
+		//# Setup scene pads
+		for i = 0 to 7
+			if scene_durs[i] > 0
+				ColorPad i, col_scene
+				scn_to_label = i
+				Call @LabelScenePad
+			else
+				ColorPad i, col_unused
+				LabelPad i, { }
 			endif
+			LatchPad i, NO
+	  endfor
+		ColorPad current_scene, col_sel_scene
+		ColorPad edit_scene, col_edit_scene
+		if scene_change_requested>-1
+			ColorPad scene_change_requested, col_pending
 		endif
-		Call @SetupLayout
+		for i = 8 to 15
+			LatchPad i, NO
+	    ColorPad i, col_unused
+			LabelPad i, { }
+		endfor
+	elseif mode=2
+		for i = 0 to 15
+	  	ColorPad i, 2
+			LabelPad i, {mode??}
+		endfor
+	endif
+	if (songmode = 0)
+		LabelPad 8, {PLAYSONG: Active }
+		LatchPad 8, YES
+	elseif (songmode = 1)
+		LabelPad 8, {PLAYSONG: Locked S}, locked_to_scene+1
+		LatchPad 8, NO
+		LatchPad locked_to_scene, YES
+	endif
+	ColorPad 13, 1
+	ColorPad 14, 1
+	ColorPad 15, 3
+	LabelPad 13, {REWIND}
+	LabelPad 14, {STOP}
+	LabelPad 15, {PLAY}
+@End
+
+@LabelScenePad
+	//# Set scn_to_label var before calling
+	sc_dur = scene_durs[scn_to_label]
+	LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}
+@End
+
+@SetupLayoutChannels
+	ShowLayout 2
+	for i = 0 to 15
+		ch_to_label = i
+		Call @LabelChannelPad
+	endfor
+@End
+
+@LabelChannelPad
+	ColorPad ch_to_label, 4
+	LabelPad ch_to_label, {CHANNEL:}, ch_to_label
+@End
+
+@SetupLayoutKntrl
+	ShowLayout 2
+	if curr_channel=0 //# _QK instances
+		for i = 0 to 7
+			kntrl_pad_to_label = i
+			Call @LabelKntrlPad
+		endfor
+		for i = 8 to 12
+			ColorPad i, col_unused
+		endfor
+		ColorPad 13, 1
+		ColorPad 14, 1
+		ColorPad 15, 3
+		LabelPad 13, {REWIND}
+		LabelPad 14, {STOP}
+		LabelPad 15, {PLAY}
+	else //# All other channels
+		for i = 0 to 15
+			kntrl_pad_to_label = i
+			Call @LabelKntrlPad
+		endfor
 	endif
 @End
 
-@HandleModeChange
-	//# Handle Labels
-	if mode = 0
-		LabelPads {_QK:KNTRL   PLAYBACK MODE: Loop whole song}
-		Call @SetupKnobset0
-		songmode = 0
-	endif
-	Call @SetupLayout
+@LabelKntrlPad
+	ColorPad kntrl_pad_to_label, 5
+	LabelPad kntrl_pad_to_label, {KNTRL:}, kntrl_pad_to_label
 @End
 
+@SetupLayoutAutom
+	ShowLayout 1
+	for i = 0 to 15
+		ColorPad i, 2
+		LabelPad i, {autom }, i
+	endfor
+@End
 
-@SetupKnobset0
-	//# Scene settings
-	knob_set = 0
-	LabelKnobs {Scene }, current_scene+1, { setup}
+@SetupLayoutLFOS
+	ShowLayout 2
+	Log {Get LFO layout}
+	for i = 0 to 15
+		ColorPad i, 6
+		LabelPad i, {LFOS }, i
+	endfor
+@End
+
+@OnKnobChange
+	if knob_set = 0 
+	  Call @KnobChangeSet0 //# scene settings
+	elseif knob_set = 1
+  	Call @KnobChangeSet1 //# 
+  elseif knob_set = 2
+  	Call @KnobChangeSet2	//# 
+  elseif knob_set = 3
+  	Call @KnobChangeSet3	//# 
+  elseif knob_set = 4
+  	Call @KnobChangeSet4	//# 
+  elseif knob_set = 5
+  	Call @KnobChangeSet5	//# 
+  elseif knob_set = 6
+  	Call @KnobChangeSet6	//# 
+  elseif knob_set = 7
+  	Call @KnobChangeSet7	//# 
+ 	elseif knob_set = 8
+  	Call @KnobChangeSet8	//# 
+  elseif knob_set = 9
+  	Call @KnobChangeSet9	//#  
+	endif 
 @End
 
 @UpdateCurrentKnobset
 	if knob_set = 0 
-		Call @SetupKnobset0 //# scene settings
-	endif
+	  Call @SetupKnobset0 //# scene settings
+  elseif knob_set = 1
+  	Call @SetupKnobset1 //# 
+  elseif knob_set = 2
+  	Call @SetupKnobset2	//# 
+  elseif knob_set = 3
+  	Call @SetupKnobset3	//# 
+  elseif knob_set = 4
+  	Call @SetupKnobset4	//# 
+  elseif knob_set = 5
+  	Call @SetupKnobset5	//# 
+  elseif knob_set = 6
+  	Call @SetupKnobset6	//# 
+  elseif knob_set = 7
+  	Call @SetupKnobset7	//# 
+  elseif knob_set = 8
+  	Call @SetupKnobset8	//# 
+  elseif knob_set = 9
+  	Call @SetupKnobset9	//# 
+  endif
 	//# On entering select mode the following need knobsets selected
-	if in_mode_select
-		//# disable knobs in_mode_select
+	if in_mode_select	//# disable knobs in_mode_select
 		LabelKnobs { }
 		LabelKnob 0, { }
 		LabelKnob 1, { }
@@ -183,104 +482,223 @@
 	endif
 @End
 
-@OnKnobChange
-	if knob_set = 0 
-	  Call @KnobChangeSet0 //# scene settings
-	endif 
-@End 
+@SetupKnobset0
+	//# Scene settings
+	knob_set = 0
+	LabelKnobs {Scene setup}
+	LabelKnob 0, {Scene }, edit_scene+1
+	LabelKnob 1, {Bars }, scene_durs[edit_scene]
+	LabelKnob 2, {Preset }, scene_preset+1
+	LabelKnob 3, {G-Swing }, global_swing
+	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
+	SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
+	SetKnobValue 2, TranslateScale scene_preset, 0, 7, 0, 127
+	SetKnobValue 3, TranslateScale global_swing, 0, 100, 0, 127 
+@End
 
 @KnobChangeSet0
-	//# scene settings
-	scn_to_label = current_scene
-	Call @LabelScenePad
-@End
-
-	
-@OnShiftDown
-	//# xosd
-	if in_mode_select
-		in_mode_select = FALSE
-		LabelPads {_QK:KNTRL Scene: }, current_scene+1
-		if (mode >= 1)
-			mode = 0
-			knob_set = 0
-		endif		
-		Call @SetupLayout
-	else
-		// #Mode selection for Knobs n Pads
-		in_mode_select = TRUE
-		LabelPads {_QK:KNTRL SETTINGS:   (shift to exit)}
-		for i = 0 to 15
-			ColorPad i, col_mode_select
-			LabelPad i, { } //# empty label to overwrite chord info
-			if i = 0
-				LatchPad i, NO
-				if (songmode = 0)
-					LabelPad i, {PLAYSONG: Active }
-				elseif (songmode = 1)
-					LabelPad i, {PLAYSONG: Scene locked}
-				elseif (songmode = 2)
-					LabelPad i, {PLAYSONG: Chord locked}
-				else
-					LabelPad i, {PLAYSONG: Disabled}
-				endif
-			elseif i = 1
-				LatchPad i, NO
-				LabelPad i, {Scenes}
-			elseif i = 2
-				LatchPad i, NO
-			elseif i = 3
-				LatchPad i, NO
-			elseif i = 4
-				LatchPad i, NO
-			endif
-		endfor
-	endif
-	Call @UpdateCurrentKnobset
-@End
-
-@OnShiftUp
-@End
-
-
-@LabelScenePad
-	//# Set scn_to_label var before calling
-	sc_dur = scene_bank[scn_to_label * sc_size]
-	LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}
-@End
-
-@SetupLayout
-	//#xsl setup layout pads
-	if in_mode_select
-		Exit
-	else
-		if mode=0 or mode=1
-			//# Setup scene pads
-			for i = 0 to 7
-				if scene_bank[i * sc_size] > 0
-			    ColorPad i, col_scene
-					scn_to_label = i
-					Call @LabelScenePad
-		  	else
-		  		ColorPad i, col_unused
-		  		LabelPad i, { }
-		  	endif
-		    LatchPad i, NO
-		  endfor
-			ColorPad current_scene, col_sel_scene
-			if scene_change_requested>-1
-				ColorPad scene_change_requested, col_pending
-			endif
-			for i = 8 to 15
-				LatchPad i, NO
-		    ColorPad i, col_unused
-				LabelPad i, { }
-			endfor
-		elseif mode=2
-			for i = 0 to 15
-		  	ColorPad i, 2
-				LabelPad i, {mode??}
-			endfor
+	//# scene settings xs0
+	if LastKnob = 0
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		if val <> edit_scene
+			edit_scene = val
+			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
 		endif
-	endif		
+	endif
+	if LastKnob = 1
+		scn_duration = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32
+		scene_durs[edit_scene] = scn_duration
+		SendMIDICC 15, edit_scene, scene_durs[edit_scene] 
+	endif
+	if LastKnob = 2
+		val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
+		if val <> scene_preset
+			scene_preset = val
+			CopyArray scene_presets[scene_preset*8], scene_durs, 8
+			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
+		endif
+	endif
+	if LastKnob = 3
+		val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
+		if val <> global_swing
+			global_swing = val
+			SendMIDICC 15, cc_swing, global_swing
+		endif
+	endif
+	scn_to_label = current_scene
+	Call @SetupLayoutScenes
+	LabelKnob 0, {Scene }, edit_scene+1
+	LabelKnob 1, {Bars }, scene_durs[edit_scene]
+	LabelKnob 2, {Preset }, scene_preset+1
+	LabelKnob 3, {G-Swing }, global_swing
+@End
+
+@SetupKnobset1
+	//# Channels Mode
+	knob_set = 1
+	var=0
+	LabelKnobs {Channels}
+	LabelKnob 0, { }, var
+	LabelKnob 1, { }, var
+	LabelKnob 2, { }, var
+	LabelKnob 3, { }, var
+	SetKnobValue 0, TranslateScale var, 0, 7, 0, 127
+	SetKnobValue 1, TranslateScale var, 0, 32, 0, 127
+	SetKnobValue 2, TranslateScale var, 0, 7, 0, 127
+	SetKnobValue 3, TranslateScale var, 0, 100, 0, 127 
+@End
+
+@KnobChangeSet1
+	//# channels mode
+	var=0
+	if LastKnob = 0
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		if val <> var
+			var = val
+			SetKnobValue 1, TranslateScale var, 0, 32, 0, 127
+		endif
+	endif
+	if LastKnob = 1
+		var = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32	
+	endif
+	if LastKnob = 2
+		var = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
+	endif
+	if LastKnob = 3
+		var = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
+	endif
+	LabelKnob 0, { }, var
+	LabelKnob 1, { }, var
+	LabelKnob 2, { }, var
+	LabelKnob 3, { }, var
+@End
+
+@SetupKnobset2
+	//# KNTRL Mode
+	knob_set = 2
+	var=0
+	LabelKnobs {KNTRL MODE}
+	LabelKnob 0, { }, var
+	LabelKnob 1, { }, var
+	LabelKnob 2, { }, var
+	LabelKnob 3, { }, var
+	SetKnobValue 0, TranslateScale var, 0, 7, 0, 127
+	SetKnobValue 1, TranslateScale var, 0, 32, 0, 127
+	SetKnobValue 2, TranslateScale var, 0, 7, 0, 127
+	SetKnobValue 3, TranslateScale var, 0, 100, 0, 127 
+@End
+
+@KnobChangeSet2
+	//# KNTRL mode
+	var=0
+	if LastKnob = 0
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		if val <> var
+			var = val
+			SetKnobValue 1, TranslateScale var, 0, 32, 0, 127
+		endif
+	endif
+	if LastKnob = 1
+		var = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32	
+	endif
+	if LastKnob = 2
+		var = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
+	endif
+	if LastKnob = 3
+		var = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
+	endif
+	LabelKnob 0, { }, var
+	LabelKnob 1, { }, var
+	LabelKnob 2, { }, var
+	LabelKnob 3, { }, var
+@End
+
+@SetupKnobset3
+	//# AUTOMATION Mode
+	knob_set = 3
+	
+@End
+
+@KnobChangeSet3
+	//# AUTOMATION mode
+@End
+
+@SetupKnobset4
+	//# AUTOMATION SETUP Mode
+	knob_set = 4
+	var=0
+	LabelKnobs {AUTOM. SETUP}
+	LabelKnob 0, { }, var
+	LabelKnob 1, { }, var
+	LabelKnob 2, { }, var
+	LabelKnob 3, { }, var
+	SetKnobValue 0, TranslateScale var, 0, 7, 0, 127
+	SetKnobValue 1, TranslateScale var, 0, 32, 0, 127
+	SetKnobValue 2, TranslateScale var, 0, 7, 0, 127
+	SetKnobValue 3, TranslateScale var, 0, 100, 0, 127 
+@End
+
+@KnobChangeSet4
+	//# AUTOMATION SETUP mode
+	var=0
+	if LastKnob = 0
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		if val <> var
+			var = val
+			SetKnobValue 1, TranslateScale var, 0, 32, 0, 127
+		endif
+	endif
+	if LastKnob = 1
+		var = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32	
+	endif
+	if LastKnob = 2
+		var = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
+	endif
+	if LastKnob = 3
+		var = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
+	endif
+	LabelKnob 0, { }, var
+	LabelKnob 1, { }, var
+	LabelKnob 2, { }, var
+	LabelKnob 3, { }, var
+@End
+
+@SetupKnobset5
+	//# AUTOMATION SETUP Mode
+	knob_set = 5
+	var=0
+	LabelKnobs {LFO'S}
+	LabelKnob 0, { }, var
+	LabelKnob 1, { }, var
+	LabelKnob 2, { }, var
+	LabelKnob 3, { }, var
+	SetKnobValue 0, TranslateScale var, 0, 7, 0, 127
+	SetKnobValue 1, TranslateScale var, 0, 32, 0, 127
+	SetKnobValue 2, TranslateScale var, 0, 7, 0, 127
+	SetKnobValue 3, TranslateScale var, 0, 100, 0, 127 
+@End
+
+@KnobChangeSet5
+	//# LFO's  mode
+	var=0
+	if LastKnob = 0
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		if val <> var
+			var = val
+			SetKnobValue 1, TranslateScale var, 0, 32, 0, 127
+		endif
+	endif
+	if LastKnob = 1
+		var = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32	
+	endif
+	if LastKnob = 2
+		var = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
+	endif
+	if LastKnob = 3
+		var = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
+	endif
+	LabelKnob 0, { }, var
+	LabelKnob 1, { }, var
+	LabelKnob 2, { }, var
+	LabelKnob 3, { }, var
 @End
