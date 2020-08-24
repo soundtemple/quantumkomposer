@@ -140,7 +140,7 @@
 	  scene_bank[s*sc_size] = [0,6,1,2,2,2,2,1,8,8,9,-1]
 		for c = 0 to 7
 			//# Create 8 chord arrays for each scene
-			chord_bank[(s*100) + (c*10)] = [-1, -1, -1, -1, 0, 0, -1,-1]
+			chord_bank[(s*100) + (c*10)] = [-1, -1, -1, -1, 0, 0, -1,0]
 		endfor
 	endfor
 	
@@ -751,7 +751,10 @@
 	chord_5th = chord_bank[chord_slot + 2]
 	chord_7th = chord_bank[chord_slot + 3]
 	chord_bass = chord_bank[chord_slot + bass_slot]
-	
+	chord_formed=FALSE
+	if chord_root>=0 and chord_3rd>=0 and chord_5th>=0
+		chord_formed=TRUE //# we dont want chord notes sent out before chord is formed
+	endif
 	//# Raw function uses this variable
 	HAR_NOTE_OCTAVE = (chords_out_octave * 12) + 24  
 	
@@ -794,25 +797,25 @@
 		ch4_degree = cno_degrees[(4 * out4_type) + i]
 		Call @HumanizeVelocity
 		//# send out chord notes
-		if (ch1_degree >=0)
+		if (ch1_degree >=0) and chord_formed
 			if chord_scale[ch1_degree] > 0
 				SendMIDINoteOn ch1, chord_scale[ch1_degree], velocity
 				SetNoteState ch1, i, chord_scale[ch1_degree]
 			endif
 		endif
-		if (ch2_degree >=0) 
+		if (ch2_degree >=0) and chord_formed
 			if chord_scale[ch2_degree] > 0
 				SendMIDINoteOn ch2, chord_scale[ch2_degree], velocity
 				SetNoteState ch2, i, chord_scale[ch2_degree]
 			endif
 		endif
-		if (ch3_degree >=0) 	 
+		if (ch3_degree >=0) and chord_formed
 			if chord_scale[ch3_degree] > 0
 				SendMIDINoteOn ch3, chord_scale[ch3_degree], velocity
 				SetNoteState ch3, i, chord_scale[ch3_degree]
 			endif
 		endif
-		if (ch4_degree >=0)
+		if (ch4_degree >=0) and chord_formed
 			if chord_scale[ch4_degree] > 0
 				SendMIDINoteOn ch4, chord_scale[ch4_degree], velocity
 				SetNoteState ch4, i, chord_scale[ch4_degree]
@@ -1329,24 +1332,25 @@
 		d=chord_bank[prev_chord_slot+4]%12
 		i=chord_bank[prev_chord_slot+5]%12
 	endif
+	
 	//# chord = [note1, note2, note3, note4, duration, inv, bass]
-	chord_suggest_bank[0*10]  = [n1,   n2,    n3,   n4,    d,i,n1]
-	chord_suggest_bank[1*10]  = [n1,   n1+2,  n3,   -1,    d,i,n1] //sus2
-	chord_suggest_bank[2*10]  = [n1,   n1+3,  n3,   -1,    d,i,n1] //minor
-	chord_suggest_bank[3*10]  = [n1,   n1+4,  n3,   -1,    d,i,n1] //major
-	chord_suggest_bank[4*10]  = [n1,   n1+5,  n3,   -1,    d,i,n1] //sus4
-	chord_suggest_bank[5*10]  = [n1,   n1+3,  n1+7, n1+10, d,i,n1] //minor7
-	chord_suggest_bank[6*10]  = [n1,   n1+4,  n1+7, n1+11, d,i,n1] //major7
-	chord_suggest_bank[7*10]  = [n1,   n1+4,  n1+7, n1+10, d,i,n1] //dom7
-	chord_suggest_bank[8*10]  = [n2,   n2+4,  n2+7, -1,    d,i,n1] //chords based from 3rd as root
-	chord_suggest_bank[9*10]  = [n2,   n2+3,  n2+7, -1,    d,i,n1]
-	chord_suggest_bank[10*10] = [n2,   n2+4,  n2+7, n2+11, d,i,n1]
-	chord_suggest_bank[11*10] = [n2,   n2+3,  n2+7, n2+10, d,i,n1]
-	chord_suggest_bank[12*10] = [n3,   n3+4,  n4+7, -1,    d,i,n1] //chords based from 5th as root
-	chord_suggest_bank[13*10] = [n3,   n3+3,  n4+7, -1,    d,i,n1]
-	chord_suggest_bank[14*10] = [n3,   n3+4,  n4+7, n3+11, d,i,n1]
-	chord_suggest_bank[15*10] = [n3,   n3+3,  n4+7, n3+10, d,i,n1]
-	chord_suggest_bank[16*10] = [n1+9, n1+12, n2+12, -1,   d,i,n1] //chords based from root-3rd 
+	chord_suggest_bank[0*10]  = [n1,        n2,         n3,         n4,         d,i,n1]
+	chord_suggest_bank[1*10]  = [n1,        (n1+2)%12,  n3,         -1,         d,i,n1] //sus2
+	chord_suggest_bank[2*10]  = [n1,        (n1+3)%12,  n3,         -1,         d,i,n1] //minor
+	chord_suggest_bank[3*10]  = [n1,        (n1+4)%12,  n3,         -1,         d,i,n1] //major
+	chord_suggest_bank[4*10]  = [n1,        (n1+5)%12,  n3,         -1,         d,i,n1] //sus4
+	chord_suggest_bank[5*10]  = [n1,        (n1+3)%12,  (n1+7)%12,  (n1+10)%12, d,i,n1] //minor7
+	chord_suggest_bank[6*10]  = [n1,        (n1+4)%12,  (n1+7)%12,  (n1+11)%12, d,i,n1] //major7
+	chord_suggest_bank[7*10]  = [n1,        (n1+4)%12,  (n1+7)%12,  (n1+10)%12, d,i,n1] //dom7
+	chord_suggest_bank[8*10]  = [n2,        (n2+4)%12,  (n2+7)%12,  -1,         d,i,n1] //chords 3rd as root
+	chord_suggest_bank[9*10]  = [n2,        (n2+3)%12,  (n2+7)%12,  -1,         d,i,n1]
+	chord_suggest_bank[10*10] = [n2,        (n2+4)%12,  (n2+7)%12,  (n2+11)%12, d,i,n1]
+	chord_suggest_bank[11*10] = [n2,        (n2+3)%12,  (n2+7)%12,  (n2+10)%12, d,i,n1]
+	chord_suggest_bank[12*10] = [n3,        (n3+4)%12,  (n3+7)%12,  -1,         d,i,n1] //chords 5th as root
+	chord_suggest_bank[13*10] = [n3,        (n3+3)%12,  (n3+7)%12,  -1,         d,i,n1]
+	chord_suggest_bank[14*10] = [n3,        (n3+4)%12,  (n3+7)%12,  (n3+11)%12, d,i,n1]
+	chord_suggest_bank[15*10] = [n3,        (n3+3)%12,  (n3+7)%12,  (n3+10)%12, d,i,n1]
+	chord_suggest_bank[16*10] = [(n1+9)%12, (n1+12)%12, (n2+12)%12, -1,         d,i,n1] //chords root-3rd 
 	
 	//# Update the current chord with suggested notes
 	chord_slot = (current_scene * 100) + (current_chord * 10) //# chord to update
@@ -1392,7 +1396,7 @@
 		LabelKnob 1, {REC CH }, midi_channels_used[0] + 1
 		SetKnobValue 1, TranslateScale midi_channels_used[0], 0, 15, 0, 127
 	else
-		LabelKnob 1, {Suggest}, chrd_sugg+1
+		LabelKnob 1, {Suggest}, chrd_sugg
 		SetKnobValue 1, TranslateScale chrd_sugg, 0, 16, 0, 127
 	endif
 	LabelKnob 0, {Duration}	
@@ -2387,7 +2391,7 @@
 	  	endif
 	    if (mode = 3)
 		    ColorPad i, col_rec_chord
-		  elseif (mode = 15) and (chord_bank[chord_slot] > 0)
+		  elseif (mode = 15) and (chord_bank[chord_slot] >= 0)
 		  	ColorPad i, col_del_chord
 		  endif
 	  endfor
