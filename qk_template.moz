@@ -10,7 +10,8 @@
 		ResetNoteStates FALSE // #reset the locker with the value FALSE!
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
-		SetMetroPPQN 4
+		kntrl_instance_num=0 //# each instance of KORDS, NOTES & BEATS should have a unique num
+ 		SetMetroPPQN 4
 		ppqn = 4
 		edit_scene=0
 		locked_to_scene=0
@@ -45,6 +46,12 @@
 	//# cc's 0-7 are for scene duration
 	cc_rtn_to_song_mode=9
 	cc_swing=10
+	
+	//knobset1 - Channels Mode
+	pad_label=0
+	pad_color=0
+	send_on_ch=1
+	send_value=0
 @End
 
 @OnHostStart
@@ -140,12 +147,12 @@
 		LabelPad 10, { }
 		LabelPad 11, { }
 		LabelPad 12, { }
-		ColorPad 13, 1
-		ColorPad 14, 1
-		ColorPad 15, 3
-		LabelPad 13, {REWIND}
-		LabelPad 14, {STOP}
-		LabelPad 15, {PLAY}
+		ColorPad 13, col_unused
+		ColorPad 14, col_unused
+		ColorPad 15, col_unused
+		LabelPad 13, {<<RWD}
+		LabelPad 14, {[STOP]}
+		LabelPad 15, {PLAY>}
 	endif
 	Call @UpdateCurrentKnobset
 @End
@@ -352,12 +359,12 @@
 		LatchPad 8, NO
 		LatchPad locked_to_scene, YES
 	endif
-	ColorPad 13, 1
-	ColorPad 14, 1
-	ColorPad 15, 3
-	LabelPad 13, {REWIND}
-	LabelPad 14, {STOP}
-	LabelPad 15, {PLAY}
+	ColorPad 13, col_unused
+	ColorPad 14, col_unused
+	ColorPad 15, col_unused
+	LabelPad 13, {<<RWD}
+	LabelPad 14, {[STOP]}
+	LabelPad 15, {PLAY>}
 @End
 
 @LabelScenePad
@@ -389,12 +396,12 @@
 		for i = 8 to 12
 			ColorPad i, col_unused
 		endfor
-		ColorPad 13, 1
-		ColorPad 14, 1
-		ColorPad 15, 3
-		LabelPad 13, {REWIND}
-		LabelPad 14, {STOP}
-		LabelPad 15, {PLAY}
+		ColorPad 13, col_unused
+		ColorPad 14, col_unused
+		ColorPad 15, col_unused
+		LabelPad 13, {<<RWD}
+		LabelPad 14, {[STOP]}
+		LabelPad 15, {PLAY>}
 	else //# All other channels
 		for i = 0 to 15
 			kntrl_pad_to_label = i
@@ -538,38 +545,34 @@
 	knob_set = 1
 	var=0
 	LabelKnobs {Channels}
-	LabelKnob 0, { }, var
-	LabelKnob 1, { }, var
-	LabelKnob 2, { }, var
+	LabelKnob 0, {Label}, pad_label
+	LabelKnob 1, {Color}, pad_color
+	LabelKnob 2, {MidiCH}, send_on_ch=1
 	LabelKnob 3, { }, var
-	SetKnobValue 0, TranslateScale var, 0, 7, 0, 127
-	SetKnobValue 1, TranslateScale var, 0, 32, 0, 127
-	SetKnobValue 2, TranslateScale var, 0, 7, 0, 127
-	SetKnobValue 3, TranslateScale var, 0, 100, 0, 127 
+	SetKnobValue 0, TranslateScale pad_label, 0, 32, 0, 127
+	SetKnobValue 1, TranslateScale pad_color, 0, 7, 0, 127
+	SetKnobValue 2, TranslateScale send_on_ch, 0, 5, 0, 127
+	SetKnobValue 3, TranslateScale var, 0, 127, 0, 127 
 @End
 
 @KnobChangeSet1
 	//# channels mode
-	var=0
 	if LastKnob = 0
-		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
-		if val <> var
-			var = val
-			SetKnobValue 1, TranslateScale var, 0, 32, 0, 127
-		endif
+		pad_label = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	endif
 	if LastKnob = 1
-		var = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32	
+		pad_color = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 7
+		ColorPad LastPad, pad_color
 	endif
 	if LastKnob = 2
-		var = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
+		send_on_ch = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 15
 	endif
 	if LastKnob = 3
 		var = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
 	endif
-	LabelKnob 0, { }, var
-	LabelKnob 1, { }, var
-	LabelKnob 2, { }, var
+	LabelKnob 0, {Label}, pad_label
+	LabelKnob 1, {Color}, pad_color
+	LabelKnob 2, {MidiCH}, send_on_ch
 	LabelKnob 3, { }, var
 @End
 
@@ -581,11 +584,11 @@
 	LabelKnob 0, { }, var
 	LabelKnob 1, { }, var
 	LabelKnob 2, { }, var
-	LabelKnob 3, { }, var
+	LabelKnob 3, {Send: }, send_value
 	SetKnobValue 0, TranslateScale var, 0, 7, 0, 127
 	SetKnobValue 1, TranslateScale var, 0, 32, 0, 127
 	SetKnobValue 2, TranslateScale var, 0, 7, 0, 127
-	SetKnobValue 3, TranslateScale var, 0, 100, 0, 127 
+	SetKnobValue 3, TranslateScale send_value, 0, 127, 0, 127 
 @End
 
 @KnobChangeSet2
@@ -605,12 +608,13 @@
 		var = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
 	endif
 	if LastKnob = 3
-		var = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
+		send_value = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+		SendMIDICC 0,10,send_value
 	endif
 	LabelKnob 0, { }, var
 	LabelKnob 1, { }, var
 	LabelKnob 2, { }, var
-	LabelKnob 3, { }, var
+	LabelKnob 3, {Send: }, send_value
 @End
 
 @SetupKnobset3
