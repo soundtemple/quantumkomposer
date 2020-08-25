@@ -1,0 +1,73 @@
+@SetupKnobset7
+  //# LFO xlfo
+  knob_set = 7
+  LabelKnobs {SCENE }, current_scene+1, { LFO's} 
+  
+  SetKnobValue 0, TranslateScale lfo_num, 0, 15, 0, 127
+  SetKnobValue 1, TranslateScale lfo_type, 0, 5, 0, 127
+  SetKnobValue 2, TranslateScale lfo_freq, 0, 127, 0, 127
+  SetKnobValue 3, TranslateScale lfo_sync, 0, 1, 0, 127
+
+  LabelKnob 0, {LFO#: }, lfo_num+1
+	LabelKnob 2, {FREQ: }, lfo_freq
+
+	if lfo_type=0
+		LabelKnob 1, {SINE}
+	elseif lfo_type=1
+		LabelKnob 1, {COSINE}
+  elseif lfo_type=2
+		LabelKnob 1, {SQUARE}
+  elseif lfo_type=3
+		LabelKnob 1, {RAMP UP}
+  elseif lfo_type=4
+		LabelKnob 1, {RAMP DN}
+  elseif lfo_type=5
+		LabelKnob 1, {S&H}
+  endif
+  
+  if lfo_sync = 0
+	  LabelKnob 3, {FREE}
+	else
+		LabelKnob 3, {SYNC}
+	endif
+@End
+
+@KnobChangeSet7
+  //# LFO's xlfo
+  
+  if LastKnob = 0
+    lfo_num = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+  endif
+  if LastKnob = 1
+    lfo_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 5
+  endif
+  if LastKnob = 2
+    lfo_freq = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 32
+  endif
+  if LastKnob = 3
+    lfo_sync = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 15
+  endif
+  
+  LabelKnob 0, {LFO#: }, lfo_num+1
+	LabelKnob 2, {FREQ: }, lfo_freq
+
+	if lfo_type=0
+		LabelKnob 1, {SINE}
+	elseif lfo_type=1
+		LabelKnob 1, {COSINE}
+  elseif lfo_type=2
+		LabelKnob 1, {SQUARE}
+  elseif lfo_type=3
+		LabelKnob 1, {RAMP UP}
+  elseif lfo_type=4
+		LabelKnob 1, {RAMP DN}
+  elseif lfo_type=5
+		LabelKnob 1, {S&H}
+  endif
+  
+  if lfo_sync = 0
+	  LabelKnob 3, {FREE}
+	else
+		LabelKnob 3, {SYNC}
+	endif
+@End
