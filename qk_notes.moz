@@ -6,8 +6,8 @@
 	  ResetNoteStates FALSE // #reset the locker with the value FALSE!
 	  mode = 0 //# modes of operation
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:PatternLocked
-	  kontroller_slave=TRUE //# KONTROLLER APP updates scenes for slaves
-	  SetMetroPPQN 4
+	  kntrl_instance_num=3 //# each instance of KORDS, NOTES & BEATS should have a unique num
+ 		SetMetroPPQN 4
 	  ppqn = 4 
 	  scene_change_requested = -1 //# on pad down has next scene number
 	  pattn_change_requested = -1 //# on pad down has next pattn number
@@ -578,13 +578,9 @@
 			Exit //# COPY PASTE not allowed
 		elseif (LastPad=7) and not (mode<=1 or mode>=8)
 			Exit //# DELETE not allowed
-		elseif (LastPad=2) //# Toggle KONTROLLER SLAVE MODE
-			kontroller_slave = not kontroller_slave
-			if kontroller_slave
-				LabelPad 2, {KNTRL SLAVE ON}
-			else
-				LabelPad 2, {KNTRL SLAVE OFF}
-			endif
+		elseif (LastPad=2) //# Setup KONTROLLER SLAVE instance number
+			Call @SetupKnobset10
+			Exit
 		elseif (LastPad>=3 and LastPad<=5) or (LastPad=13 or LastPad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
     	LabelPad 6, { } //# CopyPaste not allowed
@@ -2420,7 +2416,6 @@ endif
 
 @SetupKnobset9
   //# ROTATION
-  Log {KNOBSET 9 setup}
   knob_set = 9
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { ROTATE}
   rot_dir=0 //# reset on setup knobs
@@ -2504,6 +2499,36 @@ endif
   LabelKnob 3, { }
 @End
 
+@SetupKnobset10
+	//# KONTROLLER INSTANCE NUMBER
+	knob_set = 10
+	LabelKnobs {KNTRL INSTANCE}
+	SetKnobValue 0, TranslateScale kntrl_instance_num, 0, 8, 0, 127
+	SetKnobValue 1, 0
+	SetKnobValue 2, 0
+	SetKnobValue 3, 0
+	LabelKnob 0, {KNTRL:}, kntrl_instance_num
+	if kntrl_instance_num=0
+		LabelKnob 0, {KNTRL:OFF}
+	endif
+	LabelKnob 1, { }
+	LabelKnob 2, { }
+	LabelKnob 3, { }
+@End
+
+@KnobChangeSet10
+	//# KNTRL instance number
+	if LastKnob = 0
+	  kntrl_instance_num = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 8
+		LabelKnob 0, {KNTRL:}, kntrl_instance_num
+		LabelPad 2, {KNTRL INSTANCE }, kntrl_instance_num
+		if kntrl_instance_num=0
+			LabelKnob 0, {KNTRL:OFF}
+			LabelPad 2, {KNTRL OFF}
+		endif
+  endif
+@End
+
 @OnKnobChange
 	//# Knob change router xokc
   if knob_set = 0 
@@ -2526,7 +2551,9 @@ endif
     Call @KnobChangeSet8 //# SEQ GENERATION
   elseif knob_set = 9
     Call @KnobChangeSet9 //# ROTATION
-  endif
+  elseif knob_set = 10
+    Call @KnobChangeSet10 //# KNTRL INSTANCE
+	endif
 @End  
 	
 @OnShiftDown
@@ -2558,96 +2585,64 @@ endif
 		for i = 0 to (number_of_modes - 1)
 			ColorPad i, col_mode_select
 			LabelPad i, { } //# empty label to overwrite pattn info
-			if i = 0
-				LatchPad i, NO
-				if (songmode = 0)
-					LabelPad i, {PLAYSONG: Active }
-				elseif (songmode = 1)
-					LabelPad i, {PLAYSONG: Scene locked}
-				elseif (songmode = 2)
-					LabelPad i, {PLAYSONG: Pattern locked}
-				else
-					LabelPad i, {PLAYSONG: Disabled}
-				endif
-			elseif i = 1
-				LatchPad i, NO
-				LabelPad i, {SCENES/PATTERNS}
-			elseif i = 2
-				LatchPad i, NO
-				if kontroller_slave
-					LabelPad i, {KNTRL SLAVE ON}
-				else
-					LabelPad i, {KNTRL SLAVE OFF}
-				endif 
-			elseif i = 3
-				LatchPad i, NO
-				if NOT HostRunning
-					Call @LabelSet3
-				endif
-			elseif i = 4
-				LatchPad i, NO
-				if NOT HostRunning
-					LabelPad i, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]     [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
-				endif
-			elseif i = 5
-				LatchPad i, NO
-				if NOT HostRunning
-					LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]   [}, cc_vals[2],{-}, cc_vals[3],{]}
-				endif
-			elseif i = 6
-				LatchPad i, NO
-				if mode<=1
-					if LastPad<=7 //# copy scene or chord
-						LabelPad i, {COPY/PASTE }, {SCENE }, current_scene+1
-						copy_mode=0 //# copy scene
-					else
-						LabelPad i, {COPY/PASTE }, {PATTERN }, current_pattn+1
-						copy_mode=1  //# copy pattn. allows switch scene b4 paste
-					endif
-				elseif mode=9
-					LabelPad i, {COPY/PASTE }, {STEP }, sel_step+1
-				elseif mode=11
-					LabelPad i, {COPY/PASTE }, {SEQ CH}, seq_ch+1
-				endif
-			elseif i = 7
-				LatchPad i, NO
-				if (mode>=8 or mode<=1)
-					LabelPad i, {DELETE  }
-				endif
-			elseif i = 8
-				LatchPad i, NO
-				LabelPad i, {STEPS}
-			elseif i = 9
-				LatchPad i, NO
-				LabelPad i, {EDIT}
-			elseif i = 10
-				LatchPad i, NO
-				LabelPad i, {MUTATE}
-			elseif i = 11
-				LatchPad i, NO
-				LabelPad i, {SEQ GEN }, seq_ch+1
-			elseif i = 12
-				LatchPad i, NO
-				LabelPad i, {ROTATE}
-			elseif i = 13
-				LatchPad i, NO
-				if label_view_mode=4
-					LabelPad i, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
-				elseif label_view_mode=5
-					LabelPad i, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CHS1-4}
-				endif
-			elseif i = 14
-				LatchPad i, NO
-				LabelPad i, { } //# MEL GEN IN NOTES
-			elseif i = 15
-				LatchPad i, NO
-				if label_view_mode=5
-					LabelPad i, {SEQ VIEW     }, {  ALL}
-				elseif label_view_mode=4
-					LabelPad i, {SEQ VIEW     }, {  CHANNEL}
-				endif
-			endif
+			LatchPad i, NO 
 		endfor
+		if (songmode = 0)
+			LabelPad 0, {PLAYSONG: Active }
+		elseif (songmode = 1)
+			LabelPad 0, {PLAYSONG: Scene locked}
+		elseif (songmode = 2)
+			LabelPad 0, {PLAYSONG: Pattern locked}
+		else
+			LabelPad 0, {PLAYSONG: Disabled}
+		endif
+		LabelPad 1, {SCENES/PATTERNS}
+		LabelPad 2, {KNTRL INSTANCE }, kntrl_instance_num
+		if kntrl_instance_num=0
+			LabelPad 2, {KNTRL OFF}
+		endif
+		if NOT HostRunning
+			Call @LabelSet3
+		endif
+		if NOT HostRunning
+			LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]     [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+		endif
+		if NOT HostRunning
+			LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]   [}, cc_vals[2],{-}, cc_vals[3],{]}
+		endif
+		if mode<=1
+			if LastPad<=7 //# copy scene or chord
+				LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
+				copy_mode=0 //# copy scene
+			else
+				LabelPad 6, {COPY/PASTE }, {PATTERN }, current_pattn+1
+				copy_mode=1  //# copy pattn. allows switch scene b4 paste
+			endif
+		elseif mode=9
+			LabelPad i, {COPY/PASTE }, {STEP }, sel_step+1
+		elseif mode=11
+			LabelPad i, {COPY/PASTE }, {SEQ CH}, seq_ch+1
+		endif
+		if (mode>=8 or mode<=1)
+			LabelPad 7, {DELETE  }
+		endif
+		LabelPad 8, {STEPS}
+		LabelPad 9, {EDIT}	
+		LabelPad 10, {MUTATE}
+		LabelPad 11, {SEQ GEN }, seq_ch+1
+		LabelPad 12, {ROTATE}
+		if label_view_mode=4
+			LabelPad 13, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
+		elseif label_view_mode=5
+			LabelPad 13, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CHS1-4}
+		endif
+		LabelPad 14, { } //# MEL GEN IN NOTES
+		LatchPad i, NO
+		if label_view_mode=5
+			LabelPad 15, {SEQ VIEW     }, {  ALL}
+		elseif label_view_mode=4
+			LabelPad 15, {SEQ VIEW     }, {  CHANNEL}
+		endif
 		LatchPad mode, YES
 	endif
 @End
