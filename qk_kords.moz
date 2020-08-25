@@ -4,9 +4,9 @@
   LabelPads {_QK:KORDS}
   if unassigned scene_bank //# duration in first scene
 	  ResetNoteStates FALSE // #reset the locker with the value FALSE!
-	  mode = 0 //# See @HandleModeChange for modes
+	  kntrl_instance_num=1 //# each instance of KORDS, NOTES & BEATS should have a unique num
+ 		mode = 0 //# See @HandleModeChange for modes
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
-	  kontroller_slave=TRUE //# FALSE=off TRUE=on; KONTROLLER APP updates scenes
 	  SetMetroPPQN 4
 	  ppqn = 4 
 	  scene_change_requested = -1 //# on pad down has next scene number
@@ -407,13 +407,9 @@
 			Exit //# Not allowed in playback
 		elseif (LastPad = 7)
 			Call @LogCurrentSceneToPresetFormat
-    elseif (LastPad=1) //# Toggle KONTROLLER SLAVE MODE
-			kontroller_slave = not kontroller_slave
-			if kontroller_slave
-				LabelPad 1, {KONTROLLER SLAVE ON}
-			else
-				LabelPad 1, {KONTROLLER SLAVE OFF}
-			endif
+    elseif (LastPad=1) //# Setup KONTROLLER SLAVE instance number
+			Call @SetupKnobset10
+			Exit
 		elseif (LastPad>=2 and LastPad<=4) //# +CHORDS MODES
 			mode = LastPad-1 //# shifting mode to add kontroller slave in menu
 			Log {MODE:}, mode-1
@@ -594,10 +590,15 @@
 	SendMidiCC 0, knob4_cc, Round GetKnobValue 3
 @End
 
+@OnAuParameter
+  Log {Last AU param: }, LastAUParameter
+@End
+
+
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
-	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if kontroller_slave=1
+	// Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
+	if kntrl_instance_num>0
 		if (MIDIByte2<=7) and (MIDIChannel=15)
 			//# handle scene duration change
 			scene_bank[(MIDIByte2 * sc_size)] = MIDIByte3 
@@ -1597,6 +1598,36 @@
 	Call @LabelChordNotesOutPad
 @End
 
+@SetupKnobset10
+	//# KONTROLLER INSTANCE NUMBER
+	knob_set = 10
+	LabelKnobs {KNTRL INSTANCE}
+	SetKnobValue 0, TranslateScale kntrl_instance_num, 0, 8, 0, 127
+	SetKnobValue 1, 0
+	SetKnobValue 2, 0
+	SetKnobValue 3, 0
+	LabelKnob 0, {KNTRL:}, kntrl_instance_num
+	if kntrl_instance_num=0
+		LabelKnob 0, {KNTRL:OFF}
+	endif
+	LabelKnob 1, { }
+	LabelKnob 2, { }
+	LabelKnob 3, { }
+@End
+
+@KnobChangeSet10
+	//# KNTRL instance number
+	if LastKnob = 0
+	  kntrl_instance_num = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 8
+		LabelKnob 0, {KNTRL:}, kntrl_instance_num
+		LabelPad 1, {KNTRL INSTANCE }, kntrl_instance_num
+		if kntrl_instance_num=0
+			LabelKnob 0, {KNTRL:OFF}
+			LabelPad 1, {KNTRL OFF}
+		endif
+  endif
+@End
+
 @LabelKnobset4
 	if midi_channels_used[1] = -1
 	  LabelKnob 0, {IN1 Ch: }, {off}
@@ -1783,7 +1814,9 @@
   	Call @KnobChangeSet8	//# Midi out channels B
   elseif knob_set = 9
   	Call @KnobChangeSet9	//# Midi out channel On/Off
-  endif 
+  elseif knob_set = 10
+  	Call @KnobChangeSet10	//# Kontroller instance num
+	endif 
 @End 
 
 @KnobChangeSet0
@@ -2175,80 +2208,49 @@
 		for i = 0 to (number_of_modes - 1)
 			ColorPad i, col_mode_select
 			LabelPad i, { } //# empty label to overwrite chord info
-			if i = 0
-				LatchPad i, NO
-				if (songmode = 0)
-					LabelPad i, {PLAYSONG: Active }
-				elseif (songmode = 1)
-					LabelPad i, {PLAYSONG: Scene locked}
-				elseif (songmode = 2)
-					LabelPad i, {PLAYSONG: Chord locked}
-				else
-					LabelPad i, {PLAYSONG: Disabled}
-				endif
-			elseif i = 1
-				LatchPad i, NO
-				if kontroller_slave
-					LabelPad i, {KONTROLLER SLAVE ON}
-				else
-					LabelPad i, {KONTROLLER SLAVE OFF}
-				endif 
-			elseif i = 2
-				LatchPad i, NO
-				if (NOT HostRunning) or (HostRunning and allow_mode_chg_playbk)
-					LabelPad i, {+CHORDS: Select}
-				endif
-			elseif i = 3
-				LatchPad i, NO
-				if (NOT HostRunning) or (HostRunning and allow_mode_chg_playbk)
-					LabelPad i, {+CHORDS: Construct}
-				endif
-			elseif i = 4
-				LatchPad i, NO
-				if (NOT HostRunning) or (HostRunning and allow_mode_chg_playbk)  
-					LabelPad i, {+CHORDS: Record}
-				endif
-			elseif (i=5) or (i=14)
-				//# not in use
-				LatchPad i, No
-				LabelPad i, { }
-			elseif i = 6
-				LatchPad i, NO
-				if LastPad<=7 //# copy scene or chord
-					LabelPad i, {COPY/PASTE }, {SCENE }, current_scene+1
-					copy_mode=0
-				else
-					LabelPad i, {COPY/PASTE }, {CHORD }, current_chord+1
-					copy_mode=1 
-				endif
-			elseif i = 7
-				LatchPad i, NO
-				LabelPad i, { SAVE     }
-			elseif i = 8
-				LatchPad i, NO
-			elseif i = 9
-				LatchPad i, NO
-				Call @LabelMidiInChannelsPadA
-			elseif i = 10
-				LatchPad i, NO
-				Call @LabelSceneModesPad	
-			elseif i = 11
-				LatchPad i, NO
-				Call @LabelMidiInChannelsPadB
-			elseif i = 12
-				LatchPad i, NO
-				Call @LabelMidiOutChannelsPad
-			elseif i = 13
-				LatchPad i, NO
-				Call @LabelChordNotesOutPad
-			elseif i = 15
-				LatchPad i, NO
-				LabelPad i, {DELETE  }
-			endif
+			LatchPad i, NO 
 		endfor
+		if (songmode = 0)
+			LabelPad 0, {PLAYSONG: Active }
+		elseif (songmode = 1)
+			LabelPad 0, {PLAYSONG: Scene locked}
+		elseif (songmode = 2)
+			LabelPad 0, {PLAYSONG: Chord locked}
+		else
+			LabelPad 0, {PLAYSONG: Disabled}
+		endif	
+		LabelPad 1, {KNTRL INSTANCE }, kntrl_instance_num
+		if kntrl_instance_num=0
+			LabelPad 1, {KNTRL OFF}
+		endif		
+		if (NOT HostRunning) or (HostRunning and allow_mode_chg_playbk)
+			LabelPad 2, {+CHORDS: Select}
+		endif		
+		if (NOT HostRunning) or (HostRunning and allow_mode_chg_playbk)
+			LabelPad 3, {+CHORDS: Construct}
+		endif
+		if (NOT HostRunning) or (HostRunning and allow_mode_chg_playbk)  
+			LabelPad 4, {+CHORDS: Record}
+		endif
+		LabelPad 5,{ }
+		if LastPad<=7 //# copy scene or chord
+			LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
+			copy_mode=0
+		else
+			LabelPad 6, {COPY/PASTE }, {CHORD }, current_chord+1
+			copy_mode=1 
+		endif
+		LabelPad 7, { SAVE     }
 		if NOT HostRunning
 			LabelPad 8, { MIDI INPUT  }, {   Key/Scale      }, (NoteName selected_midi_in_root), { }, (ScaleName allowed_scales[selected_midi_in_scale])
 		endif
+		Call @LabelMidiInChannelsPadA //pad8
+		Call @LabelSceneModesPad		//pad9
+		Call @LabelMidiInChannelsPadB //pad10
+		Call @LabelMidiOutChannelsPad //pad11
+		Call @LabelChordNotesOutPad //pad12
+		LabelPad 14,{ }
+		LabelPad 15, {DELETE  }
 		if (mode>=1 and mode<=3)
 			LatchPad mode+1, YES //#shifted +Chords in menu
 		else
