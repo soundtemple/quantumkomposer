@@ -1,73 +1,118 @@
+@ADDTOINIT
+	lfo_num=0
+	dest_num=0
+	lfo_dests = [2,2,3,3,4,4,5,5, 6,6,7,7,8,8,9,9] //#2LFO's 4 destinations calc'd by CH and PAD setup in KNTRL
+	lfo_types=[3,4] //# Ramp, Sine etc...
+	lfo_freqs=[0.5, 0.5]
+	lfo_syncs=[TRUE, TRUE]
+	lfo_xmods=[0,0]
+	autom_scene=[0,0] //current scene selected for editing in each LFO
+	autom_bar=[1,1] //current bar selected for editing in each LFO
+	//# stored this way so we can preserve changes if scene lengths change in preceding scenes...
+	FillArray lfo_autom_amts, -1, 32*8*2 //# amt saved per bar -1 value=notsent. 8scenes, upto 32bars, 2lfos
+	SetLFOType 0, {RampUp} //{Sine}, {Cosine}, {Square}, {Triangle}, {RampUp}, {RampDown}, {SH}
+	SetLFOType 1, {RampDown}
+	SetLFOType 2, {SH}
+	SetLFOType 3, {SH}
+	SetupLFO 0, 0, 127, YES, 0.5
+	SetupLFO 1, 0, 127, YES, 0.5
+	SetupLFO 2, 0, 127, NO, 0.5 //# rnd x-mod lfo for lfo#1
+	SetupLFO 3, 0, 127, NO, 0.5 //# rnd x-mod lfo for lfo#2
+@End
+
+@ADDTOPADDOWNLFOS
+	dest_num=LastPad 
+@End
+
 @SetupKnobset7
   //# LFO xlfo
   knob_set = 7
-  LabelKnobs {SCENE }, current_scene+1, { LFO's} 
-  
-  SetKnobValue 0, TranslateScale lfo_num, 0, 15, 0, 127
-  SetKnobValue 1, TranslateScale lfo_type, 0, 5, 0, 127
-  SetKnobValue 2, TranslateScale lfo_freq, 0, 127, 0, 127
-  SetKnobValue 3, TranslateScale lfo_sync, 0, 1, 0, 127
-
-  LabelKnob 0, {LFO#: }, lfo_num+1
-	LabelKnob 2, {FREQ: }, lfo_freq
-
-	if lfo_type=0
-		LabelKnob 1, {SINE}
-	elseif lfo_type=1
-		LabelKnob 1, {COSINE}
-  elseif lfo_type=2
-		LabelKnob 1, {SQUARE}
-  elseif lfo_type=3
-		LabelKnob 1, {RAMP UP}
-  elseif lfo_type=4
-		LabelKnob 1, {RAMP DN}
-  elseif lfo_type=5
-		LabelKnob 1, {S&H}
+  ShowLayout 0
+	LabelPads {DESTINATIONS} 
+	LabelKnobs {LFO},lfo_num, { SETUP}   
+	LabelXY {LFO}, lfo_num, {DEST}, dest_num, { OUTPUT}
+	
+	d_ch =  lfo_dests[(lfo_num*8) + (dest_num*2)] //destination channel
+	d_pad = lfo_dests[(lfo_num*8) + (dest_num*2) + 1] //destination 0-15 setup in kntrl mode
+	//the amt to set at scene x bar y
+	autom_lfo_amt = autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]]  
+	
+	LabelKnob 0, {D-CH}, d_ch
+	LabelKnob 1, {D-PAD}, d_pad
+	if autom_scene <=7
+		LabelKnob 2, {A-SCENE}, autom_scene[lfo_num] //0-7 + 8 which is autom off free
+		LabelKnob 3, {A-BAR}, autom_bar[lfo_num] //set dynamically but 0-31
+		LabelKnob 4, {A-LFO AMT}, autom_lfo_amt
+  else
+		LabelKnob 2, {Auto. OFF}
+		LabelKnob 3, { }
+		LabelKnob 4, {LFO AMT}, autom_lfo_amt
   endif
-  
-  if lfo_sync = 0
-	  LabelKnob 3, {FREE}
+	LabelKnob 5, {LFO# }, lfo_num
+	lfo_type = lfo_types[lfo_num]
+	if lfo_type=0
+		LabelKnob 6, {SINE}
+	elseif lfo_type=1
+		LabelKnob 6, {COSINE}
+  elseif lfo_type=2
+		LabelKnob 6, {SQUARE}
+  elseif lfo_type=3
+		LabelKnob 6, {RAMP UP}
+  elseif lfo_type=4
+		LabelKnob 6, {RAMP DN}
+  elseif lfo_type=5
+		LabelKnob 6, {S&H}
+  endif
+  LabelKnob 7, {FREQ}, lfo_freqs[lfo_num]
+  if lfo_syncs[lfo_num] = 0
+	  LabelKnob 8, {FREE}
 	else
-		LabelKnob 3, {SYNC}
+		LabelKnob 8, {SYNC}
 	endif
+	LabelKnob 9, {X-MOD }, lfo_xmods[lfo_num]
 @End
 
 @KnobChangeSet7
   //# LFO's xlfo
   
   if LastKnob = 0
-    lfo_num = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+    d_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+		lfo_dests[(lfo_num*8) + (dest_num*2)] = d_ch
+		//Call LabelChannelPad
   endif
   if LastKnob = 1
-    lfo_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 5
+    d_pad = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+		lfo_dests[(lfo_num*8) + (dest_num*2) + 1] = d_pad
+		//Call LabelChannelPad
   endif
   if LastKnob = 2
-    lfo_freq = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 32
+    autom_scene = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
+		//SetKnob autom_lfo_amt
   endif
   if LastKnob = 3
-    lfo_sync = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 15
+		autom_bar = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 31
+		//SetKnob autom_lfo_amt
   endif
-  
-  LabelKnob 0, {LFO#: }, lfo_num+1
-	LabelKnob 2, {FREQ: }, lfo_freq
-
-	if lfo_type=0
-		LabelKnob 1, {SINE}
-	elseif lfo_type=1
-		LabelKnob 1, {COSINE}
-  elseif lfo_type=2
-		LabelKnob 1, {SQUARE}
-  elseif lfo_type=3
-		LabelKnob 1, {RAMP UP}
-  elseif lfo_type=4
-		LabelKnob 1, {RAMP DN}
-  elseif lfo_type=5
-		LabelKnob 1, {S&H}
+	if LastKnob = 4
+    autom_lfo_amt = Round TranslateScale (GetKnobValue 4), 0, 127, 0, 127
+		autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]] = autom_lfo_amt
   endif
-  
-  if lfo_sync = 0
-	  LabelKnob 3, {FREE}
-	else
-		LabelKnob 3, {SYNC}
+  if LastKnob = 5
+    lfo_num = Round TranslateScale (GetKnobValue 5), 0, 127, 0, 1
+		//Label knobs 6-9
+  endif
+  if LastKnob = 6
+    lfo_types[lfo_num] = Round TranslateScale (GetKnobValue 6), 0, 127, 0, 5
+		// Label knobs
+  endif
+  if LastKnob = 7
+    lfo_freqs[lfo_num] = Round TranslateScale (GetKnobValue 7), 0, 127, 0, 127
+		//# how do we set this for synced? what are options. maybe need array of choices?
 	endif
+	if LastKnob = 8
+    lfo_syncs[lfo_num] = Round TranslateScale (GetKnobValue 8), 0, 127, 0, 1
+  endif
+  if LastKnob = 9
+    lfo_xmods[lfo_num] = Round TranslateScale (GetKnobValue 9), 0, 127, 0, 10
+  endif	
 @End
