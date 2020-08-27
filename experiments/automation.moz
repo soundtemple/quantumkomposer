@@ -1,3 +1,18 @@
+@Temp
+if edit_mode_active
+	LabelPad 2, {SETUP MODE ON}
+	LabelPad 3, {_QK:KNTRL SETUP}
+	LabelPad 4, {CHANNELS  SETUP}
+	LabelPad 5, {AUTOM.    SETUP}
+else 
+	LabelPad 2, {SETUP MODE OFF}
+	LabelPad 3, {_QK:KNTRL}
+	LabelPad 4, {CHANNELS}
+	LabelPad 5, {AUTOMATION}
+	endif
+
+@end
+
 @OnLoad
 	Log {Crazy Automation idea}
 	ShowLayout 1 
@@ -46,10 +61,10 @@
 	knob_set = 0
 	song_bar=0
 	for i = 0 to auto_scene
-	  song_bar=song_bar+scene_durs[i]
+	  song_bar=song_bar+scene_durs[i] //add scene durs up to the automation scene
 	endfor
 	auto_adv_max = scene_durs[auto_scene] - 4
-	if scene_durs[auto_scene] <=4
+	if scene_durs[auto_scene] <=4 //allows for scrolling through the scene to see automation. view holds 4 bars
 		auto_adv_max = 0
 	endif
 	SetKnobValue 8, auto_ramp_min
