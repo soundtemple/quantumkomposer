@@ -69,11 +69,10 @@
 	ch_msb=[] //# specific to pgm chagen msg
 	FillArray ch_maxs, 127, 16*16 //# default the max cc range to 127
 	
-	
 	//AUTOMATION SECTION VARS
 	auto_ramp_max=127
 	auto_ramp_min=0
-	auto_channel=0
+	auto_lane=0
 	auto_scene=0
 	auto_ramp=0
 	auto_adv_bar=0
@@ -109,7 +108,7 @@
 	//LFO SECTION VARS
 	lfo_num=0
 	dest_num=0
-	lfo_dests = [2,2,3,3,4,4,5,5, 6,6,7,7,8,8,9,9] //#2LFO's 4 destinations calc'd by CH and PAD setup in KNTRL
+	lfo_dests=[-1,0,-1,0,-1,0,  -1,0,-1,0,-1,0,-1,0] //#2LFO's 4 destinations calc'd by CH and PAD. -1 so no labelling
 	lfo_types=[3,4] //# Ramp, Sine etc...
 	lfo_freqs=[0.5, 0.5]
 	lfo_syncs=[TRUE, TRUE]
@@ -270,8 +269,8 @@
 		elseif LastPad=7
 			mode=4 // LFO's
 			in_mode_select = FALSE
-			Call @SetupKnobset6 //# LFO's
 			Call @SetupLayoutLFOS
+			Call @SetupKnobset6 //# LFO's
 		elseif LastPad>=8 and LastPad<=11 //GOTO a quick channel
 		  mode=5 //goto MIDI MAPPING AND KONTROL mode
 			if edit_mode_active
@@ -401,6 +400,7 @@
 @PadDownLFOSMode
 	Log {Pad down in LFO's mode}
 	dest_num=LastPad
+	Call @SetupKnobset6
 @End
 
 @PadDownMACROSMode
@@ -835,7 +835,7 @@
 	endif
 	SetKnobValue 8, auto_ramp_min
 	SetKnobValue 19, auto_ramp_max
-	SetKnobValue 9, TranslateScale auto_channel, 0, 15, 0, 127
+	SetKnobValue 9, TranslateScale auto_lane, 0, 15, 0, 127
 	SetKnobValue 10, TranslateScale auto_scene, 0, 7, 0, 127
 	SetKnobValue 20, TranslateScale auto_ramp, 0, 15, 0, 127
 	SetKnobValue 21, TranslateScale auto_adv_bar, 0, auto_adv_max, 0, 127
@@ -872,7 +872,7 @@
 	  LabelKnob 20, {Ramp }, auto_ramp
 		endif
 	if LastKnob = 9
-	  auto_channel =  Round TranslateScale (GetKnobValue 9), 0, 127, 0, 15
+	  auto_lane =  Round TranslateScale (GetKnobValue 9), 0, 127, 0, 15
 		Call @LabelAutomationKnobs
 	endif
 	if LastKnob = 10
@@ -899,27 +899,93 @@
 	//# LFO's
   knob_set = 6
   ShowLayout 0
-	LabelPads {DESTINATIONS} 
-	LabelKnobs {LFO},lfo_num, { SETUP}   
-	LabelXY {LFO}, lfo_num, {DEST}, dest_num, { OUTPUT}
-	
 	d_ch =  lfo_dests[(lfo_num*8) + (dest_num*2)] //destination channel
 	d_pad = lfo_dests[(lfo_num*8) + (dest_num*2) + 1] //destination 0-15 setup in kntrl mode
 	//the amt to set at scene x bar y
 	autom_lfo_amt = autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]]  
-	
-	LabelKnob 0, {D-CH}, d_ch
-	LabelKnob 1, {D-PAD}, d_pad
+	SetKnobValue 0, TranslateScale lfo_dests[(lfo_num*8) + (dest_num*2)], 0, 15, 0, 127
+	SetKnobValue 1, TranslateScale lfo_dests[(lfo_num*8) + (dest_num*2) + 1], 0, 15, 0, 127
+	SetKnobValue 2, TranslateScale autom_scene, 0, 15, 0, 127
+	SetKnobValue 3, TranslateScale autom_bar, 0, 15, 0, 127
+	SetKnobValue 4, TranslateScale autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]], 0, 127, 0, 127
+	//SetKnobValue 5, TranslateScale lfo_num, 0, 1, 0, 127
+	SetKnobValue 6, TranslateScale lfo_types[lfo_num], 0, 5, 0, 127
+	SetKnobValue 7, TranslateScale lfo_freqs[lfo_num], 0, 127, 0, 127
+	SetKnobValue 8, TranslateScale lfo_syncs[lfo_num], 0, 1, 0, 127
+	SetKnobValue 9, TranslateScale lfo_xmods[lfo_num], 0, 10, 0, 127
+	Call @LabelLFOKnobs
+@End
+
+@KnobChangeSet6
+	//# LFO's  mode
+	if LastKnob = 0
+    d_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+		lfo_dests[(lfo_num*8) + (dest_num*2)] = d_ch
+		if d_ch>=0 and d_pad>=0
+			ch_pad_to_label=dest_num
+			pad_slot=(d_ch * 16) + d_pad
+			Call @LabelChannelPadK
+		endif
+  endif
+  if LastKnob = 1
+    d_pad = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
+		lfo_dests[(lfo_num*8) + (dest_num*2) + 1] = d_pad
+		if d_ch>=0 and d_pad>=0
+			ch_pad_to_label=dest_num
+			pad_slot=(d_ch * 16) + d_pad
+			Call @LabelChannelPadK
+		endif
+  endif
+  if LastKnob = 2
+    autom_scene = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 15
+		SetKnobValue 4, TranslateScale autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]], 0, 127, 0, 127
+  endif
+  if LastKnob = 3
+		autom_bar = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 31
+		SetKnobValue 4, TranslateScale autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]], 0, 127, 0, 127
+  endif
+	if LastKnob = 4
+    autom_lfo_amt = Round TranslateScale (GetKnobValue 4), 0, 127, 0, 127
+		autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]] = autom_lfo_amt
+  endif
+  if LastKnob = 5
+    lfo_num = Round TranslateScale (GetKnobValue 5), 0, 127, 0, 1
+		Call @SetupKnobset6
+  endif
+  if LastKnob = 6
+    lfo_types[lfo_num] = Round TranslateScale (GetKnobValue 6), 0, 127, 0, 5
+  endif
+  if LastKnob = 7
+    lfo_freqs[lfo_num] = Round TranslateScale (GetKnobValue 7), 0, 127, 0, 127
+		//# how do we set this for synced? what are options. maybe need array of choices?
+	endif
+	if LastKnob = 8
+    lfo_syncs[lfo_num] = Round TranslateScale (GetKnobValue 8), 0, 127, 0, 1
+  endif
+  if LastKnob = 9
+    lfo_xmods[lfo_num] = Round TranslateScale (GetKnobValue 9), 0, 127, 0, 10
+  endif	
+	Call @LabelLFOKnobs
+@End
+
+@LabelLFOKnobs
+	LabelPads {LFO },lfo_num+1, { DESTINATIONS } 
+	LabelKnobs {LFO },lfo_num+1, { SETUP}   
+	LabelXY {LFO }, lfo_num+1, { DEST }, dest_num+1, { OUTPUT}
+	d_ch =  lfo_dests[(lfo_num*8) + (dest_num*2)] //destination channel
+	d_pad = lfo_dests[(lfo_num*8) + (dest_num*2) + 1] //destination 0-15 setup in kntrl mode
+	LabelKnob 0, {D-CH }, d_ch+1
+	LabelKnob 1, {D-PAD }, d_pad+1
 	if autom_scene <=7
-		LabelKnob 2, {A-SCENE}, autom_scene[lfo_num] //0-7 + 8 which is autom off free
-		LabelKnob 3, {A-BAR}, autom_bar[lfo_num] //set dynamically but 0-31
-		LabelKnob 4, {A-LFO AMT}, autom_lfo_amt
+		LabelKnob 2, {A-SCENE }, autom_scene[lfo_num]+1 //0-7 + 8 which is autom off free
+		LabelKnob 3, {A-BAR }, autom_bar[lfo_num]+1 //set dynamically but 0-31
+		LabelKnob 4, {AMT }, autom_lfo_amt
   else
 		LabelKnob 2, {Auto. OFF}
 		LabelKnob 3, { }
-		LabelKnob 4, {LFO AMT}, autom_lfo_amt
   endif
-	LabelKnob 5, {LFO# }, lfo_num
+	LabelKnob 4, {AMT }, autom_lfo_amt
+	LabelKnob 5, {LFO# }, lfo_num+1
 	lfo_type = lfo_types[lfo_num]
 	if lfo_type=0
 		LabelKnob 6, {SINE}
@@ -934,57 +1000,23 @@
   elseif lfo_type=5
 		LabelKnob 6, {S&H}
   endif
-  LabelKnob 7, {FREQ}, lfo_freqs[lfo_num]
+  LabelKnob 7, {FREQ }, lfo_freqs[lfo_num]
   if lfo_syncs[lfo_num] = 0
 	  LabelKnob 8, {FREE}
 	else
 		LabelKnob 8, {SYNC}
 	endif
 	LabelKnob 9, {X-MOD }, lfo_xmods[lfo_num]
-@End
-
-@KnobChangeSet6
-	//# LFO's  mode
-	if LastKnob = 0
-    d_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
-		lfo_dests[(lfo_num*8) + (dest_num*2)] = d_ch
-		//Call LabelChannelPad
-  endif
-  if LastKnob = 1
-    d_pad = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
-		lfo_dests[(lfo_num*8) + (dest_num*2) + 1] = d_pad
-		//Call LabelChannelPad
-  endif
-  if LastKnob = 2
-    autom_scene = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
-		//SetKnob autom_lfo_amt
-  endif
-  if LastKnob = 3
-		autom_bar = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 31
-		//SetKnob autom_lfo_amt
-  endif
-	if LastKnob = 4
-    autom_lfo_amt = Round TranslateScale (GetKnobValue 4), 0, 127, 0, 127
-		autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]] = autom_lfo_amt
-  endif
-  if LastKnob = 5
-    lfo_num = Round TranslateScale (GetKnobValue 5), 0, 127, 0, 1
-		//Label knobs 6-9
-  endif
-  if LastKnob = 6
-    lfo_types[lfo_num] = Round TranslateScale (GetKnobValue 6), 0, 127, 0, 5
-		// Label knobs
-  endif
-  if LastKnob = 7
-    lfo_freqs[lfo_num] = Round TranslateScale (GetKnobValue 7), 0, 127, 0, 127
-		//# how do we set this for synced? what are options. maybe need array of choices?
-	endif
-	if LastKnob = 8
-    lfo_syncs[lfo_num] = Round TranslateScale (GetKnobValue 8), 0, 127, 0, 1
-  endif
-  if LastKnob = 9
-    lfo_xmods[lfo_num] = Round TranslateScale (GetKnobValue 9), 0, 127, 0, 10
-  endif	
+	//label destination pads
+	for i = 0 to 3
+		d_ch = lfo_dests[(lfo_num*8) + (i * 2)] //destination channel
+		d_pad = lfo_dests[(lfo_num*8) + (i * 2) + 1] //destination 0-15 setup in kntrl mode
+		if d_ch>=0 and d_pad>=0 //# initialised with value -1 so no labelling until assigned
+			ch_pad_to_label=i 
+			pad_slot=(d_ch * 16) + d_pad
+			Call @LabelChannelPadK
+		endif
+	endfor
 @End
 
 @SetupKnobset7
@@ -1172,7 +1204,6 @@
 	if LastKnob = 1
 		macro_params[sel_macro] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15	
 	endif
-	Log {macro ch: }, chan_to_label, { macro slot: }, ch_pad_to_label
 	ch_pad_to_label=sel_macro
 	pad_slot=(macro_chans[sel_macro] * 16) + macro_params[sel_macro]
 	Call @LabelChannelPadK
@@ -1286,10 +1317,9 @@
 	
 @SetupLayoutLFOS
 	ShowLayout 0
-	Log {Get LFO layout}
 	for i = 0 to 4
 		ColorPad i, 6
-		LabelPad i, {DESTINATION }, i
+		LabelPad i, {D}, i+1
 	endfor
 @End
 
@@ -1554,83 +1584,83 @@
 	endfor
 	LabelKnob 8, {Min}, auto_ramp_min 
 	LabelKnob 19, {Max}, auto_ramp_max 
-	LabelKnob 9, {Instr }, auto_channel+1
+	LabelKnob 9, {Lane }, auto_lane+1
 	LabelKnob 10, {Scene }, auto_scene+1
 	LabelKnob 20, {Ramp}, auto_ramp
 	LabelKnob 21, {Bar }, song_bar + auto_adv_bar - scene_durs[auto_scene] + 1 
-	LabelKnobs {AUTOMATION: Channel: }, auto_channel+1, {   Scene }, auto_scene+1, { Bars: }, song_bar-scene_durs[auto_scene]+1, { to }, song_bar
+	LabelKnobs {AUTOMATION: Lane: }, auto_lane+1, {   Scene }, auto_scene+1, { Bars: }, song_bar-scene_durs[auto_scene]+1, { to }, song_bar
 @End
 
 @GetAutoValueAtDataSlot
 	// Sets var break_point to the value stored in auto_data array at data_slot
-	if auto_channel=0
+	if auto_lane=0
 		break_point = auto_data_ch0[data_slot]
-	elseif auto_channel=1
+	elseif auto_lane=1
 		break_point = auto_data_ch1[data_slot]
-	elseif auto_channel=2
+	elseif auto_lane=2
 		break_point = auto_data_ch2[data_slot]
-	elseif auto_channel=3
+	elseif auto_lane=3
 		break_point = auto_data_ch3[data_slot]
-	elseif auto_channel=4
+	elseif auto_lane=4
 		break_point = auto_data_ch4[data_slot]
-	elseif auto_channel=5
+	elseif auto_lane=5
 		break_point = auto_data_ch5[data_slot]
-	elseif auto_channel=6
+	elseif auto_lane=6
 		break_point = auto_data_ch6[data_slot]
-	elseif auto_channel=7
+	elseif auto_lane=7
 		break_point = auto_data_ch7[data_slot]
-	elseif auto_channel=8
+	elseif auto_lane=8
 		break_point = auto_data_ch8[data_slot]
-	elseif auto_channel=9
+	elseif auto_lane=9
 		break_point = auto_data_ch9[data_slot]
-	elseif auto_channel=10
+	elseif auto_lane=10
 		break_point = auto_data_ch10[data_slot]
-	elseif auto_channel=11
+	elseif auto_lane=11
 		break_point = auto_data_ch11[data_slot]
-	elseif auto_channel=12
+	elseif auto_lane=12
 		break_point = auto_data_ch12[data_slot]
-	elseif auto_channel=13
+	elseif auto_lane=13
 		break_point = auto_data_ch13[data_slot]
-	elseif auto_channel=14
+	elseif auto_lane=14
 		break_point = auto_data_ch14[data_slot]
-	elseif auto_channel=15
+	elseif auto_lane=15
 		break_point = auto_data_ch15[data_slot]
 	endif	
 @End
 
 @UpdateAutomationPoint
 	//# requires the slot to update as data_slot and value as break_point
-	if auto_channel=0
+	if auto_lane=0
 		auto_data_ch0[data_slot] = break_point
-	elseif auto_channel=1
+	elseif auto_lane=1
 		auto_data_ch1[data_slot] = break_point
-	elseif auto_channel=2
+	elseif auto_lane=2
 		auto_data_ch2[data_slot] = break_point
-	elseif auto_channel=3
+	elseif auto_lane=3
 		auto_data_ch3[data_slot] = break_point
-	elseif auto_channel=4
+	elseif auto_lane=4
 		auto_data_ch4[data_slot] = break_point
-	elseif auto_channel=5
+	elseif auto_lane=5
 		auto_data_ch5[data_slot] = break_point
-	elseif auto_channel=6
+	elseif auto_lane=6
 		auto_data_ch6[data_slot] = break_point
-	elseif auto_channel=7
+	elseif auto_lane=7
 		auto_data_ch7[data_slot] = break_point
-	elseif auto_channel=8
+	elseif auto_lane=8
 		auto_data_ch8[data_slot] = break_point
-	elseif auto_channel=9
+	elseif auto_lane=9
 		auto_data_ch9[data_slot] = break_point
-	elseif auto_channel=10
+	elseif auto_lane=10
 		auto_data_ch10[data_slot] = break_point
-	elseif auto_channel=11
+	elseif auto_lane=11
 		auto_data_ch11[data_slot] = break_point
-	elseif auto_channel=12
+	elseif auto_lane=12
 		auto_data_ch12[data_slot] = break_point
-	elseif auto_channel=13
+	elseif auto_lane=13
 		auto_data_ch13[data_slot] = break_point
-	elseif auto_channel=14
+	elseif auto_lane=14
 		auto_data_ch14[data_slot] = break_point
-	elseif auto_channel=15
+	elseif auto_lane=15
 		auto_data_ch15[data_slot] = break_point
 	endif
 @End
@@ -1686,4 +1716,4 @@
 	if auto_data_ch15[auto_data_slot] >= 0
 		SendMIDICC automation_cc_chs[15], automation_cc_vals[15], auto_data_ch15[auto_data_slot]
 	endif
-@End
+	@End
