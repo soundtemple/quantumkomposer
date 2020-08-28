@@ -1,17 +1,4 @@
-@Temp
-if edit_mode_active
-	LabelPad 2, {SETUP MODE ON}
-	LabelPad 3, {_QK:KNTRL SETUP}
-	LabelPad 4, {CHANNELS  SETUP}
-	LabelPad 5, {AUTOM.    SETUP}
-else 
-	LabelPad 2, {SETUP MODE OFF}
-	LabelPad 3, {_QK:KNTRL}
-	LabelPad 4, {CHANNELS}
-	LabelPad 5, {AUTOMATION}
-	endif
 
-@end
 
 @OnLoad
 	Log {Crazy Automation idea}
