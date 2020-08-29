@@ -46,7 +46,7 @@
 	col_edit_scene = 3
 	col_pending = 3
 	loop_col = 6
-	col_del_chord = 1
+	col_warn = 1
 	col_mode_select = 6 //# Mode selection buttons
 	col_unused = 0
 	col_mode_edit = 5 //# Mode selection buttons in edit mode
@@ -70,13 +70,15 @@
 	FillArray ch_maxs, 127, 16*16 //# default the max cc range to 127
 	
 	//AUTOMATION SECTION VARS
-	auto_ramp_max=127
+	auto_ramp_max=127 //range for the ramp to be applied
 	auto_ramp_min=0
-	auto_lane=0
-	auto_scene=0
-	auto_ramp=0
-	auto_adv_bar=0
+	auto_lane=0 //0-15 slots available for automation
+	auto_scene=0 //# scene being automated
+	auto_ramp=0 //# apply a ramp set of automation values to a set of bars
+	auto_adv_bar=0 //# scroll through scene to see automation
 	scene_durs = [4,8,8,16,8,16,8,4]
+	sel_autom_pad=0 //# selected automation pad for editing
+	record_autom_on=FALSE //# record automation from the automation edit page
 	FillArray auto_data_ch0, -1, 1024
 	FillArray auto_data_ch1, -1, 1024
 	FillArray auto_data_ch2, -1, 1024
@@ -95,6 +97,8 @@
 	FillArray auto_data_ch15, -1, 1024
 	FillArray automation_cc_vals, 0, 16 //the cc num automation gets sent on 
 	FillArray automation_cc_chs, 0, 16 //the channel automation gets sent on
+	FillArray automation_chs,-1,16 //# knobs used to store and locate the param to automate
+	FillArray automation_pads,-1,16 //# knobs used to store and locate the param to automate
 
 	//MACRO SECTION
 	sel_macro=0 //# currently selected for editing
@@ -178,10 +182,29 @@
 		elseif mode=1
 			Call @SetupLayoutChannels
 		elseif mode=2
-			Call @SetupLayoutAutom
+			if edit_mode_active
+				Call @LabelAutomationPads
+				Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
+			else
+				Call @SetupLayoutAutom
+				Call @SetupKnobset5 //# AUTOM. Write to params	
+			endif
 		elseif mode=3
-			Log {NEED A CALL TO MACROS}
-			Call @SetupLayoutMacros
+			in_mode_select = FALSE
+			LabelPads {MACROS:  Each of the 4 macros has 4 assignable  parameter slots}
+			ShowLayout 2
+			for i = 0 to 15
+				LatchPad i, NO 
+				ch_pad_to_label=i 
+				pad_slot=(macro_chans[i] * 16) + macro_params[i] 
+				Call @LabelChannelPadK
+			endfor
+			LatchPad sel_macro, YES 
+			if edit_mode_active
+				Call @SetupKnobset11
+			else
+				Call @SetupKnobset12
+			endif
 		elseif mode=4
 			Call @SetupLayoutLFOS
 		elseif mode=5
@@ -243,8 +266,10 @@
 			mode=2 //AUTOMATION
 			in_mode_select = FALSE
 			if edit_mode_active
-				Call @SetupLayoutChannels
+				sel_autom_pad=0
+				Call @LabelAutomationPads
 				Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
+				LatchPad 0, YES
 			else
 				Call @SetupLayoutAutom
 				Call @SetupKnobset5 //# AUTOM. Write to params	
@@ -420,6 +445,18 @@
 
 @PadDownAutomMode
 	Log {Pad down in AUTOM mode}
+	sel_autom_pad=LastPad
+	if edit_mode_active
+		Call @LabelAutomationPads
+		Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
+		for i = 0 to 15
+			LatchPad i, no 
+		endfor
+		LatchPad sel_autom_pad, YES
+	else
+		Call @SetupLayoutAutom
+		Call @SetupKnobset5 //# AUTOM. Write to params	
+	endif
 @End
 
 @PadDownHeadChannel
@@ -816,10 +853,101 @@
 	knob_set = 4
 	LabelPads {AUTOMATION SETUP PARAMTERS}
 	LabelKnobs {AUTOMATION}
+	a_ch = automation_chs[sel_autom_pad]
+	a_pad = automation_pads[sel_autom_pad]
+	pad_slot=(a_ch * 16) + a_pad 
+	SetKnobValue 0, TranslateScale a_ch, -1, 15, 0, 127
+	SetKnobValue 1, TranslateScale a_pad, -1, 15, 0, 127
+	if a_ch>=0 and a_pad>=0
+		SetKnobValue 2, TranslateScale ch_vals[pad_slot], ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
+	else
+		SetKnobValue 2, 0		
+	endif
+	SetKnobValue 3, TranslateScale record_autom_on, 0, 1, 0, 127 
+	Call @LabelAutomationPads
 @End
 
 @KnobChangeSet4
 	//# AUTOMATION PARAMS
+	if LastKnob = 0
+    a_ch = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 15
+		automation_chs[sel_autom_pad] = a_ch
+		if a_ch>=0 and a_pad>=0
+			ch_pad_to_label=sel_autom_pad
+			pad_slot=(a_ch * 16) + a_pad
+			Call @LabelChannelPadK
+		endif
+  endif
+  if LastKnob = 1
+    a_pad = Round TranslateScale (GetKnobValue 1), 0, 127, -1, 15
+		automation_pads[sel_autom_pad] = a_pad
+		if a_ch>=0 and a_pad>=0
+			ch_pad_to_label=sel_autom_pad
+			pad_slot=(a_ch * 16) + a_pad
+			Call @LabelChannelPadK
+		endif
+  endif
+  if LastKnob = 2
+		if a_ch>=0 and a_pad>=0
+	    pad_slot=(automation_chs[sel_autom_pad]* 16) + automation_pads[sel_autom_pad] 
+			ch_vals[pad_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
+			SendMIDICC ch_midi_chs[automation_chs[sel_autom_pad]], ch_ccs[pad_slot], ch_vals[pad_slot]
+		endif
+	endif
+  if LastKnob = 3
+		rec = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
+		if rec <> record_autom_on
+			record_autom_on = rec	
+			if record_autom_on
+				LabelPads {Press play. Turn knobs. Automation will record until end of scene}
+				Log {On beat get midi value send for midi kontrol param and save it to automation. Only while in automation mode}
+			else
+			  LabelPads {LabelPads {AUTOMATION SETUP PARAMTERS}
+			endif
+		endif
+	endif
+	Call @LabelAutomationPads
+@End
+
+@LabelAutomationPads
+	for i = 0 to 15
+		a_ch = automation_chs[i] //automation slot channel
+		a_pad = automation_pads[i] //automation pad 0-15 setup
+		if a_ch>=0 and a_pad>=0 //# initialised with value -1 so no labelling until assigned
+			ch_pad_to_label=i 
+			pad_slot=(a_ch * 16) + a_pad
+			Call @LabelChannelPadK
+		else 
+			ColorPad i, col_unused
+			LabelPad i, { }
+		endif
+		if record_autom_on
+			ColorPad i, col_warn
+		endif
+	endfor
+	a_ch=automation_chs[sel_autom_pad]
+	a_pad=automation_pads[sel_autom_pad]
+	pad_slot=(a_ch * 16) + a_pad
+	if a_ch<0
+		LabelKnob 0, {Ch --}
+	else
+		LabelKnob 0, {Ch }, automation_chs[sel_autom_pad]+1
+	endif
+	if a_pad<0
+		LabelKnob 1, {Pad --}
+	else
+		LabelKnob 1, {Pad }, automation_pads[sel_autom_pad]+1
+	endif
+	if a_ch>=0 and a_pad>=0
+		LabelKnob 2, {Value }, ch_vals[pad_slot]
+	else
+		LabelKnob 2, {Value -- }
+	endif
+	if record_autom_on
+		LabelKnob 3, {REC ON}
+	else
+	 	LabelKnob 3, {REC OFF}
+	endif
 @End
 
 @SetupKnobset5
