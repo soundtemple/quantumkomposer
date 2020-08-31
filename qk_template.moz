@@ -1768,69 +1768,71 @@
 	ColorPad ch_pad_to_label, ch_colors[pad_slot]
 	label_num = ch_labels[pad_slot]
 	if (label_num=0)
-		LabelPad ch_pad_to_label, { }
+		LabelPad ch_pad_to_label, { } // Not used
 	elseif (label_num=1)
-		LabelPad ch_pad_to_label, {VOL}
+		LabelPad ch_pad_to_label, {VOL} //Suggested CC#7 or Ruismaker CC17
 	elseif (label_num=2)
-		LabelPad ch_pad_to_label, {PAN}
+		LabelPad ch_pad_to_label, {PAN} //CC8 or CC10 or Ruismaker CC18
 	elseif (label_num=3)
-		LabelPad ch_pad_to_label, {SEND-DLY}
+		LabelPad ch_pad_to_label, {SEND-DLY} //CC16 or Ruismaker CC20
 	elseif (label_num=4)
-		LabelPad ch_pad_to_label, {SEND-RVB}
+		LabelPad ch_pad_to_label, {SEND-RVB} //CC12
 	elseif (label_num=5)
-		LabelPad ch_pad_to_label, {SEND-FX}
+		LabelPad ch_pad_to_label, {SEND-FX} //CC13
 	elseif (label_num=6)
-		LabelPad ch_pad_to_label, {FX D/W}
+		LabelPad ch_pad_to_label, {FX D/W} //CC92
 	elseif (label_num=7)
-		LabelPad ch_pad_to_label, {FX AMT}
+		LabelPad ch_pad_to_label, {FX AMT} //CC93
 	elseif (label_num=8)
-		LabelPad ch_pad_to_label, {HPF}
+		LabelPad ch_pad_to_label, {HPF} //CC94
 	elseif (label_num=9)
-		LabelPad ch_pad_to_label, {LPF}
+		LabelPad ch_pad_to_label, {LPF} //CC95
 	elseif (label_num=10)
-		LabelPad ch_pad_to_label, {GAIN}
+		LabelPad ch_pad_to_label, {GAIN} //CC96
 	elseif (label_num=11)
-		LabelPad ch_pad_to_label, {MID/SIDE}
+		LabelPad ch_pad_to_label, {MID/SIDE} //CC9
 	elseif (label_num=12)
-		LabelPad ch_pad_to_label, {MOD WHEEL}
+		LabelPad ch_pad_to_label, {MOD WHEEL} //CC1
 	elseif (label_num=13)
-		LabelPad ch_pad_to_label, {MOD PARAM}
+		LabelPad ch_pad_to_label, {BREATH}  //CC2
+	elseif (label_num=44) 
+		LabelPad ch_pad_to_label, {MOD PARAM} //CC3 
 	elseif (label_num=14)
-		LabelPad ch_pad_to_label, {ATTACK}
+		LabelPad ch_pad_to_label, {ATTACK} //CC73 
 	elseif (label_num=15)
-		LabelPad ch_pad_to_label, {DECAY}
+		LabelPad ch_pad_to_label, {DECAY} //CC75
 	elseif (label_num=16)
-		LabelPad ch_pad_to_label, {SUSTAIN}
+		LabelPad ch_pad_to_label, {SUSTAIN} //CC76
 	elseif (label_num=17)
-		LabelPad ch_pad_to_label, {RELEASE}
+		LabelPad ch_pad_to_label, {RELEASE} //CC72
 	elseif (label_num=18)
-		LabelPad ch_pad_to_label, {FREQ}
+		LabelPad ch_pad_to_label, {FREQ} //CC74
 	elseif (label_num=19)
-		LabelPad ch_pad_to_label, {Q}
+		LabelPad ch_pad_to_label, {Q} //CC71
 	elseif (label_num=20)
-		LabelPad ch_pad_to_label, {ENV AMT}
+		LabelPad ch_pad_to_label, {ENV AMT} //CC77
 	elseif (label_num=21)
-		LabelPad ch_pad_to_label, {OSC}
+		LabelPad ch_pad_to_label, {OSC} //CC70
 	elseif (label_num=22)
-		LabelPad ch_pad_to_label, {MOD AMT}
+		LabelPad ch_pad_to_label, {PORTAMENTO} //CC5
 	elseif (label_num=23)
-		LabelPad ch_pad_to_label, {UNISON}
+		LabelPad ch_pad_to_label, {LEGATO} //cc68
 	elseif (label_num=24)
-		LabelPad ch_pad_to_label, {LFO RATE}
+		LabelPad ch_pad_to_label, {UNISON} //CC78
 	elseif (label_num=25)
-		LabelPad ch_pad_to_label, {LFO AMT}
+		LabelPad ch_pad_to_label, {LFO RATE} //CC79
 	elseif (label_num=26)
-		LabelPad ch_pad_to_label, {SUSTAIN}
+		LabelPad ch_pad_to_label, {LFO AMT} //CC80
 	elseif (label_num=27)
-		LabelPad ch_pad_to_label, {PITCH}
+		LabelPad ch_pad_to_label, {SELECT} //Ruismaker select ch CC110
 	elseif (label_num=28)
-		LabelPad ch_pad_to_label, {MIX}
+		LabelPad ch_pad_to_label, {INSTRUMENT} //Ruismaker instrument from array of choices CC22-29 
 	elseif (label_num=29)
-		LabelPad ch_pad_to_label, {CHARACTER}
+		LabelPad ch_pad_to_label, {PERSON'TY} //Ruismaker personality CC15
 	elseif (label_num=30)
-		LabelPad ch_pad_to_label, {INSTRUMENT}
+		LabelPad ch_pad_to_label, {DRIVE} //Ruismaker drive CC21
 	elseif (label_num=31)
-		LabelPad ch_pad_to_label, {SELECT}
+		LabelPad ch_pad_to_label, {CRUSH} //Ruismaker crush CC19
 	elseif (label_num=32)
 		LabelPad ch_pad_to_label, {KNOB1}
 	elseif (label_num=33)
@@ -1855,8 +1857,6 @@
 		LabelPad ch_pad_to_label, {BTN4}
 	elseif (label_num=43) // BUTTONS
 		LabelPad ch_pad_to_label, {BTN5}
-	elseif (label_num=44) // BUTTONS
-		LabelPad ch_pad_to_label, {BTN6}
 	elseif (label_num=45) //PGM CHANGE SPECIAL CATEGORY
 		LabelPad ch_pad_to_label, {PGM CHG}
 	else
