@@ -1818,7 +1818,7 @@
 	elseif (label_num=23)
 		LabelPad ch_pad_to_label, {LEGATO} //cc68
 	elseif (label_num=24)
-		LabelPad ch_pad_to_label, {UNISON} //CC78
+		LabelPad ch_pad_to_label, {MORPH} //CC78
 	elseif (label_num=25)
 		LabelPad ch_pad_to_label, {LFO RATE} //CC79
 	elseif (label_num=26)
@@ -1834,29 +1834,33 @@
 	elseif (label_num=31)
 		LabelPad ch_pad_to_label, {CRUSH} //Ruismaker crush CC19
 	elseif (label_num=32)
-		LabelPad ch_pad_to_label, {KNOB1}
+		LabelPad ch_pad_to_label, {RATIO} //CC81
 	elseif (label_num=33)
-		LabelPad ch_pad_to_label, {KNOB2}
+		LabelPad ch_pad_to_label, {MAKEUP} //CC82
 	elseif (label_num=34)
-		LabelPad ch_pad_to_label, {KNOB3}
+		LabelPad ch_pad_to_label, {MIX} //CC83
+	elseif (label_num=34)
+		LabelPad ch_pad_to_label, {CEILING} //CC84
 	elseif (label_num=35) // BUTTONS
-		LabelPad ch_pad_to_label, {SHOW/HIDE}
+		LabelPad ch_pad_to_label, {SHOW/HIDE} //CC98
 	elseif (label_num=36) // BUTTONS
-		LabelPad ch_pad_to_label, {MUTE}
+		LabelPad ch_pad_to_label, {MUTE} //CC99
 	elseif (label_num=37) // BUTTONS
-		LabelPad ch_pad_to_label, {SOLO}
+		LabelPad ch_pad_to_label, {SOLO} //CC100
 	elseif (label_num=38) // BUTTONS
-		LabelPad ch_pad_to_label, {FX ON}
+		LabelPad ch_pad_to_label, {FX ON} //CC101
 	elseif (label_num=39) // BUTTONS
-		LabelPad ch_pad_to_label, {BTN1}
+		LabelPad ch_pad_to_label, {BTN1} //CC102
 	elseif (label_num=40) // BUTTONS
-		LabelPad ch_pad_to_label, {BTN2}
+		LabelPad ch_pad_to_label, {BTN2} //CC103
 	elseif (label_num=41) // BUTTONS
-		LabelPad ch_pad_to_label, {BTN3}
+		LabelPad ch_pad_to_label, {BTN3} //CC104
 	elseif (label_num=42) // BUTTONS
-		LabelPad ch_pad_to_label, {BTN4}
+		LabelPad ch_pad_to_label, {BTN4} //CC105
 	elseif (label_num=43) // BUTTONS
-		LabelPad ch_pad_to_label, {BTN5}
+		LabelPad ch_pad_to_label, {BTN4} //CC106
+	elseif (label_num=44) // BUTTONS
+		LabelPad ch_pad_to_label, {BTN4} //CC107
 	elseif (label_num=45) //PGM CHANGE SPECIAL CATEGORY
 		LabelPad ch_pad_to_label, {PGM CHG}
 	else
