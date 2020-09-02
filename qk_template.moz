@@ -7,7 +7,6 @@
 	ShowLayout 2
 	LabelPads {_QK:KNTRL}
 	if unassigned scene_durs //# duration in first scene
-		ResetNoteStates -1 // #reset the locker with the value -1. Here we store values of all CC's
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 		edit_mode_active=FALSE
@@ -20,7 +19,6 @@
 		ppqn = 4
 		edit_scene=0
 		locked_to_scene=0
-		quick_channels=[0,1,2,16] //# user defined channels for easy access
 		last_channel_visited=0 //# last channel a user visited 0-16 (16 is top level)
 		scene_change_requested = -1 //# on pad down has next scene number
 		in_mode_select = FALSE //# Toggle for changing modes mode
@@ -68,23 +66,26 @@
 	ch_midi_chs[16*16]= [1,2,3,4,5,6,7,8,9,10,11,11,12,13,14,0] //# only belogn to CH16
 	ch_layouts[16*16] = [4,1,1,1,2,2,1,1,1,1,5,3,3,3,3,5] //# only belong to CH16
 	
-	ch_vals=[] //# the midi val sent chs 0-15 not ch16 (top level)
+	ResetNoteStates -1 // Channel values perc CC. 16channels, 16mixer params. 16FX/Instr params each with unique CC
 	ch_ccs=[] //# midi cc num sent chs 0-15 not ch16 (top level)
 	ch_mins=[] //# range parameter for the val attribute
 	ch_maxs=[] //# range parameter for the val attribute
 	ch_lsb=[] //# specific to pgm change msg
 	ch_msb=[] //# specific to pgm change msg
-	
+	FillArray ch_maxs, 127, 16*16 //# default the max cc range to 127
+		
+	// 16 mixer params - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
+	// Mixer: Each channel has 16 mixer vals to store
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, MUTE/SOLO
 	sel_mixer_ch=0 // channel for control
-	// 16 mixer params - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
-	ch_mixer_ccs = [7,8,6,9, 10,11,12,13,  120,121,122,123,  124,125,126,127]
-	// Mixer vals [(0-15)*16] Each channel has 16 mixer vals to store
+	ch_mixer_ccs = [7,8,6,9, 10,11,12,13,  120,121,122,123,  124,125,126,127] //ccs for mixer params
+	ch_mixer_def_vals = [100,64,64,64,0,0,127,0,64,0,64,64,0,0,0,0] //def values for mixer params
 	ch_mixer_vals =[]
-	for i = 0 to 15
-		ch_mixer_vals[i*16] = [100,64,64,64,0,0,127,0,64,0,64,64,0,0,0,0]
+	for ch = 0 to 15
+		for i = 0 to 15
+			SetNoteState ch, ch_mixer_ccs[i], ch_mixer_def_vals[i]
+		endfor
 	endfor
-	FillArray ch_maxs, 127, 16*16 //# default the max cc range to 127
 	
 	//AUTOMATION SECTION VARS
 	auto_ramp_max=127 //range for the ramp to be applied
@@ -410,9 +411,6 @@
 @End
 
 @PadDownChannelsMode
-	if quick_channels[0] <> LastPad and quick_channels[1] <> LastPad and quick_channels[2] <> LastPad and quick_channels[3] <> LastPad  	
-		last_channel_visited = LastPad
-	endif
 	edit_chan = LastPad //channel 16 is for Channels top level
 	if edit_mode_active
 		//# update last channel visited if not one of the quick channels
@@ -776,10 +774,10 @@
 	LabelPads {MIDI KNTRL CHANNEL: }, curr_chan+1
 	LabelKnob 0, {Label }, ch_labels[pad_slot]
 	LabelKnob 1, {Color }, ch_colors[pad_slot]
-	LabelKnob 2, {Value }, ch_vals[pad_slot]
+	LabelKnob 2, {Value }, (GetNoteState curr_chan, ch_ccs[pad_slot])
 	SetKnobValue 0, TranslateScale ch_labels[pad_slot], 0, 45, 0, 127
 	SetKnobValue 1, TranslateScale ch_colors[pad_slot], 0, 6, 0, 127
-	SetKnobValue 2, TranslateScale ch_vals[pad_slot], ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
+	SetKnobValue 2, TranslateScale (GetNoteState curr_chan, ch_ccs[pad_slot]), ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
 	if ch_labels[pad_slot]=45 //pgm chg message type
 		LabelKnob 3, {MAX }, ch_maxs[pad_slot]
 		SetKnobValue 3, TranslateScale ch_maxs[pad_slot], 0, 127, 0, 127
@@ -787,7 +785,7 @@
 		LabelKnob 3, {CC# }, ch_ccs[pad_slot]
 		SetKnobValue 3, TranslateScale ch_ccs[pad_slot], 0, 127, 0, 127
 	endif
-@End
+@End 
 
 @KnobChangeSet2
 	//# KNTRL mode SETUP EDIT
@@ -804,20 +802,22 @@
 		ColorPad edit_pad, ch_colors[pad_slot]
 	endif
 	if LastKnob = 2
-		ch_vals[pad_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
-		SendMIDICC ch_midi_chs[curr_chan], ch_ccs[pad_slot], ch_vals[pad_slot]
+		val = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
+		SetNoteState curr_chan, ch_ccs[pad_slot], val
+		SendMIDICC ch_midi_chs[curr_chan], ch_ccs[pad_slot], val
 	endif
 	if LastKnob = 3
 		if ch_labels[pad_slot]=45 //pgm chg message type
 			ch_maxs[pad_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
-			SetKnobValue 2, TranslateScale ch_vals[pad_slot], ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
+			val = (GetNoteState curr_chan, ch_ccs[pad_slot])
+			SetKnobValue 2, TranslateScale val, ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
 		else 
 			ch_ccs[pad_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
 		endif
 	endif
 	LabelKnob 0, {Label }, ch_labels[pad_slot]
 	LabelKnob 1, {Color }, ch_colors[pad_slot]
-	LabelKnob 2, {Value }, ch_vals[pad_slot]
+	LabelKnob 2, {Value }, (GetNoteState curr_chan, ch_ccs[pad_slot])
 	if ch_labels[pad_slot]=45 //pgm chg message type
 		LabelKnob 3, {MAX }, ch_maxs[pad_slot]
 	else
@@ -841,9 +841,10 @@
 		LabelKnob 1, {MIN }, ch_mins[pad_slot]
 		SetKnobValue 1, TranslateScale ch_mins[pad_slot], 0, 127, 0, 127
 	endif
-	LabelKnob 2, {Value }, ch_vals[pad_slot]
+	val = (GetNoteState curr_chan, ch_ccs[pad_slot])
+	LabelKnob 2, {Value }, val
 	LabelKnob 3, {MAX }, ch_maxs[pad_slot]
-	SetKnobValue 2, TranslateScale ch_vals[pad_slot], ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
+	SetKnobValue 2, TranslateScale val, ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
 	SetKnobValue 3, TranslateScale ch_maxs[pad_slot], 0, 127, 0, 127 
 @End
 
@@ -861,16 +862,19 @@
 		else 
 			Log{saving ch mins value }, ch_mins[pad_slot] 
 			ch_mins[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
-			SetKnobValue 2, TranslateScale ch_vals[pad_slot], ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
+			val = (GetNoteState curr_chan, ch_ccs[pad_slot])
+			SetKnobValue 2, TranslateScale val, ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
 		endif	
 	endif
 	if LastKnob = 2
-		ch_vals[pad_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
-		SendMIDICC ch_midi_chs[curr_chan], ch_ccs[pad_slot], ch_vals[pad_slot]
+		val = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
+		SetNoteState curr_chan, ch_ccs[pad_slot], val
+		SendMIDICC ch_midi_chs[curr_chan], ch_ccs[pad_slot], val
 	endif
 	if LastKnob = 3
 		ch_maxs[pad_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
-		SetKnobValue 2, TranslateScale ch_vals[pad_slot], ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
+		val = (GetNoteState curr_chan, ch_ccs[pad_slot])
+		SetKnobValue 2, TranslateScale val, ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
 	endif
 	
 	if ch_labels[pad_slot]=45 //pgm chg message type
@@ -880,7 +884,7 @@
 		LabelKnob 0, { }
 		LabelKnob 1, {MIN }, ch_mins[pad_slot]
 	endif
-	LabelKnob 2, {Value }, ch_vals[pad_slot]
+	LabelKnob 2, {Value }, (GetNoteState curr_chan, ch_ccs[pad_slot])
 	LabelKnob 3, {MAX }, ch_maxs[pad_slot]
 @End
 
@@ -900,7 +904,8 @@
 	SetKnobValue 0, TranslateScale a_ch, -1, 15, 0, 127
 	SetKnobValue 1, TranslateScale a_pad, -1, 15, 0, 127
 	if a_ch>=0 and a_pad>=0
-		SetKnobValue 2, TranslateScale ch_vals[pad_slot], ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
+		val=(GetNoteState curr_chan, ch_ccs[pad_slot])
+		SetKnobValue 2, TranslateScale val, ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
 	else
 		SetKnobValue 2, 0		
 	endif
@@ -931,8 +936,9 @@
   if LastKnob = 2
 		if a_ch>=0 and a_pad>=0
 	    pad_slot=(automation_chs[sel_autom_pad]* 16) + automation_pads[sel_autom_pad] 
-			ch_vals[pad_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
-			SendMIDICC ch_midi_chs[automation_chs[sel_autom_pad]], ch_ccs[pad_slot], ch_vals[pad_slot]
+			val = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
+			SetNoteState curr_chan, ch_ccs[pad_slot], val
+			SendMIDICC ch_midi_chs[automation_chs[sel_autom_pad]], ch_ccs[pad_slot], val
 		endif
 	endif
   if LastKnob = 3
@@ -980,7 +986,7 @@
 		LabelKnob 1, {Pad }, automation_pads[sel_autom_pad]+1
 	endif
 	if a_ch>=0 and a_pad>=0
-		LabelKnob 2, {Value }, ch_vals[pad_slot]
+		LabelKnob 2, {Value }, (GetNoteState curr_chan, ch_ccs[pad_slot])
 	else
 		LabelKnob 2, {Value -- }
 	endif
@@ -1190,57 +1196,51 @@
 
 @SetupKnobset7
 	//# MIXER KONTROLS
+	Log {sel_mixer_ch: }, sel_mixer_ch, { mixer_mode: }, mixer_mode 
 	knob_set = 7
-	pad_slot=(sel_mixer_ch*16) + (mixer_mode*4) 
-	SetKnobValue 0, TranslateScale ch_mixer_vals[pad_slot+0], 0, 127, 0, 127
-	SetKnobValue 1, TranslateScale ch_mixer_vals[pad_slot+1], 0, 127, 0, 127
-	SetKnobValue 2, TranslateScale ch_mixer_vals[pad_slot+2], 0, 127, 0, 127
-	SetKnobValue 3, TranslateScale ch_mixer_vals[pad_slot+3], 0, 127, 0, 127
+	for i = 0 to 3
+		val=GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + i]
+		SetKnobValue i, TranslateScale val, 0, 127, 0, 127	
+	endfor
 	Call @LabelMixerModes
 @End
 
 @KnobChangeSet7
 	//# MIXER KONTROL
-	pad_slot=(sel_mixer_ch*16) + (mixer_mode*4) 
 	// ch_mixer_ccs = [7,8,6,9, 10,11,12,13,  120,121,122,123,  124,125,126,127]
-	if LastKnob = 0
-		ch_mixer_vals[pad_slot+0] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
-	endif
-	if LastKnob = 1
-		ch_mixer_vals[pad_slot+1] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
-	endif
-	if LastKnob = 2
-		ch_mixer_vals[pad_slot+2] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
-	endif
-	if LastKnob = 3
-		ch_mixer_vals[pad_slot+3] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
-	endif
+	for i = 0 to 3
+		if LastKnob = i 
+			val = Round TranslateScale (GetKnobValue i), 0, 127, 0, 127
+			SetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + i], val
+		endif
+	endfor
 	Call @LabelMixerModes
 @End
 
 @LabelMixerModes
 	// Setup mixer modes
 	LabelKnobs {CHANNEL }, sel_mixer_ch+1, { STRIP}
+	Log {LABELLING sel_mixer_ch: }, sel_mixer_ch, { mixer_mode: }, mixer_mode 
 	if mixer_mode=0
 		LabelPads {CHANNEL MIXER}
-		LabelKnob 0, {VOL }, ch_mixer_vals[pad_slot+0]
-		LabelKnob 1, {PAN }, ch_mixer_vals[pad_slot+1]
-		LabelKnob 2, {GAIN }, ch_mixer_vals[pad_slot+2]
-		LabelKnob 3, {M/S } , ch_mixer_vals[pad_slot+3]
+		LabelKnob 0, {VOL }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
+		LabelKnob 1, {PAN }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
+		LabelKnob 2, {GAIN }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {M/S } , GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=1
 		mixer_mode=1 //access ch_mixer_vals 4-7
 	  LabelPads {CHANNEL SENDS / FILTER}
-		LabelKnob 0, {SENDA }, ch_mixer_vals[pad_slot+0]
-		LabelKnob 1, {SENDB }, ch_mixer_vals[pad_slot+1]
-		LabelKnob 2, {LPF }, ch_mixer_vals[pad_slot+2]
-		LabelKnob 3, {HPF }, ch_mixer_vals[pad_slot+3]
+		LabelKnob 0, {SENDA }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
+		LabelKnob 1, {SENDB }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
+		LabelKnob 2, {LPF }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {HPF }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=2
 	  mixer_mode=2 //access ch_mixer_vals 8-11
 		LabelPads {CHANNEL EQ }
-		LabelKnob 0, {GAIN }, ch_mixer_vals[pad_slot+0]
-		LabelKnob 1, {FREQ }, ch_mixer_vals[pad_slot+1]
-		LabelKnob 2, {RES }, ch_mixer_vals[pad_slot+2]
-		LabelKnob 3, {SHELF }, ch_mixer_vals[pad_slot+3]
+		LabelKnob 0, {GAIN }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
+		LabelKnob 1, {FREQ }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
+		LabelKnob 2, {RES }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {SHELF }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=3
 		LabelPads {CHANNEL MUTE / SOLO}
 		LabelKnob 0, {MUTE}
@@ -1539,7 +1539,9 @@
 		CopyArray ch_ccs[pad_slot], c, 16
 		CopyArray ch_mins[pad_slot], i, 16
 		CopyArray ch_maxs[pad_slot], x, 16
-		CopyArray ch_vals[pad_slot], v, 16
+		for i = 0 to 15
+			v[i] = (GetNoteState curr_chan, ch_ccs[pad_slot+i])
+		endfor
 		Log {********** END PRESET **********}
 		Log {def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
 		Log {def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
@@ -1677,13 +1679,14 @@
 	endif	
 	CopyArray def_labels, ch_labels[edit_chan*16], 16
 	CopyArray def_colors, ch_colors[edit_chan*16], 16
-	CopyArray def_vals, ch_vals[edit_chan*16], 16
 	CopyArray def_ccs, ch_ccs[edit_chan*16], 16
 	CopyArray def_mins, ch_mins[edit_chan*16], 16
 	CopyArray def_maxs, ch_maxs[edit_chan*16], 16
 	CopyArray def_lsb, ch_lsb[edit_chan*16], 16
 	CopyArray def_msb, ch_msb[edit_chan*16], 16
-	Log {Setup Default channel for ch: }, edit_chan+1
+	for ch = 0 to 15
+		SetNoteState edit_chan, def_ccs[ch], def_vals[ch]
+	endfor
 @End
 
 @SetupLayoutChannels
