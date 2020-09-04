@@ -46,9 +46,9 @@
 	col_pending = 3
 	loop_col = 6
 	col_warn = 1
-	col_mode_select = 6 //# Mode selection buttons
+	col_mode_select = 5 //# Mode selection buttons
 	col_unused = 0
-	col_mode_edit = 5 //# Mode selection buttons in edit mode
+	col_mode_edit = 6 //# Mode selection buttons in edit mode
 	//# cc numbers used for communication with _:QK instances on CH1
 	//# cc's 0-7 are for scene duration
 	cc_rtn_to_song_mode=9
