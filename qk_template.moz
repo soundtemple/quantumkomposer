@@ -68,10 +68,14 @@
 	// FX / Instr params need label, color, val, cc#, min, max, lsb, msb	
 	
 	//channels 0-16 with 16 being top level access to each actual channel. Initialising with channel def setup
+	//Storing each channels midi transmit channel with the top level channel #16
 	ch_layouts[16*16] =  [5,6,2,2,2,3,2,2,7,1,4,4,4,4,4,9]
 	ch_labels[16*16] =  [1,2,3,4,5,6,7,8,13,12,17,15,16,18,19,21]
 	ch_colors[16*16] =  [3,3,5,5,4,4,4,4,6,6,0,0,0,0,0,2]
 	ch_midi_chs[16*16]= [1,2,3,4,5,6,7,8,9,10,11,11,12,13,14,0]
+	FillArray ch_mute, FALSE, 16 //toggle mute, solo, arm
+	FillArray ch_solo, FALSE, 16
+	FillArray ch_arm, FALSE, 16
 	
 	ResetNoteStates -1 // Channel values perc CC. 16channels, 16mixer params. 16FX/Instr params each with unique CC
 	ch_ccs=[] //# midi cc num sent chs 0-15 not ch16 (top level)
@@ -85,8 +89,8 @@
 	// Mixer: Each channel has 16 mixer vals to store
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO
 	sel_mixer_ch=0 // channel for control
-	ch_mixer_ccs = [7,8,6,9, 112,113,114,115, 116,117,118,119, 120,121,122,123, 124,125,126,127] //ccs for mixer params
-	ch_mixer_def_vals = [100,64,64,64, 0,0,127,0, 64,0,64,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
+	ch_mixer_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 121,122,123] //ccs for mixer params
+	ch_mixer_def_vals = [90,64,64,64, 0,0,127,0, 64,0,64,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
 	mute_solo_arm=0 //remember pad state 0-2
 	ch_mixer_vals =[]
 	for ch = 0 to 15
@@ -175,6 +179,7 @@
 @SendMidiCCBackToKnobs
 	//# Update controller knob vals with midi cc
 	if send_cc_back_to_knobs
+		Log {Sending datat back to TWISTER}
 		SendMidiCC 15, knob1_cc, Round GetKnobValue 0
 		SendMidiCC 15, knob2_cc, Round GetKnobValue 1
 		SendMidiCC 15, knob3_cc, Round GetKnobValue 2
@@ -392,10 +397,9 @@
 		elseif mode=5 // INSTRUMENT mode
 			Call @PadDownInstrMode
 		elseif mode=6 // M_KNTRL mode
-			Call @PadDownMixerMode
+			Call @PadDownMGMode
 		elseif mode=7 // MIXER modes
-			sel_mixer_ch=LastPad
-			Call @SetupKnobset7	
+			Call @PadDownMixerMode	
 		endif
 	endif
 	LOG {MODE: }, mode
@@ -496,8 +500,8 @@
 	endif
 @End
 
-@PadDownMixerMode
-	// Master/Midi control
+@PadDownMGMode
+	// Midi Gen plugins kontrol
 	last_mkntrl_pad=LastPad
 	if edit_mode_active
 		if LastPad = edit_pad //user hit same pad again. switch knobset
@@ -516,6 +520,32 @@
 		LatchPad i, no 
 	endfor
 	LatchPad last_mkntrl_pad, YES
+@End
+
+@PadDownMixerMode
+	sel_mixer_ch=LastPad
+	chan = ch_midi_chs[256+sel_mixer_ch]
+	val=127
+	if mixer_mode=4 and mute_solo_arm=0
+		ch_mute[sel_mixer_ch] = NOT ch_mute[sel_mixer_ch]
+		if not ch_mute[sel_mixer_ch]
+			val=0
+		endif
+		SendMIDICC chan, ch_mixer_ccs[16], val
+	elseif mixer_mode=4 and mute_solo_arm=1
+		ch_solo[sel_mixer_ch] = NOT ch_solo[sel_mixer_ch]
+		if not ch_solo[sel_mixer_ch]
+			val=0
+		endif
+		SendMIDICC chan, ch_mixer_ccs[17], val
+	elseif mixer_mode=4 and mute_solo_arm=2
+		ch_arm[sel_mixer_ch] = NOT ch_arm[sel_mixer_ch]
+		if not ch_arm[sel_mixer_ch]
+			val=0
+		endif
+		SendMIDICC chan, ch_mixer_ccs[18], val
+	endif
+	Call @SetupKnobset7
 @End
 
 @HandleTransportRequest
@@ -894,7 +924,6 @@
 				ch_msb[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
 			else 
 				ch_mins[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
-				Log {Updating MIN: }, ch_mins[pad_slot], { CURR_CHAN: }, curr_chan 
 				val = (GetNoteState curr_chan, ch_ccs[pad_slot])
 				SetKnobValue 2, TranslateScale val, ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
 			endif	
@@ -908,7 +937,8 @@
 			chan_to_label=curr_chan
 			Call @LabelInstrPad
 		else 
-			SendMIDICC ch_midi_chs[curr_chan], ch_ccs[pad_slot], val
+			Log {Sending on midi ch: }, ch_midi_chs[256+curr_chan]
+			SendMIDICC ch_midi_chs[256+curr_chan], ch_ccs[pad_slot], val
 		endif
 	endif
 	if LastKnob = 3
@@ -1265,14 +1295,18 @@
 
 @KnobChangeSet7
 	//# MIXER KONTROL
-	// ch_mixer_ccs = [7,8,6,9, 10,11,12,13,  120,121,122,123,  124,125,126,127]
+	// ch_mixer_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 121,122,123]
 	if mixer_mode=4
 		mute_solo_arm = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 2
 	else
 		for i = 0 to 3
 			if LastKnob = i 
 				val = Round TranslateScale (GetKnobValue i), 0, 127, 0, 127
-				SetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + i], val
+				cc = ch_mixer_ccs[(mixer_mode*4) + i]
+				chan = ch_midi_chs[256+sel_mixer_ch]
+				SetNoteState sel_mixer_ch, cc, val
+				SendMIDICC chan, cc, val
+				Log {Sending: }, chan, {-}, cc, {-}, val
 			endif
 		endfor
 	endif
@@ -1322,13 +1356,31 @@
 		LabelKnob 2, { }
 		LabelKnob 3, { }
 	endif
-	for i = 0 to 15
+	for i = 0 to 15 //Color pads in mute solo arm mode
 		LatchPad i, no
-		if mixer_mode=4
-			ColorPad i, col_unused
+		if mixer_mode=4 and mute_solo_arm = 0
+			if ch_mute[i]
+				ColorPad i, 6
+			else
+			  ColorPad i, col_unused
+			endif
+		elseif mixer_mode=4 and mute_solo_arm = 1
+			if ch_solo[i]
+				ColorPad i, 4
+			else
+			  ColorPad i, col_unused
+			endif
+		elseif mixer_mode=4 and mute_solo_arm = 2
+			if ch_arm[i]
+				ColorPad i, 1
+			else
+			  ColorPad i, col_unused
+			endif	
 		endif	
 	endfor
-	LatchPad sel_mixer_ch, YES
+	if mixer_mode <> 4
+		LatchPad sel_mixer_ch, YES
+	endif
 @End
 
 
@@ -1681,7 +1733,7 @@
 		def_labels = [0,1,4,5,6,7,9,8,35,37,27,28,43,44,59,60]
 		def_colors = [2,2,5,5,3,3,2,2,4,4,4,4,4,4,0,0]
 		def_vals =   [100,64,0,0,0,127,64,64,0,0,0,0,0,0,0,0]
-		def_ccs =    [6,7,10,11,12,13,15,14,1,3,36,37,44,45,124,125]
+		def_ccs =    [7,6,10,11,12,13,15,14,1,3,36,37,44,45,124,125]
 		def_mins =   [15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs =   [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -1882,10 +1934,10 @@
 	label_num = ch_labels[pad_slot]
 	if (label_num=0)
 		LabelPad ch_pad_to_label, {VOL} //MIXER
-		suggested_cc = 6
+		suggested_cc = 7
 	elseif (label_num=1)
 		LabelPad ch_pad_to_label, {GAIN} //MIXER
-		suggested_cc = 7
+		suggested_cc = 6
 	elseif (label_num=2)
 		LabelPad ch_pad_to_label, {PAN} //MIXER
 		suggested_cc = 8
@@ -1900,10 +1952,10 @@
 		suggested_cc = 11
 	elseif (label_num=6)
 		LabelPad ch_pad_to_label, {HPF} //MIXER
-		suggested_cc = 12
+		suggested_cc = 13
 	elseif (label_num=7)
 		LabelPad ch_pad_to_label, {LPF} //MIXER
-		suggested_cc = 13
+		suggested_cc = 12
 	elseif (label_num=8)
 		LabelPad ch_pad_to_label, {EQ GAIN} //MIXER
 		suggested_cc = 14
@@ -2049,13 +2101,13 @@
 		LabelPad ch_pad_to_label, {[ BTN1 ]} //BTN
 		suggested_cc = 120
 	elseif (label_num=56)
-		LabelPad ch_pad_to_label, {[ BTN2 ]} //BTN
+		LabelPad ch_pad_to_label, {[ MUTE ]} //BTN
 		suggested_cc = 121
 	elseif (label_num=57)
-		LabelPad ch_pad_to_label, {[ BTN3 ]} //BTN
+		LabelPad ch_pad_to_label, {[ SOLO ]} //BTN
 		suggested_cc = 122
 	elseif (label_num=58)
-		LabelPad ch_pad_to_label, {[ BTN4 ]} //BTN
+		LabelPad ch_pad_to_label, {[ ARM ]} //BTN
 		suggested_cc = 123
 	elseif (label_num=59)
 		LabelPad ch_pad_to_label, {[ PLUGIN ]} //SPECIAL
