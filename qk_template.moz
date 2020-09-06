@@ -90,7 +90,7 @@
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO
 	sel_mixer_ch=0 // channel for control
 	ch_mixer_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 121,122,123] //ccs for mixer params
-	ch_mixer_def_vals = [90,64,64,64, 0,0,127,0, 64,64,64,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
+	ch_mixer_def_vals = [90,64,64,64, 0,0,127,0, 64,64,0,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
 	mute_solo_arm=0 //remember pad state 0-2
 	ch_mixer_vals =[]
 	for ch = 0 to 15
@@ -464,8 +464,43 @@
 @End
 
 @PadDownInstrMode
-	if LastPad = edit_pad //user hit same pad again. switch knobset
-		use_instr_knobset_a = NOT use_instr_knobset_a
+	pad_slot=(curr_chan*16) + LastPad 
+	val=127 // for mute solo arm messages if required
+	chan = ch_midi_chs[256 + curr_chan]
+	if ch_labels[pad_slot]=55 or ch_labels[pad_slot]=59 //PLUGIN1 or PLUGIN2
+		SendMIDICC chan, ch_ccs[pad_slot], 127 // show / hide plugin
+		use_instr_knobset_a = TRUE
+	elseif ch_labels[pad_slot]=56 //MUTE
+		ch_mute[curr_chan] = NOT ch_mute[curr_chan]
+		ch_colors[pad_slot] = 6
+		if not ch_mute[curr_chan]
+			ch_colors[pad_slot] = col_unused
+			val=0
+		endif
+		SendMIDICC chan, ch_mixer_ccs[16], val
+		use_instr_knobset_a = TRUE
+	elseif ch_labels[pad_slot]=57 //SOLO
+		ch_solo[curr_chan] = NOT ch_solo[curr_chan]
+		ch_colors[pad_slot] = 4
+		if not ch_solo[sel_mixer_ch]
+			val=0
+			ch_colors[pad_slot] = col_unused
+		endif
+		SendMIDICC chan, ch_mixer_ccs[17], val
+		use_instr_knobset_a = TRUE
+	elseif ch_labels[pad_slot]=58 //ARM
+		ch_arm[curr_chan] = NOT ch_arm[curr_chan]
+		ch_colors[pad_slot] = 1
+		if not ch_arm[curr_chan]
+			val=0
+			ch_colors[pad_slot] = col_unused
+		endif
+		SendMIDICC chan, ch_mixer_ccs[18], val
+		use_instr_knobset_a = TRUE
+	else 
+		if LastPad = edit_pad //user hit same pad again. switch knobset
+			use_instr_knobset_a = NOT use_instr_knobset_a
+		endif
 	endif
 	edit_pad = LastPad 
 	Call @Setupknobset2 //Instrument kontrol
@@ -847,7 +882,11 @@
 @LabelInstrumentKnobs
 	LabelKnobs {PAD: }, edit_pad+1
 	LabelPads {KNTRL : [ INSTRUMENT }, curr_chan+1, { ] }
-	LabelKnob 2, {Value }, (GetNoteState curr_chan, ch_ccs[pad_slot])
+	if ch_labels[pad_slot]>=55 and ch_labels[pad_slot]<=59 //PLUGIN1 or PLUGIN2 + Mute solo arm
+		LabelKnob 2, {[x]}
+	else
+	  LabelKnob 2, {Value }, (GetNoteState curr_chan, ch_ccs[pad_slot])
+	endif
 	if use_instr_knobset_a // Label : Color : Value : CC#
 		if ch_labels[pad_slot] = -1
 			LabelKnob 0, {Unused}
@@ -875,7 +914,7 @@
 			LabelKnob 3, {CC# }, ch_ccs[pad_slot]
 		endif
 	else // LSB : MSB : Value : MAX
-		if ch_labels[pad_slot]=52 //pgm chg message type
+		if ch_labels[pad_slot]=60 //pgm chg message type
 			LabelKnob 0, {LSB }, ch_lsb[pad_slot]
 			LabelKnob 1, {MSB }, ch_msb[pad_slot]
 		else 
@@ -946,12 +985,9 @@
 	if LastKnob = 2 // VALUE : VALUE
 		val = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
 		SetNoteState curr_chan, ch_ccs[pad_slot], val
-		if ch_ccs[pad_slot] >= 125 // PGMCHG, INSTR, SELECT SPECIAL BUTTON
-			ch_pad_to_label=edit_pad
-			chan_to_label=curr_chan
-			Call @LabelInstrPad
+		if ch_labels[pad_slot]>=60 and ch_labels[pad_slot]<=62  // SPECIALS Select, Instr, PGM CHG
+			Call @HandleSpecialInstrKontrols
 		else 
-			Log {Sending on midi ch: }, ch_midi_chs[256+curr_chan]
 			SendMIDICC ch_midi_chs[256+curr_chan], ch_ccs[pad_slot], val
 		endif
 	endif
@@ -971,6 +1007,32 @@
 		endif
 	endif
 	Call @LabelInstrumentKnobs
+@End
+
+@HandleSpecialInstrKontrols
+	//Buttons get handled in PadDown. We dont want knob to do anything
+	if ch_labels[pad_slot]=60 // PGM CHG MSG
+		Log {Sending midi BANK chg: CH: },ch_midi_chs[256+curr_chan]+1, { MSB: }, ch_msb[pad_slot], { LSB: }, ch_lsb[pad_slot] 
+		SendMIDIBankSelect ch_midi_chs[256+curr_chan], ch_msb[pad_slot], ch_lsb[pad_slot]
+		SendMIDIProgramChange ch_midi_chs[256+curr_chan], val
+		Log {Sent PGM MSG: CHAN:}, ch_midi_chs[256+curr_chan]+1, { PGM: }, val
+	elseif ch_labels[pad_slot]=62  //chg select bank of params
+		Log { BANK SELECT IS NOT SET UP YET NEED CODE}
+		pad_row=(curr_chan*16)
+		for i = 8 to 15
+			ch_vals[pad_row + i] = GetNoteState curr_chan, ch_ccs[pad_row+i] /// something like this ????
+			ch_ccs[pad_row + i] = 55 + (ch_vals[pad_slot] * 8) + i 
+			ch_pad_to_label=i 
+			chan_to_label=curr_chan
+			Call @LabelInstrPad
+			FlashPad i 
+		endfor
+	elseif ch_labels[pad_slot]=61 // chg ruismkr instrument
+		Log {RUISMAKER INSTR CHANGE IS NOT SET YET _ NEED CODE}
+		cc = ruismkr_instr_ccs[ch_vals[pad_slot]]
+		SendMIDICC ch_midi_chs[256+curr_chan], cc, val
+	endif
+			
 @End
 
 @SetupKnobset3
@@ -1329,7 +1391,6 @@
 @LabelMixerModes
 	// Setup mixer modes
 	LabelKnobs {CHANNEL }, sel_mixer_ch+1
-	Log {LABELLING sel_mixer_ch: }, sel_mixer_ch, { mixer_mode: }, mixer_mode 
 	if mixer_mode=0
 		LabelPads {KNTRL : [ VOL PAN GAIN MID/SIDE ]}
 		LabelKnob 0, {VOL }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
@@ -2111,7 +2172,7 @@
 		LabelPad ch_pad_to_label, {A.RELEASE} //AMP
 		suggested_cc = 55
 	elseif (label_num=55)
-		LabelPad ch_pad_to_label, {[ BTN1 ]} //BTN
+		LabelPad ch_pad_to_label, {[ PLUGIN1 ]} //BTN
 		suggested_cc = 120
 	elseif (label_num=56)
 		LabelPad ch_pad_to_label, {[ MUTE ]} //BTN
@@ -2123,16 +2184,16 @@
 		LabelPad ch_pad_to_label, {[ ARM ]} //BTN
 		suggested_cc = 123
 	elseif (label_num=59)
-		LabelPad ch_pad_to_label, {[ PLUGIN ]} //SPECIAL
+		LabelPad ch_pad_to_label, {[ PLUGIN2 ]} //BTN
 		suggested_cc = 124
 	elseif (label_num=60)
-		LabelPad ch_pad_to_label, {[ PGM }, (GetNoteState curr_chan, ch_ccs[pad_slot]), { ]} //SPECIAL
+		LabelPad ch_pad_to_label, {[ PGM }, (GetNoteState curr_chan, ch_vals[pad_slot]), { ]} //SPECIAL
 		suggested_cc = 125
 	elseif (label_num=61)
-		LabelPad ch_pad_to_label, {[ INSTR }, (GetNoteState curr_chan, ch_ccs[pad_slot]), { ]} //SPECIAL
+		LabelPad ch_pad_to_label, {[ INSTR }, (GetNoteState curr_chan, ch_vals[pad_slot]), { ]} //SPECIAL
 		suggested_cc = 126
 	elseif (label_num=62)
-		LabelPad ch_pad_to_label, {[ SELECT }, (GetNoteState curr_chan, ch_ccs[pad_slot]), { ]} //SPECIAL
+		LabelPad ch_pad_to_label, {[ SELECT }, (GetNoteState curr_chan, ch_vals[pad_slot]), { ]} //SPECIAL
 		suggested_cc = 127
 	elseif (label_num=-1)
 		LabelPad ch_pad_to_label, { }
