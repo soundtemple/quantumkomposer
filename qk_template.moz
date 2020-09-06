@@ -76,6 +76,7 @@
 	FillArray ch_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray ch_solo, FALSE, 16
 	FillArray ch_arm, FALSE, 16
+	apply_suggested_cc = FALSE //we encourage fixed cc's. s/b set to TRUE b4 labelling if req'd
 	
 	ResetNoteStates -1 // Channel values perc CC. 16channels, 16mixer params. 16FX/Instr params each with unique CC
 	ch_ccs=[] //# midi cc num sent chs 0-15 not ch16 (top level)
@@ -168,7 +169,37 @@
 	m_kntrl_ccs[1*17] = [0,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62]
 	m_kntrl_ccs[2*17] = [63,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 	m_kntrl_ccs[3*17] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-	
+	//Special mapping data - Ruismaker, RuismakerFM and Segments
+	slct_colors = [6,6,2,2,3,3,4,4]
+	slct_ccs = [] //ch1-8
+	for i = 30 to 94
+		slct_ccs[i-30] = i   
+	endfor
+	rmkr_ccs[0*8] = [30,31,37,32,35,36,34,33]	//ch1
+	rmkr_ccs[1*8] = [38,39,45,40,43,44,42,41]	//ch2
+	rmkr_ccs[2*8] = [46,47,53,48,51,52,50,49]	//ch3
+	rmkr_ccs[3*8] = [54,55,61,56,59,60,58,57]	//ch4
+	rmkr_ccs[4*8] = [62,63,70,65,68,69,67,66]	//ch5 --- NB: No 64 stuffing thing up
+	rmkr_ccs[5*8] = [71,72,78,73,76,77,75,74]	//ch6
+	rmkr_ccs[6*8] = [79,80,86,81,84,85,83,82]	//ch7
+	rmkr_ccs[7*8] = [87,88,94,89,92,93,91,90]	//ch8
+	//rmfm 
+	rmfm_ccs     = [31,33,34,35, 36,37,38,39] //ch1
+	rmfm_ccs[8]  = [43,45,46,47, 48,49,50,51] //ch2
+	rmfm_ccs[16] = [55,57,58,59, 60,61,62,63] //ch3 
+	rmfm_ccs[24] = [68,70,71,72, 73,74,75,76] //ch4
+	rmfm_ccs[32] = [80,82,83,84, 85,86,87,88] //ch5
+	rmfm_ccs[40] = [92,94,95,96, 97,98,99,100] //ch6
+	//rmkr instrument values sent on cc#s 22-29
+	rmkr_inst= [22,23,24,25, 26,27,28,29] //ccs for chg instr. sound
+	rmkr_kiks= [10,11,12,13, 14,15,16,17] //8 kiks all arrays len=10
+	rmkr_snrs= [30,31,32,33, 34,35,36,36] //snares
+	rmkr_clps= [50,50,51,51, 101,101,111,111] //claps
+	rmkr_ltom= [70,73,76,79, 82,85,88,91] //low toms
+	rmkr_hhc = [60,60,60,62, 62,62,66,66] //hhc
+	rmkr_hho = [61,63,63,64, 65,65,67,67] //hho
+	rmkr_prc1= [71,80,74,77, 86,89,92,83] //perc1
+	rmkr_prc2= [72,81,75,78, 87,90,93,84] //perc2	
 	//SETUP MIDI MAPPING PARAMS FOR DEFAULT CHANNELS
 	for i = 0 to 15
 		edit_chan=i 
@@ -179,7 +210,6 @@
 @SendMidiCCBackToKnobs
 	//# Update controller knob vals with midi cc
 	if send_cc_back_to_knobs
-		Log {Sending datat back to TWISTER}
 		SendMidiCC 15, knob1_cc, Round GetKnobValue 0
 		SendMidiCC 15, knob2_cc, Round GetKnobValue 1
 		SendMidiCC 15, knob3_cc, Round GetKnobValue 2
@@ -908,7 +938,7 @@
 			LabelKnob 0, {Special}
 		endif
 		LabelKnob 1, {Color }, ch_colors[pad_slot]
-		if ch_labels[pad_slot]=52
+		if ch_labels[pad_slot]=60 //PGM CHG
 			LabelKnob 3, {MAX }, ch_maxs[pad_slot]
 		else 
 			LabelKnob 3, {CC# }, ch_ccs[pad_slot]
@@ -960,9 +990,10 @@
 			ch_labels[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 62
 			ch_pad_to_label=edit_pad
 			chan_to_label=curr_chan
+			apply_suggested_cc=TRUE
 			Call @LabelInstrPad
 		else
-			if ch_labels[pad_slot]=52 //PGM CHG
+			if ch_labels[pad_slot]=60 //PGM CHG
 				ch_lsb[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
 			endif
 		endif
@@ -993,7 +1024,7 @@
 	endif
 	if LastKnob = 3
 		if use_instr_knobset_a
-			if ch_labels[pad_slot]=52 //pgm chg message type
+			if ch_labels[pad_slot]=60 //pgm chg message type
 				ch_maxs[pad_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
 				val = (GetNoteState curr_chan, ch_ccs[pad_slot])
 				SetKnobValue 2, TranslateScale val, ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
@@ -1012,21 +1043,26 @@
 @HandleSpecialInstrKontrols
 	//Buttons get handled in PadDown. We dont want knob to do anything
 	if ch_labels[pad_slot]=60 // PGM CHG MSG
-		Log {Sending midi BANK chg: CH: },ch_midi_chs[256+curr_chan]+1, { MSB: }, ch_msb[pad_slot], { LSB: }, ch_lsb[pad_slot] 
 		SendMIDIBankSelect ch_midi_chs[256+curr_chan], ch_msb[pad_slot], ch_lsb[pad_slot]
 		SendMIDIProgramChange ch_midi_chs[256+curr_chan], val
-		Log {Sent PGM MSG: CHAN:}, ch_midi_chs[256+curr_chan]+1, { PGM: }, val
+		Log {Sent PGM MSG: CHAN:}, ch_midi_chs[256+curr_chan]+1, { PGM: }, val, { MSB: }, ch_msb[pad_slot], { LSB: }, ch_lsb[pad_slot]
 	elseif ch_labels[pad_slot]=62  //chg select bank of params
-		Log { BANK SELECT IS NOT SET UP YET NEED CODE}
-		pad_row=(curr_chan*16)
+		select_pad_slot = pad_slot //we need to come back to this after labelling 8-15
+		slct_index = GetNoteState curr_chan, ch_ccs[pad_slot]
 		for i = 8 to 15
-			ch_vals[pad_row + i] = GetNoteState curr_chan, ch_ccs[pad_row+i] /// something like this ????
-			ch_ccs[pad_row + i] = 55 + (ch_vals[pad_slot] * 8) + i 
-			ch_pad_to_label=i 
+			pad_slot=(curr_chan*16)+i
+			ch_ccs[pad_slot] =  slct_ccs_in_use[(slct_index*8)+i]
+			SetNoteState curr_chan, ch_ccs[pad_slot], GetNoteState curr_chan, ch_ccs[pad_slot] 
+			ch_colors[pad_slot] = slct_colors[slct_index]
+			ch_pad_to_label=i
 			chan_to_label=curr_chan
-			Call @LabelInstrPad
+			Call @LabelInstrPad //xyz
 			FlashPad i 
 		endfor
+		pad_slot = select_pad_slot //return to select pad_slot
+		ch_pad_to_label=0 // label the select pad
+		chan_to_label=curr_chan
+		Call @LabelInstrPad
 	elseif ch_labels[pad_slot]=61 // chg ruismkr instrument
 		Log {RUISMAKER INSTR CHANGE IS NOT SET YET _ NEED CODE}
 		cc = ruismkr_instr_ccs[ch_vals[pad_slot]]
@@ -1843,42 +1879,48 @@
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 	elseif ch_layouts[256+edit_chan]=5
+		def_ccs =    [127,126,44,49,45,12,13,124]
+		CopyArray rmkr_ccs, def_ccs[8], 8
+		CopyArray rmkr_ccs, slct_ccs_in_use, 64
 		LabelKnob 3, {Ruismkr}
 		def_labels = [62,61,43,48,44,6,7,59,25,52,42,34,47,43,2,0]
 		def_colors = [0,0,3,3,3,4,4,0,6,6,6,6,6,6,6,6]
-		def_vals =   [1,0,0,0,0,127,127,0,64,0,64,0,0,0,64,100]
-		def_ccs =    [127,126,44,49,45,12,13,124,34,53,27,43,48,44,8,6]
-		def_mins =   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_maxs =   [8,11,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		def_vals =   [0,0,0,0,0,127,127,0,64,0,64,0,0,0,64,100]
+		def_mins =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_maxs =   [7,11,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 	elseif ch_layouts[256+edit_chan]=6
+		def_ccs =    [127,126,44,49, 45,12,13,124]
+		CopyArray rmfm_ccs, slct_ccs_in_use, 64 //bc RMFM uses different ccs
+		CopyArray rmfm_ccs, def_ccs[8], 8
 		LabelKnob 3, {RuisFM}
 		def_labels = [62,44,43,47,55,6,7,59,25,50,47,51,52,45,2,0]
-		def_labels = [62,44,43,47,55,6,7,59,25,50,47,51,52,45,2,0]
 		def_colors = [6,6,3,3,3,4,4,0,6,6,6,6,6,6,6,6]
-		def_vals =   [1,0,0,0,0,127,127,0,64,0,0,0,44,0,64,100]
-		def_ccs =    [127,45,44,48,120,12,13,124,34,51,48,52,53,46,8,6]
-		def_mins =   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_maxs =   [8,11,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		def_vals =   [0,0,0,0,0,127,127,0,64,0,0,0,44,0,64,100]
+		def_mins =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_maxs =   [7,11,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 	elseif ch_layouts[256+edit_chan]=7
+		def_ccs =    [1,2,3,4,5,6,7,8]
+		CopyArray slct_ccs, def_ccs[8], 8
+		CopyArray slct_ccs, slct_ccs_in_use, 64
 		LabelKnob 3, {Segments}
 		def_labels = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 		def_colors = [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6]
 		def_vals =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_ccs =    [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 		def_mins =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_maxs =   [127,127,127,127, 127,127,127,127, 127,127,127,127, 127,127,127,127]
+		def_maxs =   [7,127,127,127, 127,127,127,127, 127,127,127,127, 127,127,127,127]
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 	elseif ch_layouts[256+edit_chan]=8
-		LabelKnob 3, {Select}
+		def_ccs =    [1,2,3,4,5,6,7,8]
+		CopyArray slct_ccs, def_ccs[8], 8
+		LabelKnob 3, {MyFaveSynth}
 		def_labels = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-		def_colors = [7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7]
+		def_colors = [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6]
 		def_vals =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_ccs =    [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 		def_mins =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs =   [127,127,127,127, 127,127,127,127, 127,127,127,127, 127,127,127,127]
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -2187,18 +2229,21 @@
 		LabelPad ch_pad_to_label, {[ PLUGIN2 ]} //BTN
 		suggested_cc = 124
 	elseif (label_num=60)
-		LabelPad ch_pad_to_label, {[ PGM }, (GetNoteState curr_chan, ch_vals[pad_slot]), { ]} //SPECIAL
+		LabelPad ch_pad_to_label, {[ PGM }, (GetNoteState curr_chan, ch_ccs[pad_slot]), { ]} //SPECIAL
 		suggested_cc = 125
 	elseif (label_num=61)
-		LabelPad ch_pad_to_label, {[ INSTR }, (GetNoteState curr_chan, ch_vals[pad_slot]), { ]} //SPECIAL
+		LabelPad ch_pad_to_label, {[ INSTR }, (GetNoteState curr_chan, ch_ccs[pad_slot])+1, { ]} //SPECIAL
 		suggested_cc = 126
 	elseif (label_num=62)
-		LabelPad ch_pad_to_label, {[ SELECT }, (GetNoteState curr_chan, ch_vals[pad_slot]), { ]} //SPECIAL
+		LabelPad ch_pad_to_label, {[ SELECT }, (GetNoteState curr_chan, ch_ccs[pad_slot])+1, { ]} //SPECIAL
 		suggested_cc = 127
 	elseif (label_num=-1)
 		LabelPad ch_pad_to_label, { }
 	endif
-	ch_ccs[pad_slot] = suggested_cc
+	if apply_suggested_cc
+		ch_ccs[pad_slot] = suggested_cc
+	endif
+	apply_suggested_cc = FALSE
 @End
 
 @LabelAutomationKnobs
