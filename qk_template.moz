@@ -26,7 +26,7 @@
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		curr_chan=0 //# 0-15 KNTRL channels + Channel Select + M-Kontrol Channel
 		print_preset=TRUE
-		send_cc_back_to_knobs = FALSE
+		send_cc_back_to_knobs = TRUE
 		knob1_cc = 124 //# Used for sending midi feedback to LED knobs
 	  knob2_cc = 125
 	  knob3_cc = 126
@@ -90,7 +90,7 @@
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO
 	sel_mixer_ch=0 // channel for control
 	ch_mixer_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 121,122,123] //ccs for mixer params
-	ch_mixer_def_vals = [90,64,64,64, 0,0,127,0, 64,0,64,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
+	ch_mixer_def_vals = [90,64,64,64, 0,0,127,0, 64,64,64,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
 	mute_solo_arm=0 //remember pad state 0-2
 	ch_mixer_vals =[]
 	for ch = 0 to 15
@@ -271,6 +271,11 @@
 		elseif mode=6
 			ch_slot=16*17
 			Call @SetupLayoutChannels
+		elseif mode=7
+			ch_slot=256 // for setting up instrument layout
+			Call @SetupLayoutChannels
+			mixer_mode=LastPad-8
+			Call @SetupKnobset7
 		endif
 		Call @UpdateCurrentKnobset		
 	else //not in mode select
@@ -377,10 +382,18 @@
 			Call @SetupLayoutChannels
 			mixer_mode=LastPad-8
 			Call @SetupKnobset7
+			Call @SendMidiCCBackToKnobs
 		elseif LastPad>=13 and LastPad<=15
 			Call @HandleTransportRequest
 			if print_preset and LastPad=13 and NOT HostRunning
 				Call @PrintPreset
+			elseif LastPad=14 and NOT HostRunning //RESET MIXER OVERLOADS Controller!!!
+				for ch = 0 to 15
+					for i = 0 to 19
+						SetNoteState ch, ch_mixer_ccs[i], ch_mixer_def_vals[i]
+						SendMIDICC ch, ch_mixer_ccs[i], ch_mixer_def_vals[i]
+					endfor
+				endfor
 			endif
 		endif
 	elseif NOT in_mode_select
@@ -546,6 +559,7 @@
 		SendMIDICC chan, ch_mixer_ccs[18], val
 	endif
 	Call @SetupKnobset7
+	Call @SendMidiCCBackToKnobs
 @End
 
 @HandleTransportRequest
@@ -629,7 +643,7 @@
 	else
 	  LabelPad 13, {<<RWD}
 	endif
-	LabelPad 14, {[STOP]}
+	LabelPad 14, {[STOP] RESET MIXER}
 	LabelPad 15, {PLAY>}
 	if edit_mode_active
 		LabelPad 3, {EDITING =>}
@@ -957,7 +971,6 @@
 		endif
 	endif
 	Call @LabelInstrumentKnobs
-	Call @SendMidiCCBackToKnobs
 @End
 
 @SetupKnobset3
