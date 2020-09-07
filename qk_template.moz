@@ -915,7 +915,11 @@
 	if ch_labels[pad_slot]>=55 and ch_labels[pad_slot]<=59 //PLUGIN1 or PLUGIN2 + Mute solo arm
 		LabelKnob 2, {[x]}
 	else
-	  LabelKnob 2, {Value }, (GetNoteState curr_chan, ch_ccs[pad_slot])
+		v = (GetNoteState curr_chan, ch_ccs[pad_slot])
+		if ch_labels[pad_slot]=62 //display 1-8 instead of 0-7 for select param
+			v=v+1
+		endif
+	  LabelKnob 2, {Value }, v
 	endif
 	if use_instr_knobset_a // Label : Color : Value : CC#
 		if ch_labels[pad_slot] = -1
@@ -1049,14 +1053,22 @@
 	elseif ch_labels[pad_slot]=62  //chg select bank of params
 		select_pad_slot = pad_slot //we need to come back to this after labelling 8-15
 		slct_index = GetNoteState curr_chan, ch_ccs[pad_slot]
+		FillArray slct_ccs_in_use, 0, 64 //empty the array fully in case using differen layout
+		if ch_layouts[256+curr_chan]=5  // rmkr layout load the correct cc bank for the layout type
+			CopyArray rmkr_ccs, slct_ccs_in_use, 64
+		elseif ch_layouts[256+curr_chan]=6 //rmkr fm layout
+			CopyArray rmfm_ccs, slct_ccs_in_use, 64
+		else // generic select layout
+			CopyArray slct_ccs, slct_ccs_in_use, 64
+		endif
 		for i = 8 to 15
 			pad_slot=(curr_chan*16)+i
-			ch_ccs[pad_slot] =  slct_ccs_in_use[(slct_index*8)+i]
+			ch_ccs[pad_slot] =  slct_ccs_in_use[(slct_index*8) + (i-8)]
 			SetNoteState curr_chan, ch_ccs[pad_slot], GetNoteState curr_chan, ch_ccs[pad_slot] 
 			ch_colors[pad_slot] = slct_colors[slct_index]
 			ch_pad_to_label=i
 			chan_to_label=curr_chan
-			Call @LabelInstrPad //xyz
+			Call @LabelInstrPad 
 			FlashPad i 
 		endfor
 		pad_slot = select_pad_slot //return to select pad_slot
@@ -1880,43 +1892,41 @@
 		def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 	elseif ch_layouts[256+edit_chan]=5
 		def_ccs =    [127,126,44,49,45,12,13,124]
-		CopyArray rmkr_ccs, def_ccs[8], 8
-		CopyArray rmkr_ccs, slct_ccs_in_use, 64
+		CopyArray rmkr_ccs, def_ccs[8], 8 //the first 8 def_ccs are above
 		LabelKnob 3, {Ruismkr}
 		def_labels = [62,61,43,48,44,6,7,59,25,52,42,34,47,43,2,0]
 		def_colors = [0,0,3,3,3,4,4,0,6,6,6,6,6,6,6,6]
 		def_vals =   [0,0,0,0,0,127,127,0,64,0,64,0,0,0,64,100]
+		def_ccs =    [127,126,44,49,45,12,13,124,30,31,37,32,35,36,34,33]
 		def_mins =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs =   [7,11,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 	elseif ch_layouts[256+edit_chan]=6
 		def_ccs =    [127,126,44,49, 45,12,13,124]
-		CopyArray rmfm_ccs, slct_ccs_in_use, 64 //bc RMFM uses different ccs
 		CopyArray rmfm_ccs, def_ccs[8], 8
 		LabelKnob 3, {RuisFM}
 		def_labels = [62,44,43,47,55,6,7,59,25,50,47,51,52,45,2,0]
 		def_colors = [6,6,3,3,3,4,4,0,6,6,6,6,6,6,6,6]
 		def_vals =   [0,0,0,0,0,127,127,0,64,0,0,0,44,0,64,100]
 		def_mins =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_maxs =   [7,11,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		def_maxs =   [5,11,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 	elseif ch_layouts[256+edit_chan]=7
 		def_ccs =    [1,2,3,4,5,6,7,8]
 		CopyArray slct_ccs, def_ccs[8], 8
-		CopyArray slct_ccs, slct_ccs_in_use, 64
-		LabelKnob 3, {Segments}
-		def_labels = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-		def_colors = [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6]
-		def_vals =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		LabelKnob 3, {Select}
+		def_labels = [62,25,0,4,5,6,7,59,25,0,2,1,-1,-1,51,54]
+		def_colors = [0,0,3,3,3,4,4,0,6,6,6,6,6,6,6,6]
+		def_vals =   [0,0,127,0,0,127,127,0,64,127,64,0,0,127,0,127]
+		def_ccs =    [127,34,7,10,11,12,13,124,30,31,32,33,34,35,36,37]
 		def_mins =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_maxs =   [7,127,127,127, 127,127,127,127, 127,127,127,127, 127,127,127,127]
+		def_maxs =   [7,11,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 	elseif ch_layouts[256+edit_chan]=8
 		def_ccs =    [1,2,3,4,5,6,7,8]
-		CopyArray slct_ccs, def_ccs[8], 8
 		LabelKnob 3, {MyFaveSynth}
 		def_labels = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 		def_colors = [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6]
@@ -2241,6 +2251,7 @@
 		LabelPad ch_pad_to_label, { }
 	endif
 	if apply_suggested_cc
+		Log {suggested cc applied}
 		ch_ccs[pad_slot] = suggested_cc
 	endif
 	apply_suggested_cc = FALSE
