@@ -190,16 +190,16 @@
 	rmfm_ccs[24] = [68,70,71,72, 73,74,75,76] //ch4
 	rmfm_ccs[32] = [80,82,83,84, 85,86,87,88] //ch5
 	rmfm_ccs[40] = [92,94,95,96, 97,98,99,100] //ch6
-	//rmkr instrument values sent on cc#s 22-29
-	rmkr_inst= [22,23,24,25, 26,27,28,29] //ccs for chg instr. sound
-	rmkr_kiks= [10,11,12,13, 14,15,16,17] //8 kiks all arrays len=10
-	rmkr_snrs= [30,31,32,33, 34,35,36,36] //snares
-	rmkr_clps= [50,50,51,51, 101,101,111,111] //claps
-	rmkr_ltom= [70,73,76,79, 82,85,88,91] //low toms
-	rmkr_hhc = [60,60,60,62, 62,62,66,66] //hhc
-	rmkr_hho = [61,63,63,64, 65,65,67,67] //hho
-	rmkr_prc1= [71,80,74,77, 86,89,92,83] //perc1
-	rmkr_prc2= [72,81,75,78, 87,90,93,84] //perc2	
+	//rmkr instrument values sent on cc#s 22-29 
+	rmkr_inst_chg = [22,23,24,25, 26,27,28,29] //ccs for chg instr. sound
+	rmkr_instrs[0*8] = [10,11,12,13, 14,15,16,17] //8 kiks all arrays len=8
+	rmkr_instrs[1*8] = [30,31,32,33, 34,35,36,36] //snares
+	rmkr_instrs[2*8] = [50,50,51,51, 101,101,111,111] //claps
+	rmkr_instrs[3*8] = [70,73,76,79, 82,85,88,91] //low toms
+	rmkr_instrs[4*8] = [60,60,60,62, 62,62,66,66] //hhc
+	rmkr_instrs[5*8] = [61,63,63,64, 65,65,67,67] //hho
+	rmkr_instrs[6*8] = [71,80,74,77, 86,89,92,83] //perc1
+	rmkr_instrs[7*8] = [72,81,75,78, 87,90,93,84] //perc2	
 	//SETUP MIDI MAPPING PARAMS FOR DEFAULT CHANNELS
 	for i = 0 to 15
 		edit_chan=i 
@@ -916,7 +916,7 @@
 		LabelKnob 2, {[x]}
 	else
 		v = (GetNoteState curr_chan, ch_ccs[pad_slot])
-		if ch_labels[pad_slot]=62 //display 1-8 instead of 0-7 for select param
+		if ch_labels[pad_slot]=62 or ch_labels[pad_slot]=61 //display 1-8 instead of 0-7 for select param
 			v=v+1
 		endif
 	  LabelKnob 2, {Value }, v
@@ -1018,12 +1018,12 @@
 		endif
 	endif
 	if LastKnob = 2 // VALUE : VALUE
-		val = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
-		SetNoteState curr_chan, ch_ccs[pad_slot], val
+		kv = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
+		SetNoteState curr_chan, ch_ccs[pad_slot], kv
 		if ch_labels[pad_slot]>=60 and ch_labels[pad_slot]<=62  // SPECIALS Select, Instr, PGM CHG
 			Call @HandleSpecialInstrKontrols
 		else 
-			SendMIDICC ch_midi_chs[256+curr_chan], ch_ccs[pad_slot], val
+			SendMIDICC ch_midi_chs[256+curr_chan], ch_ccs[pad_slot], kv //knob value
 		endif
 	endif
 	if LastKnob = 3
@@ -1048,8 +1048,8 @@
 	//Buttons get handled in PadDown. We dont want knob to do anything
 	if ch_labels[pad_slot]=60 // PGM CHG MSG
 		SendMIDIBankSelect ch_midi_chs[256+curr_chan], ch_msb[pad_slot], ch_lsb[pad_slot]
-		SendMIDIProgramChange ch_midi_chs[256+curr_chan], val
-		Log {Sent PGM MSG: CHAN:}, ch_midi_chs[256+curr_chan]+1, { PGM: }, val, { MSB: }, ch_msb[pad_slot], { LSB: }, ch_lsb[pad_slot]
+		SendMIDIProgramChange ch_midi_chs[256+curr_chan], kv
+		Log {Sent PGM MSG: CHAN:}, ch_midi_chs[256+curr_chan]+1, { PGM: }, kv, { MSB: }, ch_msb[pad_slot], { LSB: }, ch_lsb[pad_slot]
 	elseif ch_labels[pad_slot]=62  //chg select bank of params
 		select_pad_slot = pad_slot //we need to come back to this after labelling 8-15
 		slct_index = GetNoteState curr_chan, ch_ccs[pad_slot]
@@ -1071,16 +1071,31 @@
 			Call @LabelInstrPad 
 			FlashPad i 
 		endfor
+		if (ch_layouts[256+curr_chan] = 5) and (ch_labels[(curr_chan*16)+1]=61) //rmkr layout with instr chg on pad2/16
+			ch_ccs[(curr_chan*16)+1] = rmkr_inst_chg[slct_index] // update cc rmkr instr changer [22-29]
+			Log {new rmkr instr chg cc: }, rmkr_inst_chg[slct_index]
+			pad_slot=(curr_chan*16)+1
+			ch_colors[pad_slot] = slct_colors[slct_index]
+			ch_pad_to_label=1
+			chan_to_label=curr_chan
+			Call @LabelInstrPad
+			FlashPad 1
+		endif
 		pad_slot = select_pad_slot //return to select pad_slot
 		ch_pad_to_label=0 // label the select pad
 		chan_to_label=curr_chan
 		Call @LabelInstrPad
 	elseif ch_labels[pad_slot]=61 // chg ruismkr instrument
-		Log {RUISMAKER INSTR CHANGE IS NOT SET YET _ NEED CODE}
-		cc = ruismkr_instr_ccs[ch_vals[pad_slot]]
-		SendMIDICC ch_midi_chs[256+curr_chan], cc, val
+		sel_channel = GetNoteState curr_chan, ch_ccs[(curr_chan*16)] //slct control always first pad 
+		cc = rmkr_inst_chg[sel_channel]
+		instr_num = rmkr_instrs[(sel_channel*8) + kv]
+		// Log {Choosing instr for channel }, sel_channel, { with CC# }, cc, { instr_type: }, instr_num
+		SendMIDICC ch_midi_chs[256+curr_chan], cc, instr_num
+		SetNoteState curr_chan, cc, kv // save the knob position	
+		ch_pad_to_label=1 // this param only for rmkr and only pad1
+		chan_to_label=curr_chan
+		Call @LabelInstrPad
 	endif
-			
 @End
 
 @SetupKnobset3
@@ -1899,9 +1914,15 @@
 		def_vals =   [0,0,0,0,0,127,127,0,64,0,64,0,0,0,64,100]
 		def_ccs =    [127,126,44,49,45,12,13,124,30,31,37,32,35,36,34,33]
 		def_mins =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_maxs =   [7,11,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		def_maxs =   [7,7,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		for ch = 0 to 7
+			for p = 8 to 15 //set the default values for all select channels
+				SetNoteState edit_chan, rmkr_ccs[(ch*8) + (p-8)], def_vals[p]
+				Log edit_chan, {-}, rmkr_ccs[(ch*8) + (p-8)], {-}, def_vals[p]
+			endfor
+		endfor	
 	elseif ch_layouts[256+edit_chan]=6
 		def_ccs =    [127,126,44,49, 45,12,13,124]
 		CopyArray rmfm_ccs, def_ccs[8], 8
@@ -1913,6 +1934,12 @@
 		def_maxs =   [5,11,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		for ch = 0 to 7
+			for p = 8 to 15 //set the default values for all select channels
+				SetNoteState edit_chan, rmfm_ccs[(ch*8) + (p-8)], def_vals[p]
+				Log edit_chan, {-}, rmfm_ccs[(ch*8) + (p-8)], {-}, def_vals[p]
+			endfor
+		endfor
 	elseif ch_layouts[256+edit_chan]=7
 		def_ccs =    [1,2,3,4,5,6,7,8]
 		CopyArray slct_ccs, def_ccs[8], 8
@@ -1925,6 +1952,12 @@
 		def_maxs =   [7,11,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		for ch = 0 to 7
+			for p = 8 to 15 //set the default values for all select channels
+				SetNoteState edit_chan, slct_ccs[(ch*8) + (p-8)], def_vals[p]
+				Log edit_chan, {-}, slct_ccs[(ch*8) + (p-8)], {-}, def_vals[p]
+			endfor
+		endfor
 	elseif ch_layouts[256+edit_chan]=8
 		def_ccs =    [1,2,3,4,5,6,7,8]
 		LabelKnob 3, {MyFaveSynth}
@@ -2242,7 +2275,14 @@
 		LabelPad ch_pad_to_label, {[ PGM }, (GetNoteState curr_chan, ch_ccs[pad_slot]), { ]} //SPECIAL
 		suggested_cc = 125
 	elseif (label_num=61)
-		LabelPad ch_pad_to_label, {[ INSTR }, (GetNoteState curr_chan, ch_ccs[pad_slot])+1, { ]} //SPECIAL
+		sel_channel = GetNoteState curr_chan, ch_ccs[(curr_chan*16)] //slct control always first pad 
+		cc = rmkr_inst_chg[sel_channel]
+		val = GetNoteState curr_chan, cc
+		if val=-1
+			val=0
+		endif
+		instr_num = rmkr_instrs[(sel_channel*8) + val]
+		LabelPad ch_pad_to_label, {[ INSTR }, instr_num, { ]} //SPECIAL
 		suggested_cc = 126
 	elseif (label_num=62)
 		LabelPad ch_pad_to_label, {[ SELECT }, (GetNoteState curr_chan, ch_ccs[pad_slot])+1, { ]} //SPECIAL
