@@ -96,7 +96,7 @@
 	ch_mixer_vals =[]
 	for ch = 0 to 15
 		for i = 0 to 19
-			SetNoteState ch, ch_mixer_ccs[i], ch_mixer_def_vals[i]
+			SetNoteState ch_midi_chs[256+ch], ch_mixer_ccs[i], ch_mixer_def_vals[i]
 		endfor
 	endfor
 	
@@ -203,7 +203,7 @@
 	//SETUP MIDI MAPPING PARAMS FOR DEFAULT CHANNELS
 	for i = 0 to 15
 		edit_chan=i 
-		Call @SetDefaultsForChType
+		//Call @SetDefaultsForChType
 	endfor
 @End
 
@@ -420,8 +420,8 @@
 			elseif LastPad=14 and NOT HostRunning //RESET MIXER OVERLOADS Controller!!!
 				for ch = 0 to 15
 					for i = 0 to 19
-						SetNoteState ch, ch_mixer_ccs[i], ch_mixer_def_vals[i]
-						SendMIDICC ch, ch_mixer_ccs[i], ch_mixer_def_vals[i]
+						SetNoteState ch_midi_chs[256+ch], ch_mixer_ccs[i], ch_mixer_def_vals[i]
+						SendMIDICC ch_midi_chs[256+ch], ch_mixer_ccs[i], ch_mixer_def_vals[i]
 					endfor
 				endfor
 			endif
@@ -512,7 +512,7 @@
 	elseif ch_labels[pad_slot]=57 //SOLO
 		ch_solo[curr_chan] = NOT ch_solo[curr_chan]
 		ch_colors[pad_slot] = 4
-		if not ch_solo[sel_mixer_ch]
+		if not ch_solo[sel_mixer_ch] 
 			val=0
 			ch_colors[pad_slot] = col_unused
 		endif
@@ -1415,7 +1415,6 @@
 
 @SetupKnobset7
 	//# MIXER KONTROLS
-	Log {sel_mixer_ch: }, sel_mixer_ch, { mixer_mode: }, mixer_mode 
 	knob_set = 7
 	if mixer_mode=4
 		SetKnobValue 0, TranslateScale mute_solo_arm, 0, 2, 0, 127
@@ -1423,8 +1422,8 @@
 		SetKnobValue 2, 0
 		SetKnobValue 3, 0
 	else
-		for i = 0 to 3
-			val=GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + i]
+	for i = 0 to 3
+			val=GetNoteState ch_midi_chs[256+sel_mixer_ch], ch_mixer_ccs[(mixer_mode*4) + i]
 			SetKnobValue i, TranslateScale val, 0, 127, 0, 127	
 		endfor
 	endif
@@ -1442,7 +1441,7 @@
 				val = Round TranslateScale (GetKnobValue i), 0, 127, 0, 127
 				cc = ch_mixer_ccs[(mixer_mode*4) + i]
 				chan = ch_midi_chs[256+sel_mixer_ch]
-				SetNoteState sel_mixer_ch, cc, val
+				SetNoteState chan, cc, val
 				SendMIDICC chan, cc, val
 				Log {Sending: }, chan, {-}, cc, {-}, val
 			endif
@@ -1454,32 +1453,33 @@
 @LabelMixerModes
 	// Setup mixer modes
 	LabelKnobs {CHANNEL }, sel_mixer_ch+1
+	m_ch = ch_midi_chs[256+sel_mixer_ch]
 	if mixer_mode=0
 		LabelPads {KNTRL : [ VOL PAN GAIN MID/SIDE ]}
-		LabelKnob 0, {VOL }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {PAN }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {GAIN }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {M/S } , GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {VOL }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
+		LabelKnob 1, {PAN }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
+		LabelKnob 2, {GAIN }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {M/S } , GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=1
 		mixer_mode=1 //access ch_mixer_vals 4-7
 	  LabelPads {KNTRL : [ SENDS FILTER ]}
-		LabelKnob 0, {SENDA }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {SENDB }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {LPF }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {HPF }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {SENDA }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
+		LabelKnob 1, {SENDB }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
+		LabelKnob 2, {LPF }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {HPF }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=2
 	  mixer_mode=2 //access ch_mixer_vals 8-11
 		LabelPads {KNTRL : [ EQ ] }
-		LabelKnob 0, {GAIN }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {FREQ }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {RES }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {SHELF }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {GAIN }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
+		LabelKnob 1, {FREQ }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
+		LabelKnob 2, {RES }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {SHELF }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=3
 		LabelPads {KNTRL : [ FX ] }
-		LabelKnob 0, {D/W1 }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {AMT1 }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {D/W2 }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {AMT2 }, GetNoteState sel_mixer_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {D/W1 }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
+		LabelKnob 1, {AMT1 }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
+		LabelKnob 2, {D/W2 }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {AMT2 }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=4
 		LabelPads {KNTRL : [ MUTE SOLO ARM ]}
 		if mute_solo_arm=0
@@ -2282,10 +2282,10 @@
 			val=0
 		endif
 		instr_num = rmkr_instrs[(sel_channel*8) + val]
-		LabelPad ch_pad_to_label, {[ INSTR }, instr_num, { ]} //SPECIAL
+		LabelPad ch_pad_to_label, {DRUM#}, instr_num //SPECIAL
 		suggested_cc = 126
 	elseif (label_num=62)
-		LabelPad ch_pad_to_label, {[ SELECT }, (GetNoteState curr_chan, ch_ccs[pad_slot])+1, { ]} //SPECIAL
+		LabelPad ch_pad_to_label, {SELECT CH}, (GetNoteState curr_chan, ch_ccs[pad_slot])+1 //SPECIAL
 		suggested_cc = 127
 	elseif (label_num=-1)
 		LabelPad ch_pad_to_label, { }
