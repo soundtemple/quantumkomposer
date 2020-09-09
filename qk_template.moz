@@ -92,7 +92,6 @@
 	// 16 mixer params - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
 	// Mixer: Each channel has 16 mixer vals to store
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO
-	sel_mixer_ch=0 // channel for control
 	ch_mixer_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 121,122,123] //ccs for mixer params
 	ch_mixer_def_vals = [90,64,64,64, 0,0,127,0, 64,64,0,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
 	mute_solo_arm=0 //remember pad state 0-2
@@ -369,8 +368,8 @@
 			if edit_mode_active
 				Call @SetupKnobset1 //# Channels mode curr_chan
 				edit_chan=0
-				LatchPad 0, YES
 			endif
+			LatchPad curr_chan, YES
 			LabelPads {KNTRL : [ CHANNELS ]}
 		elseif LastPad=5
 			mode=2 //AUTOMATION
@@ -515,7 +514,7 @@
 	elseif ch_labels[pad_slot]=57 //SOLO
 		ch_solo[curr_chan] = NOT ch_solo[curr_chan]
 		ch_colors[pad_slot] = 4
-		if not ch_solo[sel_mixer_ch] 
+		if not ch_solo[curr_chan] 
 			val=0
 			ch_colors[pad_slot] = col_unused
 		endif
@@ -604,24 +603,24 @@
 @End
 
 @PadDownMixerMode
-	sel_mixer_ch=LastPad
-	chan = ch_midi_chs[256+sel_mixer_ch]
+	curr_chan=LastPad
+	chan = ch_midi_chs[256+curr_chan]
 	val=127
 	if mixer_mode=4 and mute_solo_arm=0
-		ch_mute[sel_mixer_ch] = NOT ch_mute[sel_mixer_ch]
-		if not ch_mute[sel_mixer_ch]
+		ch_mute[curr_chan] = NOT ch_mute[curr_chan]
+		if not ch_mute[curr_chan]
 			val=0
 		endif
 		SendMIDICC chan, ch_mixer_ccs[16], val
 	elseif mixer_mode=4 and mute_solo_arm=1
-		ch_solo[sel_mixer_ch] = NOT ch_solo[sel_mixer_ch]
-		if not ch_solo[sel_mixer_ch]
+		ch_solo[curr_chan] = NOT ch_solo[curr_chan]
+		if not ch_solo[curr_chan]
 			val=0
 		endif
 		SendMIDICC chan, ch_mixer_ccs[17], val
 	elseif mixer_mode=4 and mute_solo_arm=2
-		ch_arm[sel_mixer_ch] = NOT ch_arm[sel_mixer_ch]
-		if not ch_arm[sel_mixer_ch]
+		ch_arm[curr_chan] = NOT ch_arm[curr_chan]
+		if not ch_arm[curr_chan]
 			val=0
 		endif
 		SendMIDICC chan, ch_mixer_ccs[18], val
@@ -1418,7 +1417,7 @@
 		SetKnobValue 3, 0
 	else
 	for i = 0 to 3
-			val=GetNoteState ch_midi_chs[256+sel_mixer_ch], ch_mixer_ccs[(mixer_mode*4) + i]
+			val=GetNoteState ch_midi_chs[256+curr_chan], ch_mixer_ccs[(mixer_mode*4) + i]
 			SetKnobValue i, TranslateScale val, 0, 127, 0, 127	
 		endfor
 	endif
@@ -1435,7 +1434,7 @@
 			if LastKnob = i 
 				val = Round TranslateScale (GetKnobValue i), 0, 127, 0, 127
 				cc = ch_mixer_ccs[(mixer_mode*4) + i]
-				chan = ch_midi_chs[256+sel_mixer_ch]
+				chan = ch_midi_chs[256+curr_chan]
 				SetNoteState chan, cc, val
 				SendMIDICC chan, cc, val
 				Log {Sending: }, chan, {-}, cc, {-}, val
@@ -1447,8 +1446,12 @@
 
 @LabelMixerModes
 	// Setup mixer modes
-	LabelKnobs {CHANNEL }, sel_mixer_ch+1
-	m_ch = ch_midi_chs[256+sel_mixer_ch]
+	if mixer_mode=4
+		LabelKnobs { }
+	else
+		LabelKnobs {CHANNEL }, curr_chan+1
+	endif
+	m_ch = ch_midi_chs[256+curr_chan]
 	if mixer_mode=0
 		LabelPads {KNTRL : [ VOL PAN GAIN MID/SIDE ]}
 		LabelKnob 0, {VOL }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
@@ -1511,7 +1514,7 @@
 		endif	
 	endfor
 	if mixer_mode <> 4
-		LatchPad sel_mixer_ch, YES
+		LatchPad curr_chan, YES
 	endif
 @End
 
