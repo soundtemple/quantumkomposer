@@ -1045,7 +1045,7 @@
 		SendMIDIProgramChange ch_midi_chs[256+curr_chan], kv
 		Log {Sent PGM MSG: CHAN:}, ch_midi_chs[256+curr_chan]+1, { PGM: }, kv, { MSB: }, ch_msb[curr_chan], { LSB: }, ch_lsb[curr_chan]
 	elseif ch_labels[pad_slot]=62  //chg select bank of params
-		select_pad_slot = pad_slot //we need to come back to this after labelling 8-15
+		select_pad_slot=pad_slot //we need to come back to this after labelling 8-15
 		slct_index = GetNoteState curr_chan, ch_ccs[pad_slot]
 		FillArray slct_ccs_in_use, 0, 64 //empty the array fully in case using differen layout
 		if ch_layouts[curr_chan]=3  // rmkr layout load the correct cc bank for the layout type
@@ -1075,7 +1075,7 @@
 			Call @LabelInstrPad
 			FlashPad 1
 		endif
-		pad_slot = select_pad_slot //return to select pad_slot
+		pad_slot=select_pad_slot //return to select pad_slot
 		ch_pad_to_label=0 // label the select pad
 		chan_to_label=curr_chan
 		Call @LabelInstrPad
@@ -1522,7 +1522,7 @@
 @SetupKnobset8
 	//# M-KONTROL SETUP A - Label, Color, MIDI_CH
 	knob_set = 8
-	pad_slot = [(16*17) + last_mkntrl_pad] //location channel 17
+	pad_slot=[(16*17) + last_mkntrl_pad] //location channel 17
 	LabelPads {KNTRL : [ MIDI GENERATORS ]}
 	LabelKnobs {SETUP PAD }, last_mkntrl_pad+1
 	LabelKnob 0, {Label }, ch_labels[pad_slot]
@@ -1542,7 +1542,7 @@
 @KnobChangeSet8
 	//# M-KONTROL SETUP A - Label, Color, MIDI_CH
 	ch_slot=16*17 //# location for Channeles data for labelling 
-	pad_slot = [(16*17) + last_mkntrl_pad] //location channel 17
+	pad_slot=[(16*17) + last_mkntrl_pad] //location channel 17
 	if LastKnob = 0
 		ch_labels[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 30
 		ch_pad_to_label=last_mkntrl_pad
@@ -1576,7 +1576,7 @@
 @SetupKnobset9
 	//# M-KONTROL SETUP B - CC#s 1-4
 	knob_set = 9
-	pad_slot = [4 * last_mkntrl_pad] //location channel 17
+	pad_slot=[4 * last_mkntrl_pad] //location channel 17
 	LabelPads {KNTRL : [ MIDI GENERATORS ]}
 	LabelKnobs {SETUP PAD }, last_mkntrl_pad+1
 	LabelKnob 0, {CC1-}, m_kntrl_ccs[pad_slot]
@@ -1591,7 +1591,7 @@
 
 @KnobChangeSet9
 	//# M-KONTROL SETUP B - CC#'s 1-4
-	pad_slot = [4 * last_mkntrl_pad] //location channel 17
+	pad_slot=[4 * last_mkntrl_pad] //location channel 17
 	if LastKnob = 0
 		m_kntrl_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 	endif
@@ -1613,7 +1613,7 @@
 @SetupKnobset10
 	//# M-KONTROL USAGE - VAL KNOBS1-4
 	knob_set = 10
-	pad_slot = [4 * last_mkntrl_pad] //location channel 17
+	pad_slot=[4 * last_mkntrl_pad] //location channel 17
 	LabelPads {KNTRL : [ MIDI GENERATORS ]}
 	LabelKnobs {PAD }, last_mkntrl_pad+1
 	LabelKnob 0, {K1 }, m_kntrl_vals[pad_slot]
@@ -1628,7 +1628,7 @@
 
 @KnobChangeSet10
 	//# M-KONTROL USAGE - Val knobs 1-4
-	pad_slot = [4 * last_mkntrl_pad] //location channel 17
+	pad_slot=[4 * last_mkntrl_pad] //location channel 17
 	if LastKnob = 0
 		m_kntrl_vals[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 	endif
