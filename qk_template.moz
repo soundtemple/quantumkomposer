@@ -79,7 +79,7 @@
 	//INSTRUMENTS (16) (16x4pages) label, color, value, cc#, mix, max 
 	ResetNoteStates -1 // Channel values perc CC. 16channels, 16mixer params. 16FX/Instr params each with unique CC
 	inst_curr_page=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
-	inst_max_pages=[1,1,3,3, 3,3,3,3, 3,3,3,3, 3,3,3,3] //num pages layout can visit
+	inst_max_pages=[1,1,4,4, 4,4,4,4, 4,4,4,4, 4,4,4,4] //num pages layout can visit
 	inst_labels=[]
 	inst_color=[]
 	inst_ccs=[] //# midi cc num sent chs 0-15 
@@ -101,7 +101,7 @@
 	//# MIDI GEN KONTROL SECTION
 	last_mkntrl_pad=0 //# return to last pad used MG-kntrl mode
 	mgen_vals=[]
-	chan_labels[16] =  [22,23,24,25,26,27,28,29,15,19,12,3,9,5,8,21] //xyz change these to chan_
+	chan_labels[16] =  [22,23,24,25,26,27,28,29,15,19,12,3,9,5,8,21]
 	chan_colors[16] =  [5,6,6,6,6,6,6,6,3,3,3,4,4,4,4,2]
 	chan_midi_chs[16]= [0,15,15,15,15,15,15,15,11,14,10,3,7,5,8,0]
 	mgen_ccs[0*17] = [32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47]
@@ -933,7 +933,7 @@
 		if fixed_cc_layout[chan_layouts[curr_chan]] and chan_layouts[curr_chan]<=2
 			LabelKnob 3, {Page }, inst_curr_page[curr_chan]+1
 		else 
-			LabelKnob 3, { }
+				LabelKnob 3, { }
 		endif
 	else // LSB CC# : MSB MIN : Value : MAX
 		if inst_labels[pad_slot]=60 //pgm chg message type
@@ -950,14 +950,15 @@
 @SetupKnobset2
 	//# INTRUMENT KONTROL MODE use_instr_knobset_a
 	knob_set=2
-	pad_slot=(curr_chan*16) + edit_pad 
+	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + edit_pad
+	max_pages=inst_max_pages[curr_chan]-1
 	val = (GetNoteState curr_chan, inst_ccs[pad_slot])
 	SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127	
 	if use_instr_knobset_a // Label : Color : Value : CC#
 		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 62, 0, 127
 		SetKnobValue 1, TranslateScale inst_colors[pad_slot], 0, 6, 0, 127
 		if fixed_cc_layout[chan_layouts[curr_chan]] and chan_layouts[curr_chan]<=2
-			SetKnobValue 3, TranslateScale inst_curr_page[curr_chan], 0, inst_max_pages[curr_chan], 0, 127
+			SetKnobValue 3, TranslateScale inst_curr_page[curr_chan], 0, max_pages, 0, 127
 		else
 			SetKnobValue 3, 0
 		endif
@@ -977,58 +978,67 @@
 
 @KnobChangeSet2
 	//# INSTRUMENT KONTROL MODE
-	pad_slot=(curr_chan*16) + edit_pad
+	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan])
+	max_pages=inst_max_pages[curr_chan]-1
 	if LastKnob = 0 // LABEL : LSB
 		if use_instr_knobset_a
-			inst_labels[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 62
-			pad_to_label=edit_pad
+			inst_labels[pad_slot + edit_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 62
+			pad_to_label=edit_pad 
 			chan_to_label=curr_chan
+			pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + edit_pad
 			Call @LabelInstrPad
 		else
-			if inst_labels[pad_slot]=60 //PGM CHG
+			if inst_labels[pad_slot + edit_pad]=60 //PGM CHG
 				chan_lsb[curr_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
 			else
 				if not fixed_cc_layout[chan_layouts[curr_chan]]
-					inst_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
+					inst_ccs[pad_slot + edit_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 				endif
 			endif
 		endif
 	endif
 	if LastKnob = 1 // COLOR : (MSB or MIN)
 		if use_instr_knobset_a
-			inst_colors[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
+			inst_colors[pad_slot + edit_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
 			LatchPad edit_pad, NO 
-			ColorPad edit_pad, inst_colors[pad_slot]
+			ColorPad edit_pad, inst_colors[pad_slot + edit_pad]
 		else
 			if inst_labels[pad_slot]=60 //PGM CHG
 				chan_msb[curr_chan] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
 			else 
-				inst_mins[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
-				val = (GetNoteState curr_chan, inst_ccs[pad_slot])
-				SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
+				inst_mins[pad_slot + edit_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
+				val = (GetNoteState curr_chan, inst_ccs[pad_slot + edit_pad])
+				SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot + edit_pad], 0, 127
 			endif	
 		endif
 	endif
 	if LastKnob = 2 // VALUE : VALUE
-		kv = Round TranslateScale (GetKnobValue 2), 0, 127, inst_mins[pad_slot], inst_maxs[pad_slot]
-		SetNoteState curr_chan, inst_ccs[pad_slot], kv
-		if inst_labels[pad_slot]>=60 and inst_labels[pad_slot]<=62  // SPECIALS Select, Instr, PGM CHG
+		kv = Round TranslateScale (GetKnobValue 2), 0, 127, inst_mins[pad_slot], inst_maxs[pad_slot + edit_pad]
+		SetNoteState curr_chan, inst_ccs[pad_slot + edit_pad], kv
+		if inst_labels[pad_slot]>=60 and inst_labels[pad_slot + edit_pad]<=62  // SPECIALS Select, Instr, PGM CHG
 			Call @HandleSpecialInstrKontrols
 		else 
-			SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot], kv //knob value
+			SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot + edit_pad], kv //knob value
 		endif
 	endif
 	if LastKnob = 3
 		if use_instr_knobset_a	
 			if fixed_cc_layout[chan_layouts[curr_chan]] and chan_layouts[curr_chan]<=2
-				inst_curr_page[curr_chan] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, inst_max_pages[curr_chan]
+				page = Round TranslateScale (GetKnobValue 3), 0, 127, 0, max_pages
+				if page <> inst_curr_page[curr_chan]
+					inst_curr_page[curr_chan] = page
+					pad_slot = [(64*curr_chan) + (16*inst_curr_page[curr_chan])]
+					Log {new page: }, page, { pad slot: }, pad_slot, { curr_chan: }, curr_chan
+					Call @SetupLayoutChannels
+				endif
 			endif
 		else
-		  inst_maxs[pad_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
-			val = (GetNoteState curr_chan, inst_ccs[pad_slot])
-			SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
+		  inst_maxs[pad_slot + edit_pad] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+			val = (GetNoteState curr_chan, inst_ccs[pad_slot + edit_pad])
+			SetKnobValue 2, TranslateScale val, inst_mins[pad_slot + edit_pad], inst_maxs[pad_slot + edit_pad], 0, 127
 		endif
 	endif
+	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + edit_pad
 	Call @LabelInstrumentKnobs
 @End
 
@@ -1788,7 +1798,8 @@
 		i=[]
 		x=[]
 		v=[]
-		pad_slot=(edit_chan*16)
+		pg=inst_curr_page[edit_chan]
+		pad_slot = (64*edit_chan) + (16*pg)
 		CopyArray inst_labels[pad_slot], l, 16
 		CopyArray inst_colors[pad_slot], o, 16
 		CopyArray inst_ccs[pad_slot], c, 16
@@ -1798,12 +1809,12 @@
 			v[i] = (GetNoteState curr_chan, inst_ccs[pad_slot+i])
 		endfor
 		Log {********** END PRESET **********}
-		Log {def_maxs =   [},x[0],{,},x[1],{,},x[2],{,},x[3],{,},x[4],{,},x[5],{,},x[6],{,},x[7],{,},x[8],{,},x[9],{,},x[10],{,},x[11],{,},x[12],{,},x[13],{,},x[14],{,},x[15],{]}
-		Log {def_mins =   [},n[0],{,},n[1],{,},n[2],{,},n[3],{,},n[4],{,},n[5],{,},n[6],{,},n[7],{,},n[8],{,},n[9],{,},n[10],{,},n[11],{,},n[12],{,},n[13],{,},n[14],{,},n[15],{]}
-		Log {def_ccs =    [},c[0],{,},c[1],{,},c[2],{,},c[3],{,},c[4],{,},c[5],{,},c[6],{,},c[7],{,},c[8],{,},c[9],{,},c[10],{,},c[11],{,},c[12],{,},c[13],{,},c[14],{,},c[15],{]}
-		Log {def_vals =   [},v[0],{,},v[1],{,},v[2],{,},v[3],{,},v[4],{,},v[5],{,},v[6],{,},v[7],{,},v[8],{,},v[9],{,},v[10],{,},v[11],{,},v[12],{,},v[13],{,},v[14],{,},v[15],{]} 
-		Log {def_colors = [},o[0],{,},o[1],{,},o[2],{,},o[3],{,},o[4],{,},o[5],{,},o[6],{,},o[7],{,},o[8],{,},o[9],{,},o[10],{,},o[11],{,},o[12],{,},o[13],{,},o[14],{,},o[15],{]}
-		Log {def_labels = [},l[0],{,},l[1],{,},l[2],{,},l[3],{,},l[4],{,},l[5],{,},l[6],{,},l[7],{,},l[8],{,},l[9],{,},l[10],{,},l[11],{,},l[12],{,},l[13],{,},l[14],{,},l[15],{]}
+		Log {def_maxs[16*}, pg, {]   = [},x[0],{,},x[1],{,},x[2],{,},x[3],{,},x[4],{,},x[5],{,},x[6],{,},x[7],{,},x[8],{,},x[9],{,},x[10],{,},x[11],{,},x[12],{,},x[13],{,},x[14],{,},x[15],{]}
+		Log {def_mins[16*}, pg, {]   = [},n[0],{,},n[1],{,},n[2],{,},n[3],{,},n[4],{,},n[5],{,},n[6],{,},n[7],{,},n[8],{,},n[9],{,},n[10],{,},n[11],{,},n[12],{,},n[13],{,},n[14],{,},n[15],{]}
+		Log {def_ccs[16*}, pg, {]    = [},c[0],{,},c[1],{,},c[2],{,},c[3],{,},c[4],{,},c[5],{,},c[6],{,},c[7],{,},c[8],{,},c[9],{,},c[10],{,},c[11],{,},c[12],{,},c[13],{,},c[14],{,},c[15],{]}
+		Log {def_vals[16*}, pg, {]   = [},v[0],{,},v[1],{,},v[2],{,},v[3],{,},v[4],{,},v[5],{,},v[6],{,},v[7],{,},v[8],{,},v[9],{,},v[10],{,},v[11],{,},v[12],{,},v[13],{,},v[14],{,},v[15],{]} 
+		Log {def_colors[16*}, pg, {] = [},o[0],{,},o[1],{,},o[2],{,},o[3],{,},o[4],{,},o[5],{,},o[6],{,},o[7],{,},o[8],{,},o[9],{,},o[10],{,},o[11],{,},o[12],{,},o[13],{,},o[14],{,},o[15],{]}
+		Log {def_labels[16*}, pg, {] = [},l[0],{,},l[1],{,},l[2],{,},l[3],{,},l[4],{,},l[5],{,},l[6],{,},l[7],{,},l[8],{,},l[9],{,},l[10],{,},l[11],{,},l[12],{,},l[13],{,},l[14],{,},l[15],{]}
 		Log {LabelKnob 3, "PRESET NAME"}
 		Log {********* START PRESET *********}
 	elseif mode=6 or mode=1
@@ -1844,6 +1855,8 @@
 
 @BuildLayoutPage
 	//Setup a default layout page
+	FillArray def_labels, -1, 1024
+	FillArray def_maxs, 127, 1024
 	if chan_layouts[edit_chan]=0 
 		LabelKnob 3, {Layout:Free} 
 		def_labels = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -1853,13 +1866,25 @@
 		def_mins =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs =   [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 	elseif chan_layouts[edit_chan]=1 
-		LabelKnob 3, {Synth} 
-		def_labels = [0,1,4,5,6,7,9,8,35,37,27,28,43,44,59,60]
-		def_colors = [2,2,5,5,3,3,2,2,4,4,4,4,4,4,0,0]
-		def_vals =   [100,64,0,0,0,127,64,64,0,0,0,0,0,0,0,0]
-		def_ccs =    [7,6,10,11,12,13,15,14,1,3,36,37,44,45,124,125]
-		def_mins =   [15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_maxs =   [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		LabelKnob 3, {Synth}
+		def_labels[16*0] = [0,1,4,5,6,7,9,8,35,37,27,28,43,44,59,60]
+		def_colors[16*0] = [2,2,5,5,3,3,2,2,4,4,4,4,4,4,0,0]
+		def_vals[16*0]   = [100,64,0,0,0,127,64,64,0,0,0,0,0,0,0,0]
+		def_ccs[16*0]    = [7,6,10,11,12,13,15,14,1,3,36,37,44,45,124,125]
+		def_mins[16*0]   = [15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_maxs[16*0]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		def_labels[16*1] = [0,1,4,5,6,7,9,8,35,37,27,28,43,44,59,60]
+		def_colors[16*1] = [2,2,5,5,3,3,2,2,4,4,4,4,4,4,0,0]
+		def_vals[16*1]   = [100,64,0,0,0,127,64,64,0,0,0,0,0,0,0,0]
+		def_ccs[16*1]    = [7,6,10,11,12,13,15,14,1,3,36,37,44,45,124,125]
+		def_mins[16*1]   = [15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_maxs[16*1]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		def_labels[16*2] = [0,1,4,5,6,7,9,8,35,37,27,28,43,44,59,60]
+		def_colors[16*2] = [1,2,3,4,5,6,0,1,2,3,4,5,6,0,1,2]
+		def_vals[16*2]   = [100,64,0,0,49,127,64,64,0,0,0,0,0,0,0,0]
+		def_ccs[16*2]    = [7,6,10,11,12,13,15,14,1,3,36,37,44,45,124,125]
+		def_mins[16*2]   = [15,0,0,0,32,0,0,0,0,0,0,0,0,0,0,0]
+		def_maxs[16*2]   = [127,127,127,127,88,127,127,127,127,127,127,127,127,127,127,127]
 	elseif chan_layouts[edit_chan]=2
 		LabelKnob 3, {Bus}
 		def_labels = [1,2,1,3,4,5,6,7,8,9,10,12,14,16,17,59]
@@ -1913,11 +1938,13 @@
 			endfor
 		endfor
 	endif	
-	CopyArray def_labels, inst_labels[edit_chan*16], 16
-	CopyArray def_colors, inst_colors[edit_chan*16], 16
-	CopyArray def_ccs, inst_ccs[edit_chan*16], 16
-	CopyArray def_mins, inst_mins[edit_chan*16], 16
-	CopyArray def_maxs, inst_maxs[edit_chan*16], 16
+	pad_slot = (64*edit_chan)
+	tot_pads = inst_max_pages[edit_chan] * 16
+	CopyArray def_labels, inst_labels[pad_slot], tot_pads
+	CopyArray def_colors, inst_colors[pad_slot], tot_pads
+	CopyArray def_ccs, inst_ccs[pad_slot], tot_pads
+	CopyArray def_mins, inst_mins[pad_slot], tot_pads
+	CopyArray def_maxs, inst_maxs[pad_slot], tot_pads
 	for ch = 0 to 15
 		SetNoteState edit_chan, def_ccs[ch], def_vals[ch]
 	endfor
@@ -1931,11 +1958,11 @@
 		if mode=1 or mode=7// Channels setup
 			chan_slot=0
 			Call @LabelChanPad
-		elseif mode=6 // MG mode
+		elseif mode=6 // MG mode 
 			chan_slot=1
 			Call @LabelChanPad
 		else //instrument page layout
-			pad_slot=(curr_chan*16) + i 
+			pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + i
 			Call @LabelInstrPad
 		endif
 	endfor
