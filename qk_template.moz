@@ -13,7 +13,7 @@
 		edit_chan=0 // selected channel for editing
 		edit_pad=0 //selected pad in a channel for editing
 		use_instr_knobset_a=TRUE //used to toggle between two kntrl knobsets. Edit mode cant access
-		use_mkntrl_knobset_a=TRUE
+		use_mgen_knobset_a=TRUE
 		kntrl_instance_num=0 //# each instance of KORDS, NOTES & BEATS should have a unique num
  		SetMetroPPQN 4
 		ppqn = 4
@@ -55,52 +55,60 @@
 	col_mode_select = 5 //# Mode selection buttons
 	col_unused = 0
 	col_mode_edit = 6 //# Mode selection buttons in edit mode
-	//# cc numbers used for communication with _:QK instances on CH1
-	//# cc's 0-7 are for scene duration
 	cc_rtn_to_song_mode=9
 	cc_swing=10
 	
 	//MIDI KONTROL DATA STRUCTURE
-	// 16 channels 
-	// 16 mixer params - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
-	// Mixer params need a fixed cc 7,8,6,9,  10,11,12,13,  120,121,122,123,  124,125,126,127,
-	// 16 FX / Instrument params - variable cc's 14-119
-	// FX / Instr params need label, color, val, cc#, min, max, lsb, msb	
-	//channels 0-16 with 16 being top level access to each actual channel. Initialising with channel def setup
-	//Storing each channels midi transmit channel with the top level channel #16
-	ch_layouts = [3,4,1,1,1,1,1,1,5,2,2,2,2,2,2,2]
-	fixed_cc_layout=[FALSE,TRUE,TRUE,TRUE,TRUE,TRUE]
-	layout_pages[0*10]=[1,2,3,4] //pages free layout can visit
-	layout_pages[1*10]=[1,2,3,4,5,6] //pages synth layout can visit
-	layout_pages[2*10]=[1,2] //pages bus layout can visit
-	max_pages=[4,6,2,1,1,1] //num pages layout can visit
-	ch_labels[16*16] =  [1,2,3,4,5,6,7,8,13,12,17,15,16,18,19,21]
-	ch_colors[16*16] =  [3,3,5,5,4,4,4,4,6,6,0,0,0,0,0,2]
-	ch_midi_chs[16*16]= [1,2,3,4,5,6,7,8,9,10,11,11,12,13,14,0]
-	FillArray ch_mute, FALSE, 16 //toggle mute, solo, arm
-	FillArray ch_solo, FALSE, 16
-	FillArray ch_arm, FALSE, 16
+	// 16 channels --> layout, midi_ch, label,color,lsb,msb
+	// 16 instruments --> label,color,cc#,value,min,max
+	// 16 mixers --> Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
+	// 16 MidiGENs --> (channels 17-24) label,color, ccs1-4, plugin_btn, midi_ch=1
 	
+	//CHANNELS
+	chan_layouts = [3,4,1,1,1,1,1,1,5,2,2,2,2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,select
+	fixed_cc_layout=[FALSE,TRUE,TRUE,TRUE,TRUE,TRUE]
+	chan_midi_chs = [1,2,3,4,5,6,7,8,9,10,11,11,12,13,14,0]
+	chan_lsb=[] //# specific to pgm change msg
+	chan_msb=[] //# specific to pgm change msg
+	chan_labels =  [1,2,3,4,5,6,7,8,13,12,17,15,16,18,19,21]
+	chan_colors =  [3,3,5,5,4,4,4,4,6,6,0,0,0,0,0,2]
+	FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
+	FillArray chan_solo, FALSE, 16
+	FillArray chan_arm, FALSE, 16
+	
+	//INSTRUMENTS (16) (16x4pages) label, color, value, cc#, mix, max 
 	ResetNoteStates -1 // Channel values perc CC. 16channels, 16mixer params. 16FX/Instr params each with unique CC
-	ch_ccs=[] //# midi cc num sent chs 0-15 not ch16 (top level)
-	ch_mins=[] //# range parameter for the val attribute
-	ch_maxs=[] //# range parameter for the val attribute
-	ch_lsb=[] //# specific to pgm change msg
-	ch_msb=[] //# specific to pgm change msg
-	FillArray ch_maxs, 127, 16*16 //# default the max cc range to 127
+	inst_curr_page=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	inst_max_pages=[1,1,3,3, 3,3,3,3, 3,3,3,3, 3,3,3,3] //num pages layout can visit
+	inst_labels=[]
+	inst_color=[]
+	inst_ccs=[] //# midi cc num sent chs 0-15 
+	inst_mins=[] //# range parameter for the val attribute
+	inst_maxs=[] //# range parameter for the val attribute
+	FillArray inst_maxs, 127, 1024 //# default the max cc range to 127
 		
-	// 16 mixer params - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
-	// Mixer: Each channel has 16 mixer vals to store
+	// MIXER - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO
-	ch_mixer_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 121,122,123] //ccs for mixer params
-	ch_mixer_def_vals = [90,64,64,64, 0,0,127,0, 64,64,0,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
+	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 121,122,123] //ccs for mixer params
+	chan_mx_def_vals = [90,64,64,64, 0,0,127,0, 64,64,0,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
 	mute_solo_arm=0 //remember pad state 0-2
-	ch_mixer_vals =[]
 	for ch = 0 to 15
 		for i = 0 to 19
-			SetNoteState ch_midi_chs[256+ch], ch_mixer_ccs[i], ch_mixer_def_vals[i]
+			SetNoteState ch, chan_mx_ccs[i], chan_mx_def_vals[i] //store vals in the curr_chan not the midi chan
 		endfor
 	endfor
+	
+	//# MIDI GEN KONTROL SECTION
+	last_mkntrl_pad=0 //# return to last pad used MG-kntrl mode
+	mgen_vals=[]
+	chan_labels[16] =  [22,23,24,25,26,27,28,29,15,19,12,3,9,5,8,21] //xyz change these to chan_
+	chan_colors[16] =  [5,6,6,6,6,6,6,6,3,3,3,4,4,4,4,2]
+	chan_midi_chs[16]= [0,15,15,15,15,15,15,15,11,14,10,3,7,5,8,0]
+	mgen_ccs[0*17] = [32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47]
+	mgen_ccs[1*17] = [0,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62]
+	mgen_ccs[2*17] = [63,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+	mgen_ccs[3*17] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+	toggle_plugin_ccs = [20,21,22,23,24,25,26,27,0,0,0,0,0,0,0,0]
 	
 	//AUTOMATION SECTION VARS
 	auto_ramp_max=127 //range for the ramp to be applied
@@ -159,19 +167,7 @@
 	SetupLFO 0, 0, 127, YES, 0.5
 	SetupLFO 1, 0, 127, YES, 0.5
 	
-	//# M-KONTROL SECTION
-	last_mkntrl_pad=0 //# return to last pad used m-kntrl mode
-	m_kntrl_vals=[]
-	//Preset...
-	ch_labels[16*17] =  [22,23,24,25,26,27,28,29,15,19,12,3,9,5,8,21]
-	ch_colors[16*17] =  [5,6,6,6,6,6,6,6,3,3,3,4,4,4,4,2]
-	ch_midi_chs[16*17]= [0,15,15,15,15,15,15,15,11,14,10,3,7,5,8,0]
-	toggle_plugin_ccs = [20,21,22,23,24,25,26,27,0,0,0,0,0,0,0,0]
-	m_kntrl_ccs[0*17] = [32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47]
-	m_kntrl_ccs[1*17] = [0,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62]
-	m_kntrl_ccs[2*17] = [63,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-	m_kntrl_ccs[3*17] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-	//Special mapping data - Ruismaker, RuismakerFM and Segments
+	//INSTRUMENT LAYOUT DATA - Ruismaker, RuismakerFM and Segments
 	slct_colors = [6,6,2,2,3,3,4,4]
 	slct_ccs = [] //ch1-8
 	for i = 30 to 94
@@ -272,7 +268,7 @@
 		if mode=0
 			Call @SetupLayoutScenes
 		elseif mode=1
-			ch_slot=256
+			chan_slot=0
 			Call @SetupLayoutChannels
 		elseif mode=2
 			Call @LabelAutomationPads
@@ -283,7 +279,7 @@
 			ShowLayout 2
 			for i = 0 to 15
 				LatchPad i, NO 
-				ch_pad_to_label=i 
+				pad_to_label=i 
 				pad_slot=(macro_chans[i] * 16) + macro_params[i] 
 				Call @LabelInstrPad
 			endfor
@@ -301,10 +297,10 @@
 			Call @Setupknobset2 //setup INSTRUMENT KNOBS
 			LatchPad 0, YES
 		elseif mode=6
-			ch_slot=16*17
+			chan_slot=1
 			Call @SetupLayoutChannels
 		elseif mode=7
-			ch_slot=256 // for setting up instrument layout
+			chan_slot=0 // for setting up instrument layout
 			Call @SetupLayoutChannels
 			mixer_mode=LastPad-8
 			Call @SetupKnobset7
@@ -340,15 +336,15 @@
 			mode=0 //SCENES
 			Call @SetupKnobset0
 			Call @SetupLayoutScenes
-		elseif LastPad=2 //# ___M___ KONTRL CHANNEL
+		elseif LastPad=2 //# ___MG___ KONTRL CHANNEL
 			mode=6
 			in_mode_select=FALSE
 			ShowLayout 2
-			ch_slot=16*17
+			chan_slot=1
 			Call @SetupLayoutChannels
 			if edit_mode_active
 				edit_chan=0
-				if use_mkntrl_knobset_a
+				if use_mgen_knobset_a
 					Call @SetupKnobset8
 				else
 				  Call @SetupKnobset9
@@ -363,7 +359,7 @@
 		elseif LastPad=4
 			mode=1
 			in_mode_select = FALSE
-			ch_slot=256
+			chan_slot=0
 			Call @SetupLayoutChannels
 			if edit_mode_active
 				Call @SetupKnobset1 //# Channels mode curr_chan
@@ -392,7 +388,7 @@
 			ShowLayout 2
 			for i = 0 to 15
 				LatchPad i, NO 
-				ch_pad_to_label=i 
+				pad_to_label=i 
 				pad_slot=(macro_chans[i] * 16) + macro_params[i] 
 				Call @LabelInstrPad
 			endfor
@@ -410,7 +406,7 @@
 		elseif LastPad>=8 and LastPad<=12 // MIXER MODES
 		  mode=7 //MIXER MODES
 			in_mode_select = FALSE
-			ch_slot=256 // for setting up channel pad layout
+			chan_slot=0 // for setting up channel pad layout
 			Call @SetupLayoutChannels
 			mixer_mode=LastPad-8
 			Call @SetupKnobset7
@@ -422,8 +418,8 @@
 			elseif LastPad=14 and NOT HostRunning //RESET MIXER OVERLOADS Controller!!!
 				for ch = 0 to 15
 					for i = 0 to 19
-						SetNoteState ch_midi_chs[256+ch], ch_mixer_ccs[i], ch_mixer_def_vals[i]
-						SendMIDICC ch_midi_chs[256+ch], ch_mixer_ccs[i], ch_mixer_def_vals[i]
+						SetNoteState ch, chan_mx_ccs[i], chan_mx_def_vals[i]
+						SendMIDICC chan_midi_chs[ch], chan_mx_ccs[i], chan_mx_def_vals[i]
 					endfor
 				endfor
 			endif
@@ -441,7 +437,7 @@
 			Call @PadDownLFOSMode
 		elseif mode=5 // INSTRUMENT mode
 			Call @PadDownInstrMode
-		elseif mode=6 // M_KNTRL mode
+		elseif mode=6 // mgen mode
 			Call @PadDownMGMode
 		elseif mode=7 // MIXER modes
 			Call @PadDownMixerMode	
@@ -476,7 +472,7 @@
 @End
 
 @PadDownChannelsMode
-	edit_chan = LastPad //channel 16 is for Channels top level
+	edit_chan = LastPad 
 	if edit_mode_active
 		//# update last channel visited if not one of the quick channels
 		Call @SetupKnobset1
@@ -486,7 +482,7 @@
 		LatchPad lastPad, YES	
 	else
 		mode=5 //goto INSTRUMENT MODE
-		curr_chan = LastPad //ChannelsTopLevel is 16 - Rest are 0-15 
+		curr_chan = LastPad  
 		edit_pad=0
 		Call @SetupLayoutChannels
 		use_instr_knobset_a = TRUE
@@ -498,36 +494,36 @@
 @PadDownInstrMode
 	pad_slot=(curr_chan*16) + LastPad 
 	val=127 // for mute solo arm messages if required
-	chan = ch_midi_chs[256 + curr_chan]
-	if ch_labels[pad_slot]=55 or ch_labels[pad_slot]=59 //PLUGIN1 or PLUGIN2
-		SendMIDICC chan, ch_ccs[pad_slot], 127 // show / hide plugin
+	chan = chan_midi_chs[curr_chan]
+	if inst_labels[pad_slot]=55 or inst_labels[pad_slot]=59 //PLUGIN1 or PLUGIN2
+		SendMIDICC chan, inst_ccs[pad_slot], 127 // show / hide plugin
 		use_instr_knobset_a = TRUE
-	elseif ch_labels[pad_slot]=56 //MUTE
-		ch_mute[curr_chan] = NOT ch_mute[curr_chan]
-		ch_colors[pad_slot] = 6
-		if not ch_mute[curr_chan]
-			ch_colors[pad_slot] = col_unused
+	elseif inst_labels[pad_slot]=56 //MUTE
+		chan_mute[curr_chan] = NOT chan_mute[curr_chan]
+		inst_colors[pad_slot] = 6
+		if not chan_mute[curr_chan]
+			inst_colors[pad_slot] = col_unused
 			val=0
 		endif
-		SendMIDICC chan, ch_mixer_ccs[16], val
+		SendMIDICC chan, chan_mx_ccs[16], val
 		use_instr_knobset_a = TRUE
-	elseif ch_labels[pad_slot]=57 //SOLO
-		ch_solo[curr_chan] = NOT ch_solo[curr_chan]
-		ch_colors[pad_slot] = 4
-		if not ch_solo[curr_chan] 
+	elseif inst_labels[pad_slot]=57 //SOLO
+		chan_solo[curr_chan] = NOT chan_solo[curr_chan]
+		inst_colors[pad_slot] = 4
+		if not chan_solo[curr_chan] 
 			val=0
-			ch_colors[pad_slot] = col_unused
+			inst_colors[pad_slot] = col_unused
 		endif
-		SendMIDICC chan, ch_mixer_ccs[17], val
+		SendMIDICC chan, chan_mx_ccs[17], val
 		use_instr_knobset_a = TRUE
-	elseif ch_labels[pad_slot]=58 //ARM
-		ch_arm[curr_chan] = NOT ch_arm[curr_chan]
-		ch_colors[pad_slot] = 1
-		if not ch_arm[curr_chan]
+	elseif inst_labels[pad_slot]=58 //ARM
+		chan_arm[curr_chan] = NOT chan_arm[curr_chan]
+		inst_colors[pad_slot] = 1
+		if not chan_arm[curr_chan]
 			val=0
-			ch_colors[pad_slot] = col_unused
+			inst_colors[pad_slot] = col_unused
 		endif
-		SendMIDICC chan, ch_mixer_ccs[18], val
+		SendMIDICC chan, chan_mx_ccs[18], val
 		use_instr_knobset_a = TRUE
 	else 
 		if LastPad = edit_pad //user hit same pad again. switch knobset
@@ -585,10 +581,10 @@
 	last_mkntrl_pad=LastPad
 	if edit_mode_active
 		if LastPad = edit_pad //user hit same pad again. switch knobset
-			use_mkntrl_knobset_a = NOT use_mkntrl_knobset_a
+			use_mgen_knobset_a = NOT use_mgen_knobset_a
 		endif
 		edit_pad = LastPad 
-		if use_mkntrl_knobset_a
+		if use_mgen_knobset_a
 			Call @Setupknobset8 //setup a
 		else 
 			Call @SetupKnobset9 //setup b
@@ -604,26 +600,26 @@
 
 @PadDownMixerMode
 	curr_chan=LastPad
-	chan = ch_midi_chs[256+curr_chan]
+	chan = chan_midi_chs[curr_chan]
 	val=127
 	if mixer_mode=4 and mute_solo_arm=0
-		ch_mute[curr_chan] = NOT ch_mute[curr_chan]
-		if not ch_mute[curr_chan]
+		chan_mute[curr_chan] = NOT chan_mute[curr_chan]
+		if not chan_mute[curr_chan]
 			val=0
 		endif
-		SendMIDICC chan, ch_mixer_ccs[16], val
+		SendMIDICC chan, chan_mx_ccs[16], val
 	elseif mixer_mode=4 and mute_solo_arm=1
-		ch_solo[curr_chan] = NOT ch_solo[curr_chan]
-		if not ch_solo[curr_chan]
+		chan_solo[curr_chan] = NOT chan_solo[curr_chan]
+		if not chan_solo[curr_chan]
 			val=0
 		endif
-		SendMIDICC chan, ch_mixer_ccs[17], val
+		SendMIDICC chan, chan_mx_ccs[17], val
 	elseif mixer_mode=4 and mute_solo_arm=2
-		ch_arm[curr_chan] = NOT ch_arm[curr_chan]
-		if not ch_arm[curr_chan]
+		chan_arm[curr_chan] = NOT chan_arm[curr_chan]
+		if not chan_arm[curr_chan]
 			val=0
 		endif
-		SendMIDICC chan, ch_mixer_ccs[18], val
+		SendMIDICC chan, chan_mx_ccs[18], val
 	endif
 	Call @SetupKnobset7
 	Call @SendMidiCCBackToKnobs
@@ -714,7 +710,7 @@
 	LabelPad 15, {PLAY>}
 	if edit_mode_active
 		LabelPad 3, {EDITING =>}
-			for i = 3 to 7
+			for i = 2 to 7
 				ColorPad i, col_mode_edit
 		endfor
 	endif
@@ -848,10 +844,10 @@
 	knob_set = 1
 	LabelKnobs {CHANNEL }, edit_chan+1, { SETUP}
 	LabelPads {KNTRL : [ CHANNELS ]}
-	LabelKnob 0, {Label }, ch_labels[256+edit_chan]
-	LabelKnob 1, {Color }, ch_colors[256+edit_chan]
-	LabelKnob 2, {MidiCH }, ch_midi_chs[256+edit_chan]
-	layout = ch_layouts[edit_chan]
+	LabelKnob 0, {Label }, chan_labels[edit_chan]
+	LabelKnob 1, {Color }, chan_colors[edit_chan]
+	LabelKnob 2, {MidiCH }, chan_midi_chs[edit_chan]
+	layout = chan_layouts[edit_chan]
 	if layout = 0
 		LabelKnob 3, {Layout:Free}
 	elseif layout = 1
@@ -865,91 +861,89 @@
 	elseif layout = 5	
 		LabelKnob 3, {Select}
 	endif
-	SetKnobValue 0, TranslateScale ch_labels[256+edit_chan], 0, 32, 0, 127
-	SetKnobValue 1, TranslateScale ch_colors[256+edit_chan], 0, 6, 0, 127
-	SetKnobValue 2, TranslateScale ch_midi_chs[256+edit_chan], 0, 15, 0, 127
-	SetKnobValue 3, TranslateScale ch_layouts[edit_chan], 0, 5, 0, 127 
+	SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 32, 0, 127
+	SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 6, 0, 127
+	SetKnobValue 2, TranslateScale chan_midi_chs[edit_chan], 0, 15, 0, 127
+	SetKnobValue 3, TranslateScale chan_layouts[edit_chan], 0, 5, 0, 127 
 @End
 
 @KnobChangeSet1
 	//# channels Setup
-	ch_slot=256 //# location for Channels data for labelling 
+	chan_slot=0 //# location for Channels data for labelling 
 	if LastKnob = 0
-		ch_labels[256+edit_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
-		ch_pad_to_label=edit_chan
-		ch_pad_data=edit_chan //should always be same here. only different for quick channels
+		chan_labels[edit_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
+		pad_to_label=edit_chan
 		Call @LabelChanPad
 	endif
 	if LastKnob = 1
-		ch_colors[256+edit_chan] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
+		chan_colors[edit_chan] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
 		LatchPad LastPad, NO 
-		ColorPad LastPad, ch_colors[256+edit_chan]
+		ColorPad LastPad, chan_colors[edit_chan]
 	endif
 	if LastKnob = 2
-		ch_midi_chs[256+edit_chan] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 15
-		ch_pad_to_label=edit_chan
-		ch_pad_data=edit_chan //should always be same here. only different for quick channels
+		chan_midi_chs[edit_chan] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 15
+		pad_to_label=edit_chan
 		Call @LabelChanPad
 	endif
 	if LastKnob = 3
-		ch_layouts[edit_chan] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 5
+		chan_layouts[edit_chan] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 5
 		Call @BuildLayoutPage
-		SetKnobValue 0, TranslateScale ch_labels[256+edit_chan], 0, 32, 0, 127
-		SetKnobValue 1, TranslateScale ch_colors[256+edit_chan], 0, 7, 0, 127
-		SetKnobValue 2, TranslateScale ch_midi_chs[256+edit_chan], 0, 15, 0, 127
+		SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 32, 0, 127
+		SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 7, 0, 127
+		SetKnobValue 2, TranslateScale chan_midi_chs[edit_chan], 0, 15, 0, 127
 	endif
-	LabelKnob 0, {Label }, ch_labels[256+edit_chan]
-	LabelKnob 1, {Color }, ch_colors[256+edit_chan]
-	LabelKnob 2, {MidiCH }, ch_midi_chs[256+edit_chan]
+	LabelKnob 0, {Label }, chan_labels[edit_chan]
+	LabelKnob 1, {Color }, chan_colors[edit_chan]
+	LabelKnob 2, {MidiCH }, chan_midi_chs[edit_chan]
 @End
 
 @LabelInstrumentKnobs
 	LabelKnobs {PAD: }, edit_pad+1
 	LabelPads {KNTRL : [ INSTRUMENT }, curr_chan+1, { ] }
-	if ch_labels[pad_slot]>=55 and ch_labels[pad_slot]<=59 //PLUGIN1 or PLUGIN2 + Mute solo arm
+	if inst_labels[pad_slot]>=55 and inst_labels[pad_slot]<=59 //PLUGIN1 or PLUGIN2 + Mute solo arm
 		LabelKnob 2, {[x]}
 	else
-		v = (GetNoteState curr_chan, ch_ccs[pad_slot])
-		if ch_labels[pad_slot]=62 or ch_labels[pad_slot]=61 //display 1-8 instead of 0-7 for select param
+		v = (GetNoteState curr_chan, inst_ccs[pad_slot])
+		if inst_labels[pad_slot]=62 or inst_labels[pad_slot]=61 //display 1-8 instead of 0-7 for select param
 			v=v+1
 		endif
 	  LabelKnob 2, {Value }, v
 	endif
 	if use_instr_knobset_a // Label : Color : Value : CC#
-		if ch_labels[pad_slot] = -1
+		if inst_labels[pad_slot] = -1
 			LabelKnob 0, {Unused}
-		elseif ch_labels[pad_slot] >=0 and ch_labels[pad_slot] <= 18
+		elseif inst_labels[pad_slot] >=0 and inst_labels[pad_slot] <= 18
 			LabelKnob 0, {Mixer}
-		elseif ch_labels[pad_slot] >=19 and ch_labels[pad_slot] <= 26
+		elseif inst_labels[pad_slot] >=19 and inst_labels[pad_slot] <= 26
 			LabelKnob 0, {Osc}
-		elseif ch_labels[pad_slot] >=27 and ch_labels[pad_slot] <= 34
+		elseif inst_labels[pad_slot] >=27 and inst_labels[pad_slot] <= 34
 			LabelKnob 0, {Filter}
-		elseif ch_labels[pad_slot] >=35 and ch_labels[pad_slot] <= 42
+		elseif inst_labels[pad_slot] >=35 and inst_labels[pad_slot] <= 42
 			LabelKnob 0, {Mod}
-		elseif ch_labels[pad_slot] >=43 and ch_labels[pad_slot] <= 50
+		elseif inst_labels[pad_slot] >=43 and inst_labels[pad_slot] <= 50
 			LabelKnob 0, {FX}
-		elseif ch_labels[pad_slot] >=51 and ch_labels[pad_slot] <= 54
+		elseif inst_labels[pad_slot] >=51 and inst_labels[pad_slot] <= 54
 			LabelKnob 0, {AMP}
-		elseif ch_labels[pad_slot] >=45 and ch_labels[pad_slot] <= 58
+		elseif inst_labels[pad_slot] >=45 and inst_labels[pad_slot] <= 58
 			LabelKnob 0, {BTN}
 		else 
 			LabelKnob 0, {Special}
 		endif
-		LabelKnob 1, {Color }, ch_colors[pad_slot]
-		if fixed_cc_layout[ch_layouts[curr_chan]] and ch_layouts[curr_chan]<=2
-			LabelKnob 3, {Page }, layout_pages[curr_chan*10]
+		LabelKnob 1, {Color }, inst_colors[pad_slot]
+		if fixed_cc_layout[chan_layouts[curr_chan]] and chan_layouts[curr_chan]<=2
+			LabelKnob 3, {Page }, inst_curr_page[curr_chan]+1
 		else 
 			LabelKnob 3, { }
 		endif
 	else // LSB CC# : MSB MIN : Value : MAX
-		if ch_labels[pad_slot]=60 //pgm chg message type
-			LabelKnob 0, {LSB }, ch_lsb[curr_chan] // only one per channel
-			LabelKnob 1, {MSB }, ch_msb[curr_chan] // only one per channel
+		if inst_labels[pad_slot]=60 //pgm chg message type
+			LabelKnob 0, {LSB }, chan_lsb[curr_chan] // only one per channel
+			LabelKnob 1, {MSB }, chan_msb[curr_chan] // only one per channel
 		else 
-			LabelKnob 0, {CC# }, ch_ccs[pad_slot]
-			LabelKnob 1, {MIN }, ch_mins[pad_slot]
+			LabelKnob 0, {CC# }, inst_ccs[pad_slot]
+			LabelKnob 1, {MIN }, inst_mins[pad_slot]
 		endif
-		LabelKnob 3, {MAX }, ch_maxs[pad_slot]
+		LabelKnob 3, {MAX }, inst_maxs[pad_slot]
 	endif
 @End
 
@@ -957,25 +951,25 @@
 	//# INTRUMENT KONTROL MODE use_instr_knobset_a
 	knob_set=2
 	pad_slot=(curr_chan*16) + edit_pad 
-	val = (GetNoteState curr_chan, ch_ccs[pad_slot])
-	SetKnobValue 2, TranslateScale val, ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127	
+	val = (GetNoteState curr_chan, inst_ccs[pad_slot])
+	SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127	
 	if use_instr_knobset_a // Label : Color : Value : CC#
-		SetKnobValue 0, TranslateScale ch_labels[pad_slot], -1, 62, 0, 127
-		SetKnobValue 1, TranslateScale ch_colors[pad_slot], 0, 6, 0, 127
-		if fixed_cc_layout[ch_layouts[curr_chan]] and ch_layouts[curr_chan]<=2
-			SetKnobValue 3, TranslateScale layout_pages[curr_chan*10], 0, max_pages, 0, 127
+		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 62, 0, 127
+		SetKnobValue 1, TranslateScale inst_colors[pad_slot], 0, 6, 0, 127
+		if fixed_cc_layout[chan_layouts[curr_chan]] and chan_layouts[curr_chan]<=2
+			SetKnobValue 3, TranslateScale inst_curr_page[curr_chan], 0, inst_max_pages[curr_chan], 0, 127
 		else
 			SetKnobValue 3, 0
 		endif
 	else 
-		if ch_labels[pad_slot]=60 //pgm chg message type
-			SetKnobValue 0, TranslateScale ch_lsb[curr_chan], 0, 15, 0, 127
-			SetKnobValue 1, TranslateScale ch_msb[curr_chan], 0, 15, 0, 127
+		if inst_labels[pad_slot]=60 //pgm chg message type
+			SetKnobValue 0, TranslateScale chan_lsb[curr_chan], 0, 15, 0, 127
+			SetKnobValue 1, TranslateScale chan_msb[curr_chan], 0, 15, 0, 127
 		else 
-			SetKnobValue 0, TranslateScale ch_ccs[pad_slot], 0, 127, 0, 127
-			SetKnobValue 1, TranslateScale ch_mins[pad_slot], 0, 127, 0, 127
+			SetKnobValue 0, TranslateScale inst_ccs[pad_slot], 0, 127, 0, 127
+			SetKnobValue 1, TranslateScale inst_mins[pad_slot], 0, 127, 0, 127
 		endif
-		SetKnobValue 3, TranslateScale ch_maxs[pad_slot], 0, 127, 0, 127 
+		SetKnobValue 3, TranslateScale inst_maxs[pad_slot], 0, 127, 0, 127 
 	endif
 	Call @LabelInstrumentKnobs
 	Call @SendMidiCCBackToKnobs
@@ -986,53 +980,53 @@
 	pad_slot=(curr_chan*16) + edit_pad
 	if LastKnob = 0 // LABEL : LSB
 		if use_instr_knobset_a
-			ch_labels[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 62
-			ch_pad_to_label=edit_pad
+			inst_labels[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 62
+			pad_to_label=edit_pad
 			chan_to_label=curr_chan
 			Call @LabelInstrPad
 		else
-			if ch_labels[pad_slot]=60 //PGM CHG
-				ch_lsb[curr_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+			if inst_labels[pad_slot]=60 //PGM CHG
+				chan_lsb[curr_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
 			else
-				if not fixed_cc_layout[ch_layouts[curr_chan]]
-					ch_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
+				if not fixed_cc_layout[chan_layouts[curr_chan]]
+					inst_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 				endif
 			endif
 		endif
 	endif
 	if LastKnob = 1 // COLOR : (MSB or MIN)
 		if use_instr_knobset_a
-			ch_colors[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
+			inst_colors[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
 			LatchPad edit_pad, NO 
-			ColorPad edit_pad, ch_colors[pad_slot]
+			ColorPad edit_pad, inst_colors[pad_slot]
 		else
-			if ch_labels[pad_slot]=60 //PGM CHG
-				ch_msb[curr_chan] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
+			if inst_labels[pad_slot]=60 //PGM CHG
+				chan_msb[curr_chan] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
 			else 
-				ch_mins[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
-				val = (GetNoteState curr_chan, ch_ccs[pad_slot])
-				SetKnobValue 2, TranslateScale val, ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
+				inst_mins[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
+				val = (GetNoteState curr_chan, inst_ccs[pad_slot])
+				SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
 			endif	
 		endif
 	endif
 	if LastKnob = 2 // VALUE : VALUE
-		kv = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
-		SetNoteState curr_chan, ch_ccs[pad_slot], kv
-		if ch_labels[pad_slot]>=60 and ch_labels[pad_slot]<=62  // SPECIALS Select, Instr, PGM CHG
+		kv = Round TranslateScale (GetKnobValue 2), 0, 127, inst_mins[pad_slot], inst_maxs[pad_slot]
+		SetNoteState curr_chan, inst_ccs[pad_slot], kv
+		if inst_labels[pad_slot]>=60 and inst_labels[pad_slot]<=62  // SPECIALS Select, Instr, PGM CHG
 			Call @HandleSpecialInstrKontrols
 		else 
-			SendMIDICC ch_midi_chs[256+curr_chan], ch_ccs[pad_slot], kv //knob value
+			SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot], kv //knob value
 		endif
 	endif
 	if LastKnob = 3
 		if use_instr_knobset_a	
-			if fixed_cc_layout[ch_layouts[curr_chan]] and ch_layouts[curr_chan]<=2
-				layout_pages[curr_chan*10] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, max_pages
+			if fixed_cc_layout[chan_layouts[curr_chan]] and chan_layouts[curr_chan]<=2
+				inst_curr_page[curr_chan] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, inst_max_pages[curr_chan]
 			endif
 		else
-		  ch_maxs[pad_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
-			val = (GetNoteState curr_chan, ch_ccs[pad_slot])
-			SetKnobValue 2, TranslateScale val, ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
+		  inst_maxs[pad_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+			val = (GetNoteState curr_chan, inst_ccs[pad_slot])
+			SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
 		endif
 	endif
 	Call @LabelInstrumentKnobs
@@ -1040,53 +1034,53 @@
 
 @HandleSpecialInstrKontrols
 	//Buttons get handled in PadDown. We dont want knob to do anything
-	if ch_labels[pad_slot]=60 // PGM CHG MSG
-		SendMIDIBankSelect ch_midi_chs[256+curr_chan], ch_msb[curr_chan], ch_lsb[curr_chan]
-		SendMIDIProgramChange ch_midi_chs[256+curr_chan], kv
-		Log {Sent PGM MSG: CHAN:}, ch_midi_chs[256+curr_chan]+1, { PGM: }, kv, { MSB: }, ch_msb[curr_chan], { LSB: }, ch_lsb[curr_chan]
-	elseif ch_labels[pad_slot]=62  //chg select bank of params
+	if inst_labels[pad_slot]=60 // PGM CHG MSG
+		SendMIDIBankSelect chan_midi_chs[curr_chan], chan_msb[curr_chan], chan_lsb[curr_chan]
+		SendMIDIProgramChange chan_midi_chs[curr_chan], kv
+		Log {Sent PGM MSG: CHAN:}, chan_midi_chs[curr_chan]+1, { PGM: }, kv, { MSB: }, chan_msb[curr_chan], { LSB: }, chan_lsb[curr_chan]
+	elseif inst_labels[pad_slot]=62  //chg select bank of params
 		select_pad_slot=pad_slot //we need to come back to this after labelling 8-15
-		slct_index = GetNoteState curr_chan, ch_ccs[pad_slot]
+		slct_index = GetNoteState curr_chan, inst_ccs[pad_slot]
 		FillArray slct_ccs_in_use, 0, 64 //empty the array fully in case using differen layout
-		if ch_layouts[curr_chan]=3  // rmkr layout load the correct cc bank for the layout type
+		if chan_layouts[curr_chan]=3  // rmkr layout load the correct cc bank for the layout type
 			CopyArray rmkr_ccs, slct_ccs_in_use, 64
-		elseif ch_layouts[curr_chan]=4 //rmkr fm layout
+		elseif chan_layouts[curr_chan]=4 //rmkr fm layout
 			CopyArray rmfm_ccs, slct_ccs_in_use, 64
 		else // generic select layout
 			CopyArray slct_ccs, slct_ccs_in_use, 64
 		endif
 		for i = 8 to 15
 			pad_slot=(curr_chan*16)+i
-			ch_ccs[pad_slot] =  slct_ccs_in_use[(slct_index*8) + (i-8)]
-			SetNoteState curr_chan, ch_ccs[pad_slot], GetNoteState curr_chan, ch_ccs[pad_slot] 
-			ch_colors[pad_slot] = slct_colors[slct_index]
-			ch_pad_to_label=i
+			inst_ccs[pad_slot] =  slct_ccs_in_use[(slct_index*8) + (i-8)]
+			SetNoteState curr_chan, inst_ccs[pad_slot], GetNoteState curr_chan, inst_ccs[pad_slot] 
+			inst_colors[pad_slot] = slct_colors[slct_index]
+			pad_to_label=i
 			chan_to_label=curr_chan
 			Call @LabelInstrPad 
 			FlashPad i 
 		endfor
-		if (ch_layouts[curr_chan] = 3) and (ch_labels[(curr_chan*16)+1]=61) //rmkr layout with instr chg on pad2/16
-			ch_ccs[(curr_chan*16)+1] = rmkr_inst_chg[slct_index] // update cc rmkr instr changer [22-29]
+		if (chan_layouts[curr_chan] = 3) and (inst_labels[(curr_chan*16)+1]=61) //rmkr layout with instr chg on pad2/16
+			inst_ccs[(curr_chan*16)+1] = rmkr_inst_chg[slct_index] // update cc rmkr instr changer [22-29]
 			Log {new rmkr instr chg cc: }, rmkr_inst_chg[slct_index]
 			pad_slot=(curr_chan*16)+1
-			ch_colors[pad_slot] = slct_colors[slct_index]
-			ch_pad_to_label=1
+			inst_colors[pad_slot] = slct_colors[slct_index]
+			pad_to_label=1
 			chan_to_label=curr_chan
 			Call @LabelInstrPad
 			FlashPad 1
 		endif
 		pad_slot=select_pad_slot //return to select pad_slot
-		ch_pad_to_label=0 // label the select pad
+		pad_to_label=0 // label the select pad
 		chan_to_label=curr_chan
 		Call @LabelInstrPad
-	elseif ch_labels[pad_slot]=61 // chg ruismkr instrument
-		sel_channel = GetNoteState curr_chan, ch_ccs[(curr_chan*16)] //slct control always first pad 
+	elseif inst_labels[pad_slot]=61 // chg ruismkr instrument
+		sel_channel = GetNoteState curr_chan, inst_ccs[(curr_chan*16)] //slct control always first pad 
 		cc = rmkr_inst_chg[sel_channel]
 		instr_num = rmkr_instrs[(sel_channel*8) + kv]
 		// Log {Choosing instr for channel }, sel_channel, { with CC# }, cc, { instr_type: }, instr_num
-		SendMIDICC ch_midi_chs[256+curr_chan], cc, instr_num
+		SendMIDICC chan_midi_chs[curr_chan], cc, instr_num
 		SetNoteState curr_chan, cc, kv // save the knob position	
-		ch_pad_to_label=1 // this param only for rmkr and only pad1
+		pad_to_label=1 // this param only for rmkr and only pad1
 		chan_to_label=curr_chan
 		Call @LabelInstrPad
 	endif
@@ -1117,8 +1111,8 @@
 	SetKnobValue 0, TranslateScale a_ch, -1, 15, 0, 127
 	SetKnobValue 1, TranslateScale a_pad, -1, 15, 0, 127
 	if a_ch>=0 and a_pad>=0
-		val=(GetNoteState curr_chan, ch_ccs[pad_slot])
-		SetKnobValue 2, TranslateScale val, ch_mins[pad_slot], ch_maxs[pad_slot], 0, 127
+		val=(GetNoteState curr_chan, inst_ccs[pad_slot])
+		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
 	else
 		SetKnobValue 2, 0		
 	endif
@@ -1132,7 +1126,7 @@
     a_ch = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 15
 		automation_chs[sel_autom_pad] = a_ch
 		if a_ch>=0 and a_pad>=0
-			ch_pad_to_label=sel_autom_pad
+			pad_to_label=sel_autom_pad
 			pad_slot=(a_ch * 16) + a_pad
 			Call @LabelInstrPad
 		endif
@@ -1141,7 +1135,7 @@
     a_pad = Round TranslateScale (GetKnobValue 1), 0, 127, -1, 15
 		automation_pads[sel_autom_pad] = a_pad
 		if a_ch>=0 and a_pad>=0
-			ch_pad_to_label=sel_autom_pad
+			pad_to_label=sel_autom_pad
 			pad_slot=(a_ch * 16) + a_pad
 			Call @LabelInstrPad
 		endif
@@ -1149,9 +1143,9 @@
   if LastKnob = 2
 		if a_ch>=0 and a_pad>=0
 	    pad_slot=(automation_chs[sel_autom_pad]* 16) + automation_pads[sel_autom_pad] 
-			val = Round TranslateScale (GetKnobValue 2), 0, 127, ch_mins[pad_slot], ch_maxs[pad_slot]
-			SetNoteState curr_chan, ch_ccs[pad_slot], val
-			SendMIDICC ch_midi_chs[automation_chs[sel_autom_pad]], ch_ccs[pad_slot], val
+			val = Round TranslateScale (GetKnobValue 2), 0, 127, inst_mins[pad_slot], inst_maxs[pad_slot]
+			SetNoteState curr_chan, inst_ccs[pad_slot], val
+			SendMIDICC chan_midi_chs[automation_chs[sel_autom_pad]], inst_ccs[pad_slot], val
 		endif
 	endif
   if LastKnob = 3
@@ -1174,7 +1168,7 @@
 		a_ch = automation_chs[i] //automation slot channel
 		a_pad = automation_pads[i] //automation pad 0-15 setup
 		if a_ch>=0 and a_pad>=0 //# initialised with value -1 so no labelling until assigned
-			ch_pad_to_label=i 
+			pad_to_label=i 
 			pad_slot=(a_ch * 16) + a_pad
 			Call @LabelInstrPad
 		else 
@@ -1199,7 +1193,7 @@
 		LabelKnob 1, {Pad }, automation_pads[sel_autom_pad]+1
 	endif
 	if a_ch>=0 and a_pad>=0
-		LabelKnob 2, {Value }, (GetNoteState curr_chan, ch_ccs[pad_slot])
+		LabelKnob 2, {Value }, (GetNoteState curr_chan, inst_ccs[pad_slot])
 	else
 		LabelKnob 2, {Value -- }
 	endif
@@ -1310,7 +1304,7 @@
     d_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
 		lfo_dests[(lfo_num*8) + (dest_num*2)] = d_ch
 		if d_ch>=0 and d_pad>=0
-			ch_pad_to_label=dest_num
+			pad_to_label=dest_num
 			pad_slot=(d_ch * 16) + d_pad
 			Call @LabelInstrPad
 		endif
@@ -1319,7 +1313,7 @@
     d_pad = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
 		lfo_dests[(lfo_num*8) + (dest_num*2) + 1] = d_pad
 		if d_ch>=0 and d_pad>=0
-			ch_pad_to_label=dest_num
+			pad_to_label=dest_num
 			pad_slot=(d_ch * 16) + d_pad
 			Call @LabelInstrPad
 		endif
@@ -1400,7 +1394,7 @@
 		d_ch = lfo_dests[(lfo_num*8) + (i * 2)] //destination channel
 		d_pad = lfo_dests[(lfo_num*8) + (i * 2) + 1] //destination 0-15 setup in kntrl mode
 		if d_ch>=0 and d_pad>=0 //# initialised with value -1 so no labelling until assigned
-			ch_pad_to_label=i 
+			pad_to_label=i 
 			pad_slot=(d_ch * 16) + d_pad
 			Call @LabelInstrPad
 		endif
@@ -1417,7 +1411,7 @@
 		SetKnobValue 3, 0
 	else
 	for i = 0 to 3
-			val=GetNoteState ch_midi_chs[256+curr_chan], ch_mixer_ccs[(mixer_mode*4) + i]
+			val=GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + i]
 			SetKnobValue i, TranslateScale val, 0, 127, 0, 127	
 		endfor
 	endif
@@ -1426,18 +1420,18 @@
 
 @KnobChangeSet7
 	//# MIXER KONTROL
-	// ch_mixer_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 121,122,123]
+	// chan_mx_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 121,122,123]
 	if mixer_mode=4
 		mute_solo_arm = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 2
 	else
 		for i = 0 to 3
 			if LastKnob = i 
 				val = Round TranslateScale (GetKnobValue i), 0, 127, 0, 127
-				cc = ch_mixer_ccs[(mixer_mode*4) + i]
-				chan = ch_midi_chs[256+curr_chan]
-				SetNoteState chan, cc, val
-				SendMIDICC chan, cc, val
-				Log {Sending: }, chan, {-}, cc, {-}, val
+				cc = chan_mx_ccs[(mixer_mode*4) + i]
+				midi_chan = chan_midi_chs[curr_chan]
+				SetNoteState curr_chan, cc, val
+				SendMIDICC midi_chan, cc, val
+				Log {Sending: }, midi_chan, {-}, cc, {-}, val
 			endif
 		endfor
 	endif
@@ -1445,39 +1439,38 @@
 @End
 
 @LabelMixerModes
-	// Setup mixer modes
+	// MIXER MODES
 	if mixer_mode=4
 		LabelKnobs { }
 	else
 		LabelKnobs {CHANNEL }, curr_chan+1
 	endif
-	m_ch = ch_midi_chs[256+curr_chan]
 	if mixer_mode=0
 		LabelPads {KNTRL : [ VOL PAN GAIN MID/SIDE ]}
-		LabelKnob 0, {VOL }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {PAN }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {GAIN }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {M/S } , GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {VOL }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
+		LabelKnob 1, {PAN }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
+		LabelKnob 2, {GAIN }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {M/S } , GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=1
-		mixer_mode=1 //access ch_mixer_vals 4-7
+		mixer_mode=1 
 	  LabelPads {KNTRL : [ SENDS FILTER ]}
-		LabelKnob 0, {SENDA }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {SENDB }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {LPF }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {HPF }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {SENDA }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
+		LabelKnob 1, {SENDB }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
+		LabelKnob 2, {LPF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {HPF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=2
-	  mixer_mode=2 //access ch_mixer_vals 8-11
+	  mixer_mode=2 
 		LabelPads {KNTRL : [ EQ ] }
-		LabelKnob 0, {GAIN }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {FREQ }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {RES }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {SHELF }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {GAIN }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
+		LabelKnob 1, {FREQ }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
+		LabelKnob 2, {RES }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {SHELF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=3
 		LabelPads {KNTRL : [ FX ] }
-		LabelKnob 0, {D/W1 }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {AMT1 }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {D/W2 }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {AMT2 }, GetNoteState m_ch, ch_mixer_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {D/W1 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
+		LabelKnob 1, {AMT1 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
+		LabelKnob 2, {D/W2 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {AMT2 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=4
 		LabelPads {KNTRL : [ MUTE SOLO ARM ]}
 		if mute_solo_arm=0
@@ -1494,19 +1487,19 @@
 	for i = 0 to 15 //Color pads in mute solo arm mode
 		LatchPad i, no
 		if mixer_mode=4 and mute_solo_arm = 0
-			if ch_mute[i]
+			if chan_mute[i]
 				ColorPad i, 6
 			else
 			  ColorPad i, col_unused
 			endif
 		elseif mixer_mode=4 and mute_solo_arm = 1
-			if ch_solo[i]
+			if chan_solo[i]
 				ColorPad i, 4
 			else
 			  ColorPad i, col_unused
 			endif
 		elseif mixer_mode=4 and mute_solo_arm = 2
-			if ch_arm[i]
+			if chan_arm[i]
 				ColorPad i, 1
 			else
 			  ColorPad i, col_unused
@@ -1520,52 +1513,50 @@
 
 
 @SetupKnobset8
-	//# M-KONTROL SETUP A - Label, Color, MIDI_CH
+	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
 	knob_set = 8
-	pad_slot=[(16*17) + last_mkntrl_pad] //location channel 17
+	pad_slot=[16 + last_mkntrl_pad] 
 	LabelPads {KNTRL : [ MIDI GENERATORS ]}
 	LabelKnobs {SETUP PAD }, last_mkntrl_pad+1
-	LabelKnob 0, {Label }, ch_labels[pad_slot]
-	LabelKnob 1, {Color }, ch_colors[pad_slot]
-	LabelKnob 2, {MidiCH }, ch_midi_chs[pad_slot]+1
+	LabelKnob 0, {Label }, chan_labels[pad_slot]
+	LabelKnob 1, {Color }, chan_colors[pad_slot]
+	LabelKnob 2, {MidiCH }, chan_midi_chs[pad_slot]+1
 	if toggle_plugin_ccs[last_mkntrl_pad]=-1
 		LabelKnob 3, {BtnCC -}
 	else 
 		LabelKnob 3, {BtnCC }, toggle_plugin_ccs[last_mkntrl_pad]
 	endif
-	SetKnobValue 0, TranslateScale ch_labels[pad_slot], 0, 30, 0, 127
-	SetKnobValue 1, TranslateScale ch_colors[pad_slot], 0, 6, 0, 127
-	SetKnobValue 2, TranslateScale ch_midi_chs[pad_slot], 0, 15, 0, 127
+	SetKnobValue 0, TranslateScale chan_labels[pad_slot], 0, 30, 0, 127
+	SetKnobValue 1, TranslateScale chan_colors[pad_slot], 0, 6, 0, 127
+	SetKnobValue 2, TranslateScale chan_midi_chs[pad_slot], 0, 15, 0, 127
 	SetKnobValue 3, TranslateScale toggle_plugin_ccs[last_mkntrl_pad], -1, 127, 0, 127  
 @End
 
 @KnobChangeSet8
-	//# M-KONTROL SETUP A - Label, Color, MIDI_CH
-	ch_slot=16*17 //# location for Channeles data for labelling 
-	pad_slot=[(16*17) + last_mkntrl_pad] //location channel 17
+	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
+	chan_slot=1 //# location for Channeles data for labelling 
+	pad_slot=[16 + last_mkntrl_pad]
 	if LastKnob = 0
-		ch_labels[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 30
-		ch_pad_to_label=last_mkntrl_pad
-		ch_pad_data=last_mkntrl_pad //should always be same here. only different for quick channels
+		chan_labels[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 30
+		pad_to_label=last_mkntrl_pad
 		Call @LabelChanPad
 	endif
 	if LastKnob = 1
-		ch_colors[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
+		chan_colors[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
 		LatchPad LastPad, NO 
-		ColorPad LastPad, ch_colors[pad_slot]
+		ColorPad LastPad, chan_colors[pad_slot]
 	endif
 	if LastKnob = 2
-		ch_midi_chs[pad_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 15
-		ch_pad_to_label=last_mkntrl_pad
-		ch_pad_data=last_mkntrl_pad //should always be same here. only different for quick channels
+		chan_midi_chs[pad_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 15
+		pad_to_label=last_mkntrl_pad
 		Call @LabelChanPad
 	endif
 	if LastKnob = 3
 		toggle_plugin_ccs[last_mkntrl_pad] = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 127
 	endif
-	LabelKnob 0, {Label }, ch_labels[pad_slot]
-	LabelKnob 1, {Color }, ch_colors[pad_slot]
-	LabelKnob 2, {MidiCH }, ch_midi_chs[pad_slot]+1
+	LabelKnob 0, {Label }, chan_labels[pad_slot]
+	LabelKnob 1, {Color }, chan_colors[pad_slot]
+	LabelKnob 2, {MidiCH }, chan_midi_chs[pad_slot]+1
 	if toggle_plugin_ccs[last_mkntrl_pad]=-1
 		LabelKnob 3, {BtnCC -}
 	else 
@@ -1574,77 +1565,77 @@
 @End
 
 @SetupKnobset9
-	//# M-KONTROL SETUP B - CC#s 1-4
+	//# MGEN -KONTROL SETUP B - CC#s 1-4
 	knob_set = 9
 	pad_slot=[4 * last_mkntrl_pad] //location channel 17
 	LabelPads {KNTRL : [ MIDI GENERATORS ]}
 	LabelKnobs {SETUP PAD }, last_mkntrl_pad+1
-	LabelKnob 0, {CC1-}, m_kntrl_ccs[pad_slot]
-	LabelKnob 1, {CC2-}, m_kntrl_ccs[pad_slot+1]
-	LabelKnob 2, {CC3-}, m_kntrl_ccs[pad_slot+2]
-	LabelKnob 3, {CC4-}, m_kntrl_ccs[pad_slot+3]
-	SetKnobValue 0, TranslateScale m_kntrl_ccs[pad_slot], 0, 127, 0, 127
-	SetKnobValue 1, TranslateScale m_kntrl_ccs[pad_slot+1], 0, 127, 0, 127
-	SetKnobValue 2, TranslateScale m_kntrl_ccs[pad_slot+2], 0, 127, 0, 127
-	SetKnobValue 3, TranslateScale m_kntrl_ccs[pad_slot+3], 0, 127, 0, 127 
+	LabelKnob 0, {CC1-}, mgen_ccs[pad_slot]
+	LabelKnob 1, {CC2-}, mgen_ccs[pad_slot+1]
+	LabelKnob 2, {CC3-}, mgen_ccs[pad_slot+2]
+	LabelKnob 3, {CC4-}, mgen_ccs[pad_slot+3]
+	SetKnobValue 0, TranslateScale mgen_ccs[pad_slot], 0, 127, 0, 127
+	SetKnobValue 1, TranslateScale mgen_ccs[pad_slot+1], 0, 127, 0, 127
+	SetKnobValue 2, TranslateScale mgen_ccs[pad_slot+2], 0, 127, 0, 127
+	SetKnobValue 3, TranslateScale mgen_ccs[pad_slot+3], 0, 127, 0, 127 
 @End
 
 @KnobChangeSet9
-	//# M-KONTROL SETUP B - CC#'s 1-4
+	//# MGEN-KONTROL SETUP B - CC#'s 1-4
 	pad_slot=[4 * last_mkntrl_pad] //location channel 17
 	if LastKnob = 0
-		m_kntrl_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
+		mgen_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 	endif
 	if LastKnob = 1
-		m_kntrl_ccs[pad_slot+1] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
+		mgen_ccs[pad_slot+1] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
 	endif
 	if LastKnob = 2
-		m_kntrl_ccs[pad_slot+2] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
+		mgen_ccs[pad_slot+2] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
 	endif
 	if LastKnob = 3
-		m_kntrl_ccs[pad_slot+3] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+		mgen_ccs[pad_slot+3] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
 	endif
-	LabelKnob 0, {CC1-}, m_kntrl_ccs[pad_slot]
-	LabelKnob 1, {CC2-}, m_kntrl_ccs[pad_slot+1]
-	LabelKnob 2, {CC3-}, m_kntrl_ccs[pad_slot+2]
-	LabelKnob 3, {CC4-}, m_kntrl_ccs[pad_slot+3]
+	LabelKnob 0, {CC1-}, mgen_ccs[pad_slot]
+	LabelKnob 1, {CC2-}, mgen_ccs[pad_slot+1]
+	LabelKnob 2, {CC3-}, mgen_ccs[pad_slot+2]
+	LabelKnob 3, {CC4-}, mgen_ccs[pad_slot+3]
 @End
 
 @SetupKnobset10
-	//# M-KONTROL USAGE - VAL KNOBS1-4
+	//# MGEN-KONTROL USAGE - VAL KNOBS1-4
 	knob_set = 10
 	pad_slot=[4 * last_mkntrl_pad] //location channel 17
 	LabelPads {KNTRL : [ MIDI GENERATORS ]}
 	LabelKnobs {PAD }, last_mkntrl_pad+1
-	LabelKnob 0, {K1 }, m_kntrl_vals[pad_slot]
-	LabelKnob 1, {K2 }, m_kntrl_vals[pad_slot+1]
-	LabelKnob 2, {K3 }, m_kntrl_vals[pad_slot+2]
-	LabelKnob 3, {K4 }, m_kntrl_vals[pad_slot+3]
-	SetKnobValue 0, TranslateScale m_kntrl_vals[pad_slot], 0, 127, 0, 127
-	SetKnobValue 1, TranslateScale m_kntrl_vals[pad_slot+1], 0, 127, 0, 127
-	SetKnobValue 2, TranslateScale m_kntrl_vals[pad_slot+2], 0, 127, 0, 127
-	SetKnobValue 3, TranslateScale m_kntrl_vals[pad_slot+3], 0, 127, 0, 127 
+	LabelKnob 0, {K1 }, mgen_vals[pad_slot]
+	LabelKnob 1, {K2 }, mgen_vals[pad_slot+1]
+	LabelKnob 2, {K3 }, mgen_vals[pad_slot+2]
+	LabelKnob 3, {K4 }, mgen_vals[pad_slot+3]
+	SetKnobValue 0, TranslateScale mgen_vals[pad_slot], 0, 127, 0, 127
+	SetKnobValue 1, TranslateScale mgen_vals[pad_slot+1], 0, 127, 0, 127
+	SetKnobValue 2, TranslateScale mgen_vals[pad_slot+2], 0, 127, 0, 127
+	SetKnobValue 3, TranslateScale mgen_vals[pad_slot+3], 0, 127, 0, 127 
 @End
 
 @KnobChangeSet10
-	//# M-KONTROL USAGE - Val knobs 1-4
+	//# MGEN-KONTROL USAGE - Val knobs 1-4
 	pad_slot=[4 * last_mkntrl_pad] //location channel 17
 	if LastKnob = 0
-		m_kntrl_vals[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
+		mgen_vals[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 	endif
 	if LastKnob = 1
-		m_kntrl_vals[pad_slot+1] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
+		mgen_vals[pad_slot+1] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
 	endif
 	if LastKnob = 2
-		m_kntrl_vals[pad_slot+2] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
+		mgen_vals[pad_slot+2] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
 	endif
 	if LastKnob = 3
-		m_kntrl_vals[pad_slot+3] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+		mgen_vals[pad_slot+3] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
 	endif
-	LabelKnob 0, {K1 }, m_kntrl_vals[pad_slot]
-	LabelKnob 1, {K2 }, m_kntrl_vals[pad_slot+1]
-	LabelKnob 2, {K3 }, m_kntrl_vals[pad_slot+2]
-	LabelKnob 3, {K4 }, m_kntrl_vals[pad_slot+3]
+	LabelKnob 0, {K1 }, mgen_vals[pad_slot]
+	LabelKnob 1, {K2 }, mgen_vals[pad_slot+1]
+	LabelKnob 2, {K3 }, mgen_vals[pad_slot+2]
+	LabelKnob 3, {K4 }, mgen_vals[pad_slot+3]
 @End
 
 @SetupKnobset11
@@ -1669,7 +1660,7 @@
 	if LastKnob = 1
 		macro_params[sel_macro] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15	
 	endif
-	ch_pad_to_label=sel_macro
+	pad_to_label=sel_macro
 	pad_slot=(macro_chans[sel_macro] * 16) + macro_params[sel_macro]
 	Call @LabelInstrPad
 	LabelKnob 0, {Channel }, macro_chans[sel_macro]+1
@@ -1798,17 +1789,15 @@
 		x=[]
 		v=[]
 		pad_slot=(edit_chan*16)
-		CopyArray ch_labels[pad_slot], l, 16
-		CopyArray ch_colors[pad_slot], o, 16
-		CopyArray ch_ccs[pad_slot], c, 16
-		CopyArray ch_mins[pad_slot], n, 16
-		CopyArray ch_maxs[pad_slot], x, 16
+		CopyArray inst_labels[pad_slot], l, 16
+		CopyArray inst_colors[pad_slot], o, 16
+		CopyArray inst_ccs[pad_slot], c, 16
+		CopyArray inst_mins[pad_slot], n, 16
+		CopyArray inst_maxs[pad_slot], x, 16
 		for i = 0 to 15
-			v[i] = (GetNoteState curr_chan, ch_ccs[pad_slot+i])
+			v[i] = (GetNoteState curr_chan, inst_ccs[pad_slot+i])
 		endfor
 		Log {********** END PRESET **********}
-		Log {def_msb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
-		Log {def_lsb =    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}
 		Log {def_maxs =   [},x[0],{,},x[1],{,},x[2],{,},x[3],{,},x[4],{,},x[5],{,},x[6],{,},x[7],{,},x[8],{,},x[9],{,},x[10],{,},x[11],{,},x[12],{,},x[13],{,},x[14],{,},x[15],{]}
 		Log {def_mins =   [},n[0],{,},n[1],{,},n[2],{,},n[3],{,},n[4],{,},n[5],{,},n[6],{,},n[7],{,},n[8],{,},n[9],{,},n[10],{,},n[11],{,},n[12],{,},n[13],{,},n[14],{,},n[15],{]}
 		Log {def_ccs =    [},c[0],{,},c[1],{,},c[2],{,},c[3],{,},c[4],{,},c[5],{,},c[6],{,},c[7],{,},c[8],{,},c[9],{,},c[10],{,},c[11],{,},c[12],{,},c[13],{,},c[14],{,},c[15],{]}
@@ -1818,9 +1807,9 @@
 		Log {LabelKnob 3, "PRESET NAME"}
 		Log {********* START PRESET *********}
 	elseif mode=6 or mode=1
-		slot=16
+		slot=0
 		if mode=6
-			slot=17
+			slot=1
 		endif
 		l=[]
 		o=[]
@@ -1828,24 +1817,26 @@
 		t=[]
 		c=[]
 		a=[]
-		CopyArray ch_labels[16*slot], l, 16
-		CopyArray ch_colors[16*slot], o, 16
-		CopyArray ch_midi_chs[16*slot], m, 16
+		CopyArray chan_labels[16*slot], l, 16 
+		CopyArray chan_colors[16*slot], o, 16 
+		CopyArray chan_midi_chs[16*slot], m, 16 
 		CopyArray toggle_plugin_ccs, t, 16
-		CopyArray m_kntrl_ccs, c, 64
-		CopyArray ch_layouts, a, 16
+		CopyArray mgen_ccs, c, 64
+		CopyArray chan_layouts, a, 16
 		Log {********** END PRESET **********}
-		if mode=6
-		Log {m_kntrl_ccs[3*},slot,{] = [},c[48],{,},c[49],{,},c[50],{,},c[51],{,},c[52],{,},c[53],{,},c[54],{,},c[55],{,},c[56],{,},c[57],{,},c[58],{,},c[59],{,},c[60],{,},c[61],{,},c[62],{,},c[63],{]}		
-		Log {m_kntrl_ccs[2*},slot,{] = [},c[32],{,},c[33],{,},c[34],{,},c[35],{,},c[36],{,},c[37],{,},c[38],{,},c[39],{,},c[40],{,},c[41],{,},c[42],{,},c[43],{,},c[44],{,},c[45],{,},c[46],{,},c[47],{]}		
-		Log {m_kntrl_ccs[1*},slot,{] = [},c[16],{,},c[17],{,},c[18],{,},c[19],{,},c[20],{,},c[21],{,},c[22],{,},c[23],{,},c[24],{,},c[25],{,},c[26],{,},c[27],{,},c[28],{,},c[29],{,},c[30],{,},c[31],{]}		
-		Log {m_kntrl_ccs[0*},slot,{] = [},c[0],{,},c[1],{,},c[2],{,},c[3],{,},c[4],{,},c[5],{,},c[6],{,},c[7],{,},c[8],{,},c[9],{,},c[10],{,},c[11],{,},c[12],{,},c[13],{,},c[14],{,},c[15],{]}
+		if mode=6 //midi gen instances control page
+		Log {mgen_ccs[3*},slot,{] = [},c[48],{,},c[49],{,},c[50],{,},c[51],{,},c[52],{,},c[53],{,},c[54],{,},c[55],{,},c[56],{,},c[57],{,},c[58],{,},c[59],{,},c[60],{,},c[61],{,},c[62],{,},c[63],{]}		
+		Log {mgen_ccs[2*},slot,{] = [},c[32],{,},c[33],{,},c[34],{,},c[35],{,},c[36],{,},c[37],{,},c[38],{,},c[39],{,},c[40],{,},c[41],{,},c[42],{,},c[43],{,},c[44],{,},c[45],{,},c[46],{,},c[47],{]}		
+		Log {mgen_ccs[1*},slot,{] = [},c[16],{,},c[17],{,},c[18],{,},c[19],{,},c[20],{,},c[21],{,},c[22],{,},c[23],{,},c[24],{,},c[25],{,},c[26],{,},c[27],{,},c[28],{,},c[29],{,},c[30],{,},c[31],{]}		
+		Log {mgen_ccs[0*},slot,{] = [},c[0],{,},c[1],{,},c[2],{,},c[3],{,},c[4],{,},c[5],{,},c[6],{,},c[7],{,},c[8],{,},c[9],{,},c[10],{,},c[11],{,},c[12],{,},c[13],{,},c[14],{,},c[15],{]}
 		Log {toggle_plugin_ccs = [},t[0],{,},t[1],{,},t[2],{,},t[3],{,},t[4],{,},t[5],{,},t[6],{,},t[7],{,},t[8],{,},t[9],{,},t[10],{,},t[11],{,},t[12],{,},t[13],{,},t[14],{,},t[15],{]}
 		endif
-		Log {ch_midi_chs[16*},slot,{]= [},m[0],{,},m[1],{,},m[2],{,},m[3],{,},m[4],{,},m[5],{,},m[6],{,},m[7],{,},m[8],{,},m[9],{,},m[10],{,},m[11],{,},m[12],{,},m[13],{,},m[14],{,},m[15],{]}
-		Log {ch_colors[16*},slot,{] =  [},o[0],{,},o[1],{,},o[2],{,},o[3],{,},o[4],{,},o[5],{,},o[6],{,},o[7],{,},o[8],{,},o[9],{,},o[10],{,},o[11],{,},o[12],{,},o[13],{,},o[14],{,},o[15],{]}
-		Log {ch_labels[16*},slot,{] =  [},l[0],{,},l[1],{,},l[2],{,},l[3],{,},l[4],{,},l[5],{,},l[6],{,},l[7],{,},l[8],{,},l[9],{,},l[10],{,},l[11],{,},l[12],{,},l[13],{,},l[14],{,},l[15],{]}
-		log {ch_layouts[},slot,{] =  [},a[0],{,},a[1],{,},a[2],{,},a[3],{,},a[4],{,},a[5],{,},a[6],{,},a[7],{,},a[8],{,},a[9],{,},a[10],{,},a[11],{,},a[12],{,},a[13],{,},a[14],{,},a[15],{]}
+		if mode=5
+		log {chan_layouts[},slot,{] =  [},a[0],{,},a[1],{,},a[2],{,},a[3],{,},a[4],{,},a[5],{,},a[6],{,},a[7],{,},a[8],{,},a[9],{,},a[10],{,},a[11],{,},a[12],{,},a[13],{,},a[14],{,},a[15],{]}
+		Log {chan_midi_chs[16*},slot,{]= [},m[0],{,},m[1],{,},m[2],{,},m[3],{,},m[4],{,},m[5],{,},m[6],{,},m[7],{,},m[8],{,},m[9],{,},m[10],{,},m[11],{,},m[12],{,},m[13],{,},m[14],{,},m[15],{]}
+		endif
+		Log {chan_colors[16*},slot,{] =  [},o[0],{,},o[1],{,},o[2],{,},o[3],{,},o[4],{,},o[5],{,},o[6],{,},o[7],{,},o[8],{,},o[9],{,},o[10],{,},o[11],{,},o[12],{,},o[13],{,},o[14],{,},o[15],{]}
+		Log {chan_labels[16*},slot,{] =  [},l[0],{,},l[1],{,},l[2],{,},l[3],{,},l[4],{,},l[5],{,},l[6],{,},l[7],{,},l[8],{,},l[9],{,},l[10],{,},l[11],{,},l[12],{,},l[13],{,},l[14],{,},l[15],{]}
 		Log {********* START PRESET *********}
 		Log {Printing preset for mode: }, mode
 	endif
@@ -1853,7 +1844,7 @@
 
 @BuildLayoutPage
 	//Setup a default layout page
-	if ch_layouts[edit_chan]=0 
+	if chan_layouts[edit_chan]=0 
 		LabelKnob 3, {Layout:Free} 
 		def_labels = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_colors = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -1861,7 +1852,7 @@
 		def_ccs =    [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
 		def_mins =   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs =   [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-	elseif ch_layouts[edit_chan]=1 
+	elseif chan_layouts[edit_chan]=1 
 		LabelKnob 3, {Synth} 
 		def_labels = [0,1,4,5,6,7,9,8,35,37,27,28,43,44,59,60]
 		def_colors = [2,2,5,5,3,3,2,2,4,4,4,4,4,4,0,0]
@@ -1869,7 +1860,7 @@
 		def_ccs =    [7,6,10,11,12,13,15,14,1,3,36,37,44,45,124,125]
 		def_mins =   [15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs =   [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-	elseif ch_layouts[edit_chan]=2
+	elseif chan_layouts[edit_chan]=2
 		LabelKnob 3, {Bus}
 		def_labels = [1,2,1,3,4,5,6,7,8,9,10,12,14,16,17,59]
 		def_colors = [2,2,2,2,6,6,3,3,3,3,3,4,4,5,5,0]
@@ -1877,7 +1868,7 @@
 		def_ccs =    [7,8,7,9,10,11,12,13,14,15,16,18,20,22,23,124]
 		def_mins =   [15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs =   [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-	elseif ch_layouts[edit_chan]=3
+	elseif chan_layouts[edit_chan]=3
 		def_ccs =    [127,126,44,49,45,12,13,124]
 		CopyArray rmkr_ccs, def_ccs[8], 8 //the first 8 def_ccs are above
 		LabelKnob 3, {Ruismkr}
@@ -1892,7 +1883,7 @@
 				SetNoteState edit_chan, rmkr_ccs[(ch*8) + (p-8)], def_vals[p]
 			endfor
 		endfor	
-	elseif ch_layouts[edit_chan]=4
+	elseif chan_layouts[edit_chan]=4
 		def_ccs =    [127,126,44,49, 45,12,13,124]
 		CopyArray rmfm_ccs, def_ccs[8], 8
 		LabelKnob 3, {RuisFM}
@@ -1906,7 +1897,7 @@
 				SetNoteState edit_chan, rmfm_ccs[(ch*8) + (p-8)], def_vals[p]
 			endfor
 		endfor
-	elseif ch_layouts[edit_chan]=5
+	elseif chan_layouts[edit_chan]=5
 		def_ccs =    [1,2,3,4,5,6,7,8]
 		CopyArray slct_ccs, def_ccs[8], 8
 		LabelKnob 3, {Select}
@@ -1922,11 +1913,11 @@
 			endfor
 		endfor
 	endif	
-	CopyArray def_labels, ch_labels[edit_chan*16], 16
-	CopyArray def_colors, ch_colors[edit_chan*16], 16
-	CopyArray def_ccs, ch_ccs[edit_chan*16], 16
-	CopyArray def_mins, ch_mins[edit_chan*16], 16
-	CopyArray def_maxs, ch_maxs[edit_chan*16], 16
+	CopyArray def_labels, inst_labels[edit_chan*16], 16
+	CopyArray def_colors, inst_colors[edit_chan*16], 16
+	CopyArray def_ccs, inst_ccs[edit_chan*16], 16
+	CopyArray def_mins, inst_mins[edit_chan*16], 16
+	CopyArray def_maxs, inst_maxs[edit_chan*16], 16
 	for ch = 0 to 15
 		SetNoteState edit_chan, def_ccs[ch], def_vals[ch]
 	endfor
@@ -1935,240 +1926,233 @@
 @SetupLayoutChannels
 	ShowLayout 2
 	for i = 0 to 15
-		ch_pad_to_label=i
+		pad_to_label=i
 		LatchPad i, NO 
 		if mode=1 or mode=7// Channels setup
-			ch_pad_data=i //should always be same here. only different for quick channels
-			ch_slot=256
+			chan_slot=0
 			Call @LabelChanPad
-		elseif mode=6
-		  ch_pad_data=i //should always be same here. only different for quick channels
-			ch_slot=16*17
+		elseif mode=6 // MG mode
+			chan_slot=1
 			Call @LabelChanPad
-		else
-		  ch_pad_to_label=i 
+		else //instrument page layout
 			pad_slot=(curr_chan*16) + i 
 			Call @LabelInstrPad
 		endif
 	endfor
 @End
 
-@LabelChanPad // Channels or MK mode - top level (stored in 16th & 17th  slot after ch data 0-15)
+@LabelChanPad // CHANNELS LABELLING - Channels for INSTRUMENTS or MGEN devices 
 	//Laborious task of labelling pads when you cant store a string
-	// requires ch_pad_data and ch_pad_to_label. Separate for use with quick channels
-	ColorPad ch_pad_to_label, ch_colors[ch_slot + ch_pad_data]
-	label_num = ch_labels[ch_slot + ch_pad_data]
-	midi_ch = ch_midi_chs[ch_slot + ch_pad_data]
+	ColorPad pad_to_label, chan_colors[chan_slot + pad_to_label]
+	label_num = chan_labels[(chan_slot*16) + pad_to_label]
+	midi_ch = chan_midi_chs[(chan_slot*16) + pad_to_label]
 	if (label_num=0)
-		LabelPad ch_pad_to_label, { }
+		LabelPad pad_to_label, { }
 	elseif (label_num=1)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {DRUMS }
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {DRUMS }
 	elseif (label_num=2)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {PERCS }
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {PERCS }
 	elseif (label_num=3)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {BASS }
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {BASS }
 	elseif (label_num=4)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {PAD BASS }
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {PAD BASS }
 	elseif (label_num=5)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {LEAD }
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {LEAD }
 	elseif (label_num=6)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {PADS }
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {PADS }
 	elseif (label_num=7)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {STABS }
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {STABS }
 	elseif (label_num=8)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {ARP }
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {ARP }
 	elseif (label_num=9)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {KEYS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {KEYS }	
 	elseif (label_num=10)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {PLUCK }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {PLUCK }	
 	elseif (label_num=11)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {STRINGS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {STRINGS }	
 	elseif (label_num=12)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {FX }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {FX }	
 	elseif (label_num=13)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {LOOPS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {LOOPS }	
 	elseif (label_num=14)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {SEQUENCES }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SEQUENCES }	
 	elseif (label_num=15)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {DRUM BUS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {DRUM BUS }	
 	elseif (label_num=16)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {PERC BUS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {PERC BUS }	
 	elseif (label_num=17)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {KICK BUS}	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {KICK BUS}	
 	elseif (label_num=18)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {BASS BUS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {BASS BUS }	
 	elseif (label_num=19)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {SYNTH BUS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SYNTH BUS }	
 	elseif (label_num=20)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {VOCALS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {VOCALS }	
 	elseif (label_num=21)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {MASTER }
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {MASTER }
 	elseif (label_num=22)
-		LabelPad ch_pad_to_label, { ____}, {M}, {____ }, {MACROS }	
+		LabelPad pad_to_label, { ____}, {M}, {____ }, {MACROS }	
 	elseif (label_num=23)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {QK:KORDS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {QK:KORDS }	
 	elseif (label_num=24)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {QK:BEATS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {QK:BEATS }	
 	elseif (label_num=25)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {QK:PERCS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {QK:PERCS }	
 	elseif (label_num=26)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {QK:BASS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {QK:BASS }	
 	elseif (label_num=27)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {QK:SYNTHS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {QK:SYNTHS }	
 	elseif (label_num=28)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {QK:ARPS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {QK:ARPS }	
 	elseif (label_num=29)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {QK:LOOPS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {QK:LOOPS }	
 	elseif (label_num=30)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {QK:FILLS }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {QK:FILLS }	
 	elseif (label_num=31)
-		LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {QK:FX }	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {QK:FX }	
 	else
-	  LabelPad ch_pad_to_label, { ____}, midi_ch+1, {____ }, {OTHERS}
+	  LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {OTHERS}
 	endif
 @End
 
-@LabelInstrPad // Kontrol mode 16pads per channel
-	//Laborious task of labelling pads when you cant store a string
-	ColorPad ch_pad_to_label, ch_colors[pad_slot]
-	label_num = ch_labels[pad_slot]
+@LabelInstrPad // An instrument pad to label 
+	ColorPad pad_to_label, inst_colors[pad_slot]
+	label_num = inst_labels[pad_slot]
 	if (label_num=0)
-		LabelPad ch_pad_to_label, {VOL} //MIXER
+		LabelPad pad_to_label, {VOL} //MIXER
 	elseif (label_num=1)
-		LabelPad ch_pad_to_label, {GAIN} //MIXER
+		LabelPad pad_to_label, {GAIN} //MIXER
 	elseif (label_num=2)
-		LabelPad ch_pad_to_label, {PAN} //MIXER
+		LabelPad pad_to_label, {PAN} //MIXER
 	elseif (label_num=3)
-		LabelPad ch_pad_to_label, {MID/SIDE} //MIXER
+		LabelPad pad_to_label, {MID/SIDE} //MIXER
 	elseif (label_num=4)
-		LabelPad ch_pad_to_label, {SEND A} //MIXER
+		LabelPad pad_to_label, {SEND A} //MIXER
 	elseif (label_num=5)
-		LabelPad ch_pad_to_label, {SEND B} //MIXER
+		LabelPad pad_to_label, {SEND B} //MIXER
 	elseif (label_num=6)
-		LabelPad ch_pad_to_label, {HPF} //MIXER
+		LabelPad pad_to_label, {HPF} //MIXER
 	elseif (label_num=7)
-		LabelPad ch_pad_to_label, {LPF} //MIXER
+		LabelPad pad_to_label, {LPF} //MIXER
 	elseif (label_num=8)
-		LabelPad ch_pad_to_label, {EQ GAIN} //MIXER
+		LabelPad pad_to_label, {EQ GAIN} //MIXER
 	elseif (label_num=9)
-		LabelPad ch_pad_to_label, {EQ FREQ} //MIXER
+		LabelPad pad_to_label, {EQ FREQ} //MIXER
 	elseif (label_num=10)
-		LabelPad ch_pad_to_label, {EQ RES} //MIXER
+		LabelPad pad_to_label, {EQ RES} //MIXER
 	elseif (label_num=11)
-		LabelPad ch_pad_to_label, {EQ SHELF} //MIXER
+		LabelPad pad_to_label, {EQ SHELF} //MIXER
 	elseif (label_num=12)
-		LabelPad ch_pad_to_label, {FX1 DW} //MIXER
+		LabelPad pad_to_label, {FX1 DW} //MIXER
 	elseif (label_num=13)
-		LabelPad ch_pad_to_label, {FX1 AMT} //MIXER
+		LabelPad pad_to_label, {FX1 AMT} //MIXER
 	elseif (label_num=14)
-		LabelPad ch_pad_to_label, {FX2 DW} //MIXER
+		LabelPad pad_to_label, {FX2 DW} //MIXER
 	elseif (label_num=15)
-		LabelPad ch_pad_to_label, {FX2 AMT} //MIXER
+		LabelPad pad_to_label, {FX2 AMT} //MIXER
 	elseif (label_num=16)
-		LabelPad ch_pad_to_label, {RATIO} //MIXER
+		LabelPad pad_to_label, {RATIO} //MIXER
 	elseif (label_num=17)
-		LabelPad ch_pad_to_label, {MAKEUP} //MIXER
+		LabelPad pad_to_label, {MAKEUP} //MIXER
 	elseif (label_num=18)
-		LabelPad ch_pad_to_label, {CEILING} //MIXER
+		LabelPad pad_to_label, {CEILING} //MIXER
 	elseif (label_num=19)
-		LabelPad ch_pad_to_label, {WAVESHAPE} //OSC
+		LabelPad pad_to_label, {WAVESHAPE} //OSC
 	elseif (label_num=20)
-		LabelPad ch_pad_to_label, {DETUNE} //OSC
+		LabelPad pad_to_label, {DETUNE} //OSC
 	elseif (label_num=21)
-		LabelPad ch_pad_to_label, {MIX} //OSC
+		LabelPad pad_to_label, {MIX} //OSC
 	elseif (label_num=22)
-		LabelPad ch_pad_to_label, {OSC1 VOL} //OSC
+		LabelPad pad_to_label, {OSC1 VOL} //OSC
 	elseif (label_num=23)
-		LabelPad ch_pad_to_label, {OSC2 VOL} //OSC
+		LabelPad pad_to_label, {OSC2 VOL} //OSC
 	elseif (label_num=24)
-		LabelPad ch_pad_to_label, {NOISE} //OSC
+		LabelPad pad_to_label, {NOISE} //OSC
 	elseif (label_num=25)
-		LabelPad ch_pad_to_label, {PITCH} //OSC
+		LabelPad pad_to_label, {PITCH} //OSC
 	elseif (label_num=26)
-		LabelPad ch_pad_to_label, {OCTAVE} //OSC
+		LabelPad pad_to_label, {OCTAVE} //OSC
 	elseif (label_num=27)
-		LabelPad ch_pad_to_label, {F.CUTOFF} //FILTER
+		LabelPad pad_to_label, {F.CUTOFF} //FILTER
 	elseif (label_num=28)
-		LabelPad ch_pad_to_label, {F.RES} //FILTER
+		LabelPad pad_to_label, {F.RES} //FILTER
 	elseif (label_num=29)
-		LabelPad ch_pad_to_label, {F.ENV AMT} //FILTER
+		LabelPad pad_to_label, {F.ENV AMT} //FILTER
 	elseif (label_num=30)
-		LabelPad ch_pad_to_label, {F.ATTACK} //FILTER
+		LabelPad pad_to_label, {F.ATTACK} //FILTER
 	elseif (label_num=31)
-		LabelPad ch_pad_to_label, {F.DECAY} //FILTER
+		LabelPad pad_to_label, {F.DECAY} //FILTER
 	elseif (label_num=32)
-		LabelPad ch_pad_to_label, {F.SUSTAIN} //FILTER
+		LabelPad pad_to_label, {F.SUSTAIN} //FILTER
 	elseif (label_num=33)
-		LabelPad ch_pad_to_label, {F.RELEASE} //FILTER
+		LabelPad pad_to_label, {F.RELEASE} //FILTER
 	elseif (label_num=34)
-		LabelPad ch_pad_to_label, {DRIVE} //FILTER
+		LabelPad pad_to_label, {DRIVE} //FILTER
 	elseif (label_num=35)
-		LabelPad ch_pad_to_label, {MODWHEEL} //MODULATION
+		LabelPad pad_to_label, {MODWHEEL} //MODULATION
 	elseif (label_num=36)
-		LabelPad ch_pad_to_label, {AFTERTOUCH} //MODULATION
+		LabelPad pad_to_label, {AFTERTOUCH} //MODULATION
 	elseif (label_num=37)
-		LabelPad ch_pad_to_label, {MORPH} //MODULATION
+		LabelPad pad_to_label, {MORPH} //MODULATION
 	elseif (label_num=38)
-		LabelPad ch_pad_to_label, {VIBRATO} //MODULATION
+		LabelPad pad_to_label, {VIBRATO} //MODULATION
 	elseif (label_num=39)
-		LabelPad ch_pad_to_label, {GLIDE} //MODULATION
+		LabelPad pad_to_label, {GLIDE} //MODULATION
 	elseif (label_num=40)
-		LabelPad ch_pad_to_label, {MOD AMT} //MODULATION
+		LabelPad pad_to_label, {MOD AMT} //MODULATION
 	elseif (label_num=41)
-		LabelPad ch_pad_to_label, {MOD RATE} //MODULATION
+		LabelPad pad_to_label, {MOD RATE} //MODULATION
 	elseif (label_num=42)
-		LabelPad ch_pad_to_label, {TONE} //MODULATION
+		LabelPad pad_to_label, {TONE} //MODULATION
 	elseif (label_num=43)
-		LabelPad ch_pad_to_label, {DLY AMT} //FX
+		LabelPad pad_to_label, {DLY AMT} //FX
 	elseif (label_num=44)
-		LabelPad ch_pad_to_label, {RVB AMT} //FX
+		LabelPad pad_to_label, {RVB AMT} //FX
 	elseif (label_num=45)
-		LabelPad ch_pad_to_label, {DIST AMT} //FX
+		LabelPad pad_to_label, {DIST AMT} //FX
 	elseif (label_num=46)
-		LabelPad ch_pad_to_label, {CHORUS AMT} //FX
+		LabelPad pad_to_label, {CHORUS AMT} //FX
 	elseif (label_num=47)
-		LabelPad ch_pad_to_label, {FX AMT} //FX
+		LabelPad pad_to_label, {FX AMT} //FX
 	elseif (label_num=48)
-		LabelPad ch_pad_to_label, {FEEDBACK} //FX
+		LabelPad pad_to_label, {FEEDBACK} //FX
 	elseif (label_num=49)
-		LabelPad ch_pad_to_label, {SIZE} //FX
+		LabelPad pad_to_label, {SIZE} //FX
 	elseif (label_num=50)
-		LabelPad ch_pad_to_label, {RATE} //FX
+		LabelPad pad_to_label, {RATE} //FX
 	elseif (label_num=51)
-		LabelPad ch_pad_to_label, {A.ATTACK} //AMP
+		LabelPad pad_to_label, {A.ATTACK} //AMP
 	elseif (label_num=52)
-		LabelPad ch_pad_to_label, {A.DECAY} //AMP
+		LabelPad pad_to_label, {A.DECAY} //AMP
 	elseif (label_num=53)
-		LabelPad ch_pad_to_label, {A.SUSTAIN} //AMP
+		LabelPad pad_to_label, {A.SUSTAIN} //AMP
 	elseif (label_num=54)
-		LabelPad ch_pad_to_label, {A.RELEASE} //AMP
+		LabelPad pad_to_label, {A.RELEASE} //AMP
 	elseif (label_num=55)
-		LabelPad ch_pad_to_label, {[ PLUGIN1 ]} //BTN
+		LabelPad pad_to_label, {[ PLUGIN1 ]} //BTN
 	elseif (label_num=56)
-		LabelPad ch_pad_to_label, {[ MUTE ]} //BTN
+		LabelPad pad_to_label, {[ MUTE ]} //BTN
 	elseif (label_num=57)
-		LabelPad ch_pad_to_label, {[ SOLO ]} //BTN
+		LabelPad pad_to_label, {[ SOLO ]} //BTN
 	elseif (label_num=58)
-		LabelPad ch_pad_to_label, {[ ARM ]} //BTN
+		LabelPad pad_to_label, {[ ARM ]} //BTN
 	elseif (label_num=59)
-		LabelPad ch_pad_to_label, {[ PLUGIN2 ]} //BTN
+		LabelPad pad_to_label, {[ PLUGIN2 ]} //BTN
 	elseif (label_num=60)
-		LabelPad ch_pad_to_label, {[ PGM }, (GetNoteState curr_chan, ch_ccs[pad_slot]), { ]} //SPECIAL
+		LabelPad pad_to_label, {[ PGM }, (GetNoteState curr_chan, inst_ccs[pad_slot]), { ]} //SPECIAL
 	elseif (label_num=61)
-		sel_channel = GetNoteState curr_chan, ch_ccs[(curr_chan*16)] //slct control always first pad 
+		sel_channel = GetNoteState curr_chan, inst_ccs[(curr_chan*16)] //slct control always first pad 
 		cc = rmkr_inst_chg[sel_channel]
 		val = GetNoteState curr_chan, cc
 		if val=-1
 			val=0
 		endif
 		instr_num = rmkr_instrs[(sel_channel*8) + val]
-		LabelPad ch_pad_to_label, {DRUM#}, instr_num //SPECIAL
-		// 126
+		LabelPad pad_to_label, {DRUM#}, instr_num //SPECIAL 126
 	elseif (label_num=62)
-		LabelPad ch_pad_to_label, {SELECT CH}, (GetNoteState curr_chan, ch_ccs[pad_slot])+1 //SPECIAL
-		// 127
+		LabelPad pad_to_label, {SELECT CH}, (GetNoteState curr_chan, inst_ccs[pad_slot])+1 //SPECIAL 127
 	elseif (label_num=-1)
-		LabelPad ch_pad_to_label, { }
+		LabelPad pad_to_label, { }
 	endif
 @End
 
