@@ -967,6 +967,8 @@
 	val = (GetNoteState curr_chan, inst_ccs[pad_slot])
 	if inst_labels[pad_slot]=60 or inst_labels[pad_slot]=61 //pgm chg message type
 		SetKnobValue 2, TranslateScale val, 0, chan_pgm_max[curr_chan], 0, 127
+	elseif inst_labels[pad_slot]=62 //change rmkr drum sound
+	  SetKnobValue 2, TranslateScale val, 0, 7, 0, 127 // always 8 choices some duped for consistency
 	else
 		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
 	endif	
@@ -1047,7 +1049,7 @@
 				val = (GetNoteState curr_chan, inst_ccs[pad_slot + edit_pad])
 				SetKnobValue 2, TranslateScale val, 0, chan_pgm_max[curr_chan], 0, 127
 			else
-				inst_maxs[pad_slot + edit_pad] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+				inst_maxs[pad_slot + edit_pad] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127 //MAX VALUE
 				val = (GetNoteState curr_chan, inst_ccs[pad_slot + edit_pad])
 				SetKnobValue 2, TranslateScale val, inst_mins[pad_slot + edit_pad], inst_maxs[pad_slot + edit_pad], 0, 127
 			endif
@@ -1059,48 +1061,56 @@
 
 @HandleSpecialInstrKontrols
 	//Page change, Select Channel change, RMKR drum sound change. 
-	if LastKnob=3 and chan_layouts[curr_chan]<=2
+	if LastKnob=3 and chan_layouts[curr_chan]<=2 //PAGE CHANGE ON PAGE STYLE LAYOUTS
 		pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan])
 		Call @SetupLayoutChannels
 		Log {new page: }, page, { pad slot: }, pad_slot, { curr_chan: }, curr_chan
 	elseif LastKnob=3 and chan_layouts[curr_chan]>=3 and chan_layouts[curr_chan]<=5 //chg select bank of params
 		pad_bank=pad_slot //we need to come back to this after labelling 8-15
-		FillArray slct_ccs_in_use, 0, 64 //empty the array fully in case using differen layout
+		FillArray slct_ccs_in_use, 0, 64 //empty the array fully in case using different layout
 		if chan_layouts[curr_chan]=3  // rmkr layout load the correct cc bank for the layout type
 			CopyArray rmkr_ccs, slct_ccs_in_use, 64
 		elseif chan_layouts[curr_chan]=4 //rmkr fm layout
 			CopyArray rmfm_ccs, slct_ccs_in_use, 64
-		else // generic select layout
+		else // generic select layout 
 			CopyArray slct_ccs, slct_ccs_in_use, 64
 		endif
-		for i = 8 to 15 //update the 8 pads in the layout
-			pad_slot=pad_slot+i //
-			inst_ccs[pad_slot] =  slct_ccs_in_use[(page*8) + (i-8)]
-			SetNoteState curr_chan, inst_ccs[pad_slot], GetNoteState curr_chan, inst_ccs[pad_slot] 
-			inst_colors[pad_slot] = slct_colors[page]
+		for i = 8 to 15 //Overwrite
+			new_cc_num_for_pad = slct_ccs_in_use[(page*8) + (i-8)]
+			new_val_for_pad =1
+			inst_ccs[pad_bank+i] = new_cc_num_for_pad  
+			inst_colors[pad_bank+i] = slct_colors[page]
+			
+			SetNoteState curr_chan, inst_ccs[pad_bank+i], GetNoteState curr_chan, inst_ccs[pad_bank+i] 
+			
 			pad_to_label=i
 			chan_to_label=curr_chan
+			pad_slot = pad_bank+i //Label instr pad needs pad_slot with pad# included
 			Call @LabelInstrPad 
 			FlashPad i 
 		endfor
-		if (chan_layouts[curr_chan] = 3) and (inst_labels[pad_slot+1]=62) //rmkr layout with instr chg on pad2/16
-			inst_ccs[pad_slot+1] = rmkr_inst_chg[page] // update cc rmkr instr changer [22-29]
+		if (chan_layouts[curr_chan] = 3) and (inst_labels[pad_bank+1]=62) //rmkr layout with instr chg on pad2/16
+			inst_ccs[pad_bank+1] = rmkr_inst_chg[page] // update cc rmkr instr changer [22-29]
 			Log {new rmkr instr chg cc: }, rmkr_inst_chg[page]
 			inst_colors[pad_bank+1] = slct_colors[page]
 			pad_to_label=1
 			chan_to_label=curr_chan
+			pad_slot = pad_bank+i //Label instr pad needs pad_slot with pad# included
 			Call @LabelInstrPad
 			FlashPad 1
 		endif
 		pad_slot=pad_bank //return to  pad_slot without pad# num included
-	elseif LastKnob=2 and inst_labels[pad_slot]=62 // chg ruismkr instrument
-		sel_channel = GetNoteState curr_chan, inst_ccs[(curr_chan*16)] //slct control always first pad 
-		cc = rmkr_inst_chg[sel_channel]
-		instr_num = rmkr_instrs[(sel_channel*8) + kv]
-		// Log {Choosing instr for channel }, sel_channel, { with CC# }, cc, { instr_type: }, instr_num
-		SendMIDICC chan_midi_chs[curr_chan], cc, instr_num
-		SetNoteState curr_chan, cc, kv // save the knob position	
-		pad_to_label=1 // this param only for rmkr and only pad1
+	elseif LastKnob=2 and inst_labels[pad_slot+edit_pad]=62 // chg ruismkr instrument
+		// drum_sound is an instrument number. CC#22-29
+		pad_bank=pad_slot //pad_slot here is beginning of bank
+		page=inst_curr_page[curr_chan]
+		instr_index = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7 // the knob_value & index to drum sounds
+		cc = rmkr_inst_chg[page] //CC22-29 
+		SetNoteState curr_chan, cc, instr_index // save the knob position	
+		drum_sound_num = rmkr_instrs[(page*8) + instr_index] // drum sound number
+		SendMIDICC chan_midi_chs[curr_chan], cc, drum_sound_num 
+		pad_to_label=1 // this param only for rmkr and only pad1/15 after VOL
+		pad_slot = pad_bank+1 //Label instr pad needs pad_slot with pad# included
 		chan_to_label=curr_chan
 		Call @LabelInstrPad
 	elseif LastKnob=2 and inst_labels[pad_slot + edit_pad]=60 or inst_labels[pad_slot + edit_pad]=61 //PGM CHG MAX
@@ -2183,14 +2193,14 @@
 	elseif (label_num=61)
 		LabelPad pad_to_label, {[ PGM CHG+]} //SPECIAL
 	elseif (label_num=62)
-		sel_channel = inst_curr_page[curr_chan] //ie page number 
-		cc = rmkr_inst_chg[sel_channel] //send on CC22-29 depending on page/ch selected
-		val = GetNoteState curr_chan, cc
-		if val=-1
-			val=0
+		page = inst_curr_page[curr_chan] //ie page number 
+		cc = rmkr_inst_chg[page] //CC22-29 
+		instr_index = GetNoteState curr_chan, cc
+		if instr_index=-1
+			instr_index=0
 		endif
-		instr_num = rmkr_instrs[(sel_channel*8) + val]
-		LabelPad pad_to_label, {DRUM#}, instr_num //SPECIAL 127	
+		drum_sound_num = rmkr_instrs[(page*8) + instr_index] // drum sound number
+		LabelPad pad_to_label, {DRUM#}, drum_sound_num //SPECIAL 127	
 	elseif (label_num=-1)
 		LabelPad pad_to_label, { }
 	endif
