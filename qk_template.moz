@@ -88,11 +88,21 @@
 	inst_maxs=[] //# range parameter for the val attribute
 	FillArray inst_maxs, 127, 1024 //# default the max cc range to 127
 	protected_cc_to_label=[-1,35,36,37,38,39, 0,1,2,3, 4,5,6,7] 
-	protected_cc_to_label[111]=[8,9,10,11, 12,13,14,15, 56,57,58, -1,-1,-1,-1,-1,-1]
-		
+	protected_cc_to_label[117]=[8,9,10,11, 12,13,14,15, 63,64,65]
+	// label number vars. Update these if @LabelInstr changes	
+	lbl_num_pgm_inc=57
+	lbl_num_pgm_dec=58
+	lbl_num_res_mxr=59
+	lbl_num_res_inst=60
+	lbl_num_plugin=61
+	lbl_num_ch_num=62
+	lbl_num_drum_ch=63
+	lbl_num_mute=64
+	lbl_num_solo=65
+	lbl_num_arm=66
 	// MIXER - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO
-	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 121,122,123] //ccs for mixer params
+	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 125,126,127] //ccs for mixer params
 	chan_mx_def_vals = [90,64,64,64, 0,0,127,0, 64,64,0,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
 	mute_solo_arm=0 //remember pad state 0-2
 	for ch = 0 to 15
@@ -100,7 +110,11 @@
 			SetNoteState ch, chan_mx_ccs[i], chan_mx_def_vals[i] //store vals in the curr_chan not the midi chan
 		endfor
 	endfor
-	
+	//SETUP MIDI MAPPING PARAMS FOR DEFAULT INSTR. CHANNELS
+	for i = 0 to 15
+		edit_chan=i 
+		Call @BuildLayoutPage
+	endfor
 	//# MIDI GEN KONTROL SECTION
 	last_mkntrl_pad=0 //# return to last pad used MG-kntrl mode
 	mgen_vals=[]
@@ -169,43 +183,6 @@
 	SetLFOType 1, {RampDown}
 	SetupLFO 0, 0, 127, YES, 0.5
 	SetupLFO 1, 0, 127, YES, 0.5
-	
-	//INSTRUMENT LAYOUT DATA - Ruismaker, RuismakerFM and Segments
-	slct_colors = [6,6,2,2,3,3,4,4]
-	slct_ccs = [] //ch1-8
-	for i = 30 to 94
-		slct_ccs[i-30] = i   
-	endfor
-	rmkr_ccs[0*8] = [30,31,37,32,35,36,34,33]	//ch1
-	rmkr_ccs[1*8] = [38,39,45,40,43,44,42,41]	//ch2
-	rmkr_ccs[2*8] = [46,47,53,48,51,52,50,49]	//ch3
-	rmkr_ccs[3*8] = [54,55,61,56,59,60,58,57]	//ch4
-	rmkr_ccs[4*8] = [62,63,70,65,68,69,67,66]	//ch5 --- NB: No 64 stuffing thing up
-	rmkr_ccs[5*8] = [71,72,78,73,76,77,75,74]	//ch6
-	rmkr_ccs[6*8] = [79,80,86,81,84,85,83,82]	//ch7
-	rmkr_ccs[7*8] = [87,88,94,89,92,93,91,90]	//ch8
-	//rmfm 
-	rmfm_ccs     = [31,33,34,35, 36,37,38,39] //ch1
-	rmfm_ccs[8]  = [43,45,46,47, 48,49,50,51] //ch2
-	rmfm_ccs[16] = [55,57,58,59, 60,61,62,63] //ch3 
-	rmfm_ccs[24] = [68,70,71,72, 73,74,75,76] //ch4
-	rmfm_ccs[32] = [80,82,83,84, 85,86,87,88] //ch5
-	rmfm_ccs[40] = [92,94,95,96, 97,98,99,100] //ch6
-	//rmkr instrument values sent on cc#s 22-29 
-	rmkr_inst_chg = [22,23,24,25, 26,27,28,29] //ccs for chg instr. sound
-	rmkr_instrs[0*8] = [10,11,12,13, 14,15,16,17] //8 kiks all arrays len=8
-	rmkr_instrs[1*8] = [30,31,32,33, 34,35,36,36] //snares
-	rmkr_instrs[2*8] = [50,50,51,51, 101,101,111,111] //claps
-	rmkr_instrs[3*8] = [70,73,76,79, 82,85,88,91] //low toms
-	rmkr_instrs[4*8] = [60,60,60,62, 62,62,66,66] //hhc
-	rmkr_instrs[5*8] = [61,63,63,64, 65,65,67,67] //hho
-	rmkr_instrs[6*8] = [71,80,74,77, 86,89,92,83] //perc1
-	rmkr_instrs[7*8] = [72,81,75,78, 87,90,93,84] //perc2	
-	//SETUP MIDI MAPPING PARAMS FOR DEFAULT CHANNELS
-	for i = 0 to 15
-		edit_chan=i 
-		Call @BuildLayoutPage
-	endfor
 @End
 
 @SendMidiCCBackToKnobs
@@ -500,13 +477,14 @@
 	chan = chan_midi_chs[curr_chan]
 	latch_last_pad=TRUE
 	re_label_pad_on_press=FALSE
+	log {LABEL NUM: }, inst_labels[pad_slot]
 	for i = 0 to 15
 		LatchPad i, no 
 	endfor
-	if inst_labels[pad_slot]=55 or inst_labels[pad_slot]=59 //PLUGIN1 or PLUGIN2
+	if inst_labels[pad_slot]=lbl_num_plugin //PLUGIN
 		SendMIDICC chan, inst_ccs[pad_slot], 127 // show / hide plugin
 		use_instr_knobset_a = TRUE
-	elseif inst_labels[pad_slot]=56 //MUTE
+	elseif inst_labels[pad_slot]=lbl_num_mute //MUTE
 		chan_mute[curr_chan] = NOT chan_mute[curr_chan]
 		inst_colors[pad_slot] = 6
 		if not chan_mute[curr_chan]
@@ -516,7 +494,7 @@
 		SendMIDICC chan, chan_mx_ccs[16], val
 		latch_last_pad=FALSE
 		re_label_pad_on_press=TRUE
-	elseif inst_labels[pad_slot]=57 //SOLO
+	elseif inst_labels[pad_slot]=lbl_num_solo //SOLO
 		chan_solo[curr_chan] = NOT chan_solo[curr_chan]
 		inst_colors[pad_slot] = 4
 		if not chan_solo[curr_chan] 
@@ -526,7 +504,7 @@
 		SendMIDICC chan, chan_mx_ccs[17], val
 		latch_last_pad=FALSE
 		re_label_pad_on_press=TRUE
-	elseif inst_labels[pad_slot]=58 //ARM
+	elseif inst_labels[pad_slot]=lbl_num_arm //ARM
 		chan_arm[curr_chan] = NOT chan_arm[curr_chan]
 		inst_colors[pad_slot] = 1
 		if not chan_arm[curr_chan]
@@ -536,11 +514,11 @@
 		SendMIDICC chan, chan_mx_ccs[18], val
 		latch_last_pad=FALSE
 		re_label_pad_on_press=TRUE
-	elseif inst_labels[pad_slot]=60 or inst_labels[pad_slot]=61 // PGM CHG MSG
+	elseif inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc // PGM CHG MSG
 		use_instr_knobset_a = TRUE
 		curr_pgm = chan_pgm[curr_chan]
 		if LastPad = edit_pad //user hit same pad again. send the pgm chg
-			if inst_labels[pad_slot]=61
+			if inst_labels[pad_slot]=lbl_num_pgm_inc
 				new_pgm = Clip curr_pgm+1, 0, chan_pgm_max[curr_chan] 
 			else
 				new_pgm = Clip curr_pgm-1, 0, chan_pgm_max[curr_chan]
@@ -553,6 +531,10 @@
 			endif
 			use_instr_knobset_a = FALSE
 		endif
+	elseif inst_labels[pad_slot]=lbl_num_res_mxr
+		Log {RESET MIXER PARAMS TO DEFAULTS AND SEND MIDI}
+	elseif inst_labels[pad_slot]=lbl_num_res_inst
+		Log {RESET INST PARAMS TO DEFAULTS AND SEND MIDI}
 	else 
 		if LastPad = edit_pad //user hit same pad again. switch knobset
 			use_instr_knobset_a = NOT use_instr_knobset_a
@@ -932,35 +914,33 @@
 @LabelInstrumentKnobs
 	LabelKnobs {PAD: }, edit_pad+1
 	LabelPads {KNTRL : [ INSTRUMENT }, curr_chan+1, { ] }
-	if inst_labels[pad_slot]=60 or inst_labels[pad_slot]=61 //pgm chg message type
+	if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
 		LabelKnob 2, {Value }, chan_pgm[curr_chan]
 	else
 	  LabelKnob 2, {Value }, (GetNoteState curr_chan, inst_ccs[pad_slot])
-	endif
+	endif	
 	if use_instr_knobset_a // Label : Color : Value : CC#
 		if inst_labels[pad_slot] = -1
 			LabelKnob 0, {Unused}
-		elseif inst_labels[pad_slot] >=0 and inst_labels[pad_slot] <= 18
+		elseif inst_labels[pad_slot] >=0 and inst_labels[pad_slot] <= 15
 			LabelKnob 0, {Mixer}
-		elseif inst_labels[pad_slot] >=19 and inst_labels[pad_slot] <= 26
+		elseif inst_labels[pad_slot] >=16 and inst_labels[pad_slot] <= 23
 			LabelKnob 0, {Osc}
-		elseif inst_labels[pad_slot] >=27 and inst_labels[pad_slot] <= 34
+		elseif inst_labels[pad_slot] >=24 and inst_labels[pad_slot] <= 27
 			LabelKnob 0, {Filter}
-		elseif inst_labels[pad_slot] >=35 and inst_labels[pad_slot] <= 42
+		elseif inst_labels[pad_slot] >=28 and inst_labels[pad_slot] <= 34
+			LabelKnob 0, {Env}
+		elseif inst_labels[pad_slot] >=35 and inst_labels[pad_slot] <= 45
 			LabelKnob 0, {Mod}
-		elseif inst_labels[pad_slot] >=43 and inst_labels[pad_slot] <= 50
+		elseif inst_labels[pad_slot] >=46 and inst_labels[pad_slot] <= 53
 			LabelKnob 0, {FX}
-		elseif inst_labels[pad_slot] >=51 and inst_labels[pad_slot] <= 54
-			LabelKnob 0, {AMP}
-		elseif inst_labels[pad_slot] >=45 and inst_labels[pad_slot] <= 58
-			LabelKnob 0, {BTN}
-		else 
-			LabelKnob 0, {Special}
+		elseif inst_labels[pad_slot] >=54
+			LabelKnob 0, {Other}
 		endif
 		LabelKnob 1, {Color }, inst_colors[pad_slot]
 		LabelKnob 3, {Page }, inst_curr_page[curr_chan]+1
 	else // LSB CC# : MSB MIN : Value : MAX
-		if inst_labels[pad_slot]=60 or inst_labels[pad_slot]=61 //pgm chg message type
+		if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
 			LabelKnob 0, {LSB }, chan_lsb[curr_chan] // only one per channel
 			LabelKnob 1, {MSB }, chan_msb[curr_chan] // only one per channel
 			LabelKnob 3, {MAX }, chan_pgm_max[curr_chan]
@@ -976,18 +956,18 @@
 	//# INTRUMENT KONTROL MODE use_instr_knobset_a
 	knob_set=2
 	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + edit_pad
-	if inst_labels[pad_slot]=60 or inst_labels[pad_slot]=61 //pgm chg message type
+	if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
 		SetKnobValue 2, TranslateScale chan_pgm[curr_chan], 0, chan_pgm_max[curr_chan], 0, 127
 	else
 		val = (GetNoteState curr_chan, inst_ccs[pad_slot]) //Value knob2
 		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
 	endif	
 	if use_instr_knobset_a // Label : Color : Value : CC#
-		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 62, 0, 127
+		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 63, 0, 127
 		SetKnobValue 1, TranslateScale inst_colors[pad_slot], 0, 6, 0, 127
 		SetKnobValue 3, TranslateScale inst_curr_page[curr_chan], 0, 3, 0, 127
 	else 
-		if inst_labels[pad_slot]=60 or inst_labels[pad_slot]=61 //pgm chg message type
+		if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
 			SetKnobValue 0, TranslateScale chan_lsb[curr_chan], 0, 15, 0, 127
 			SetKnobValue 1, TranslateScale chan_msb[curr_chan], 0, 15, 0, 127
 			SetKnobValue 3, TranslateScale chan_pgm_max[curr_chan], 0, 127, 0, 127
@@ -1008,15 +988,15 @@
 	chan_to_label=curr_chan
 	if LastKnob = 0 // LABEL : LSB / CC#
 		if use_instr_knobset_a
-			inst_labels[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 62
+			inst_labels[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 63
 			Call @LabelInstrPad
 		else
-			if inst_labels[pad_slot]=60 or inst_labels[pad_slot]=61 //PGM CHG
+			if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG
 				chan_lsb[curr_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
 			else
 				if not fixed_cc_layout[chan_layouts[curr_chan]]
 					inst_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
-					if inst_ccs[pad_slot] < 14 or inst_ccs[pad_slot] > 110
+					if inst_ccs[pad_slot]<= 13 or inst_ccs[pad_slot]>=117
 						inst_labels[pad_slot]=protected_cc_to_label[inst_ccs[pad_slot]] 
 						Call @LabelInstrPad //protected cc - has a fixed label
 					endif
@@ -1030,7 +1010,7 @@
 			LatchPad edit_pad, NO 
 			ColorPad edit_pad, inst_colors[pad_slot]
 		else
-			if inst_labels[pad_slot]=60 or inst_labels[pad_slot]=61 //PGM CHG
+			if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG
 				chan_msb[curr_chan] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
 			else 
 				inst_mins[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
@@ -1041,12 +1021,15 @@
 		endif
 	endif
 	if LastKnob = 2 // VALUE : VALUE
-		if inst_labels[pad_slot]>=60 and inst_labels[pad_slot]<=61  // PGM CHG
+		if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG
 			chan_pgm[curr_chan] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, chan_pgm_max[curr_chan]
 		else 
 			kv = Round TranslateScale (GetKnobValue 2), 0, 127, inst_mins[pad_slot], inst_maxs[pad_slot]
 			SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot], kv //knob value
 			SetNoteState curr_chan, inst_ccs[pad_slot], kv
+			if inst_labels[pad_slot]=lbl_num_drum_ch or inst_labels[pad_slot]=lbl_num_ch_num
+				Call @LabelInstrPad // drum ch# has value in label so update
+			endif
 		endif
 	endif
 	if LastKnob = 3 // PAGE : PGMMAX / MAX
@@ -1055,10 +1038,9 @@
 			if page <> inst_curr_page[curr_chan]
 				inst_curr_page[curr_chan] = page
 				Call @SetupLayoutChannels
-				Log {new page: }, page, { pad slot: }, pad_slot, { curr_chan: }, curr_chan
 			endif
 		else
-		  if inst_labels[pad_slot]=60 or inst_labels[pad_slot]=61 //PGM CHG MAX
+		  if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG MAX
 				chan_pgm_max[curr_chan] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
 				SetKnobValue 2, TranslateScale chan_pgm[curr_chan], 0, chan_pgm_max[curr_chan], 0, 127
 			else
@@ -2107,102 +2089,111 @@
 	elseif (label_num=15)
 		LabelPad pad_to_label, {FX2 AMT} //MIXER
 	elseif (label_num=16)
-		LabelPad pad_to_label, {RATIO} //MIXER
-	elseif (label_num=17)
-		LabelPad pad_to_label, {MAKEUP} //MIXER
-	elseif (label_num=18)
-		LabelPad pad_to_label, {CEILING} //MIXER
-	elseif (label_num=19)
 		LabelPad pad_to_label, {WAVESHAPE} //OSC
-	elseif (label_num=20)
+	elseif (label_num=17)
 		LabelPad pad_to_label, {DETUNE} //OSC
-	elseif (label_num=21)
+	elseif (label_num=18)
 		LabelPad pad_to_label, {MIX} //OSC
-	elseif (label_num=22)
+	elseif (label_num=19)
 		LabelPad pad_to_label, {OSC1 VOL} //OSC
-	elseif (label_num=23)
+	elseif (label_num=20)
 		LabelPad pad_to_label, {OSC2 VOL} //OSC
-	elseif (label_num=24)
+	elseif (label_num=21)
 		LabelPad pad_to_label, {NOISE} //OSC
-	elseif (label_num=25)
+	elseif (label_num=22)
 		LabelPad pad_to_label, {PITCH} //OSC
-	elseif (label_num=26)
+	elseif (label_num=23)
 		LabelPad pad_to_label, {OCTAVE} //OSC
-	elseif (label_num=27)
+	elseif (label_num=24)
 		LabelPad pad_to_label, {F.CUTOFF} //FILTER
-	elseif (label_num=28)
+	elseif (label_num=25)
 		LabelPad pad_to_label, {F.RES} //FILTER
-	elseif (label_num=29)
-		LabelPad pad_to_label, {F.ENV AMT} //FILTER
-	elseif (label_num=30)
-		LabelPad pad_to_label, {F.ATTACK} //FILTER
-	elseif (label_num=31)
-		LabelPad pad_to_label, {F.DECAY} //FILTER
-	elseif (label_num=32)
-		LabelPad pad_to_label, {F.SUSTAIN} //FILTER
-	elseif (label_num=33)
-		LabelPad pad_to_label, {F.RELEASE} //FILTER
-	elseif (label_num=34)
+	elseif (label_num=26)
+		LabelPad pad_to_label, {TYPE} //FILTER
+	elseif (label_num=27)
 		LabelPad pad_to_label, {DRIVE} //FILTER
+	elseif (label_num=28)
+		LabelPad pad_to_label, {ATTACK} //ENV
+	elseif (label_num=29)
+		LabelPad pad_to_label, {DECAY} //ENV
+	elseif (label_num=30)
+		LabelPad pad_to_label, {SUSTAIN} //ENV
+	elseif (label_num=31)
+		LabelPad pad_to_label, {RELEASE} //ENV
+	elseif (label_num=32)
+		LabelPad pad_to_label, {ENV AMT} //ENV
+	elseif (label_num=33)
+		LabelPad pad_to_label, {START} //ENV
+	elseif (label_num=34)
+		LabelPad pad_to_label, {LENGTH} //ENV
 	elseif (label_num=35)
-		LabelPad pad_to_label, {MODWHEEL} //MODULATION
+		LabelPad pad_to_label, {MODWHEEL} //MOD
 	elseif (label_num=36)
-		LabelPad pad_to_label, {AFTERTOUCH} //MODULATION
+		LabelPad pad_to_label, {AFTERTOUCH} //MOD
 	elseif (label_num=37)
-		LabelPad pad_to_label, {MORPH} //MODULATION
+		LabelPad pad_to_label, {MORPH} //MOD
 	elseif (label_num=38)
-		LabelPad pad_to_label, {VIBRATO} //MODULATION
+		LabelPad pad_to_label, {VIBRATO} //MOD
 	elseif (label_num=39)
-		LabelPad pad_to_label, {GLIDE} //MODULATION
+		LabelPad pad_to_label, {GLIDE} //MOD
 	elseif (label_num=40)
-		LabelPad pad_to_label, {MOD AMT} //MODULATION
+		LabelPad pad_to_label, {MOD AMT} //MOD
 	elseif (label_num=41)
-		LabelPad pad_to_label, {MOD RATE} //MODULATION
+		LabelPad pad_to_label, {MOD RATE} //MOD
 	elseif (label_num=42)
-		LabelPad pad_to_label, {TONE} //MODULATION
+		LabelPad pad_to_label, {TONE} //MOD
 	elseif (label_num=43)
-		LabelPad pad_to_label, {DLY AMT} //FX
+		LabelPad pad_to_label, {LFO RATE} //MOD
 	elseif (label_num=44)
-		LabelPad pad_to_label, {RVB AMT} //FX
+		LabelPad pad_to_label, {LFO AMT} //MOD
 	elseif (label_num=45)
-		LabelPad pad_to_label, {DIST AMT} //FX
+		LabelPad pad_to_label, {LFO TYPE} //MOD
 	elseif (label_num=46)
-		LabelPad pad_to_label, {CHORUS AMT} //FX
+		LabelPad pad_to_label, {DLY AMT} //FX
 	elseif (label_num=47)
-		LabelPad pad_to_label, {FX AMT} //FX
+		LabelPad pad_to_label, {RVB AMT} //FX
 	elseif (label_num=48)
-		LabelPad pad_to_label, {FEEDBACK} //FX
+		LabelPad pad_to_label, {DIST AMT} //FX
 	elseif (label_num=49)
-		LabelPad pad_to_label, {SIZE} //FX
+		LabelPad pad_to_label, {CHORUS AMT} //FX
 	elseif (label_num=50)
-		LabelPad pad_to_label, {RATE} //FX
+		LabelPad pad_to_label, {PHASER AMT} //FX
 	elseif (label_num=51)
-		LabelPad pad_to_label, {A.ATTACK} //AMP
+		LabelPad pad_to_label, {FEEDBACK} //FX
 	elseif (label_num=52)
-		LabelPad pad_to_label, {A.DECAY} //AMP
+		LabelPad pad_to_label, {SIZE} //FX
 	elseif (label_num=53)
-		LabelPad pad_to_label, {A.SUSTAIN} //AMP
+		LabelPad pad_to_label, {RATE} //FX
 	elseif (label_num=54)
-		LabelPad pad_to_label, {A.RELEASE} //AMP
+		LabelPad pad_to_label, {RATIO} //OTHER
 	elseif (label_num=55)
-		LabelPad pad_to_label, {[ PLUGIN1 ]} //BTN
+		LabelPad pad_to_label, {MAKEUP} //OTHER
 	elseif (label_num=56)
-		LabelPad pad_to_label, {[ MUTE ]} //BTN
+		LabelPad pad_to_label, {CEILING} //OTHER
 	elseif (label_num=57)
-		LabelPad pad_to_label, {[ SOLO ]} //BTN
+		LabelPad pad_to_label, {[PGM-]} //OTHER
 	elseif (label_num=58)
-		LabelPad pad_to_label, {[ ARM ]} //BTN
+		LabelPad pad_to_label, {[PGM+]} //OTHER
 	elseif (label_num=59)
-		LabelPad pad_to_label, {[ PLUGIN2 ]} //BTN
+		LabelPad pad_to_label, {[RESET MXR]} //OTHER
 	elseif (label_num=60)
-		LabelPad pad_to_label, {[ PGM CHG-]} //SPECIAL
+		LabelPad pad_to_label, {[RESET INST]} //OTHER		
 	elseif (label_num=61)
-		LabelPad pad_to_label, {[ PGM CHG+]} //SPECIAL
+		LabelPad pad_to_label, {[PLUGIN]} //OTHER
 	elseif (label_num=62)
-		LabelPad pad_to_label, {DRUM#}, GetNoteState curr_chan, inst_ccs[pad_slot] //SPECIAL 127	
+		LabelPad pad_to_label, {CH#}, (GetNoteState curr_chan, inst_ccs[pad_slot])+1 //OTHER
+	elseif (label_num=63)
+		LabelPad pad_to_label, {DRUM#}, GetNoteState curr_chan, inst_ccs[pad_slot] //OTHER
+	elseif (label_num=64)
+		LabelPad pad_to_label, {MUTE} //OTHER
+	elseif (label_num=65)
+		LabelPad pad_to_label, {SOLO} //OTHER
+	elseif (label_num=66)
+		LabelPad pad_to_label, {ARM} //OTHER
 	elseif (label_num=-1)
 		LabelPad pad_to_label, { }
 	endif
+	//update init vars with variable numbers if this is changed
 @End
 
 @LabelAutomationKnobs
