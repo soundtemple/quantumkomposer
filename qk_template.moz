@@ -90,8 +90,8 @@
 	protected_cc_to_label=[-1,35,36,37,38,39, 0,1,2,3, 4,5,6,7] 
 	protected_cc_to_label[117]=[8,9,10,11, 12,13,14,15, 63,64,65]
 	// label number vars. Update these if @LabelInstr changes	
-	lbl_num_pgm_inc=57
-	lbl_num_pgm_dec=58
+	lbl_num_pgm_dec=57
+	lbl_num_pgm_inc=58
 	lbl_num_res_mxr=59
 	lbl_num_res_inst=60
 	lbl_num_plugin=61
@@ -105,7 +105,7 @@
 	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 125,126,127] //ccs for mixer params
 	chan_mx_def_vals = [90,64,64,64, 0,0,127,0, 64,64,0,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
 	mute_solo_arm=0 //remember pad state 0-2
-	for ch = 0 to 15
+	for ch = 0 to 15 //set up mixer on all channels with default vals on def cc's
 		for i = 0 to 19
 			SetNoteState ch, chan_mx_ccs[i], chan_mx_def_vals[i] //store vals in the curr_chan not the midi chan
 		endfor
@@ -395,13 +395,6 @@
 			Call @HandleTransportRequest
 			if print_preset and LastPad=13 and NOT HostRunning
 				Call @PrintPreset
-			elseif LastPad=14 and NOT HostRunning //RESET MIXER OVERLOADS Controller!!!
-				for ch = 0 to 15
-					for i = 0 to 19
-						SetNoteState ch, chan_mx_ccs[i], chan_mx_def_vals[i]
-						SendMIDICC chan_midi_chs[ch], chan_mx_ccs[i], chan_mx_def_vals[i]
-					endfor
-				endfor
 			endif
 		endif
 	elseif NOT in_mode_select
@@ -531,10 +524,29 @@
 			endif
 			use_instr_knobset_a = FALSE
 		endif
-	elseif inst_labels[pad_slot]=lbl_num_res_mxr
-		Log {RESET MIXER PARAMS TO DEFAULTS AND SEND MIDI}
-	elseif inst_labels[pad_slot]=lbl_num_res_inst
-		Log {RESET INST PARAMS TO DEFAULTS AND SEND MIDI}
+	elseif inst_labels[pad_slot]=lbl_num_res_mxr //RESET MIXER
+		if LastPad = edit_pad //user hit same pad again. switch knobset
+			for i = 0 to 19
+				SetNoteState curr_chan, chan_mx_ccs[i], chan_mx_def_vals[i]
+				Log {Mixer: }, chan_mx_ccs[i], { - }, chan_mx_def_vals[i]
+				SendMIDICC chan_midi_chs[curr_chan], chan_mx_ccs[i], chan_mx_def_vals[i]
+			endfor
+			Call @LabelInstrumentKnobs
+			Call @SetupLayoutChannels
+			Log {RESET MIXER PARAMS TO DEFAULTS AND SENT MIDI}
+		else 
+			LabelPad LastPad, {Yes, Reset?}, { SHIFTx2 to cancel}
+		endif
+	elseif inst_labels[pad_slot]=lbl_num_res_inst //RESET INSTRUMENT LAYOUT
+		if LastPad = edit_pad //user hit same pad again. switch knobset
+			edit_chan=curr_chan
+			Call @BuildLayoutPage
+			Call @LabelInstrumentKnobs
+			Call @SetupLayoutChannels
+			Log {RESET INST PARAMS TO DEFAULTS}
+		else
+			LabelPad LastPad, {Yes, Reset?}, { SHIFTx2 to cancel}
+		endif
 	else 
 		if LastPad = edit_pad //user hit same pad again. switch knobset
 			use_instr_knobset_a = NOT use_instr_knobset_a
