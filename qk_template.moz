@@ -27,10 +27,7 @@
 		curr_chan=0 //# 0-15 KNTRL channels + Channel Select + M-Kontrol Channel
 		print_preset=TRUE
 		send_cc_back_to_knobs = TRUE
-		knob1_cc = 124 //# Used for sending midi feedback to LED knobs
-	  knob2_cc = 125
-	  knob3_cc = 126
-	  knob4_cc = 127
+		inc_midi_kntrl=[15,124,125,126,127] //midi controller is sending on channel and 4 ccs
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
@@ -187,11 +184,12 @@
 
 @SendMidiCCBackToKnobs
 	//# Update controller knob vals with midi cc
+	Log {sending midi to atom SQ... CH:}, inc_midi_kntrl[0]+1, { cc#}, inc_midi_kntrl[1], {-},inc_midi_kntrl[4]
 	if send_cc_back_to_knobs
-		SendMidiCC 15, knob1_cc, Round GetKnobValue 0
-		SendMidiCC 15, knob2_cc, Round GetKnobValue 1
-		SendMidiCC 15, knob3_cc, Round GetKnobValue 2
-		SendMidiCC 15, knob4_cc, Round GetKnobValue 3
+		SendMidiCC inc_midi_kntrl[0], inc_midi_kntrl[1], Round GetKnobValue 0
+		SendMidiCC inc_midi_kntrl[0], inc_midi_kntrl[2], Round GetKnobValue 1
+		SendMidiCC inc_midi_kntrl[0], inc_midi_kntrl[3], Round GetKnobValue 2
+		SendMidiCC inc_midi_kntrl[0], inc_midi_kntrl[4], Round GetKnobValue 3
 	endif
 @End
 
@@ -1411,7 +1409,6 @@
 				midi_chan = chan_midi_chs[curr_chan]
 				SetNoteState curr_chan, cc, val
 				SendMIDICC midi_chan, cc, val
-				Log {Sending: }, midi_chan, {-}, cc, {-}, val
 			endif
 		endfor
 	endif
