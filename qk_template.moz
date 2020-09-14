@@ -26,8 +26,8 @@
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		curr_chan=0 //# 0-15 KNTRL channels + Channel Select + M-Kontrol Channel
 		print_preset=TRUE
-		send_cc_back_to_knobs = FALSE
-		inc_midi_kntrl=[15,124,125,126,127] //midi controller is sending on channel and 4 ccs
+		send_cc_back_to_knobs = TRUE
+		midi_controller=[15,124,125,126,127] //midi controller is sending on channel and 4 ccs
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
@@ -62,7 +62,7 @@
 	// 16 MidiGENs --> (channels 17-24) label,color, ccs1-4, plugin_btn, midi_ch=1
 	
 	//CHANNELS
-	chan_layouts = [3,4,1,1,1,1,1,1,5,2,2,2,2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,select
+	chan_layouts = [3,4,1,1,1,1,1,1,5,2,2,2,2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,segments
 	fixed_cc_layout=[FALSE,FALSE,FALSE,FALSE,FALSE]
 	chan_midi_chs = [1,2,3,4,5,6,7,8,9,10,11,11,12,13,14,0]
 	chan_lsb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
@@ -84,8 +84,6 @@
 	inst_mins=[] //# range parameter for the val attribute
 	inst_maxs=[] //# range parameter for the val attribute
 	FillArray inst_maxs, 127, 1024 //# default the max cc range to 127
-	protected_cc_to_label=[-1,35,36,37,38,39, 0,1,2,3, 4,5,6,7] 
-	protected_cc_to_label[117]=[8,9,10,11, 12,13,14,15, 64,65,66]
 	// label number vars. Update these if @LabelInstr changes	
 	lbl_num_pgm_dec=57
 	lbl_num_pgm_inc=58
@@ -99,11 +97,14 @@
 	lbl_num_arm=66
 	// MIXER - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO
-	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 125,126,127] //ccs for mixer params
-	chan_mx_def_vals = [90,64,64,64, 0,0,127,0, 64,64,0,64, 0,0,0,0, 0,0,0,0] //def values for mixer params
+	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 113,113,114,116, 117,118,119,120, 121,122,123] //ccs for mixer params
+	chan_mx_def_vals = [90,64,64,64, 0,0,127,0, 64,64,0,64, 0,0,0,0, 0,0,0] //def values for mixer params
+	protected_cc_to_label=[-1,35,36,37,38,39, 0,1,2,3, 4,5,6,7] 
+	protected_cc_to_label[113]=[8,9,10,11, 12,13,14,15, 64,65,66, -1,-1,-1,-1]
+	
 	mute_solo_arm=0 //remember pad state 0-2
 	for ch = 0 to 15 //set up mixer on all channels with default vals on def cc's
-		for i = 0 to 19
+		for i = 0 to 18
 			SetNoteState ch, chan_mx_ccs[i], chan_mx_def_vals[i] //store vals in the curr_chan not the midi chan
 		endfor
 	endfor
@@ -184,12 +185,12 @@
 
 @SendMidiCCBackToKnobs
 	//# Update controller knob vals with midi cc
-	Log {sending midi to atom SQ... CH:}, inc_midi_kntrl[0]+1, { cc#}, inc_midi_kntrl[1], {-},inc_midi_kntrl[4]
+	Log {sending midi to CONTROLLER ... CH:}, midi_controller[0]+1, { cc#}, midi_controller[1], {-},midi_controller[4]
 	if send_cc_back_to_knobs
-		SendMidiCC inc_midi_kntrl[0], inc_midi_kntrl[1], Round GetKnobValue 0
-		SendMidiCC inc_midi_kntrl[0], inc_midi_kntrl[2], Round GetKnobValue 1
-		SendMidiCC inc_midi_kntrl[0], inc_midi_kntrl[3], Round GetKnobValue 2
-		SendMidiCC inc_midi_kntrl[0], inc_midi_kntrl[4], Round GetKnobValue 3
+		SendMidiCC midi_controller[0], midi_controller[1], Round GetKnobValue 0
+		SendMidiCC midi_controller[0], midi_controller[2], Round GetKnobValue 1
+		SendMidiCC midi_controller[0], midi_controller[3], Round GetKnobValue 2
+		SendMidiCC midi_controller[0], midi_controller[4], Round GetKnobValue 3
 	endif
 @End
 
@@ -468,7 +469,6 @@
 	chan = chan_midi_chs[curr_chan]
 	latch_last_pad=TRUE
 	re_label_pad_on_press=FALSE
-	log {LABEL NUM: }, inst_labels[pad_slot]
 	for i = 0 to 15
 		LatchPad i, no 
 	endfor
@@ -524,9 +524,8 @@
 		endif
 	elseif inst_labels[pad_slot]=lbl_num_res_mxr //RESET MIXER
 		if LastPad = edit_pad //user hit same pad again. switch knobset
-			for i = 0 to 19
+			for i = 0 to 18
 				SetNoteState curr_chan, chan_mx_ccs[i], chan_mx_def_vals[i]
-				Log {Mixer: }, chan_mx_ccs[i], { - }, chan_mx_def_vals[i]
 				SendMIDICC chan_midi_chs[curr_chan], chan_mx_ccs[i], chan_mx_def_vals[i]
 			endfor
 			Call @LabelInstrumentKnobs
@@ -541,7 +540,6 @@
 			Call @BuildLayoutPage
 			Call @LabelInstrumentKnobs
 			Call @SetupLayoutChannels
-			Log {RESET INST PARAMS TO DEFAULTS}
 		else
 			LabelPad LastPad, {Yes, Reset?}, { SHIFTx2 to cancel}
 		endif
@@ -554,7 +552,7 @@
 	LatchPad LastPad, latch_last_pad
 	if re_label_pad_on_press
 		if LastPad = edit_pad //user hit same pad again. switch knobset
-			use_instr_knobset_a = NOT use_instr_knobset_a
+			use_instr_knobset_a = use_instr_knobset_a
 		endif
 		pad_to_label=LastPad 
 		Call @LabelInstrPad
@@ -911,7 +909,8 @@
 	endif
 	if LastKnob = 3
 		chan_layouts[edit_chan] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 5
-		Call @BuildLayoutPage
+		Log {Building layyout }, chan_layouts[edit_chan] 
+		Call @BuildLayoutPage 
 		SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 32, 0, 127
 		SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 7, 0, 127
 		SetKnobValue 2, TranslateScale chan_midi_chs[edit_chan], 0, 15, 0, 127
@@ -998,16 +997,18 @@
 	chan_to_label=curr_chan
 	if LastKnob = 0 // LABEL : LSB / CC#
 		if use_instr_knobset_a
-			inst_labels[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 63
-			Call @LabelInstrPad
+			new_label_num = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 63
+			if new_label_num <> inst_labels[pad_slot]
+				inst_labels[pad_slot] = new_label_num 
+				Call @LabelInstrPad
+			endif
 		else
 			if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG
 				chan_lsb[curr_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
 			else
 				if not fixed_cc_layout[chan_layouts[curr_chan]]
 					inst_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
-					if inst_ccs[pad_slot]<= 13 or inst_ccs[pad_slot]>=117
-						Log {CC in protected range, relabelling to CC fixed label}
+					if inst_ccs[pad_slot]<= 13 or inst_ccs[pad_slot]>=113
 						inst_labels[pad_slot]=protected_cc_to_label[inst_ccs[pad_slot]] 
 						Call @LabelInstrPad //protected cc - has a fixed label
 					endif
@@ -1830,7 +1831,8 @@
 			def_colors[16*i] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			def_vals[16*i]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			for p = 0 to 15
-				def_ccs[(16*i)+p] = 30 + (16*1) + p
+				def_ccs[(16*i)+p] = 30 + (16*i) + p
+				Log {Def cc's = }, def_ccs[(16*i)+p]
 			endfor
 			def_mins[16*i]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			def_maxs[16*i]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
@@ -1843,48 +1845,48 @@
 		def_ccs[16*0]    = [7,6,10,11,12,13,15,14,1,3,36,37,44,45,46,47]
 		def_mins[16*0]   = [15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs[16*0]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-		def_labels[16*1] = [0,1,4,5,6,7,9,8,35,37,27,28,43,44,59,60]
-		def_colors[16*1] = [2,2,5,5,3,3,2,2,4,4,4,4,4,4,0,0]
-		def_vals[16*1]   = [100,64,0,0,0,127,64,64,0,0,0,0,0,0,0,0]
-		def_ccs[16*1]    = [7,6,10,11,12,13,15,14,1,3,36,37,44,45,124,125]
-		def_mins[16*1]   = [15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_maxs[16*1]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-		def_labels[16*2] = [0,1,4,5,6,7,9,8,35,37,27,28,43,44,59,60]
-		def_colors[16*2] = [1,2,3,4,5,6,0,1,2,3,4,5,6,0,1,2]
-		def_vals[16*2]   = [100,64,0,0,49,127,64,64,0,0,0,0,0,0,0,0]
-		def_ccs[16*2]    = [7,6,10,11,12,13,15,14,1,3,36,37,44,45,124,125]
-		def_mins[16*2]   = [15,0,0,0,32,0,0,0,0,0,0,0,0,0,0,0]
-		def_maxs[16*2]   = [127,127,127,127,88,127,127,127,127,127,127,127,127,127,127,127]
-		def_labels[16*3] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
-		def_colors[16*3] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_vals[16*3]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_ccs[16*3]    = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
-		def_mins[16*3]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_maxs[16*3]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-	elseif chan_layouts[edit_chan]=2
-		LabelKnob 3, {Bus}
-		def_labels[16*0] = [0,2,1,3,4,5,6,7,12,13,14,15,64,65,66,61]
-		def_colors[16*0] = [2,2,2,2,6,6,3,3,4,4,4,4,0,0,0,0]
-		def_vals[16*0]   = [90,64,64,64,0,0,0,127,0,0,0,0,0,0,0,0]
-		def_ccs[16*0]    = [6,8,7,9,10,11,12,13,121,122,123,124,125,126,127,45]
-		def_mins[16*0]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_maxs[16*0]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-		def_labels[16*1] = [8,9,10,-1,8,9,10,-1,8,9,10,-1,7,6,36,-1]
-		def_colors[16*1] = [4,4,4,0,3,3,3,0,6,6,6,0,5,5,5,0]
-		def_vals[16*1]   = [64,64,0,0,64,90,0,0,64,40,0,0,127,0,0,0]
-		def_ccs[16*1]    = [117,118,119,49,50,51,52,53,54,55,56,57,18,14,2,61]
+		def_labels[16*1] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
+		def_colors[16*1] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_vals[16*1]   = [0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
+		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61]
 		def_mins[16*1]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs[16*1]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_labels[16*2] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 		def_colors[16*2] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_vals[16*2]   = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
+		def_ccs[16*2]    = [62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77]
+		def_mins[16*2]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_maxs[16*2]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		def_labels[16*3] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
+		def_colors[16*3] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_vals[16*3]   = [0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93]
+		def_mins[16*3]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_maxs[16*3]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+	elseif chan_layouts[edit_chan]=2
+		LabelKnob 3, {Bus} //Mixer, 3Band EQnFilter
+		def_labels[16*0] = [0,2,1,3,4,5,6,7,12,13,14,15,64,65,66,61]
+		def_colors[16*0] = [2,2,2,2,6,6,3,3,4,4,4,4,0,0,0,0]
+		def_vals[16*0]   = [90,64,64,64,0,0,0,127,0,0,0,0,0,0,0,0]
+		def_ccs[16*0]    = [6,8,7,9,10,11,12,13,117,118,119,120,121,122,123,45]
+		def_mins[16*0]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_maxs[16*0]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		def_labels[16*1] = [8,8,10,-1,8,9,10,-1,8,9,10,-1,7,6,11,59]
+		def_colors[16*1] = [4,4,4,0,3,3,3,0,6,6,6,0,5,5,5,0]
+		def_vals[16*1]   = [0,0,0,0,-1,-1,-1,0,-1,-1,-1,-1,127,0,64,0]
+		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,13,12,116,61]
+		def_mins[16*1]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_maxs[16*1]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		def_labels[16*2] = [-1,-1,-1,-1,-1,61,61,61,-1,-1,-1,-1,54,55,1,56]
+		def_colors[16*2] = [0,0,0,0,0,0,0,0,0,0,0,0,4,4,4,4]
 		def_vals[16*2]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_ccs[16*2]    = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+		def_ccs[16*2]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61]
 		def_mins[16*2]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs[16*2]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_labels[16*3] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 		def_colors[16*3] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_vals[16*3]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_ccs[16*3]    = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+		def_ccs[16*3]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61]
 		def_mins[16*3]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs[16*3]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 	elseif chan_layouts[edit_chan]=3
