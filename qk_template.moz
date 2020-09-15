@@ -62,7 +62,7 @@
 	// 16 MidiGENs --> (channels 17-24) label,color, ccs1-4, plugin_btn, midi_ch=1
 	
 	//CHANNELS
-	chan_layouts = [3,4,1,1,1,1,1,1,5,2,2,2,2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,segments
+	chan_layouts = [0,0,0,0, 0,0,0,0, 2,2,2,2, 2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,segments
 	fixed_cc_layout=[FALSE,FALSE,FALSE,FALSE,FALSE]
 	chan_midi_chs = [1,2,3,4,5,6,7,8,9,10,11,11,12,13,14,0]
 	chan_lsb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
@@ -191,6 +191,10 @@
 		SendMidiCC midi_controller[0], midi_controller[2], Round GetKnobValue 1
 		SendMidiCC midi_controller[0], midi_controller[3], Round GetKnobValue 2
 		SendMidiCC midi_controller[0], midi_controller[4], Round GetKnobValue 3
+		Log {knob0 }, Round GetKnobValue 0
+		Log {knob1 }, Round GetKnobValue 1
+		Log {knob2 }, Round GetKnobValue 2
+		Log {knob3 }, Round GetKnobValue 3
 	endif
 @End
 
@@ -972,7 +976,7 @@
 		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
 	endif	
 	if use_instr_knobset_a // Label : Color : Value : CC#
-		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 63, 0, 127
+		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 66, 0, 127
 		SetKnobValue 1, TranslateScale inst_colors[pad_slot], 0, 6, 0, 127
 		SetKnobValue 3, TranslateScale inst_curr_page[curr_chan], 0, 3, 0, 127
 	else 
@@ -997,7 +1001,7 @@
 	chan_to_label=curr_chan
 	if LastKnob = 0 // LABEL : LSB / CC#
 		if use_instr_knobset_a
-			new_label_num = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 63
+			new_label_num = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 66
 			if new_label_num <> inst_labels[pad_slot]
 				inst_labels[pad_slot] = new_label_num 
 				Call @LabelInstrPad
@@ -1871,10 +1875,10 @@
 		def_ccs[16*0]    = [6,8,7,9,10,11,12,13,117,118,119,120,121,122,123,45]
 		def_mins[16*0]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs[16*0]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-		def_labels[16*1] = [8,8,10,-1,8,9,10,-1,8,9,10,-1,7,6,11,59]
+		def_labels[16*1] = [8,8,10,-1,8,9,10,59,8,9,10,-1,7,6,11,61]
 		def_colors[16*1] = [4,4,4,0,3,3,3,0,6,6,6,0,5,5,5,0]
-		def_vals[16*1]   = [0,0,0,0,-1,-1,-1,0,-1,-1,-1,-1,127,0,64,0]
-		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,13,12,116,61]
+		def_vals[16*1]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61]
 		def_mins[16*1]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs[16*1]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_labels[16*2] = [-1,-1,-1,-1,-1,61,61,61,-1,-1,-1,-1,54,55,1,56]
