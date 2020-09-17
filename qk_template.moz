@@ -62,7 +62,7 @@
 	// 16 MidiGENs --> (channels 17-24) label,color, ccs1-4, plugin_btn, midi_ch=1
 	
 	//CHANNELS
-	chan_layouts = [0,0,0,0, 0,0,0,0, 2,2,2,2, 2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,segments
+	chan_layouts = [3,4,0,0, 0,0,0,0, 2,2,2,2, 2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,segments
 	fixed_cc_layout=[FALSE,FALSE,FALSE,FALSE,FALSE]
 	chan_midi_chs = [1,2,3,4,5,6,7,8,9,10,11,11,12,13,14,0]
 	chan_lsb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
@@ -301,6 +301,7 @@
 @End
 
 @OnPadDown
+	pad_is_down = TRUE
 	//# Pad Down actions
 	if in_mode_select
 		if LastPad=0
@@ -422,6 +423,11 @@
 	endif
 	LOG {MODE: }, mode
 @End
+
+@OnPadUp
+  pad_is_down = FALSE
+@End
+
 
 @PadDownScenesMode
 	if mode=0 and (LastPad >= 0 and LastPad <= 7) //SCENES MODE
@@ -1042,8 +1048,10 @@
 			chan_pgm[curr_chan] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, chan_pgm_max[curr_chan]
 		else 
 			kv = Round TranslateScale (GetKnobValue 2), 0, 127, inst_mins[pad_slot], inst_maxs[pad_slot]
-			SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot], kv //knob value
-			SetNoteState curr_chan, inst_ccs[pad_slot], kv
+			if NOT pad_is_down
+				SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot], kv //knob value
+				SetNoteState curr_chan, inst_ccs[pad_slot], kv
+			endif
 			if inst_labels[pad_slot]=lbl_num_drum_ch or inst_labels[pad_slot]=lbl_num_ch_num
 				Call @LabelInstrPad // drum ch# has value in label so update
 			endif
