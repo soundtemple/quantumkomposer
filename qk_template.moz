@@ -62,7 +62,7 @@
 	// 16 MidiGENs --> (channels 17-24) label,color, ccs1-4, plugin_btn, midi_ch=1
 	
 	//CHANNELS
-	chan_layouts = [3,4,0,0, 0,0,0,0, 2,2,2,2, 2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,segments, ting
+	chan_layouts = [3,4,1,1, 1,1,1,1, 5,6,2,2, 2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,segments, ting
 	fixed_cc_layout=[FALSE,FALSE,FALSE,FALSE,FALSE]
 	layout_locked=[FALSE, TRUE,TRUE, TRUE,TRUE, FALSE,FALSE]
 	chan_midi_chs = [1,2,3,4,5,6,7,8,9,10,11,11,12,13,14,0]
@@ -900,7 +900,9 @@
 	elseif layout = 4	
 		LabelKnob 3, {RuisFM}
 	elseif layout = 5	
-		LabelKnob 3, {Select}
+		LabelKnob 3, {Segments}
+	elseif layout = 6	
+		LabelKnob 3, {Ting}
 	endif
 	SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 32, 0, 127
 	SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 6, 0, 127
@@ -2084,16 +2086,22 @@
 		LabelPad pad_to_label, {OSC2 VOL} //OSC
 	elseif (label_num=21)
 		LabelPad pad_to_label, {NOISE} //OSC
+	elseif (label_num=22) and chan_layouts[curr_chan]=3
+		LabelPad pad_to_label, {TUNE} //OSC
 	elseif (label_num=22)
 		LabelPad pad_to_label, {PITCH} //OSC
 	elseif (label_num=23)
 		LabelPad pad_to_label, {OCTAVE} //OSC
+	elseif (label_num=24) and chan_layouts[curr_chan]=4
+		LabelPad pad_to_label, {PKF} //FILTER
 	elseif (label_num=24)
 		LabelPad pad_to_label, {F.CUTOFF} //FILTER
 	elseif (label_num=25)
 		LabelPad pad_to_label, {F.RES} //FILTER
+	elseif (label_num=26) and chan_layouts[curr_chan]=4
+		LabelPad pad_to_label, {MODULATOR} //FILTER
 	elseif (label_num=26)
-		LabelPad pad_to_label, {TYPE} //FILTER
+		LabelPad pad_to_label, {F.TYPE} //FILTER
 	elseif (label_num=27)
 		LabelPad pad_to_label, {DRIVE} //FILTER
 	elseif (label_num=28)
@@ -2122,8 +2130,12 @@
 		LabelPad pad_to_label, {GLIDE} //MOD
 	elseif (label_num=40)
 		LabelPad pad_to_label, {MOD AMT} //MOD
+	elseif (label_num=41) and chan_layouts[curr_chan]=4
+		LabelPad pad_to_label, {SPEED} //MOD
 	elseif (label_num=41)
 		LabelPad pad_to_label, {MOD RATE} //MOD
+	elseif (label_num=42) and chan_layouts[curr_chan]=3
+		LabelPad pad_to_label, {PERS'TY} //MOD
 	elseif (label_num=42)
 		LabelPad pad_to_label, {TONE} //MOD
 	elseif (label_num=43)
@@ -2136,6 +2148,8 @@
 		LabelPad pad_to_label, {DLY AMT} //FX
 	elseif (label_num=47)
 		LabelPad pad_to_label, {RVB AMT} //FX
+	elseif (label_num=48) and chan_layouts[curr_chan]=4
+		LabelPad pad_to_label, {SATURATE} //FX
 	elseif (label_num=48)
 		LabelPad pad_to_label, {DIST AMT} //FX
 	elseif (label_num=49)
@@ -2146,6 +2160,8 @@
 		LabelPad pad_to_label, {FEEDBACK} //FX
 	elseif (label_num=52)
 		LabelPad pad_to_label, {SIZE} //FX
+	elseif (label_num=53) and chan_layouts[curr_chan]=3
+		LabelPad pad_to_label, {DELAY TIME} //FX
 	elseif (label_num=53)
 		LabelPad pad_to_label, {RATE} //FX
 	elseif (label_num=54)
