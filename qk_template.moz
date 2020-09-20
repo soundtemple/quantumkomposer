@@ -64,7 +64,7 @@
 	//CHANNELS
 	chan_layouts = [3,4,1,1, 1,1,1,1, 5,6,2,2, 2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,segments, ting
 	fixed_cc_layout=[FALSE,FALSE,FALSE,FALSE,FALSE]
-	layout_locked=[FALSE, TRUE,TRUE, TRUE,TRUE, FALSE,FALSE]
+	layout_locked=[FALSE, TRUE,TRUE, TRUE,TRUE,TRUE,TRUE]
 	chan_midi_chs = [1,2,3,4,5,6,7,8,9,10,11,11,12,13,14,0]
 	chan_lsb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
 	chan_msb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
@@ -191,6 +191,15 @@
 	SetLFOType 1, {RampDown}
 	SetupLFO 0, 0, 127, YES, 0.5
 	SetupLFO 1, 0, 127, YES, 0.5
+@End
+
+@OnMidiInput
+  //Route keyboard thru kntrl direct to curr_chan instrument
+	if MIDICommand = 0xB0 //B0 is std cc event
+		//pass
+	else
+		SendMIDIThruOnCh chan_midi_chs[curr_chan] //pass thru notes, aftertouch, pressure, pitchbend
+	endif
 @End
 
 @SendMidiCCBackToKnobs
@@ -1867,14 +1876,14 @@
 	def_labels[16*3] = [0,2,1,3,4,5,6,7,12,13,14,15,64,65,66,59]
 	def_colors[16*3] = [2,2,2,2,6,6,3,3,4,4,4,4,0,0,0,0]
 	def_vals[16*3]   = [90,64,64,64,0,0,0,127,0,0,0,0,0,0,0,0]
-	def_ccs[16*3]    = [7,8,6,9,10,11,12,13,117,118,119,120,121,122,123,45]
+	def_ccs[16*3]    = [7,8,6,9,10,11,12,13,117,118,119,120,121,122,123,93]
 	if chan_layouts[edit_chan]=0 
 		LabelKnob 3, {Layout:Free}
 	elseif chan_layouts[edit_chan]=1 
 		LabelKnob 3, {Synth}
 		def_labels[16*0] = [19,16,18,17,23,61,35,36,20,16,21,17,23,-1,37,38]
 		def_colors[16*0] = [3,3,3,3,3,0,4,4,3,3,3,3,3,0,4,4]
-		def_vals[16*0]   = [0,0,0,64,64,64,10,0,0,0,0,64,64,64,0,0]
+		def_vals[16*0]   = [0,0,0,64,64,0,0,0,0,0,0,0,64,0,0,0]
 		def_ccs[16*0]    = [30,31,32,33,34,35,1,2,38,39,40,41,42,41,3,4]
 		def_labels[16*1] = [24,25,26,32,27,27,57,58,24,25,26,32,28,29,30,31]
 		def_colors[16*1] = [3,3,3,6,2,2,0,0,3,3,3,6,4,4,4,4]
@@ -1933,8 +1942,30 @@
 		def_ccs[16*2]    = [80,85,84,88,92,97,96,100,39,51,63,76,88,100,52,35]
 	elseif chan_layouts[edit_chan]=5
 		LabelKnob 3, {Segments}
+		def_labels[16*0] = [22,34,28,31,22,34,28,31,22,34,28,31,22,34,28,31]
+		def_labels[16*1] = [22,34,28,31,22,34,28,31,22,34,28,31,22,34,28,31]
+		def_labels[16*2] = [0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,23,60,61]
+		def_colors[16*0] = [4,4,4,4, 3,3,3,3, 2,2,2,2, 4,4,4,4]
+		def_colors[16*1] = [2,2,2,2, 6,6,6,6, 5,5,5,5, 1,1,1,1]
+		def_colors[16*2] = [4,3,2,4, 2,6,5,1, 0,0,0,0, 0,0,0,0]
+		def_vals[16*0]   = [64,127,0,127, 64,127,0,127, 64,127,0,127, 64,127,0,127]
+		def_vals[16*1]   = [64,127,0,127, 64,127,0,127, 64,127,0,127, 64,127,0,127]
+		def_vals[16*2]   = [127,127,127,127, 127,127,127,127, 0,0,0,0, 0,64,0,0]
 	elseif chan_layouts[edit_chan]=6
 		LabelKnob 3, {Ting}
+		def_vals[16*0]   = [64,90,20,64, 64,90,20,64, 64,90,20,64, 64,90,20,64]
+		def_vals[16*1]   = [64,90,20,64, 64,90,20,64, 64,90,20,64, 64,90,20,64]
+		def_vals[16*2]   = [64,90,20,64, 64,90,20,64, 64,90,20,64, 64,90,20,64]
+		def_labels[16*0] = [2,1,47,22, 2,1,47,22, 2,1,47,22, 2,1,47,22]
+		def_labels[16*1] = [2,1,47,22, 2,1,47,22, 2,1,47,22, 2,1,47,22]
+		def_labels[16*2] = [2,1,47,22, 2,1,47,22, 2,1,47,22, 2,1,47,22]
+		def_colors[16*0] = [1,1,1,1, 2,2,2,2, 3,3,3,3, 4,4,4,4]
+		def_colors[16*1] = [2,2,2,2, 3,3,3,3, 4,4,4,4, 6,6,6,6]
+		def_colors[16*2] = [3,3,3,3, 4,4,4,4, 6,6,6,6, 2,2,2,2]
+		def_labels[16*3] = [42,42,42,61,29,47,55,0,12,13,14,15,64,65,66,59]
+		def_colors[16*3] = [5,1,3,0,2,2,5,5,4,4,4,4,0,0,0,0]
+		def_vals[16*3]   = [64,64,64,0, 40,40,20,100, 0,0,0,0,0,0,0,0]
+		def_ccs[16*3]    = [78,8,6,9,10,11,12,13,117,118,119,120,121,122,123,93]
 	endif	
 	pad_slot = (64*edit_chan)
 	CopyArray def_labels, inst_labels[pad_slot], 64 //4pages of 16pads
@@ -2046,6 +2077,8 @@
 		LabelPad pad_to_label, {VOL} //MIXER
 	elseif (label_num=1)
 		LabelPad pad_to_label, {GAIN} //MIXER
+	elseif (label_num=2) and chan_layouts[edit_chan]=6
+		LabelPad pad_to_label, {PAN [}, (NoteName((Div pad_to_label,4)+(inst_curr_page[curr_chan]*4))), {]} //MIXER
 	elseif (label_num=2)
 		LabelPad pad_to_label, {PAN} //MIXER
 	elseif (label_num=3)
@@ -2090,6 +2123,8 @@
 		LabelPad pad_to_label, {TUNE} //OSC
 	elseif (label_num=22)
 		LabelPad pad_to_label, {PITCH} //OSC
+	elseif (label_num=23) and chan_layouts[curr_chan]=5
+		LabelPad pad_to_label, {GLBL PITCH} //OSC
 	elseif (label_num=23)
 		LabelPad pad_to_label, {OCTAVE} //OSC
 	elseif (label_num=24) and chan_layouts[curr_chan]=4
@@ -2166,6 +2201,8 @@
 		LabelPad pad_to_label, {RATE} //FX
 	elseif (label_num=54)
 		LabelPad pad_to_label, {RATIO} //OTHER
+	elseif (label_num=55) and chan_layouts[edit_chan]=6
+		LabelPad pad_to_label, {COMP} //OTHER
 	elseif (label_num=55)
 		LabelPad pad_to_label, {MAKEUP} //OTHER
 	elseif (label_num=56)
