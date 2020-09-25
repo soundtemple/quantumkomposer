@@ -1,3 +1,4 @@
+//# SPLIT OFF FROM KNTRL ON 26SEP
 //# MOZAIC KOMPOSER SUITE
 //# KONTROLLER APP
 //# Handles messages to all connected instances for:
@@ -357,14 +358,42 @@
 			endif
 			LatchPad curr_chan, YES
 			LabelPads {KNTRL : [ CHANNELS ]}
-		elseif LastPad=4
-			Log {up pops INSTR}
 		elseif LastPad=5
-			Log {up pops EQ}
+			mode=2 //AUTOMATION
+			in_mode_select = FALSE
+			if edit_mode_active
+				sel_autom_pad=0
+				Call @LabelAutomationPads
+				Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
+				LatchPad 0, YES
+			else
+				sel_autom_pad=0
+				Call @LabelAutomationPads
+				Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
+				LatchPad 0, YES	
+			endif
 		elseif LastPad=6
-			Log {up pops MG}
+			mode=3 //MACROS
+			in_mode_select = FALSE
+			LabelPads {KNTRL : [ MACROS ]}
+			ShowLayout 2
+			for i = 0 to 15
+				LatchPad i, NO 
+				pad_to_label=i 
+				pad_slot=(macro_chans[i] * 16) + macro_params[i] 
+				Call @LabelInstrPad
+			endfor
+			LatchPad sel_macro, YES 
+			if edit_mode_active
+				Call @SetupKnobset11
+			else
+				Call @SetupKnobset12
+			endif
 		elseif LastPad=7
-			Log {up pops FX}
+			mode=4 // LFO's
+			in_mode_select = FALSE
+			Call @SetupLayoutLFOS
+			Call @SetupKnobset6 //# LFO's
 		elseif LastPad>=8 and LastPad<=12 // MIXER MODES
 		  mode=7 //MIXER MODES
 			in_mode_select = FALSE
@@ -711,9 +740,9 @@
 	LabelPad 2, {EDIT}
 	LabelPad 3, {CHANNELS}
 	LabelPad 4, {[INSTR]}
-	LabelPad 5, {[EQ]}
-	LabelPad 6, {[MIDIGEN]}
-	LabelPad 7, {[FX]}
+	LabelPad 5, {AUTOM}
+	LabelPad 6, {MACROS}
+	LabelPad 7, {LFO's}
 	LabelPad 8, { ___MX___ }, {VOL PAN} //channels Vol, Gain, Pan, Mid/Side
 	LabelPad 9, { ___MX___ }, {SEND FILT.} //HPF LPF SEND A SEND B
 	LabelPad 10,{ ___MX___ }, {EQ}
@@ -727,8 +756,8 @@
 	LabelPad 14, {[STOP] RESET MIXER}
 	LabelPad 15, {PLAY>}
 	if edit_mode_active
-		LabelPad 2, {<= EDIT =>}
-			for i = 1 to 3
+		LabelPad 3, {EDITING =>}
+			for i = 2 to 7
 				ColorPad i, col_mode_edit
 		endfor
 	endif
