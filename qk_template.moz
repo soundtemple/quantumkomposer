@@ -62,7 +62,7 @@
 	// 16 MidiGENs --> (channels 17-24) label,color, ccs1-4, plugin_btn, midi_ch=1
 	
 	//CHANNELS
-	chan_layouts = [3,4,7,8, 9,10,11,12, 5,6,2,2, 2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,segments,ting, 6 synths
+	chan_layouts = [3,4,7,8, 11,14,15,12, 5,6,2,2, 2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,segments,ting, 6 synths
 	layout_locked=[FALSE,FALSE,TRUE, TRUE,TRUE,TRUE,TRUE, FALSE,FALSE,FALSE,FALSE,FALSE,FALSE]
 	chan_midi_chs = [1,2,3,4,5,6,7,8,9,10,11,11,12,13,14,0]
 	chan_lsb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
@@ -90,19 +90,22 @@
 	lbl_num_pgm_inc=58
 	lbl_num_res_mxr=59
 	lbl_num_res_inst=60
-	lbl_num_plugin=61
+	lbl_num_instr=61
 	lbl_num_ch_num=62
 	lbl_num_drum_ch=63
 	lbl_num_mute=64
 	lbl_num_solo=65
 	lbl_num_arm=66
+	lbl_num_instr=124
+	lbl_num_eq=125
+	lbl_num_mg=126
+	lbl_num_fx=127
 	// MIXER - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO
 	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 113,113,114,116, 117,118,119,120, 121,122,123] //ccs for mixer params
 	chan_mx_def_vals = [90,64,64,64, 0,0,127,0, 64,64,0,64, 0,0,0,0, 0,0,0] //def values for mixer params
 	protected_cc_to_label=[-1,35,36,37,38,39, 1,0,2,3, 4,5,6,7] 
-	protected_cc_to_label[113]=[8,9,10,11, 12,13,14,15, 64,65,66, -1,-1,-1,-1]
-	
+	protected_cc_to_label[113]=[8,9,10,11, 12,13,14,15, 64,65,66, 124,125,126,127]
 	mute_solo_arm=0 //remember pad state 0-2
 	for ch = 0 to 15 //set up mixer on all channels with default vals on def cc's
 		for i = 0 to 18
@@ -498,8 +501,17 @@
 	for i = 0 to 15
 		LatchPad i, no 
 	endfor
-	if inst_labels[pad_slot]=lbl_num_plugin //PLUGIN
-		SendMIDICC chan, inst_ccs[pad_slot], 127 // show / hide plugin
+	if inst_labels[pad_slot]=lbl_num_instr //PLUGIN INSTR GUI
+		SendMIDICC chan, 124, 127 // show / hide plugin
+		use_instr_knobset_a = NOT use_instr_knobset_a
+	elseif inst_labels[pad_slot]=lbl_num_eq //EQ GUI
+		SendMIDICC chan, 125, 127 // show / hide plugin
+		use_instr_knobset_a = NOT use_instr_knobset_a
+	elseif inst_labels[pad_slot]=lbl_num_mg //MIDIGEN GUI
+		SendMIDICC chan, 126, 127 // show / hide plugin
+		use_instr_knobset_a = NOT use_instr_knobset_a
+	elseif inst_labels[pad_slot]=lbl_num_fx //FX GUI
+		SendMIDICC chan, 127, 127 // show / hide plugin
 		use_instr_knobset_a = NOT use_instr_knobset_a
 	elseif inst_labels[pad_slot]=lbl_num_mute //MUTE
 		chan_mute[curr_chan] = NOT chan_mute[curr_chan]
@@ -898,7 +910,7 @@
 	if layout = 0
 		LabelKnob 3, {Layout:Free}
 	elseif layout = 1
-		LabelKnob 3, {Synth}
+		LabelKnob 3, {Combo}
 	elseif layout = 2
 		LabelKnob 3, {Bus}
 	elseif layout = 3	
@@ -910,7 +922,7 @@
 	elseif layout = 6	
 		LabelKnob 3, {Ting}
 	elseif layout = 7	
-		LabelKnob 3, {Tines}
+		LabelKnob 3, {Zeeon}
 	elseif layout = 8	
 		LabelKnob 3, {Mersenne}
 	elseif layout = 9
@@ -918,15 +930,15 @@
 	elseif layout = 10
 		LabelKnob 3, {Audiokit D1}
 	elseif layout = 11	
-		LabelKnob 3, {Volt}
+		LabelKnob 3, {Kronecker}
 	elseif layout = 12
 		LabelKnob 3, {Shockwave}
 	elseif layout = 13
 		LabelKnob 3, {Syn'master}
 	elseif layout = 14
-		LabelKnob 3, {Baervaag}
+		LabelKnob 3, {Redshrike}
 	elseif layout = 15
-		LabelKnob 3, {Syndt}
+		LabelKnob 3, {Lorentz}
 	endif
 	SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 32, 0, 127
 	SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 6, 0, 127
@@ -1898,11 +1910,11 @@
 	if chan_layouts[edit_chan]=0 
 		LabelKnob 3, {Layout:Free}
 	elseif chan_layouts[edit_chan]=1 
-		LabelKnob 3, {Synth}
-		def_labels[16*0] = [19,16,18,17,23,61,35,36,20,16,21,17,23,-1,37,38]
+		LabelKnob 3, {Combo}
+		def_labels[16*0] = [19,16,18,17,23,124,35,36,20,16,21,17,23,-1,37,38]
 		def_colors[16*0] = [3,3,3,3,3,0,4,4,3,3,3,3,3,0,4,4]
 		def_vals[16*0]   = [0,0,0,64,64,0,0,0,0,0,0,0,64,0,0,0]
-		def_ccs[16*0]    = [30,31,32,33,34,35,1,2,38,39,40,41,42,41,3,4]
+		def_ccs[16*0]    = [30,31,32,33,34,124,1,2,38,39,40,41,42,41,3,4]
 		def_labels[16*1] = [24,25,26,32,27,27,57,58,24,25,26,32,28,29,30,31]
 		def_colors[16*1] = [3,3,3,6,2,2,0,0,3,3,3,6,4,4,4,4]
 		def_vals[16*1]   = [0,0,0,65,0,0,0,0,0,0,0,64,0,40,40,10]
@@ -1917,21 +1929,20 @@
 		def_colors[16*0] = [2,2,2,2,6,6,3,3,4,4,4,4,0,0,0,0]
 		def_vals[16*0]   = [90,64,64,64,0,0,0,127,0,0,0,0,0,0,0,0]
 		def_ccs[16*0]    = [7,8,6,9,10,11,12,13,117,118,119,120,121,122,123,93]
-		def_labels[16*1] = [8,9,10,-1,8,9,10,59,8,9,10,-1,7,6,11,61]
-		def_labels[16*1] = [8,9,10,-1,8,9,10,59,8,9,10,-1,11,9,10,61]
+		def_labels[16*1] = [8,9,10,-1,8,9,10,59,8,9,10,-1,11,9,10,125]
 		def_colors[16*1] = [4,4,4,0,3,3,3,0,6,6,6,0,5,5,5,0]
 		def_vals[16*1]   = [66,40,0,-1,64,80,0,-1,64,100,0,0,64,100,64,0]
-		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61]
+		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,125]
 		def_labels[16*2] = [6,25,61,28,31,1,54,55,7,25,61,28,31,1,53,56]
 		def_colors[16*2] = [3,3,6,6,6,6,6,6,3,3,4,4,4,4,4,4]
 		def_vals[16*2]   = [0,0,0,0,0,64,30,0,127,0,0,0,0,64,0,127]
 		def_ccs[16*2]    = [62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77]
 	elseif chan_layouts[edit_chan]=3
 		LabelKnob 3, {Ruismkr}
-		def_labels[16*0] = [62,-1,53,51,-1,61,47,0,22,29,42,27,48,46,2,0]
+		def_labels[16*0] = [62,-1,53,51,-1,124,47,0,22,29,42,27,48,46,2,0]
 		def_colors[16*0] = [0,0,4,4,0,0,4,0,6,6,6,6,6,6,6,6]
 		def_vals[16*0]   = [0,0,0,0,64,0,0,87,64,40,64,0,0,0,64,64]
-		def_ccs[16*0]    = [110,31,102,106,34,36,105,103,14,15,16,21,19,20,18,17]
+		def_ccs[16*0]    = [110,31,102,106,34,124,105,103,14,15,16,21,19,20,18,17]
 		def_maxs[16*0]   = [7,7,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_labels[16*1] = [63,63,63,63,63,63,63,63,29,29,29,29,29,29,29,29]
 		def_colors[16*1] = [1,1,2,2,3,3,4,4,1,1,2,2,3,3,4,4]
@@ -1945,24 +1956,25 @@
 		def_maxs[16*2]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 	elseif chan_layouts[edit_chan]=4
 		LabelKnob 3, {RuisFM}
-		def_labels[16*0] = [16,26,62,6,24,61,47,1,22,41,40,28,29,48,2,0]
+		def_labels[16*0] = [16,26,62,6,24,124,47,1,22,41,40,28,29,48,2,0]
 		def_colors[16*0] = [4,4,0,5,5,0,5,5,6,6,6,6,6,6,6,6]
 		def_vals[16*0]   = [0,0,1,0,0,64,0,100,64,64,64,64,64,0,64,100]
-		def_ccs[16*0]    = [14,16,110,24,25,35,105,103,15,17,18,20,19,21,22,23]
+		def_ccs[16*0]    = [14,16,110,24,25,124,105,103,15,17,18,20,19,21,22,23]
 		def_maxs[16*0]   = [5,7,5,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_labels[16*1] = [22,40,28,29,22,40,28,29,22,40,28,29,22,40,28,29]
 		def_colors[16*1] = [1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4]
 		def_vals[16*1]   = [64,64,64,64,64,64,61,64,64,64,64,64,64,64,64,64]
 		def_ccs[16*1]    = [31,34,36,35,43,46,48,47,55,58,60,59,68,71,73,72]
-		def_labels[16*2] = [22,28,29,0,22,28,29,0,0,0,0,0,0,0,-1,61]
+		def_labels[16*2] = [22,28,29,0,22,28,29,0,0,0,0,0,0,0,-1,124]
 		def_colors[16*2] = [5,5,5,5,6,6,6,6,1,2,3,4,5,6,0,0]
 		def_vals[16*2]   = [64,64,64,100,64,64,64,100,100,100,100,100,100,100,0,64]
-		def_ccs[16*2]    = [80,85,84,88,92,97,96,100,39,51,63,76,88,100,52,35]
+		def_ccs[16*2]    = [80,85,84,88,92,97,96,100,39,51,63,76,88,100,52,124]
 	elseif chan_layouts[edit_chan]=5
 		LabelKnob 3, {Segments}
 		def_labels[16*0] = [22,34,28,31,22,34,28,31,22,34,28,31,22,34,28,31]
 		def_labels[16*1] = [22,34,28,31,22,34,28,31,22,34,28,31,22,34,28,31]
-		def_labels[16*2] = [0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,23,60,61]
+		def_labels[16*2] = [0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,23,60,124]
+		def_ccs[16*2]    = [62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,124]
 		def_colors[16*0] = [4,4,4,4, 3,3,3,3, 2,2,2,2, 4,4,4,4]
 		def_colors[16*1] = [2,2,2,2, 6,6,6,6, 5,5,5,5, 1,1,1,1]
 		def_colors[16*2] = [4,3,2,4, 2,6,5,1, 0,0,0,0, 0,0,0,0]
@@ -1980,12 +1992,25 @@
 		def_colors[16*0] = [1,1,1,1, 2,2,2,2, 3,3,3,3, 4,4,4,4]
 		def_colors[16*1] = [2,2,2,2, 3,3,3,3, 4,4,4,4, 6,6,6,6]
 		def_colors[16*2] = [3,3,3,3, 4,4,4,4, 6,6,6,6, 2,2,2,2]
-		def_labels[16*3] = [42,42,42,61,29,47,55,0,12,13,14,15,64,65,66,59]
+		def_labels[16*3] = [42,42,42,124,29,47,55,0,12,13,14,15,64,65,66,59]
 		def_colors[16*3] = [5,1,3,0,2,2,5,5,4,4,4,4,0,0,0,0]
 		def_vals[16*3]   = [64,64,64,0, 40,40,20,100, 0,0,0,0,0,0,0,0]
-		def_ccs[16*3]    = [78,8,6,9,10,11,12,13,117,118,119,120,121,122,123,93]
+		def_ccs[16*3]    = [78,8,6,124,10,11,12,13,117,118,119,120,121,122,123,93]
 	elseif chan_layouts[edit_chan]=7
-		LabelKnob 3, {Tines}
+		LabelKnob 3, {Zeeon}
+		def_labels[16*0] = [89,16,17,74,19,76,20,21,  89,16,17,74,-1,-1,18,0]			
+		def_colors[16*0] = [6,6,6,6,6,3,5,4,  5,5,5,5,0,0,2,2]			
+		def_vals[16*0]   = [64,64,64,64,90,0,90,0,  64,64,64,64,0,0,64,64]
+		def_labels[16*1] = [42,24,25,32,28,29,30,31,  28,29,30,31,-1,39,95,96]			
+		def_colors[16*1] = [3,3,3,3,3,3,3,3,  4,4,4,4,0,0,0,0]			
+		def_vals[16*1]   = [30,64,0,0,0,30,0,20,  0.30,0,20,0,0,20,0]
+		def_labels[16*2] = [49,67,68,21,50,67,68,51,  46,34,51,42,47,6,7,52]			
+		def_colors[16*2] = [1,1,1,1,2,2,2,2, 2,2,2,2,1,1,1,1]			
+		def_vals[16*2]   = [0,0,0,0,0,0,0,0,  0,0,0,64,0,0,0,0]
+		def_labels[16*3] = [45,43,45,43,40,40,40,40,  35,-1,0,6,7,124,57,58]			
+		def_colors[16*3] = [2,2,2,2,3,3,3,3,  4,0,0,0,0,0,0]			
+		def_vals[16*3]   = [0,0,0,0,64,64,64,64,  0,0,90,0,127,0,0,0]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,7,12,13,124,92,93]
 	elseif chan_layouts[edit_chan]=8
 		LabelKnob 3, {Mersenne}
 		def_colors[16*0] =  [6,6,6,6,6,6,6,6, 6,6,6,6,6,6,6,6]
@@ -1997,10 +2022,10 @@
 		def_vals[16*0]   =  [64,64,64,0,64,30,0,30,  64,0,64,30,0,64,100,0]
 		def_vals[16*1]   =  [64,64,64,0,64,30,0,30,  64,0,64,30,0,64,100,0]
 		def_vals[16*2]   =  [0,127,0,64,0,0,30,0, 0,0,0,64,64,0,100,90]
-		def_labels[16*3] = [49,68,46,51,24,25,47,86,35,-1,0,6,7,61,57,58]
+		def_labels[16*3] = [49,68,46,51,24,25,47,86,35,-1,0,6,7,124,57,58]
 		def_colors[16*3] = [1,1,2,2,1,1,2,2,4,0,0,0,0,0,0,0]
 		def_vals[16*3]   = [0,30,0,64,50,64,0,64,-1,0,90,127,0,0,0,0]
-		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,7,12,13,91,92,93]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,7,12,13,124,92,93]
 	elseif chan_layouts[edit_chan]=9
 		LabelKnob 3, {Lagrange}
 		def_labels[16*0] = [82,79,32,44,32,44,28,29,  82,79,32,44,32,44,28,29]
@@ -2012,9 +2037,9 @@
 		def_labels[16*2] = [26,24,32,28,29,30,31,25,  26,24,32,28,29,30,31,25]			
 		def_colors[16*2] = [6,6,6,6,6,6,6,6,  5,5,5,5,5,5,5,5]			
 		def_vals[16*2]   = [0,127,64,0,127,0,30,0,  0,127,64,0,127,0,30,0]
-		def_labels[16*3] = [28,29,30,31,43,45,43,45,35,90,0,6,7,61,57,58]
+		def_labels[16*3] = [28,29,30,31,43,45,43,45,35,90,0,6,7,124,57,58]
 		def_colors[16*3] = [4,4,4,4,2,2,2,2,4,4,4,0,0,0,0,0]
-		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,86,87,88,12,16,91,92,93]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,86,87,88,12,16,124,92,93]
 		def_vals[16*3]   = [0,127,127,10,64,0,64,0,0,0,90,0,127,0,0,0]
 	elseif chan_layouts[edit_chan]=10
 		LabelKnob 3, {AudioKit D1}
@@ -2024,17 +2049,29 @@
 		def_labels[16*1] = [19,20,18,91,24,25,24,25,  43,44,-1,43,44,-1,43,44]			
 		def_colors[16*1] = [6,5,4,4,3,3,3,3, 2,2,0,2,2,0,2,2]			
 		def_vals[16*1]   = [90,90,64,90,20,20,20,20,  64,0,-1,64,0,-1,64,0]
+		def_ccs[16*1]    = [37,45,48,49,50,51,52,53,54,55,56,57,58,59,60,61]
 		def_labels[16*2] = [2,68,38,68,-1,48,48,39,  26,6,47,50,51,86,51,46]			
 		def_colors[16*2] = [4,4,4,4,0,1,1,0,  1,1,1,2,2,1,1,1]			
 		def_vals[16*2]   = [64,0,64,0,-1,0,0,0,  90,30,20,0,0,30,30,0]
-		def_labels[16*3] = [9,68,51,49,9,68,51,15,  35,-1,0,6,7,61,57,58]			
+		def_labels[16*3] = [9,68,51,49,9,68,51,15,  35,-1,0,6,7,124,57,58]			
 		def_colors[16*3] = [1,1,1,1,2,2,2,2,  4,0,0,0,0,0,0,0]			
 		def_vals[16*3]   = [0,64,0,0,0,64,0,0,  0,-1,90,0,127,0,0,0]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,86,87,7,12,13,124,92,93]
 	elseif chan_layouts[edit_chan]=11
-		LabelKnob 3, {Volt}
-		def_colors[16*0] = [6,6,5,5,0,0,6,6, 6,5,4,0,0,0,6,6]
-		def_colors[16*1] = [3,3,3,0,0,6,6,6, 3,3,3,0,4,4,4,4] 
-		def_colors[16*2] = [4,4,4,4,6,6,6,6, 2,2,2,0,0,0,0,0]
+		LabelKnob 3, {Kronecker}	
+		def_labels[16*0] = [44,68,32,54,70,0,44,21,  32,44,24,28,29,30,31,19]			
+		def_colors[16*0] = [6,6,6,6,3,3,3,4,  3,3,3,3,4,4,4,4,6]			
+		def_vals[16*0]   = [0,64,64,40,0,90,0,0, 0,64,127,0,0,64,0,64,90]
+		def_labels[16*1] = [44,68,32,54,70,0,44,21,  32,44,24,28,29,30,31,20]			
+		def_colors[16*1] = [5,5,5,5,3,3,3,4,  3,3,3,4,4,4,4,5]			
+		def_vals[16*1]   = [0,64,64,40,0,90,0,0, 0,64,127,0,0,64,0,64,90]
+		def_labels[16*2] = [44,22,32,44,51,32,18,10,  70,67,32,44,28,29,43,45]			
+		def_colors[16*2] = [1,1,1,2,2,2,1,1,  2,2,2,3,3,3,3,3]			
+		def_vals[16*2]   = [0,64,64,0,64,64,100,90, 0,64,64,0,0,64,64,64]
+		def_labels[16*3] = [46,86,86,51,7,6,18,24,  35,67,0,6,7,124,57,58]			
+		def_colors[16*3] = [3,3,3,3,3,3,3,3, 4,4,0,0,0,0,0,0]			
+		def_vals[16*3]   = [0,20,40,64,30,0,64,64, 0,0,90,0,127,0,0,0]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,8,12,15,124,92,93]
 	elseif chan_layouts[edit_chan]=12
 		LabelKnob 3, {Shockwave}
 		def_colors[16*0] = [6,6,6,4,4,5,5,5, 6,6,6,4,4,5,5,5]
@@ -2051,14 +2088,40 @@
 		def_labels[16*2] = [24,25,27,40,28,29,30,31,  24,25,27,40,28,29,30,31]			
 		def_colors[16*2] = [3,3,3,4,4,4,4,4, 3,3,3,4,4,4,4,4]			
 		def_vals[16*2]   = [30,0,0,127,0,40,127,10, 30,0,0,127,0,40,127,10]
-		def_labels[16*3] = [48,49,46,51,77,47,86,52,  35,-1,0,6,7,61,57,58]			
+		def_labels[16*3] = [48,49,46,51,77,47,86,52,  35,-1,0,6,7,124,57,58]			
 		def_colors[16*3] = [1,1,2,2,2,1,1,1,  4,0,0,0,0,0,0,0]			
 		def_vals[16*3]   = [0,0,0,20,64,0,64,20,   0,-1,100,0,127,0,0,0]
-		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,8,12,15,91,92,93]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,8,12,15,124,92,93]
 	elseif chan_layouts[edit_chan]=14
-		LabelKnob 3, {Baervaag}
+		LabelKnob 3, {Redshrike}
+		def_labels[16*0] = [44,16,32,68,9,17,19,76,  32,28,29,44,26,28,29,21]			
+		def_colors[16*0] = [6,6,6,6,6,6,6,6,  3,3,3,3,4,4,4,4]			
+		def_vals[16*0]   = [0,0,64,0,30,0,90,0,  64,0,20,0,0,0,127,0]
+		def_labels[16*1] = [81,81,7,22,28,29,43,51,  24,32,28,29,30,31,25,27]			
+		def_colors[16*1] = [1,1,1,1,1,1,1,1,  3,3,3,3,3,3,3,3]			
+		def_vals[16*1]   = [0,0,127,64,0,20,64,64,  127,64,0,20,0,64,0,0]
+		def_labels[16*2] = [46,86,86,51,7,6,18,24,  49,68,53,96,47,86,7,6]			
+		def_colors[16*2] = [1,1,1,1,1,1,1,1,  2,2,2,2,4,4,4,4]			
+		def_vals[16*2]   = [0,20,50,64,0,30,0, 64,  0,64,30,0,0,64,64,0]
+		def_labels[16*3] = [28,29,30,31,0,23,39,1,35,-1,0,6,7,124,57,58]
+		def_colors[16*3] = [4,4,4,4,4,2,2,2,4,0,0,0,0,0,0,0]
+		def_vals[16*3]   = [0,64,127,0,90,64,0,64,  0,-1,90,0,127,0,0,0]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,8,12,15,124,92,93]
 	elseif chan_layouts[edit_chan]=15
-		LabelKnob 3, {Syndt}
+		LabelKnob 3, {Lorentz}
+		def_labels[16*0] = [28,29,30,31,28,29,30,31,  19,17,20,74,76,22,21,7]			
+		def_colors[16*0] = [4,4,4,4,3,3,3,3,  6,6,5,5,3,3,4,4]			
+		def_vals[16*0]   = [0,0,127,20,0,0,127,20,  127,0,0,0,0,0,127]
+		def_labels[16*1] = [6,24,32,25,27,-1,43,46,10,22,51,40,-1,-1,0,70]
+		def_colors[16*1] = [4,3,3,3,3,0,2,2,1,1,1,1,0,0,0,0]
+		def_vals[16*1]   = [0,127,0,0,0,-1,90,0,0,64,100,0,-1,-1,90,20]
+		def_labels[16*2] = [46,86,86,51,7,6,18,24,  49,68,53,96,-1,-1,-1,-1]			
+		def_colors[16*2] = [1,1,1,1,1,1,1,1, 2,2,2,2,0,0,4,4]			
+		def_vals[16*2]   = [0,0,20,40,64,20,64,64,  0,64,30,10,-1,-1,-1,-1]
+		def_labels[16*3] = [-1,-1,-1,-1,-1,23,39,1,35,-1,0,6,7,124,57,58]
+		def_colors[16*3] = [0,0,0,0,0,2,2,2,4,0,0,0,0,0,0,0]
+		def_vals[16*3]   = [-1,-1,-1,-1,-1,64,0,64,  0,-1,90,0,127,0,0,0]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,8,12,15,124,92,93]
 	endif	
 	pad_slot = (64*edit_chan)
 	CopyArray def_labels, inst_labels[pad_slot], 64 //4pages of 16pads
@@ -2273,9 +2336,9 @@
 	elseif (label_num=45)
 		LabelPad pad_to_label, {LFO TYPE} //MOD
 	elseif (label_num=46)
-		LabelPad pad_to_label, {DLY AMT} //FX
+		LabelPad pad_to_label, {DELAY} //FX
 	elseif (label_num=47)
-		LabelPad pad_to_label, {RVB AMT} //FX
+		LabelPad pad_to_label, {REVERB} //FX
 	elseif (label_num=48) and chan_layouts[curr_chan]=4
 		LabelPad pad_to_label, {SATURATE} //FX
 	elseif (label_num=48)
@@ -2338,7 +2401,7 @@
 	elseif (label_num=69)
 		LabelPad pad_to_label, {OFFSET} //CUSTOM
 	elseif (label_num=70)
-		LabelPad pad_to_label, {AIR} //CUSTOM
+		LabelPad pad_to_label, {VELOCITY} //CUSTOM
 	elseif (label_num=71)
 		LabelPad pad_to_label, {LOW} //CUSTOM
 	elseif (label_num=72)
@@ -2368,7 +2431,7 @@
 	elseif (label_num=84)
 		LabelPad pad_to_label, {ARP SWING} //CUSTOM
 	elseif (label_num=85)
-		LabelPad pad_to_label, {STEP}, (pad_to_label%8)+1 //CUSTOM
+		LabelPad pad_to_label, {STEP}, (pad_to_label%8)+1, { }, NoteName(inst_ccs[pad_slot]) //CUSTOM
 	elseif (label_num=86)
 		LabelPad pad_to_label, {TIME} //CUSTOM
 	elseif (label_num=87)
@@ -2387,6 +2450,18 @@
 		LabelPad pad_to_label, {DIV.} //CUSTOM
 	elseif (label_num=94)
 		LabelPad pad_to_label, {INT'VAL} //CUSTOM
+	elseif (label_num=95)
+		LabelPad pad_to_label, {UNISON} //CUSTOM
+	elseif (label_num=96)
+		LabelPad pad_to_label, {SPREAD} //CUSTOM
+	elseif (label_num=124)
+		LabelPad pad_to_label, {[INSTR]} //OPEN GUI
+	elseif (label_num=125)
+		LabelPad pad_to_label, {[EQ]} //OPEN GUI
+	elseif (label_num=126)
+		LabelPad pad_to_label, {[MIDIGEN]} //OPEN GUI
+	elseif (label_num=127)
+		LabelPad pad_to_label, {[FX]} //OPEN GUI
 	elseif (label_num=-1)
 		LabelPad pad_to_label, { }
 	endif
