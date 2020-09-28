@@ -117,8 +117,8 @@
 	allow_edit_mgen_ccs=FALSE
 	last_mgen_pad=0 //# return to last pad used MG-kntrl mode
 	mgen_vals=[]
-	mgen_labels =  [1,2,3,4,5,9,7,6,12,13,0,0,0,0,0,0]
-	mgen_colors =  [5,6,6,2,4,4,4,4,3,3,0,0,0,0,0,0]
+	mgen_labels =  [1,2,3,4, 5,9,7,6, 12,13,14,0, 0,0,0,0]
+	mgen_colors =  [5,6,6,2, 4,4,4,4, 3,3,3,3,    0,0,0,0]
 	for i = 0 to 15
 		mgen_guis[i] = i+23  ////fixed cc's for showing MG GUI 23-38
 		mgen_ccs[(i*4)+0] = ((i*4)+0)+39 //fixed cc's for controlling MG apps
@@ -135,21 +135,51 @@
 	rmkr_instrs[5*8] = [61,63,63,64, 65,65,67,67] //ch6 hho
 	rmkr_instrs[6*8] = [71,80,74,77, 86,89,92,83] //ch7 perc1
 	rmkr_instrs[7*8] = [72,81,75,78, 87,90,93,84] //ch8 perc2
+	//Midi Learn assignments
+	//modwheel, vol, gain, pan, senda, sendb, hpf, lpf, fx1dw, fx1amt, fx2dw, fx2amt, [instr], [eq], [fx1], [fx2]
+	//mute, solo, arm, update_all_scenes,  aum, rwd, stop, play,  scene1-8
+	midi_learn_ccs_out    =[1,6,7,8, 10,11,12,13, 117,118,119,120, 124,125,126,127]
+	midi_learn_ccs_out[16]=[121,122,123,100, 109,110,111,112, 101,102,103,104,105,106,107,108]
+	midi_learn_assignments=[]
+	midi_learn_page=0
+	last_midi_learn_pad=0
 @End
 
-@OnMidiInput
+@OnMidiInput //B0 is std cc event
+	// CCs0-13 THRU: CH Mixer
+	// CCs14-17 IN: KNTRL KNOBS1-4 for knobset chg without using via AUM MidiControl
+	// CC22 OUT: StepPolyArpUnit change pattern
+	// CC23-27 --- FREE!
+	// CC38-86 OUT: MG KNTRL KNOBS CC's 1-4 * 12 slots
+	// CC87-98 OUT: MidiGen device (1-16) GUI show/hide 	
+	// CCs99-100 OUT: Change Scene, update all scene durs
+	// CCs101-108 OUT: scene duration update. IN: SCENE CHANGE REQ	
+	// CCs109-127 THRU: CH Mixer & Transport
   //Route keyboard thru kntrl direct to curr_chan instrument
-	if MIDICommand = 0xB0 and MIDIByte2 <= 13 //B0 is std cc event 
-		Log {sending cc: }, MIDIByte2, { - }, MIDIByte3 
-		SendMIDIThruOnCh chan_midi_chs[curr_chan] //ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF)
-	elseif MIDICommand = 0xB0 and MIDIByte2>=14 and MIDIByte2<=17
-		Log {This CC is reserved for KNOB Control of QK}
-	elseif MIDICommand = 0xB0 and MIDIByte2>=109
-		Log {sending cc: }, MIDIByte2, { - }, MIDIByte3
-		SendMIDIThruOnCh chan_midi_chs[curr_chan] //Mixer curr_chan: eq,fx,mute,solo,arm,[guis], txport
-	elseif MIDICommand = 0xB0 and MIDIByte2>=14 and MIDIByte2<=108 
-	  Log {Blocked cc msg. Reserved for MGEN control}
-	else
+	if MIDICommand=0xB0 and MIDIByte1=15 and (MIDIByte2>=109 and MIDIByte2<=112) //Transport
+		SendMIDICC MIDIByte1, MIDIByte2, MIDIByte3 // RWD, STOP, PLAY
+	elseif MIDICommand=0xB0 and MIDIByte1=15 and MIDIByte2>=14 and MIDIByte2<=17 //KNTRL Knobs
+		Log {-- HANDLE: KNOB KNTRL W/O AUM MIDI KNTRL -- }
+	elseif MIDICommand = 0xB0 and MIDIByte1=15 and MIDIByte2>=101 and MIDIByte2<=108 //Scene change
+		Log {-- HANDLE: SCENE CHANGE REQUEST TO SCENE }, MIDIByte2-100, { --}
+	elseif MIDICommand=0xB0 and (MIDIByte2<=13 or MIDIByte2>=113) //Mixer
+		//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF) 
+		if MIDIByte1=15 //active channel
+			SendMIDIThruOnCh chan_midi_chs[curr_chan] 
+		else //designated channel 0-14
+		  SendMIDICC MIDIByte1, MIDIByte2, MIDIByte3
+		endif
+		Log {-- THRU TO: MIXER KNTRL cc: }, MIDIByte2, { - }, MIDIByte3 
+	elseif MIDICommand=0xB0 and MIDIByte2>=18 and MIDIByte2<=100 //Available for midi learn
+		for i = 0 to 32 //midi learn assignments
+			if MIDIByte2 = midi_learn_assignments[i]
+				SendMIDICC chan_midi_chs[curr_chan], midi_learn_ccs_out[i], MIDIByte3
+				Log {-- MIDI LEARN ASSIGNMENT: CC:}, MIDIByte2, { to CC:}, midi_learn_ccs[i]
+			endif
+		endfor
+		Log {-- BLOCKED: RESERVED FOR MGEN KNOBS & GUI __}
+	elseif not MIDICommand=0xB0 
+		Log {-- THRU TO: REMAINDERCH:}, chan_midi_chs[curr_chan] 
 		SendMIDIThruOnCh chan_midi_chs[curr_chan] //pass thru notes, aftertouch, pressure, pitchbend 
 	endif
 @End
@@ -186,6 +216,7 @@
 @OnHostStop
   scene_beat_count = 0
   Log {---- Host Stopped ---- }, scene_beat_count, { - }
+	Call @ModeSetup
 @End 
 
 
@@ -195,7 +226,6 @@
 	//# Handle Scene and Chord changes
 	current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
 	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
-	
 	if (scene_change_requested > -1) and (HostBeat = 0)
 		//# user requested scene change and its a new bar (& return to song)
 		//# Log {Handling scene change request. It a new bar}
@@ -295,30 +325,18 @@
 			mixer_mode=LastPad-8
 			Call @SetupKnobset7
 			Call @SendMidiCCBackToKnobs
-		elseif LastPad>=13 and LastPad<=15
+		elseif LastPad>=13
+			mode=2 // midi learn controller
+			in_mode_select = FALSE
+			Call @LabelMIDILearnPads
+		elseif LastPad>=14 and LastPad<=15
 			Call @HandleTransportRequest
 			if print_preset and LastPad=13 and NOT HostRunning
 				Call @PrintPreset
 			endif
 		endif
 	elseif NOT in_mode_select
-		if mode=0  //SCENES MODE
-			Call @PadDownScenesMode
-		elseif mode=1 // channels mode
-			Call @PadDownChannelsMode
-		elseif mode=2 // unused
-			log {unused}
-		elseif mode=3 // unused
-			log {unused}
-		elseif mode=4 // unused
-			log {unused}
-		elseif mode=5 // INSTRUMENT mode
-			Call @PadDownInstrMode
-		elseif mode=6 // mgen mode
-			Call @PadDownMGMode
-		elseif mode=7 // MIXER modes
-			Call @PadDownMixerMode	
-		endif
+		Call @ModeSetup
 	endif
 	LOG {MODE: }, mode
 @End
@@ -327,6 +345,29 @@
   pad_is_down = FALSE
 @End
 
+@ModeSetup
+	if in_mode_select
+		Call @SetupSettingsLayout
+		Call @UpdateCurrentKnobset
+		LabelPads {KNTRL : [ SETTINGS ]}
+	elseif mode=0  //SCENES MODE
+		Call @PadDownScenesMode
+	elseif mode=1 // channels mode
+		Call @PadDownChannelsMode
+	elseif mode=2 // midi learn
+		Call @PadDownMidiLearnMode
+	elseif mode=3 // unused
+		log {unused}
+	elseif mode=4 // unused
+		log {unused}
+	elseif mode=5 // INSTRUMENT mode
+		Call @PadDownInstrMode
+	elseif mode=6 // mgen mode
+		Call @PadDownMGMode
+	elseif mode=7 // MIXER modes
+		Call @PadDownMixerMode	
+	endif
+@End
 
 @PadDownScenesMode
 	if mode=0 and (LastPad >= 0 and LastPad <= 7) //SCENES MODE
@@ -540,11 +581,21 @@
 	Call @SendMidiCCBackToKnobs
 @End
 
+@PadDownMidiLearnMode
+	//Setup midi learn assignments
+	for i = 0 to 15
+		ColorPad i, 0
+	endfor
+	ColorPad LastPad, 1
+	last_midi_learn_pad=LastPad
+	Call @SetupKnobset3
+@End
+
 @HandleTransportRequest
 	//# Transport buttons handling
-	if LastPad=13
+	if LastPad=14 and NOT HostRunning
 		SendMIDICC 15,110,127 //RWD
-	elseif LastPad=14
+	elseif LastPad=14 and HostRunning
 		SendMIDICC 15,111,127 //STOP
 	elseif LastPad=15
 		SendMIDICC 15,112,127 //PLAY
@@ -613,12 +664,12 @@
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
 	endfor
+	LabelPad 13, {[midi learn]}
 	if HostRunning
-		LabelPad 13, {<<RWD}
+		LabelPad 14, {[STOP]}
 	elseif NOT HostRunning
-		LabelPad 13, {<<RWD+pp}
+		LabelPad 14, {<<RWD+pp}
 	endif
-	LabelPad 14, {[STOP]}
 	LabelPad 15, {PLAY>}
 	if edit_mode_active
 		LabelPad 2, {<= EDIT =>}
@@ -981,6 +1032,38 @@
 	Call @LabelInstrumentKnobs
 @End
 
+@SetupKnobset3
+	//# MIXER KONTROLS
+	knob_set=3
+	pad_slot = (16*midi_learn_page) + last_midi_learn_pad
+	LabelPads {KNTRL : [ MIDI LEARN ]}
+	LabelKnobs {IN | OUT}
+	LabelKnob 0, {IN: }, midi_learn_assignments[pad_slot]
+	LabelKnob 1, {OUT: }, midi_learn_ccs_out[pad_slot]
+	LabelKnob 2, { }
+	LabelKnob 3, {PAGE:}, midi_learn_page+1
+	SetKnobValue 0, TranslateScale midi_learn_assignments[pad_slot], 0, 127, 0, 127
+	SetKnobValue 1, TranslateScale midi_learn_ccs_out[pad_slot], 0, 127, 0, 127
+	SetKnobValue 2, 0 
+	SetKnobValue 3, TranslateScale midi_learn_page, 0, 1, 0, 127
+@End
+
+@KnobChangeSet3
+	//# MIDI LEARN 
+	pad_slot = (16*midi_learn_page) + last_midi_learn_pad
+	if LastKnob = 0
+		midi_learn_assignments[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 18, 100
+	endif
+	if LastKnob = 3
+		midi_learn_page = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
+		Call @LabelMIDILearnPads
+	endif
+	LabelKnob 0, {IN: }, midi_learn_assignments[pad_slot]
+	LabelKnob 1, {OUT: }, midi_learn_ccs_out[pad_slot]
+	LabelKnob 2, { }
+	LabelKnob 3, {PAGE: }, midi_learn_page+1
+@End
+
 @SetupKnobset7
 	//# MIXER KONTROLS
 	knob_set = 7
@@ -1000,7 +1083,6 @@
 
 @KnobChangeSet7
 	//# MIXER KONTROL
-	// chan_mx_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 18,19,20,21, 121,122,123]
 	if mixer_mode=4
 		mute_solo_arm = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 2
 	else
@@ -1251,8 +1333,11 @@
 	ColorPad 13, col_unused
 	ColorPad 14, col_unused
 	ColorPad 15, col_unused
-	LabelPad 13, {<<RWD}
-	LabelPad 14, {[STOP]}
+	if NOT HostRunning
+		LabelPad 14, {<<RWD}
+	else
+		LabelPad 14, {[STOP]}
+	endif
 	LabelPad 15, {PLAY>}
 @End
 
@@ -1582,8 +1667,22 @@
 			chan_pad=i //settings mode label and pad pos. diff
 			Call @LabelChanPad
 		elseif mode=6 // MG mode 
-			mgen_pad=i //settings mode last mgen pad in pad slot 7
-			Call @LabelMGENPad
+			if i<=11
+				mgen_pad=i //settings mode last mgen pad in pad slot 7
+				Call @LabelMGENPad
+			elseif i=13
+			  LabelPad i, {[GUI]}
+				ColorPad i, 0
+			elseif i=14 and NOT HostRunning
+			  LabelPad i, {<<<RWD}
+				ColorPad i, 0
+			elseif i=14
+			  LabelPad i, {[STOP]}
+				ColorPad i, 0
+			elseif i=15
+			  LabelPad i, {PLAY>}
+				ColorPad i, 0
+			endif
 		else //instrument page layout
 			pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + i
 			Call @LabelInstrPad
@@ -1676,6 +1775,42 @@
 		LabelPad pad_to_label, {___MG___ }, {>FILLS }	
 	elseif (label_num=14)
 		LabelPad pad_to_label, {___MG___ }, {   >FX }	
+	endif
+@End
+
+@LabelMIDILearnPads //MGEN Pad labelling
+	for i = o to 15
+		ColorPad i, 0
+	endfor
+	if midi_learn_page=0
+		LabelPad 0, {MODWHEEL} //MOD
+		LabelPad 1, {VOL} //MIXER
+		LabelPad 2, {GAIN} //MIXER
+		LabelPad 3, {PAN} //MIXER
+		LabelPad 4, {SEND A} //MIXER
+		LabelPad 5, {SEND B} //MIXER
+		LabelPad 6, {HPF} //MIXER
+		LabelPad 7, {LPF} //MIXER
+		LabelPad 8, {FX1 DW} //MIXER
+		LabelPad 9, {FX1 AMT} //MIXER
+		LabelPad 10, {FX2 DW} //MIXER
+		LabelPad 11, {FX2 AMT} //MIXER
+		LabelPad 12, {[INSTR]} //MIXER
+		LabelPad 13, {[EQ} //MIXER
+		LabelPad 14, {[FX1]} //MIXER
+		LabelPad 15, {[FX2]} //MIXER
+	else
+		LabelPad 0, {MUTE} //MIXER
+		LabelPad 1, {SOLO} //MIXER
+		LabelPad 2, {ARM} //MIXER
+		LabelPad 3, {UPDATE SCENES} //MIXER
+		LabelPad 4, {TO AUM} //MIXER
+		LabelPad 5, {<<RWD} //TSPORT
+		LabelPad 6, {[STOP]} //TSPORT
+		LabelPad 7, {PLAY>} //TSPORT
+		for i=0 to 7
+			LabelPad i+8, {SCENE }, i+1
+		endfor
 	endif
 @End
 
