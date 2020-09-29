@@ -19,6 +19,7 @@
 		ppqn = 4
 		edit_scene=0
 		locked_to_scene=0
+		pad_is_down=FALSE
 		last_channel_visited=0 //# last channel a user visited 0-16 (16 is top level)
 		scene_change_requested = -1 //# on pad down has next scene number
 		in_mode_select = FALSE //# Toggle for changing modes mode
@@ -148,7 +149,8 @@
 	last_midi_learn_pad=0
 @End
 
-@OnMidiInput //B0 is std cc event
+@OnMidiInput 
+	// Commands (hex#) NoteOn=0x90;NoteOff=0x80;CC=0xB0;ProgramChange=0xC0;Aftertouch=0xD0;Pitchbend=0xE0
 	// CCs0-13 THRU: CH Mixer
 	// CCs14-17 IN: KNTRL KNOBS1-4 for knobset chg without using via AUM MidiControl
 	// CC22 OUT: StepPolyArpUnit change pattern
@@ -159,7 +161,8 @@
 	// CCs101-108 OUT: scene duration update. IN: SCENE CHANGE REQ	
 	// CCs109-127 THRU: CH Mixer & Transport
   //Route keyboard thru kntrl direct to curr_chan instrument
-	if mode=2 and MIDICommand=0xB0 and MIDIByte2>=18 and MIDIByte2<=100 //handle new midi learn assignment
+	if mode=2 and MIDICommand=0xB0 and MIDIByte2>=18 and MIDIByte2<=100 
+		//handle new midi learn assignment
 		assign_slot = (16*midi_learn_page) + last_midi_learn_pad
 		midi_learn_assign_chs[assign_slot] = MIDIChannel
 		midi_learn_assign_ccs[assign_slot] = MIDIByte2
@@ -170,30 +173,56 @@
 		Call @SetupKnobset3
 		SetKnobValue 3, MIDIByte3 // show the assignment working on knob3
 	else
-		if MIDICommand=0xB0 and MIDIByte1=15 and (MIDIByte2>=109 and MIDIByte2<=112) //Transport
-			SendMIDICC MIDIByte1, MIDIByte2, MIDIByte3 // RWD, STOP, PLAY
-		elseif MIDICommand=0xB0 and MIDIByte1=15 and MIDIByte2>=14 and MIDIByte2<=17 //KNTRL Knobs
-			Log {-- HANDLE: KNOB KNTRL W/O AUM MIDI KNTRL -- }
-		elseif MIDICommand = 0xB0 and MIDIByte1=15 and MIDIByte2>=101 and MIDIByte2<=108 //Scene change
+		if MIDICommand=0xB0 and MIDIChannel=15 and (MIDIByte2>=109 and MIDIByte2<=112) 
+			//TRANSPORT on CH16 - RWD, STOP, PLAY
+			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
+		elseif MIDICommand=0xB0 and MIDIChannel=15 and MIDIByte2>=14 and MIDIByte2<=17 
+			//KNTRL Knobs on CH16
+			last_knob = MIDIByte2-14 //simulate  LastPad action
+			SetKnobValue last_knob, MIDIByte3 // change knob position
+			Call @OnKnobChange2 //handle that change 
+		elseif MIDICommand = 0xB0 and MIDIChannel=15 and MIDIByte2>=101 and MIDIByte2<=108 
+			//SCENE CHANGE CH16
+			last_pad = MIDIByte2-101
+			Call @PadDownScenesMode
 			Log {-- HANDLE: SCENE CHANGE REQUEST TO SCENE }, MIDIByte2-100, { --}
-		elseif MIDICommand=0xB0 and (MIDIByte2<=13 or MIDIByte2>=113) //Mixer
+		elseif MIDICommand=0xB0 and (MIDIByte2<=13 or MIDIByte2>=113) 
+			//MIXER CONTROLS  curr_ch if in on 16 else direct to ch
 			//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF) 
-			if MIDIByte1=15 //active channel
+			if MIDIChannel=15 //active channel
 				SendMIDIThruOnCh chan_midi_chs[curr_chan] 
-			else //designated channel 0-14
-			  SendMIDICC MIDIByte1, MIDIByte2, MIDIByte3
+			else //designated channel 0-14 - send to channel on midi ch as set up in channels 
+			  SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3
 			endif
 			Log {-- THRU TO: MIXER KNTRL cc: }, MIDIByte2, { - }, MIDIByte3 
-		elseif MIDICommand=0xB0 and MIDIByte2>=18 and MIDIByte2<=100 //Available for midi learn
-			// Log {MB2: }, MIDIByte2, { MLNSCC: }, midi_learn_notestate_cc[MIDIByte2], { MLNSCH: }, midi_learn_notestate_ch[MIDIByte2]   
+		elseif MIDICommand=0xB0 and MIDIByte2>=18 and MIDIByte2<=100 
+			//Available for midi learn
 			if midi_learn_notestate_cc[MIDIByte2]>0 and midi_learn_notestate_ch[MIDIByte2]=MIDIChannel
 				//there must be a midi learn assignment
 				SendMIDICC chan_midi_chs[curr_chan], midi_learn_notestate_cc[MIDIByte2], MIDIByte3
 				SetNoteState curr_chan, midi_learn_notestate_cc[MIDIByte2], MIDIByte3 //update store
 				Log {-- MIDI LEARN ASSIGNMENT: CH:}, chan_midi_chs[curr_chan], { CC:}, MIDIByte2, { to CC:}, midi_learn_ccs_out[i], { val: }, MIDIByte3
 			endif
-		elseif not MIDICommand=0xB0 
-			Log {-- THRU TO: REMAINDERCH:}, chan_midi_chs[curr_chan] 
+		elseif (MIDICommand=0x90 or MIDICommand=0x80) and MIDINote<=16 //NoteOn or NoteOff 
+			// lowest notes on any channel used to trigger KNTRL pads 0-15
+			if MIDINote=16
+				if MIDICommand=0x90 //noteOn	
+					Call @OnShiftDown2
+				endif
+			else
+				if MIDICommand=0x90 //noteOn
+					last_pad = MIDINote
+					Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mosaic
+				elseif MIDICommand=0x80 //Note off
+				  Call @OnPadUp2
+				endif
+			endif
+			Log {-- LOW NOTE REC. WILL USE TO TRIGGER PAD: }, MIDINote
+		else 
+			if  MIDICommand=0xB0
+				Log {OTHER MIDI CC's are blocked}
+			endif
+			Log {-- THRU TO: REMAINDER CH:}, chan_midi_chs[curr_chan] 
 			SendMIDIThruOnCh chan_midi_chs[curr_chan] //pass thru notes, aftertouch, pressure, pitchbend 
 		endif
 	endif
@@ -256,6 +285,10 @@
 @End
 
 @OnShiftDown
+  Call @OnShiftDown2 //simply to allow midi note in simulation of SHIFT Note16 any channel
+@End
+
+@OnShiftDown2
 	Log {MODE: }, mode
 	//# xosd
 	if in_mode_select //# Exit SHIFT MODE
@@ -275,7 +308,7 @@
 			Call @SetupLayoutChannels
 		elseif mode=7 //Mixer mode
 			Call @SetupLayoutChannels
-			mixer_mode=LastPad-8
+			mixer_mode=last_pad-8
 			Call @SetupKnobset7
 		endif
 		Call @UpdateCurrentKnobset		
@@ -290,15 +323,20 @@
 @End
 
 @OnPadDown
-	pad_is_down = TRUE
+  last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
+	Call @OnPadDown2 //midi input cant trigger @OnPadDown, It calls @OnPadDown2
+@End
+
+@OnPadDown2 // for midi in as well notes 0-15 on any channel
 	//# Pad Down actions
+	pad_is_down = TRUE
 	if in_mode_select
-		if LastPad=0
+		if last_pad=0
 		  in_mode_select = FALSE
 			mode=0 //SCENES
 			Call @SetupKnobset0
 			Call @SetupLayoutScenes
-		elseif LastPad=1 //# ___MG___ KONTRL CHANNEL
+		elseif last_pad=1 //# ___MG___ KONTRL CHANNEL
 			mode=6
 			in_mode_select=FALSE
 			ShowLayout 2
@@ -314,10 +352,10 @@
 				Call @SetupKnobset10
 			endif
 			LatchPad last_mgen_pad, YES
-		elseif LastPad=2 // TOGGLE EDIT MODE
+		elseif last_pad=2 // TOGGLE EDIT MODE
 			edit_mode_active = NOT edit_mode_active
 			Call @SetupSettingsLayout
-		elseif LastPad=3
+		elseif last_pad=3
 			mode=1
 			in_mode_select = FALSE
 			Call @SetupLayoutChannels
@@ -327,30 +365,30 @@
 			endif
 			LatchPad curr_chan, YES
 			LabelPads {KNTRL : [ INSTRUMENT CHANNELS ]}
-		elseif LastPad=4
+		elseif last_pad=4
 			SendMIDICC chan_midi_chs[curr_chan], 124, 127 // show / hide INSTR
-		elseif LastPad=5
+		elseif last_pad=5
 			SendMIDICC chan_midi_chs[curr_chan], 125, 127 // show / hide EQ
-		elseif LastPad=6
+		elseif last_pad=6
 			SendMIDICC chan_midi_chs[curr_chan], 126, 127 // show / hide FX
-		elseif LastPad=7
+		elseif last_pad=7
 			SendMIDICC 16, mgen_guis[last_mgen_pad], 127 // show / hide MGEN
-		elseif LastPad>=8 and LastPad<=12 // MIXER MODES
+		elseif last_pad>=8 and last_pad<=12 // MIXER MODES
 		  mode=7 //MIXER MODES
 			in_mode_select = FALSE
 			Call @SetupLayoutChannels
-			mixer_mode=LastPad-8
+			mixer_mode=last_pad-8
 			Call @SetupKnobset7
 			Call @SendMidiCCBackToKnobs
-		elseif LastPad=13
+		elseif last_pad=13
 			mode=2 // midi learn controller
 			in_mode_select = FALSE
 			Call @SetupKnobset3
 			Call @LabelMIDILearnPads
 			ColorPad last_midi_learn_pad, 1
-		elseif LastPad>=14 and LastPad<=15
+		elseif last_pad>=14 and last_pad<=15
 			Call @HandleTransportRequest
-			if print_preset and LastPad=14 and NOT HostRunning
+			if print_preset and last_pad=14 and NOT HostRunning
 				Call @PrintPreset
 			endif
 		endif
@@ -361,6 +399,10 @@
 @End
 
 @OnPadUp
+  Call @OnPadUp2
+@End
+
+@OnPadUp2
   pad_is_down = FALSE
 @End
 
@@ -389,24 +431,24 @@
 @End
 
 @PadDownScenesMode
-	if mode=0 and (LastPad >= 0 and LastPad <= 7) //SCENES MODE
+	if mode=0 and (last_pad >= 0 and last_pad <= 7) //SCENES MODE
 		Log { SCENE CHANGE REQUESTED }
-		scene_change_requested = LastPad
-		SendMIDICC 15, 8, LastPad
+		scene_change_requested = last_pad
+		SendMIDICC 15, 8, last_pad
 		songmode=1 //# Lock to selected scene
-		edit_scene=LastPad
-		locked_to_scene=LastPad
+		edit_scene=last_pad
+		locked_to_scene=last_pad
 		if NOT HostRunning //# immediate change else newbeat/bar handles
 			Call @HandleSceneChange 
 		endif
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
-	elseif mode=0 and LastPad>=13 and LastPad<=15
+	elseif mode=0 and last_pad>=13 and last_pad<=15
 		Call @HandleTransportRequest
-	elseif mode=0 and LastPad=8
+	elseif mode=0 and last_pad=8
 		songmode=0 //# return to song mode
 		SendMIDICC 15, cc_rtn_to_song_mode, 1
-	elseif mode=0 and LastPad=9
+	elseif mode=0 and last_pad=9
 		return_to_song_mode_requested = TRUE
   	scene_change_requested = current_scene
   	songmode = 0
@@ -415,7 +457,7 @@
 		LabelPads {KNTRL: [ LOOPING SONG ] }
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
-	elseif mode=0 and LastPad=10 //#update all scene durations
+	elseif mode=0 and last_pad=10 //#update all scene durations
 		for i = 0 to 7
 			SendMIDICC 15, i, scene_durs[i]
 		endfor
@@ -423,18 +465,18 @@
 @End
 
 @PadDownChannelsMode
-	edit_chan = LastPad 
+	edit_chan = last_pad 
 	if edit_mode_active
 		//# update last channel visited if not one of the quick channels
 		Call @SetupKnobset1
 		for i = 0 to 15
 			LatchPad i, no 
 		endfor
-		LatchPad lastPad, YES	
+		LatchPad last_pad, YES	
 		Call @SendMidiCCBackToKnobs
 	else
 		mode=5 //goto INSTRUMENT MODE
-		curr_chan = LastPad  
+		curr_chan = last_pad  
 		edit_pad=0
 		Call @SetupLayoutChannels
 		use_instr_knobset_a = TRUE
@@ -444,7 +486,7 @@
 @End
 
 @PadDownInstrMode
-	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + LastPad 
+	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + last_pad 
 	val=127 // for mute solo arm messages if required
 	chan = chan_midi_chs[curr_chan]
 	latch_last_pad=TRUE
@@ -494,7 +536,7 @@
 	elseif inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc // PGM CHG MSG
 		use_instr_knobset_a = TRUE
 		curr_pgm = chan_pgm[curr_chan]
-		if LastPad = edit_pad //user hit same pad again. send the pgm chg
+		if last_pad = edit_pad //user hit same pad again. send the pgm chg
 			if inst_labels[pad_slot]=lbl_num_pgm_inc
 				new_pgm = Clip curr_pgm+1, 0, chan_pgm_max[curr_chan] 
 			else
@@ -509,7 +551,7 @@
 			use_instr_knobset_a = FALSE
 		endif
 	elseif inst_labels[pad_slot]=lbl_num_res_mxr //RESET MIXER
-		if LastPad = edit_pad //user hit same pad again. switch knobset
+		if last_pad = edit_pad //user hit same pad again. switch knobset
 			for i = 0 to 18
 				SetNoteState curr_chan, chan_mx_ccs[i], chan_mx_def_vals[i]
 				SendMIDICC chan_midi_chs[curr_chan], chan_mx_ccs[i], chan_mx_def_vals[i]
@@ -518,53 +560,53 @@
 			Call @SetupLayoutChannels
 			Log {RESET MIXER PARAMS TO DEFAULTS AND SENT MIDI}
 		else 
-			LabelPad LastPad, {Yes, Reset?}, { SHIFTx2 to cancel}
+			LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
 		endif
 	elseif inst_labels[pad_slot]=lbl_num_res_inst //RESET INSTRUMENT LAYOUT
-		if LastPad = edit_pad //user hit same pad again. switch knobset
+		if last_pad = edit_pad //user hit same pad again. switch knobset
 			edit_chan=curr_chan
 			Call @BuildLayoutPage
 			Call @LabelInstrumentKnobs
 			Call @SetupLayoutChannels
 		else
-			LabelPad LastPad, {Yes, Reset?}, { SHIFTx2 to cancel}
+			LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
 		endif
 	else 
-		if LastPad = edit_pad //user hit same pad again. switch knobset
+		if last_pad = edit_pad //user hit same pad again. switch knobset
 			use_instr_knobset_a = NOT use_instr_knobset_a
 		endif
 	endif
-	edit_pad = LastPad 
+	edit_pad = last_pad 
 	if re_label_pad_on_press
-		if LastPad = edit_pad //user hit same pad again. switch knobset
+		if last_pad = edit_pad //user hit same pad again. switch knobset
 			use_instr_knobset_a = use_instr_knobset_a
 		endif
-		pad_to_label=LastPad 
+		pad_to_label=last_pad 
 		Call @LabelInstrPad
 	endif
 	Call @Setupknobset2 //Instrument kontrol
-	LatchPad LastPad, latch_last_pad
+	LatchPad last_pad, latch_last_pad
 @End
 
 @PadDownMGMode
 	// Midi Gen plugins kontrol
-	last_mgen_pad=LastPad
+	last_mgen_pad=last_pad
 	if edit_mode_active
-		if LastPad = edit_pad //user hit same pad again. switch knobset
+		if last_pad = edit_pad //user hit same pad again. switch knobset
 			use_mgen_knobset_a = NOT use_mgen_knobset_a
 		endif
-		edit_pad = LastPad 
+		edit_pad = last_pad 
 		if use_mgen_knobset_a
 			Call @Setupknobset8 //setup a
 		else 
 			Call @SetupKnobset9 //setup b
 		endif
 	else
-	  if LastPad = edit_pad //user hit same pad again. toggle GUI
+	  if last_pad = edit_pad //user hit same pad again. toggle GUI
 			Log {TOGGLE MGEN GUI & SEND MIDI}
 			SendMIDICC 15, mgen_guis[last_mgen_pad], 127
 		endif
-		edit_pad = LastPad
+		edit_pad = last_pad
 		Call @SetupKnobset10 //use m-kntrl knobs
 	endif
 	for i = 0 to 15
@@ -574,7 +616,7 @@
 @End
 
 @PadDownMixerMode
-	curr_chan=LastPad
+	curr_chan=last_pad
 	chan = chan_midi_chs[curr_chan]
 	val=127
 	if mixer_mode=4 and mute_solo_arm=0
@@ -603,18 +645,18 @@
 @PadDownMidiLearnMode
 	//Setup midi learn assignments
 	Call @LabelMIDILearnPads
-	ColorPad LastPad, 1
-	last_midi_learn_pad=LastPad
+	ColorPad last_pad, 1
+	last_midi_learn_pad=last_pad
 	Call @SetupKnobset3
 @End
 
 @HandleTransportRequest
 	//# Transport buttons handling
-	if LastPad=14 and NOT HostRunning
+	if last_pad=14 and NOT HostRunning
 		SendMIDICC 15,110,127 //RWD
-	elseif LastPad=14 and HostRunning
+	elseif last_pad=14 and HostRunning
 		SendMIDICC 15,111,127 //STOP
-	elseif LastPad=15
+	elseif last_pad=15
 		SendMIDICC 15,112,127 //PLAY
 	endif
 @End
@@ -697,7 +739,13 @@
 @End
 
 @OnKnobChange
-	if NOT pad_is_down and send_cc_back_to_knobs
+	// so midi input can simulate knob chnge even it calls @OnKnobChange2 directly 
+	last_knob = LastKnob
+  Call @OnKnobChange2 
+@End
+
+@OnKnobChange2
+	if NOT pad_is_down and send_cc_back_to_knobs //prevent knob change when pad is down
 		if knob_set = 0 
 		  Call @KnobChangeSet0 //# scene settings
 	  elseif knob_set = 1
@@ -780,19 +828,19 @@
 
 @KnobChangeSet0
 	//# scene settings xs0
-	if LastKnob = 0
+	if last_knob = 0
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
 		if val <> edit_scene
 			edit_scene = val
 			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
 		endif
 	endif
-	if LastKnob = 1
+	if last_knob = 1
 		scn_duration = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32
 		scene_durs[edit_scene] = scn_duration
 		SendMIDICC 15, edit_scene, scene_durs[edit_scene] 
 	endif
-	if LastKnob = 2
+	if last_knob = 2
 		val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
 		if val <> scene_preset
 			scene_preset = val
@@ -800,7 +848,7 @@
 			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
 		endif
 	endif
-	if LastKnob = 3
+	if last_knob = 3
 		val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
 		if val <> global_swing
 			global_swing = val
@@ -865,24 +913,24 @@
 
 @KnobChangeSet1
 	//# channels Setup
-	if LastKnob = 0
+	if last_knob = 0
 		chan_labels[edit_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 21
 		pad_to_label=edit_chan
 		chan_pad=edit_chan //settings mode label and pad pos. diff
 		Call @LabelChanPad
 	endif
-	if LastKnob = 1
+	if last_knob = 1
 		chan_colors[edit_chan] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
-		LatchPad LastPad, NO 
-		ColorPad LastPad, chan_colors[edit_chan]
+		LatchPad last_pad, NO 
+		ColorPad last_pad, chan_colors[edit_chan]
 	endif
-	if LastKnob = 2
+	if last_knob = 2
 		chan_midi_chs[edit_chan] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 15
 		pad_to_label=edit_chan
 		chan_pad=edit_chan //settings mode label and pad pos. diff
 		Call @LabelChanPad
 	endif
-	if LastKnob = 3
+	if last_knob = 3
 		chan_layouts[edit_chan] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 15
 		Call @BuildLayoutPage 
 		SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 32, 0, 127
@@ -969,7 +1017,7 @@
 	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + edit_pad
 	pad_to_label=edit_pad 
 	chan_to_label=curr_chan
-	if LastKnob = 0 // LABEL : LSB / CC#
+	if last_knob = 0 // LABEL : LSB / CC#
 		if use_instr_knobset_a
 			if not layout_locked[chan_layouts[curr_chan]]
 				new_label_num = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 66
@@ -992,7 +1040,7 @@
 			endif
 		endif
 	endif
-	if LastKnob = 1 // COLOR : (MSB or MIN)
+	if last_knob = 1 // COLOR : (MSB or MIN)
 		if use_instr_knobset_a
 			inst_colors[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
 			LatchPad edit_pad, NO 
@@ -1008,7 +1056,7 @@
 			endif	
 		endif
 	endif
-	if LastKnob = 2 // VALUE : VALUE
+	if last_knob = 2 // VALUE : VALUE
 		if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG
 			chan_pgm[curr_chan] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, chan_pgm_max[curr_chan]
 		else 
@@ -1027,7 +1075,7 @@
 			endif
 		endif
 	endif
-	if LastKnob = 3 // PAGE : PGMMAX / MAX
+	if last_knob = 3 // PAGE : PGMMAX / MAX
 		if use_instr_knobset_a	
 			page = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 3 // change page
 			if (page <> inst_curr_page[curr_chan]) and NOT pad_is_down
@@ -1072,7 +1120,7 @@
 @KnobChangeSet3
 	//# MIDI LEARN 
 	pad_slot = (16*midi_learn_page) + last_midi_learn_pad
-	if LastKnob = 0
+	if last_knob = 0
 		cc_to_assign = Round TranslateScale (GetKnobValue 0), 0, 127, 17, 100
 		if cc_to_assign=17
 			midi_learn_assign_ccs[pad_slot]=0
@@ -1084,17 +1132,17 @@
 			midi_learn_notestate_ch[cc_to_assign] = midi_learn_assign_chs[pad_slot]
 			Log {MLNS: }, midi_learn_notestate_ch[cc_to_assign]
 		endif
-		if midi_learn_assign_ccs[(16*midi_learn_page)+LastPad] > 0
-			ColorPad LastPad, 3
+		if midi_learn_assign_ccs[(16*midi_learn_page)+last_pad] > 0
+			ColorPad last_pad, 3
 		else
-			ColorPad LastPad, 1
+			ColorPad last_pad, 1
 		endif
 	endif
-	if LastKnob = 2
+	if last_knob = 2
 		midi_learn_assign_chs[pad_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 15
 		midi_learn_notestate_ch[midi_learn_assign_ccs[pad_slot]] = midi_learn_assign_chs[pad_slot]
 		endif
-	if LastKnob = 3
+	if last_knob = 3
 		midi_learn_page = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
 		Call @LabelMIDILearnPads
 	endif
@@ -1131,7 +1179,7 @@
 		mute_solo_arm = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 2
 	else
 		for i = 0 to 3
-			if LastKnob = i 
+			if last_knob = i 
 				val = Round TranslateScale (GetKnobValue i), 0, 127, 0, 127
 				cc = chan_mx_ccs[(mixer_mode*4) + i]
 				midi_chan = chan_midi_chs[curr_chan]
@@ -1235,19 +1283,19 @@
 
 @KnobChangeSet8
 	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
-	if LastKnob = 0
+	if last_knob = 0
 		mgen_labels[last_mgen_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 14
 		pad_to_label=last_mgen_pad
 		mgen_pad=last_mgen_pad // settings mode labels pad7 diff loc.
 		Call @LabelMGENPad
 	endif
-	if LastKnob = 1
+	if last_knob = 1
 		mgen_colors[last_mgen_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
-		LatchPad LastPad, NO 
-		ColorPad LastPad, mgen_colors[last_mgen_pad]
+		LatchPad last_pad, NO 
+		ColorPad last_pad, mgen_colors[last_mgen_pad]
 	endif
 	if allow_edit_mgen_ccs
-		if LastKnob = 2
+		if last_knob = 2
 			mgen_guis[last_mgen_pad] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
 		endif
 	endif
@@ -1275,16 +1323,16 @@
 @KnobChangeSet9
 	//# MGEN-KONTROL SETUP B - CC#'s 1-4 (*** IF allow_edit_mgen_ccs OnKnobChange)
 	pad_slot=[4 * last_mgen_pad] //location channel 17
-	if LastKnob = 0
+	if last_knob = 0
 		mgen_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 	endif
-	if LastKnob = 1
+	if last_knob = 1
 		mgen_ccs[pad_slot+1] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
 	endif
-	if LastKnob = 2
+	if last_knob = 2
 		mgen_ccs[pad_slot+2] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
 	endif
-	if LastKnob = 3
+	if last_knob = 3
 		mgen_ccs[pad_slot+3] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
 	endif
 	LabelKnob 0, {cc#}, mgen_ccs[pad_slot]
@@ -1312,24 +1360,24 @@
 @KnobChangeSet10
 	//# MGEN-KONTROL USAGE - Val knobs 1-4
 	pad_slot=[4 * last_mgen_pad] //location channel 17
-	if LastKnob = 0
+	if last_knob = 0
 		mgen_vals[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 	endif
-	if LastKnob = 1
+	if last_knob = 1
 		mgen_vals[pad_slot+1] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
 	endif
-	if LastKnob = 2
+	if last_knob = 2
 		mgen_vals[pad_slot+2] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
 	endif
-	if LastKnob = 3
+	if last_knob = 3
 		mgen_vals[pad_slot+3] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
 	endif
 	LabelKnob 0, {CC}, mgen_ccs[pad_slot+0], {:}, mgen_vals[pad_slot]
 	LabelKnob 1, {CC}, mgen_ccs[pad_slot+1], {:}, mgen_vals[pad_slot+1]
 	LabelKnob 2, {CC}, mgen_ccs[pad_slot+2], {:}, mgen_vals[pad_slot+2]
 	LabelKnob 3, {CC}, mgen_ccs[pad_slot+3], {:}, mgen_vals[pad_slot+3]
-	//SendMIDICC 15, mgen_ccs[pad_slot+LastKnob], mgen_vals[pad_slot+LastKnob]
-	Log {sending Mgen CH15 CC#},mgen_ccs[pad_slot+LastKnob], { - }, mgen_vals[pad_slot+LastKnob]
+	//SendMIDICC 15, mgen_ccs[pad_slot+last_knob], mgen_vals[pad_slot+last_knob]
+	Log {sending Mgen CH15 CC#},mgen_ccs[pad_slot+last_knob], { - }, mgen_vals[pad_slot+last_knob]
 @End
 
 @SetupLayoutScenes
@@ -1435,7 +1483,7 @@
 		  CopyArray chan_labels, l, 16 
 			CopyArray chan_colors, o, 16 
 		endif
-		CopyArray chan_midi_chs[16*slot], m, 16 
+		CopyArray chan_midi_chs, m, 16 
 		CopyArray mgen_guis, t, 16
 		CopyArray mgen_ccs, c, 64
 		CopyArray chan_layouts, a, 16
@@ -1445,7 +1493,7 @@
 		Log {mgen_colors =  [},o[0],{,},o[1],{,},o[2],{,},o[3],{,},o[4],{,},o[5],{,},o[6],{,},o[7],{,},o[8],{,},o[9],{,},o[10],{,},o[11],{,},o[12],{,},o[13],{,},o[14],{,},o[15],{]}
 		Log {mgen_labels =  [},l[0],{,},l[1],{,},l[2],{,},l[3],{,},l[4],{,},l[5],{,},l[6],{,},l[7],{,},l[8],{,},l[9],{,},l[10],{,},l[11],{,},l[12],{,},l[13],{,},l[14],{,},l[15],{]}
 		endif
-		if mode=5
+		if mode=1
 		log {chan_layouts =  [},a[0],{,},a[1],{,},a[2],{,},a[3],{,},a[4],{,},a[5],{,},a[6],{,},a[7],{,},a[8],{,},a[9],{,},a[10],{,},a[11],{,},a[12],{,},a[13],{,},a[14],{,},a[15],{]}
 		Log {chan_midi_chs= [},m[0],{,},m[1],{,},m[2],{,},m[3],{,},m[4],{,},m[5],{,},m[6],{,},m[7],{,},m[8],{,},m[9],{,},m[10],{,},m[11],{,},m[12],{,},m[13],{,},m[14],{,},m[15],{]}
 		Log {chan_colors =  [},o[0],{,},o[1],{,},o[2],{,},o[3],{,},o[4],{,},o[5],{,},o[6],{,},o[7],{,},o[8],{,},o[9],{,},o[10],{,},o[11],{,},o[12],{,},o[13],{,},o[14],{,},o[15],{]}
@@ -1720,6 +1768,9 @@
 			if i<=11
 				mgen_pad=i //settings mode last mgen pad in pad slot 7
 				Call @LabelMGENPad
+			elseif i=12
+			  LabelPad i, { }
+				ColorPad i, 0
 			elseif i=13
 			  LabelPad i, {[GUI]}
 				ColorPad i, 0
