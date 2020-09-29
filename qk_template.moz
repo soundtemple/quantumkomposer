@@ -185,7 +185,7 @@
 			endif
 			Log {-- THRU TO: MIXER KNTRL cc: }, MIDIByte2, { - }, MIDIByte3 
 		elseif MIDICommand=0xB0 and MIDIByte2>=18 and MIDIByte2<=100 //Available for midi learn
-			Log {MB2: }, MIDIByte2, { MLNSCC: }, midi_learn_notestate_cc[MIDIByte2], { MLNSCH: }, midi_learn_notestate_ch[MIDIByte2]   
+			// Log {MB2: }, MIDIByte2, { MLNSCC: }, midi_learn_notestate_cc[MIDIByte2], { MLNSCH: }, midi_learn_notestate_ch[MIDIByte2]   
 			if midi_learn_notestate_cc[MIDIByte2]>0 and midi_learn_notestate_ch[MIDIByte2]=MIDIChannel
 				//there must be a midi learn assignment
 				SendMIDICC chan_midi_chs[curr_chan], midi_learn_notestate_cc[MIDIByte2], MIDIByte3
@@ -342,13 +342,15 @@
 			mixer_mode=LastPad-8
 			Call @SetupKnobset7
 			Call @SendMidiCCBackToKnobs
-		elseif LastPad>=13
+		elseif LastPad=13
 			mode=2 // midi learn controller
 			in_mode_select = FALSE
+			Call @SetupKnobset3
 			Call @LabelMIDILearnPads
+			ColorPad last_midi_learn_pad, 1
 		elseif LastPad>=14 and LastPad<=15
 			Call @HandleTransportRequest
-			if print_preset and LastPad=13 and NOT HostRunning
+			if print_preset and LastPad=14 and NOT HostRunning
 				Call @PrintPreset
 			endif
 		endif
@@ -1451,6 +1453,11 @@
 		endif
 		Log {********* START PRESET *********}
 		Log {Printing preset for mode: }, mode
+	elseif mode=2
+		CopyArray midi_learn_assign_ccs[16*midi_learn_page], c, 16
+		CopyArray midi_learn_assign_chs[16*midi_learn_page], h, 16
+	  Log {midi_learn_assign_ccs[16*}, midi_learn_page, {] = [},c[0],{,},c[1],{,},c[2],{,},c[3],{,},c[4],{,},c[5],{,},c[6],{,},c[7],{,},c[8],{,},c[9],{,},c[10],{,},c[11],{,},c[12],{,},c[13],{,},c[14],{,},c[15],{]}
+		Log {midi_learn_assign_chs[16*}, midi_learn_page, {] = [},h[0],{,},h[1],{,},h[2],{,},h[3],{,},h[4],{,},h[5],{,},h[6],{,},h[7],{,},h[8],{,},h[9],{,},h[10],{,},h[11],{,},h[12],{,},h[13],{,},h[14],{,},h[15],{]}
 	endif
 @End
 
