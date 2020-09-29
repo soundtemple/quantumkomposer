@@ -104,7 +104,7 @@
 	protected_cc_to_label[113]=[8,9,10,11, 12,13,14,15, 64,65,66, 124,125,126,127]
 	mute_solo_arm=0 //remember pad state 0-2
 	for ch = 0 to 15 //set up mixer on all channels with default vals on def cc's
-		for i = 0 to 18
+		for i = 0 to 12
 			SetNoteState ch, chan_mx_ccs[i], chan_mx_def_vals[i] //store vals in the curr_chan not the midi chan
 		endfor
 	endfor
@@ -138,9 +138,12 @@
 	//Midi Learn assignments
 	//modwheel, vol, gain, pan, senda, sendb, hpf, lpf, fx1dw, fx1amt, fx2dw, fx2amt, [instr], [eq], [fx1], [fx2]
 	//mute, solo, arm, update_all_scenes,  aum, rwd, stop, play,  scene1-8
-	midi_learn_ccs_out    =[1,6,7,8, 10,11,12,13, 117,118,119,120, 124,125,126,127]
+	midi_learn_ccs_out    =[1,7,6,8, 10,11,12,13, 117,118,119,120, 124,125,126,127]
 	midi_learn_ccs_out[16]=[121,122,123,100, 109,110,111,112, 101,102,103,104,105,106,107,108]
-	midi_learn_assignments=[]
+	midi_learn_notestate_cc=[] //use these to reverse access midi learn assigns on midi input
+	midi_learn_notestate_ch=[] // ""
+	midi_learn_assign_ccs=[]
+	midi_learn_assign_chs=[]
 	midi_learn_page=0
 	last_midi_learn_pad=0
 @End
@@ -156,31 +159,43 @@
 	// CCs101-108 OUT: scene duration update. IN: SCENE CHANGE REQ	
 	// CCs109-127 THRU: CH Mixer & Transport
   //Route keyboard thru kntrl direct to curr_chan instrument
-	if MIDICommand=0xB0 and MIDIByte1=15 and (MIDIByte2>=109 and MIDIByte2<=112) //Transport
-		SendMIDICC MIDIByte1, MIDIByte2, MIDIByte3 // RWD, STOP, PLAY
-	elseif MIDICommand=0xB0 and MIDIByte1=15 and MIDIByte2>=14 and MIDIByte2<=17 //KNTRL Knobs
-		Log {-- HANDLE: KNOB KNTRL W/O AUM MIDI KNTRL -- }
-	elseif MIDICommand = 0xB0 and MIDIByte1=15 and MIDIByte2>=101 and MIDIByte2<=108 //Scene change
-		Log {-- HANDLE: SCENE CHANGE REQUEST TO SCENE }, MIDIByte2-100, { --}
-	elseif MIDICommand=0xB0 and (MIDIByte2<=13 or MIDIByte2>=113) //Mixer
-		//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF) 
-		if MIDIByte1=15 //active channel
-			SendMIDIThruOnCh chan_midi_chs[curr_chan] 
-		else //designated channel 0-14
-		  SendMIDICC MIDIByte1, MIDIByte2, MIDIByte3
-		endif
-		Log {-- THRU TO: MIXER KNTRL cc: }, MIDIByte2, { - }, MIDIByte3 
-	elseif MIDICommand=0xB0 and MIDIByte2>=18 and MIDIByte2<=100 //Available for midi learn
-		for i = 0 to 32 //midi learn assignments
-			if MIDIByte2 = midi_learn_assignments[i]
-				SendMIDICC chan_midi_chs[curr_chan], midi_learn_ccs_out[i], MIDIByte3
-				Log {-- MIDI LEARN ASSIGNMENT: CC:}, MIDIByte2, { to CC:}, midi_learn_ccs[i]
+	if mode=2 and MIDICommand=0xB0 and MIDIByte2>=18 and MIDIByte2<=100 //handle new midi learn assignment
+		assign_slot = (16*midi_learn_page) + last_midi_learn_pad
+		midi_learn_assign_chs[assign_slot] = MIDIChannel
+		midi_learn_assign_ccs[assign_slot] = MIDIByte2
+		pad_slot = (16*midi_learn_page) + last_midi_learn_pad
+		midi_learn_notestate_cc[MIDIByte2] = midi_learn_ccs_out[assign_slot] // for quick retrieval 
+		midi_learn_notestate_ch[MIDIByte2] = MIDIChannel
+		ColorPad last_midi_learn_pad, 3
+		Call @SetupKnobset3
+		SetKnobValue 3, MIDIByte3 // show the assignment working on knob3
+	else
+		if MIDICommand=0xB0 and MIDIByte1=15 and (MIDIByte2>=109 and MIDIByte2<=112) //Transport
+			SendMIDICC MIDIByte1, MIDIByte2, MIDIByte3 // RWD, STOP, PLAY
+		elseif MIDICommand=0xB0 and MIDIByte1=15 and MIDIByte2>=14 and MIDIByte2<=17 //KNTRL Knobs
+			Log {-- HANDLE: KNOB KNTRL W/O AUM MIDI KNTRL -- }
+		elseif MIDICommand = 0xB0 and MIDIByte1=15 and MIDIByte2>=101 and MIDIByte2<=108 //Scene change
+			Log {-- HANDLE: SCENE CHANGE REQUEST TO SCENE }, MIDIByte2-100, { --}
+		elseif MIDICommand=0xB0 and (MIDIByte2<=13 or MIDIByte2>=113) //Mixer
+			//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF) 
+			if MIDIByte1=15 //active channel
+				SendMIDIThruOnCh chan_midi_chs[curr_chan] 
+			else //designated channel 0-14
+			  SendMIDICC MIDIByte1, MIDIByte2, MIDIByte3
 			endif
-		endfor
-		Log {-- BLOCKED: RESERVED FOR MGEN KNOBS & GUI __}
-	elseif not MIDICommand=0xB0 
-		Log {-- THRU TO: REMAINDERCH:}, chan_midi_chs[curr_chan] 
-		SendMIDIThruOnCh chan_midi_chs[curr_chan] //pass thru notes, aftertouch, pressure, pitchbend 
+			Log {-- THRU TO: MIXER KNTRL cc: }, MIDIByte2, { - }, MIDIByte3 
+		elseif MIDICommand=0xB0 and MIDIByte2>=18 and MIDIByte2<=100 //Available for midi learn
+			Log {MB2: }, MIDIByte2, { MLNSCC: }, midi_learn_notestate_cc[MIDIByte2], { MLNSCH: }, midi_learn_notestate_ch[MIDIByte2]   
+			if midi_learn_notestate_cc[MIDIByte2]>0 and midi_learn_notestate_ch[MIDIByte2]=MIDIChannel
+				//there must be a midi learn assignment
+				SendMIDICC chan_midi_chs[curr_chan], midi_learn_notestate_cc[MIDIByte2], MIDIByte3
+				SetNoteState curr_chan, midi_learn_notestate_cc[MIDIByte2], MIDIByte3 //update store
+				Log {-- MIDI LEARN ASSIGNMENT: CH:}, chan_midi_chs[curr_chan], { CC:}, MIDIByte2, { to CC:}, midi_learn_ccs_out[i], { val: }, MIDIByte3
+			endif
+		elseif not MIDICommand=0xB0 
+			Log {-- THRU TO: REMAINDERCH:}, chan_midi_chs[curr_chan] 
+			SendMIDIThruOnCh chan_midi_chs[curr_chan] //pass thru notes, aftertouch, pressure, pitchbend 
+		endif
 	endif
 @End
 
@@ -249,6 +264,8 @@
 			Call @SetupLayoutScenes
 		elseif mode=1
 			Call @SetupLayoutChannels
+		elseif mode=2
+			Call @LabelMIDILearnPads
 		elseif mode=5 //instrument mode
 			edit_pad=0
 			Call @SetupLayoutChannels
@@ -583,9 +600,7 @@
 
 @PadDownMidiLearnMode
 	//Setup midi learn assignments
-	for i = 0 to 15
-		ColorPad i, 0
-	endfor
+	Call @LabelMIDILearnPads
 	ColorPad LastPad, 1
 	last_midi_learn_pad=LastPad
 	Call @SetupKnobset3
@@ -1037,14 +1052,18 @@
 	knob_set=3
 	pad_slot = (16*midi_learn_page) + last_midi_learn_pad
 	LabelPads {KNTRL : [ MIDI LEARN ]}
-	LabelKnobs {IN | OUT}
-	LabelKnob 0, {IN: }, midi_learn_assignments[pad_slot]
-	LabelKnob 1, {OUT: }, midi_learn_ccs_out[pad_slot]
-	LabelKnob 2, { }
+	LabelKnobs {IN              OUT}
+	if midi_learn_assign_ccs[pad_slot]=0
+		LabelKnob 0, {CC: --}
+	else
+		LabelKnob 0, {CC: }, midi_learn_assign_ccs[pad_slot]
+	endif
+	LabelKnob 1, {CC: }, midi_learn_ccs_out[pad_slot]
+	LabelKnob 2, {CH: }, midi_learn_assign_chs[pad_slot]+1
 	LabelKnob 3, {PAGE:}, midi_learn_page+1
-	SetKnobValue 0, TranslateScale midi_learn_assignments[pad_slot], 0, 127, 0, 127
+	SetKnobValue 0, TranslateScale midi_learn_assign_ccs[pad_slot], 0, 127, 0, 127
 	SetKnobValue 1, TranslateScale midi_learn_ccs_out[pad_slot], 0, 127, 0, 127
-	SetKnobValue 2, 0 
+	SetKnobValue 2, TranslateScale midi_learn_assign_chs[pad_slot], 0, 15, 0, 127
 	SetKnobValue 3, TranslateScale midi_learn_page, 0, 1, 0, 127
 @End
 
@@ -1052,15 +1071,38 @@
 	//# MIDI LEARN 
 	pad_slot = (16*midi_learn_page) + last_midi_learn_pad
 	if LastKnob = 0
-		midi_learn_assignments[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 18, 100
+		cc_to_assign = Round TranslateScale (GetKnobValue 0), 0, 127, 17, 100
+		if cc_to_assign=17
+			midi_learn_assign_ccs[pad_slot]=0
+			midi_learn_notestate_cc[cc_to_assign] = 0
+			midi_learn_notestate_ch[cc_to_assign] = 0
+		else
+			midi_learn_assign_ccs[pad_slot]=cc_to_assign
+			midi_learn_notestate_cc[cc_to_assign] = midi_learn_ccs_out[pad_slot] // for quick retrieval 
+			midi_learn_notestate_ch[cc_to_assign] = midi_learn_assign_chs[pad_slot]
+			Log {MLNS: }, midi_learn_notestate_ch[cc_to_assign]
+		endif
+		if midi_learn_assign_ccs[(16*midi_learn_page)+LastPad] > 0
+			ColorPad LastPad, 3
+		else
+			ColorPad LastPad, 1
+		endif
 	endif
+	if LastKnob = 2
+		midi_learn_assign_chs[pad_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 15
+		midi_learn_notestate_ch[midi_learn_assign_ccs[pad_slot]] = midi_learn_assign_chs[pad_slot]
+		endif
 	if LastKnob = 3
 		midi_learn_page = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
 		Call @LabelMIDILearnPads
 	endif
-	LabelKnob 0, {IN: }, midi_learn_assignments[pad_slot]
-	LabelKnob 1, {OUT: }, midi_learn_ccs_out[pad_slot]
-	LabelKnob 2, { }
+	if midi_learn_assign_ccs[pad_slot]=0
+		LabelKnob 0, {CC: --}
+	else
+		LabelKnob 0, {CC: }, midi_learn_assign_ccs[pad_slot]
+		endif
+	LabelKnob 1, {CC: }, midi_learn_ccs_out[pad_slot]
+	LabelKnob 2, {CH: }, midi_learn_assign_chs[pad_slot]+1
 	LabelKnob 3, {PAGE: }, midi_learn_page+1
 @End
 
@@ -1093,6 +1135,7 @@
 				midi_chan = chan_midi_chs[curr_chan]
 				SetNoteState curr_chan, cc, val
 				SendMIDICC midi_chan, cc, val
+				Log {Mixer change: CH: }, chan_midi_chs[curr_chan], { CC: }, cc
 			endif
 		endfor
 	endif
@@ -1779,8 +1822,11 @@
 @End
 
 @LabelMIDILearnPads //MGEN Pad labelling
-	for i = o to 15
+	for i = 0 to 15
 		ColorPad i, 0
+		if midi_learn_assign_ccs[(16*midi_learn_page)+i] > 0
+			ColorPad i, 3
+		endif
 	endfor
 	if midi_learn_page=0
 		LabelPad 0, {MODWHEEL} //MOD
