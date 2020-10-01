@@ -1,3 +1,5 @@
+//# QUANTUM KONTROLLER SUITE
+//# BEATS APP
 @OnLoad
   SetShortName {BEATS}
   ShowLayout 2
@@ -77,6 +79,11 @@
 	col_seq_pad_outside=5
 	col_sel_step=3
 	col_mutate=6
+	// Commmunications from KNTRL
+	cc_scene_select=100
+	cc_scene_duration=101 //+ scene_num0-7 ie 101-108
+	cc_rtn_to_song_mode=22
+	cc_swing=23
 @End
 
 @SetupSequences
@@ -738,11 +745,11 @@
   elseif (NOT in_mode_select and in_seq_mode)
   	if mode=8 and not steps_record_mode//# Step sequence mode
   		sel_pad=LastPad //# for updating step label info
-  		Log {Updating sel pad type for pad: }, sel_pad
+  		// Log {Updating sel pad type for pad: }, sel_pad
   		Call @UpdateSelStepType //# 0=off; 1=on;
   	elseif (mode>=11 and mode<=13)
   		sel_pad=LastPad //# for updating step label info
-  		Log {Updating sel pad type for pad: }, sel_pad
+  		// Log {Updating sel pad type for pad: }, sel_pad
   		Call @UpdateSelStepType //# 0=off; 1=on; 
   	elseif mode=8 and steps_record_mode
   		step_slot=(current_scene*128)+(current_pattn*16)
@@ -843,34 +850,35 @@
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if kontroller_slave=1
-		if (MIDIByte2<=7) and (MIDIChannel=15)
+	if kntrl_instance_num>0
+		if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
 			//# handle scene duration change
-			scene_durs[MIDIByte2] = MIDIByte3
+			scene_durs[MIDIByte2-cc_scene_duration] = MIDIByte3
 			Call @SetupLayout
-		elseif (MIDIByte2=8) and (MIDIChannel=15)
+		elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
 			//# handle scene change requested (ie: PadDown Scene change)
 			scene_change_requested = MIDIByte3
 			if NOT HostRunning //# immediate change else newbeat/bar handles
 	  		Call @HandleSceneChange 
 	  	endif
-		elseif (HostRunning and MIDIByte2=9 and MIDIByte3>0)
+		elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
     	//# handle return to song mode requested
     	return_to_song_mode_requested = TRUE
-    	scene_change_requested = MIDIByte3
+    	scene_change_requested = current_scene
     	in_mode_select = FALSE
     	songmode = 0
     	mode = 0
     	ColorPad 0, col_pending
 	    ColorPad 8, col_pending
-		elseif (MIDIByte2=9 and MIDIByte3>0 and not HostRunning)
+		elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
 			in_mode_select = FALSE
     	songmode = 0
     	mode = 0
+			current_scene=0
     	Call @SetupLayout
 			ColorPad current_scene, col_pending
 	    ColorPad current_pattn+8, col_pending
-	  elseif (MIDIByte2=10) //# Global swing
+	  elseif (MIDIByte2=cc_swing) //# Global swing
 	  	swng=MIDIByte3
 	  	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
 	  	Call @SetupLayout

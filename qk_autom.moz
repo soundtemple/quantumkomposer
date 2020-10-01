@@ -1,10 +1,9 @@
 //# SPLIT OFF FROM KNTRL ON 26SEP
 //# MOZAIC KOMPOSER SUITE
-//# KONTROLLER APP
-//# Handles messages to all connected instances for:
-//# Synchronised scene change... and other stuff 
+//# AUTOM APP
+//# Handles automation, lfo's and macros
 @OnLoad
-	SetShortName {KNTRL} 
+	SetShortName {AUTOM} 
 	ShowLayout 2
 	LabelPads {[ KNTRL ]}
 	if unassigned scene_durs //# duration in first scene
@@ -55,12 +54,11 @@
 	col_mode_edit = 6 //# Mode selection buttons in edit mode
 	cc_rtn_to_song_mode=9
 	cc_swing=10
-	
-	//MIDI KONTROL DATA STRUCTURE
-	// 16 channels --> layout, midi_ch, label,color,lsb,msb
-	// 16 instruments --> label,color,cc#,value,min,max
-	// 16 mixers --> Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
-	// 16 MidiGENs --> (channels 17-24) label,color, ccs1-4, plugin_btn, midi_ch=1
+	// Commmunications from KNTRL
+	cc_scene_select=100
+	cc_scene_duration=101 //+ scene_num0-7 ie 101-108
+	cc_rtn_to_song_mode=22
+	cc_swing=23
 	
 	//CHANNELS
 	chan_layouts = [3,4,7,8, 11,14,15,12, 5,6,2,2, 2,2,2,2] // 6layouts free,synth,bus,rmkr,rmfm,segments,ting, 6 synths
@@ -118,26 +116,6 @@
 		edit_chan=i 
 		Call @BuildLayoutPage
 	endfor
-	//# MIDI GEN KONTROL SECTION
-	last_mkntrl_pad=0 //# return to last pad used MG-kntrl mode
-	mgen_vals=[]
-	chan_labels[16] =  [22,23,24,25,26,27,28,29,15,19,12,3,9,5,8,21]
-	chan_colors[16] =  [5,6,6,6,6,6,6,6,3,3,3,4,4,4,4,2]
-	chan_midi_chs[16]= [0,15,15,15,15,15,15,15,11,14,10,3,7,5,8,0]
-	mgen_ccs[0*16] = [32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47]
-	mgen_ccs[1*16] = [0,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62]
-	mgen_ccs[2*16] = [63,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-	mgen_ccs[3*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-	mg_gui_ccs = [20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35] //fixed cc's for showing MG GUI
-	//Ruismaker instruments per channel 
-	rmkr_instrs[0*8] = [10,11,12,13, 14,15,16,17] //ch1 8 kiks all arrays len=8
-	rmkr_instrs[1*8] = [30,31,32,33, 34,35,36,36] //ch2 snares
-	rmkr_instrs[2*8] = [50,50,51,51, 101,101,111,111] //ch3 claps
-	rmkr_instrs[3*8] = [70,73,76,79, 82,85,88,91] //ch4 low toms
-	rmkr_instrs[4*8] = [60,60,60,62, 62,62,66,66] //ch5 hhc
-	rmkr_instrs[5*8] = [61,63,63,64, 65,65,67,67] //ch6 hho
-	rmkr_instrs[6*8] = [71,80,74,77, 86,89,92,83] //ch7 perc1
-	rmkr_instrs[7*8] = [72,81,75,78, 87,90,93,84] //ch8 perc2
 	//AUTOMATION SECTION VARS
 	auto_ramp_max=127 //range for the ramp to be applied
 	auto_ramp_min=0
@@ -196,26 +174,6 @@
 	SetupLFO 1, 0, 127, YES, 0.5
 @End
 
-@OnMidiInput
-  //Route keyboard thru kntrl direct to curr_chan instrument
-	if MIDICommand = 0xB0 and MIDIByte2 < 5 //B0 is std cc event 
-		Log {sending cc: }, MIDIByte2, { - }, MIDIByte3 
-		SendMIDIThruOnCh chan_midi_chs[curr_chan]
-	else
-		SendMIDIThruOnCh chan_midi_chs[curr_chan] //pass thru notes, aftertouch, pressure, pitchbend
-	endif
-@End
-
-@SendMidiCCBackToKnobs
-	//# Update controller knob vals with midi cc
-	// Log {sending midi to CONTROLLER ... CH:}, midi_controller[0]+1, { cc#}, midi_controller[1], {-},midi_controller[4]
-	if send_cc_back_to_knobs
-		SendMidiCC midi_controller[0], midi_controller[1], Round GetKnobValue 0
-		SendMidiCC midi_controller[0], midi_controller[2], Round GetKnobValue 1
-		SendMidiCC midi_controller[0], midi_controller[3], Round GetKnobValue 2
-		SendMidiCC midi_controller[0], midi_controller[4], Round GetKnobValue 3
-	endif
-@End
 
 @OnHostStart
 	//# keep track of scene progress
@@ -260,6 +218,44 @@
 @End
 
 @OnNewBar
+@End
+
+@OnMidiCC
+	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
+	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
+	if kontroller_slave=1
+		if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
+			//# handle scene duration change
+			scene_durs[MIDIByte2-cc_scene_duration] = MIDIByte3
+			Call @SetupLayout
+		elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
+			//# handle scene change requested (ie: PadDown Scene change)
+			scene_change_requested = MIDIByte3
+			if NOT HostRunning //# immediate change else newbeat/bar handles
+	  		Call @HandleSceneChange 
+	  	endif
+		elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
+    	//# handle return to song mode requested
+    	return_to_song_mode_requested = TRUE
+    	scene_change_requested = MIDIByte3
+    	in_mode_select = FALSE
+    	songmode = 0
+    	mode = 0
+    	ColorPad 0, col_pending
+	    ColorPad 8, col_pending
+		elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
+			in_mode_select = FALSE
+    	songmode = 0
+    	mode = 0
+    	Call @SetupLayout
+			ColorPad current_scene, col_pending
+	    ColorPad current_pattn+8, col_pending
+	  elseif (MIDIByte2=cc_swing) //# Global swing
+	  	swng=MIDIByte3
+	  	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
+	  	Call @SetupLayout
+		endif
+	endif
 @End
 
 @OnShiftDown
@@ -401,9 +397,7 @@
 			Call @SetupLayoutChannels
 			mixer_mode=LastPad-8
 			Call @SetupKnobset7
-			Call @SendMidiCCBackToKnobs
 		elseif LastPad>=13 and LastPad<=15
-			Call @HandleTransportRequest
 			if print_preset and LastPad=13 and NOT HostRunning
 				Call @PrintPreset
 			endif
@@ -448,8 +442,6 @@
 		endif
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
-	elseif mode=0 and LastPad>=13 and LastPad<=15
-		Call @HandleTransportRequest
 	elseif mode=0 and LastPad=8
 		songmode=0 //# return to song mode
 		SendMIDICC 15, cc_rtn_to_song_mode, 1
@@ -478,7 +470,6 @@
 			LatchPad i, no 
 		endfor
 		LatchPad lastPad, YES	
-		Call @SendMidiCCBackToKnobs
 	else
 		mode=5 //goto INSTRUMENT MODE
 		curr_chan = LastPad  
@@ -677,18 +668,6 @@
 		SendMIDICC chan, chan_mx_ccs[18], val
 	endif
 	Call @SetupKnobset7
-	Call @SendMidiCCBackToKnobs
-@End
-
-@HandleTransportRequest
-	//# Transport buttons handling
-	if LastPad=13
-		Log {Map to AUM rewind}
-	elseif LastPad=14
-		Log {Map to AUM stop}
-	elseif lastPad=15
-		Log {Map to AUM Play}
-	endif
 @End
 
 
@@ -736,18 +715,18 @@
 		LatchPad i, NO
 	endfor
 	LabelPad 0, {SCENES}
-	LabelPad 1, { ___MG___ }, { KONTROL }
+	LabelPad 1, { }
 	LabelPad 2, {EDIT}
-	LabelPad 3, {CHANNELS}
-	LabelPad 4, {[INSTR]}
+	LabelPad 3, { }
+	LabelPad 4, { }
 	LabelPad 5, {AUTOM}
 	LabelPad 6, {MACROS}
 	LabelPad 7, {LFO's}
-	LabelPad 8, { ___MX___ }, {VOL PAN} //channels Vol, Gain, Pan, Mid/Side
-	LabelPad 9, { ___MX___ }, {SEND FILT.} //HPF LPF SEND A SEND B
-	LabelPad 10,{ ___MX___ }, {EQ}
-	LabelPad 11,{ ___MX___ }, {FX}
-	LabelPad 12,{ ___MX___ }, {MUTE SOLO} //mute solo
+	LabelPad 8, { } //channels Vol, Gain, Pan, Mid/Side
+	LabelPad 9, { } //HPF LPF SEND A SEND B
+	LabelPad 10,{ }
+	LabelPad 11,{ }
+	LabelPad 12,{ } //mute solo
 	if print_preset and NOT HostRunning
 		LabelPad 13, {<< + PRINT PRESET}
 	else
@@ -756,8 +735,8 @@
 	LabelPad 14, {[STOP] RESET MIXER}
 	LabelPad 15, {PLAY>}
 	if edit_mode_active
-		LabelPad 3, {EDITING =>}
-			for i = 2 to 7
+		LabelPad 2, {<= EDIT =>}
+			for i = 5 to 7
 				ColorPad i, col_mode_edit
 		endfor
 	endif
@@ -1033,7 +1012,6 @@
 		endif 
 	endif
 	Call @LabelInstrumentKnobs
-	Call @SendMidiCCBackToKnobs
 @End 
 
 @KnobChangeSet2

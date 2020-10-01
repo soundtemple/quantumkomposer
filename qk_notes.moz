@@ -1,3 +1,5 @@
+//# QUANTUM KONTROLLER SUITE
+//# NOTES APP
 @OnLoad
   SetShortName {NOTES}
   ShowLayout 2
@@ -21,10 +23,7 @@
 	  use_turn_around = TRUE //# last pattn as turn around on last bar of scene
 	  //# used for LED feedback
 	  send_cc_back_to_knobs = FALSE 
-	  knob1_cc = 121 //# Used for sending midi feedback to LED knobs
-	  knob2_cc = 122
-	  knob3_cc = 123
-	  knob4_cc = 124
+	  midi_controller=[15,14,15,16,17] //midi controller channel then 4 ccs
 		mchnce=100
     Call @InitKnobVariables //# All knob settings on load
 	  Call @SetupSequences
@@ -49,7 +48,6 @@
 	timer_intervals=[500, 700, 150, 150, 700]
 	label_style=4 //#0-3 seq_types, 4 all_seq_type_sel_ch, 5_all_ch's_al_seq's
 	label_view_mode=4 //# A toggle for the settings pad. 4 or 5. Updates label_style also, which is used more frequently for sequence editing
-	
   input_restrict=0
   presets=[]
   preset_num=0
@@ -58,25 +56,11 @@
   copy_paste_status=0 //# Copy paste 0=off; 1=Copied; 2=Paste
   return_to_mode=0 //# Copy paste on completion
 	rnd_scene_chg=FALSE //# will select rnd scene on (auto) change not user change
-	//# Color Scheme
-	col_scene = 2
-	col_sel_scene = 4
-	col_pattn = 2
-	col_sel_pattn = 4
-	col_rec_pattn = 1 //# in record mode
-	col_pattn_waiting = 1 //# selected waiting for notes
-	col_pending = 3
-	loop_col = 6
-	col_del_pattn = 1
-	col_mode_select = 6 //# Mode selection buttons
-	col_unused = 0
-	col_seq_pad_on=4
-	col_seq_pad_off=0
-	col_seq_pad_rec=1
-	col_seq_pad_sust=4
-	col_seq_pad_outside=5
-	col_sel_step=3
-	col_mutate=6
+	// Commmunications from KNTRL
+	cc_scene_select=100
+	cc_scene_duration=101 //+ scene_num0-7 ie 101-108
+	cc_rtn_to_song_mode=22
+	cc_swing=23
 @End
 
 @SetupSequences
@@ -637,8 +621,8 @@
     	in_mode_select = FALSE
     	songmode = 0
     	mode = 0
-    	ColorPad 0, col_pending
-	    ColorPad 8, col_pending
+    	ColorPad 0, 3
+	    ColorPad 8, 3
 	  elseif LastPad=6 and ((mode=9) or (mode=11) or (mode<=1))//# COPY PASTE
 	  	//# Copy/Paste pad hit so 'copy' current scene/pattn/seq xcp
 			return_to_mode=mode
@@ -688,11 +672,11 @@
 		elseif (copy_paste_status=1) and return_to_mode=9 
 			//# CP activated for seq mode
 			LabelPads {STEP COPY: Copied Scene}, current_scene+1, { Pattern}, current_pattn+1, { STEP}, sel_step+1, {. Select STEP slot [... and ch] to paste to}
-			ColorPad sel_step, col_sel_step
+			ColorPad sel_step, 3
 		elseif (copy_paste_status=1) and return_to_mode=11
 			//# CP activated for seq mode
 			LabelPads {SEQ COPY: Copied Scene}, current_scene+1, { Pattern}, current_pattn+1, { CH}, seq_ch+1, {. Select a Channel then hit pad to paste (16steps)}
-			ColorPad sel_step, col_sel_step
+			ColorPad sel_step, 3
 		endif
 	//# NOT IN MODE SELECT......
 	elseif (NOT in_mode_select and NOT in_seq_mode)
@@ -703,7 +687,7 @@
 			Call @SetupLayout
 	  	rec_pattn_note_count = 0
   		LabelPad current_pattn+8, {...waiting}
-  		ColorPad current_pattn+8, col_pattn_waiting
+  		ColorPad current_pattn+8, 1
 		elseif (mode = 6) //# COPY/PASTE
     	//# only call CP if pad and copy mode correspond
     	if copy_mode=0 and LastPad<=7
@@ -823,43 +807,45 @@
 @SendMidiCCBackToKnobs
 	//# Update controller knob vals with midi cc
 	//# Log {Updating Twister... }, Round GetKnobValue 0
-	SendMidiCC 0, knob1_cc, Round GetKnobValue 0
-	SendMidiCC 0, knob2_cc, Round GetKnobValue 1
-	SendMidiCC 0, knob3_cc, Round GetKnobValue 2
-	SendMidiCC 0, knob4_cc, Round GetKnobValue 3
+	SendMidiCC 0, midi_controller[1], Round GetKnobValue 0
+	SendMidiCC 0, midi_controller[2], Round GetKnobValue 1
+	SendMidiCC 0, midi_controller[3], Round GetKnobValue 2
+	SendMidiCC 0, midi_controller[4], Round GetKnobValue 3
 @End
 
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if kontroller_slave=1
-		if (MIDIByte2<=7) and (MIDIChannel=15)
+	if kntrl_instance_num>0
+		if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
 			//# handle scene duration change
-			scene_durs[MIDIByte2] = MIDIByte3
+			scene_durs[MIDIByte2-cc_scene_duration] = MIDIByte3
 			Call @SetupLayout
-		elseif (MIDIByte2=8) and (MIDIChannel=15)
+		elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
 			//# handle scene change requested (ie: PadDown Scene change)
 			scene_change_requested = MIDIByte3
 			if NOT HostRunning //# immediate change else newbeat/bar handles
 	  		Call @HandleSceneChange 
 	  	endif
-		elseif (HostRunning and MIDIByte2=9 and MIDIByte3>0)
+		elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
     	//# handle return to song mode requested
     	return_to_song_mode_requested = TRUE
-    	scene_change_requested = MIDIByte3
+    	scene_change_requested = current_scene
     	in_mode_select = FALSE
     	songmode = 0
     	mode = 0
-    	ColorPad 0, col_pending
-	    ColorPad 8, col_pending
-		elseif (MIDIByte2=9 and MIDIByte3>0 and not HostRunning)
+    	ColorPad 0, 3
+	    ColorPad 8, 3
+		elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
 			in_mode_select = FALSE
     	songmode = 0
     	mode = 0
     	Call @SetupLayout
-			ColorPad current_scene, col_pending
-	    ColorPad current_pattn+8, col_pending
-	  elseif (MIDIByte2=10) //# Global swing
+			current_scene=0
+			current_pattn=0
+			ColorPad current_scene, 3
+	    ColorPad current_pattn+8, 3
+	  elseif (MIDIByte2=cc_swing) //# Global swing
 	  	swng=MIDIByte3
 	  	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
 	  	Call @SetupLayout
@@ -2583,7 +2569,7 @@ endif
 		LabelKnob 2, { }
 		LabelKnob 3, { }
 		for i = 0 to (number_of_modes - 1)
-			ColorPad i, col_mode_select
+			ColorPad i, 6 // mode sel color
 			LabelPad i, { } //# empty label to overwrite pattn info
 			LatchPad i, NO 
 		endfor
@@ -2672,16 +2658,16 @@ endif
 	 //# Setup scene pads
    for i = 0 to 7  
 	    if scene_durs[i] > 0
-		    ColorPad i, col_scene
+		    ColorPad i, 2
 				scn_to_label = i
 				Call @LabelScenePad
 	  	else
-	  		ColorPad i, col_unused
+	  		ColorPad i, 0
 	  		LabelPad i, { }
 	  	endif
 	    LatchPad i, NO
 	    if (scene_durs[i] > 0) and (mode = 7) and NOT in_mode_select
-	      ColorPad i, col_del_pattn
+	      ColorPad i, 1  //del pattn
 	    endif
 	  endfor		  
 	  //# Setup pattn pads  
@@ -2689,23 +2675,23 @@ endif
 	    pattn_slot = (current_scene*8) + (i-8)
 	    LatchPad i, NO
 	    if pattn_durs[pattn_slot] > 0
-	    	ColorPad i, col_pattn
+	    	ColorPad i, 2
 	    	pattn_to_label = i
 	    	Call @LabelPatternPad
 	    else
-	  		ColorPad i, col_unused
+	  		ColorPad i, 0
 	  		LabelPad i, { }
 	  	endif
 	    if (mode = 7) and (pattn_durs[pattn_slot] > 0)
-		  	ColorPad i, col_del_pattn
+		  	ColorPad i, 1  //del pattn
 		  endif
 	  endfor
 		//# Handle current scene and pattn colors
 	  if (songmode = 0) //# Playthru no lock
-	  	ColorPad current_scene, col_sel_scene
-	  	ColorPad current_pattn+8, col_sel_pattn
+	  	ColorPad current_scene, 4
+	  	ColorPad current_pattn+8, 4
 	  elseif (songmode = 1) //# Lock to scene
-	    ColorPad current_pattn+8, col_sel_pattn
+	    ColorPad current_pattn+8, 4
 	    LatchPad current_scene, YES
 	  elseif (songmode = 2)
 	  	LatchPad current_scene, YES
@@ -2718,10 +2704,10 @@ endif
 		//# Handle pending pattn and scene changes in playback
 	  if HostRunning and (songmode <=2)
 	  	if pattn_change_requested >= 0
-	  		ColorPad pattn_change_requested+8, col_pending
+	  		ColorPad pattn_change_requested+8, 3
 	  	endif
 	  	if scene_change_requested >= 0
-	  		ColorPad scene_change_requested, col_pending
+	  		ColorPad scene_change_requested, 3
 	  	endif
 	  endif
 	  //# Call @OnPadDown_KnobSetSelect
@@ -2791,28 +2777,28 @@ endif
 	elseif (seq_ch=3)
 		sel_pad_type = seq3_steps[step_slot]
 	endif
-	padColor=col_seq_pad_on
+	padColor=4
 	if sel_pad_type=0 and not steps_record_mode //# stored value
-		padColor=col_seq_pad_off
+		padColor=0
 	elseif sel_pad_type=0 and steps_record_mode //# recsteps on
-		padColor=col_seq_pad_rec
+		padColor=1
 	elseif sel_pad_type=2
-		padColor=col_seq_pad_sust
+		padColor=4
 	endif
 	if (step_mutation[seq_ch]>=1) and (mutate_step[seq_ch]=sel_pad) 
-			padColor=col_mutate //# highlight mutating step
+			padColor=6 //# highlight mutating step
 	endif
 	
 	if (mode=7) and (sel_pad_type>0) //# delete reset pads mode
-		padColor=col_seq_pad_rec
+		padColor=1
 	endif
 	//# Off pads past pattn length
 	if sel_pad >= pattn_length
-		padColor = col_seq_pad_outside
+		padColor = 5
 	endif
 	//# Selected step
 	if (sel_pad=sel_step) and (mode=9)
-		ColorPad sel_pad, col_sel_step
+		ColorPad sel_pad, 3
 	else
 	  	ColorPad sel_pad, padColor
 	endif
