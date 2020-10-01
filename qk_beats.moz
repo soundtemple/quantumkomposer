@@ -23,10 +23,7 @@
 	  use_turn_around = TRUE //# last pattn as turn around on last bar of scene
 	  //# used for LED feedback
 	  send_cc_back_to_knobs = FALSE 
-	  knob1_cc = 121 //# Used for sending midi feedback to LED knobs
-	  knob2_cc = 122
-	  knob3_cc = 123
-	  knob4_cc = 124
+	  midi_controller=[15,14,15,16,17] //midi controller channel then 4 ccs
 		mchnce=100
     Call @InitKnobVariables //# All knob settings on load
 	  Call @SetupSequences
@@ -841,10 +838,10 @@
 @SendMidiCCBackToKnobs
 	//# Update controller knob vals with midi cc
 	//# Log {Updating Twister... }, Round GetKnobValue 0
-	SendMidiCC 0, knob1_cc, Round GetKnobValue 0
-	SendMidiCC 0, knob2_cc, Round GetKnobValue 1
-	SendMidiCC 0, knob3_cc, Round GetKnobValue 2
-	SendMidiCC 0, knob4_cc, Round GetKnobValue 3
+	SendMidiCC 0, midi_controller[1], Round GetKnobValue 0
+	SendMidiCC 0, midi_controller[2], Round GetKnobValue 1
+	SendMidiCC 0, midi_controller[3], Round GetKnobValue 2
+	SendMidiCC 0, midi_controller[4], Round GetKnobValue 3
 @End
 
 @OnMidiCC
@@ -861,6 +858,7 @@
 			if NOT HostRunning //# immediate change else newbeat/bar handles
 	  		Call @HandleSceneChange 
 	  	endif
+			Call @SetupLayout
 		elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
     	//# handle return to song mode requested
     	return_to_song_mode_requested = TRUE
@@ -868,7 +866,7 @@
     	in_mode_select = FALSE
     	songmode = 0
     	mode = 0
-    	ColorPad 0, col_pending
+    	ColorPad current_scene, col_pending
 	    ColorPad 8, col_pending
 		elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
 			in_mode_select = FALSE

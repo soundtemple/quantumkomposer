@@ -125,9 +125,9 @@
 	allow_edit_mgen_ccs=FALSE
 	last_mgen_pad=0 //# return to last pad used MG-kntrl mode
 	mgen_vals=[]
-	mgen_labels =  [1,2,3,4, 5,9,7,6, 12,13,14,0, 0,0,0,0]
-	mgen_colors =  [5,6,6,2, 4,4,4,4, 3,3,3,3,    0,0,0,0]
-	for i = 0 to 15
+	mgen_labels =  [2,3,4,5,9,10,6,7,12,14,1,15,0,0,0,0]
+	mgen_colors =  [2,2,1,4,4,4,4,4,6,6,5,5,0,0,0,0]
+	for i = 0 to 11
 		mgen_guis[i] = i+88  ////fixed cc's for showing MG GUI 88-99 (12 instances)
 		mgen_ccs[(i*4)+0] = ((i*4)+0)+40 //fixed cc's for controlling MG apps
 		mgen_ccs[(i*4)+1] = ((i*4)+1)+40 //k2 (40-87 = 48 knobs)
@@ -147,7 +147,7 @@
 	//modwheel, vol, gain, pan, senda, sendb, hpf, lpf, fx1dw, fx1amt, fx2dw, fx2amt, [instr], [eq], [fx1], [fx2]
 	//mute, solo, arm, update_all_scenes,  aum, rwd, stop, play,  scene1-8
 	midi_learn_ccs_out    =[1,7,6,8, 10,11,12,13, 117,118,119,120, 124,125,126,127]
-	midi_learn_ccs_out[16]=[121,122,123,100, 109,110,111,112, 101,102,103,104,105,106,107,108]
+	midi_learn_ccs_out[16]=[121,122,123,98, 109,110,111,112, 101,102,103,104,105,106,107,108]
 	midi_learn_notestate_cc=[] //use these to reverse access midi learn assigns on midi input
 	midi_learn_notestate_ch=[] // ""
 	midi_learn_assign_ccs=[]
@@ -190,9 +190,8 @@
 			SetKnobValue last_knob, MIDIByte3 // change knob position
 			Call @OnKnobChange2 //handle that change 
 		
-		elseif MIDICommand=0xB0 and MIDIChannel=15 and MIDIByte2>=18 and MIDIByte2<=20
-			// Switch to AUM. KNTRL, KORDS
-			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3
+		elseif MIDICommand=0xB0 and MIDIChannel=15 and MIDIByte2=18
+			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 // Switch to AUM
 			
 		elseif MIDICommand=0xB0 and MIDIChannel=15 and MIDIByte2>24 and MIDIByte2<=39
 			// Switch INSTRUMENT channel 0-15
@@ -201,6 +200,9 @@
 			mode=1
 			Call @PadDownChannelsMode
 			
+		elseif MIDICommand = 0xB0 and MIDIChannel=15 and MIDIByte2>=88 and MIDIByte2<=99
+				SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 // MGEN GUI - setup in MG Kntrol
+
 		elseif MIDICommand = 0xB0 and MIDIChannel=15 and MIDIByte2>=101 and MIDIByte2<=108 
 			//SCENE CHANGE and SCENE DURATION CHANGE CH16
 			last_pad = MIDIByte2-101
@@ -284,7 +286,7 @@
 @OnHostStop
   scene_beat_count = 0
   Log {---- Host Stopped ---- }, scene_beat_count, { - }
-	Call @ModeSetup
+	// Call @ModeSetup
 @End 
 
 
@@ -404,15 +406,14 @@
 			mixer_mode=last_pad-8
 			Call @SetupKnobset7
 			Call @SendMidiCCBackToKnobs
-		elseif last_pad=13
+		elseif last_pad=15
 			mode=2 // midi learn controller
 			in_mode_select = FALSE
 			Call @SetupKnobset3
 			Call @LabelMIDILearnPads
 			ColorPad last_midi_learn_pad, 1
 		elseif last_pad>=14 and last_pad<=15
-			Call @HandleTransportRequest
-			if print_preset and last_pad=14 and NOT HostRunning
+			if print_preset and NOT HostRunning
 				Call @PrintPreset
 			endif
 		endif
@@ -612,22 +613,26 @@
 
 @PadDownMGMode
 	// Midi Gen plugins kontrol
-	last_mgen_pad=last_pad
-	if edit_mode_active
+	if last_pad=12
+		SendMIDICC 15, mgen_guis[last_mgen_pad], 127
+	elseif last_pad>=13 and last_pad<=15
+		Call @HandleTransportRequest
+	elseif edit_mode_active
 		if last_pad = edit_pad //user hit same pad again. switch knobset
 			use_mgen_knobset_a = NOT use_mgen_knobset_a
 		endif
 		edit_pad = last_pad 
+		last_mgen_pad=last_pad
 		if use_mgen_knobset_a
 			Call @Setupknobset8 //setup a
 		else 
 			Call @SetupKnobset9 //setup b
 		endif
 	else
-	  if last_pad = edit_pad //user hit same pad again. toggle GUI
-			Log {TOGGLE MGEN GUI & SEND MIDI}
-			SendMIDICC 15, mgen_guis[last_mgen_pad], 127
+		if last_pad = last_mgen_pad //user hit same pad again
+			SendMIDICC 15, mgen_guis[last_mgen_pad], 127 // toggle gui
 		endif
+	  last_mgen_pad=last_pad
 		edit_pad = last_pad
 		Call @SetupKnobset10 //use m-kntrl knobs
 	endif
@@ -674,9 +679,9 @@
 
 @HandleTransportRequest
 	//# Transport buttons handling
-	if last_pad=14 and NOT HostRunning
+	if last_pad=13
 		SendMIDICC 15,110,127 //RWD
-	elseif last_pad=14 and HostRunning
+	elseif last_pad=14 
 		SendMIDICC 15,111,127 //STOP
 	elseif last_pad=15
 		SendMIDICC 15,112,127 //PLAY
@@ -724,7 +729,7 @@
 	ShowLayout 2
 	LabelPads {KNTRL : [ SETTINGS ]}
 	LabelPad 0, {SCENES}
-	LabelPad 1, { ___MG___ }, { KONTROL }
+	LabelPad 1, { __MGEN__ }, { KONTROL }
 	LabelPad 2, {EDIT}
 	LabelPad 3, { ___ALL___ }, {CHANNELS}
 	pad_to_label=4 
@@ -736,23 +741,19 @@
 	mgen_pad=last_mgen_pad // settings mode labels pad7 diff loc.
 	pad_to_label=7
 	Call @LabelMGENPad
-	LabelPad 8, { ___MX___ }, {VOL PAN} //channels Vol, Gain, Pan, Mid/Side
-	LabelPad 9, { ___MX___ }, {SEND FILT.} //HPF LPF SEND A SEND B
-	LabelPad 10,{ ___MX___ }, {EQ}
-	LabelPad 11,{ ___MX___ }, {FX}
-	LabelPad 12,{ ___MX___ }, {MUTE SOLO} //mute solo
-	settings_cols = [4,5,5,5, 3,3,3,3, 3,3,3,3, 3,0,0,0]
+	LabelPad 8, { __MIXER__ }, {VOL PAN} //channels Vol, Gain, Pan, Mid/Side
+	LabelPad 9, { __MIXER__ }, {SEND FILT.} //HPF LPF SEND A SEND B
+	LabelPad 10,{ __MIXER__ }, {EQ}
+	LabelPad 11,{ __MIXER__ }, {FX}
+	LabelPad 12,{ __MIXER__ }, {MUTE SOLO} //mute solo
+	settings_cols = [4,4,0,4, 0,0,0,0, 2,2,2,2, 2,0,0,0]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
 	endfor
-	LabelPad 13, {[midi learn]}
-	if HostRunning
-		LabelPad 14, {[STOP]}
-	elseif NOT HostRunning
-		LabelPad 14, {<<RWD+pp}
-	endif
-	LabelPad 15, {PLAY>}
+	LabelPad 13, { }
+	LabelPad 14, { }
+	LabelPad 15, {[midi learn]}
 	if edit_mode_active
 		LabelPad 2, {<= EDIT =>}
 			for i = 1 to 3
@@ -1298,7 +1299,7 @@
 	LabelKnob 1, {Color }, mgen_colors[last_mgen_pad]
 	LabelKnob 2, {GUI CC }, mgen_guis[last_mgen_pad]
 	LabelKnob 3, { }
-	SetKnobValue 0, TranslateScale mgen_labels[last_mgen_pad], 0, 14, 0, 127
+	SetKnobValue 0, TranslateScale mgen_labels[last_mgen_pad], 0, 15, 0, 127
 	SetKnobValue 1, TranslateScale mgen_colors[last_mgen_pad], 0, 6, 0, 127
 	SetKnobValue 2, TranslateScale mgen_guis[last_mgen_pad], 0, 127, 0, 127 
 	SetKnobValue 3, 0	
@@ -1306,8 +1307,8 @@
 
 @KnobChangeSet8
 	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
-	if last_knob = 0
-		mgen_labels[last_mgen_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 14
+	if last_knob=0 and last_mgen_pad<=9
+		mgen_labels[last_mgen_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
 		pad_to_label=last_mgen_pad
 		mgen_pad=last_mgen_pad // settings mode labels pad7 diff loc.
 		Call @LabelMGENPad
@@ -1399,8 +1400,8 @@
 	LabelKnob 1, {CC}, mgen_ccs[pad_slot+1], {:}, mgen_vals[pad_slot+1]
 	LabelKnob 2, {CC}, mgen_ccs[pad_slot+2], {:}, mgen_vals[pad_slot+2]
 	LabelKnob 3, {CC}, mgen_ccs[pad_slot+3], {:}, mgen_vals[pad_slot+3]
-	//SendMIDICC 15, mgen_ccs[pad_slot+last_knob], mgen_vals[pad_slot+last_knob]
-	Log {sending Mgen CH15 CC#},mgen_ccs[pad_slot+last_knob], { - }, mgen_vals[pad_slot+last_knob]
+	SendMIDICC 15, mgen_ccs[pad_slot+last_knob], mgen_vals[pad_slot+last_knob]
+	//Log {sending Mgen CH15 CC#},mgen_ccs[pad_slot+last_knob], { - }, mgen_vals[pad_slot+last_knob]
 @End
 
 @SetupLayoutScenes
@@ -1448,11 +1449,8 @@
 	ColorPad 13, col_unused
 	ColorPad 14, col_unused
 	ColorPad 15, col_unused
-	if NOT HostRunning
-		LabelPad 14, {<<RWD}
-	else
-		LabelPad 14, {[STOP]}
-	endif
+	LabelPad 13, {<<RWD}
+	LabelPad 14, {[STOP]}
 	LabelPad 15, {PLAY>}
 @End
 
@@ -1791,12 +1789,9 @@
 				mgen_pad=i //settings mode last mgen pad in pad slot 7
 				Call @LabelMGENPad
 			elseif i=12
-			  LabelPad i, { }
-				ColorPad i, 0
-			elseif i=13
 			  LabelPad i, {[GUI]}
 				ColorPad i, 0
-			elseif i=14 and NOT HostRunning
+			elseif i=13
 			  LabelPad i, {<<<RWD}
 				ColorPad i, 0
 			elseif i=14
@@ -1871,33 +1866,35 @@
 	if (label_num=0)
 		LabelPad pad_to_label, { }
 	elseif (label_num=1)
-		LabelPad pad_to_label, {___MG___ }, {>KORDS }	
+		LabelPad pad_to_label, {__MGEN__ }, {>KORDS }	
 	elseif (label_num=2)
-		LabelPad pad_to_label, {___MG___ }, {>DRUMS }	
+		LabelPad pad_to_label, {__MGEN__ }, {>DRUMS }	
 	elseif (label_num=3)
-		LabelPad pad_to_label, {___MG___ }, {>PERCS }	
+		LabelPad pad_to_label, {__MGEN__ }, {>PERCS }	
 	elseif (label_num=4)
-		LabelPad pad_to_label, {___MG___ }, {>BASS }	
+		LabelPad pad_to_label, {__MGEN__ }, {>BASS }	
 	elseif (label_num=5)
-		LabelPad pad_to_label, {___MG___ }, {>LEAD }	
+		LabelPad pad_to_label, {__MGEN__ }, {>LEAD }	
 	elseif (label_num=6)
-		LabelPad pad_to_label, {___MG___ }, {>ARP }
+		LabelPad pad_to_label, {__MGEN__ }, {>ARP }
 	elseif (label_num=7)
-		LabelPad pad_to_label, {___MG___ }, {>PADS }
+		LabelPad pad_to_label, {__MGEN__ }, {>PADS }
 	elseif (label_num=8)
-		LabelPad pad_to_label, {___MG___ }, {>STABS }
+		LabelPad pad_to_label, {__MGEN__ }, {>STABS }
 	elseif (label_num=9)
-		LabelPad pad_to_label, {___MG___ }, {>KEYS }	
+		LabelPad pad_to_label, {__MGEN__ }, {>KEYS }	
 	elseif (label_num=10)
-		LabelPad pad_to_label, {___MG___ }, {>PLUCK }	
+		LabelPad pad_to_label, {__MGEN__ }, {>PLUCK }	
 	elseif (label_num=11)
-		LabelPad pad_to_label, {___MG___ }, {>STRINGS }	
+		LabelPad pad_to_label, {__MGEN__ }, {>STRINGS }	
 	elseif (label_num=12)
-		LabelPad pad_to_label, {___MG___ }, {>LOOPS }	
+		LabelPad pad_to_label, {__MGEN__ }, {>LOOPS }	
 	elseif (label_num=13)
-		LabelPad pad_to_label, {___MG___ }, {>FILLS }	
+		LabelPad pad_to_label, {__MGEN__ }, {>FILLS }	
 	elseif (label_num=14)
-		LabelPad pad_to_label, {___MG___ }, {   >FX }	
+		LabelPad pad_to_label, {__MGEN__ }, {   >FX }	
+	elseif (label_num=15)
+		LabelPad pad_to_label, {__MGEN__ }, {>AUTOM }	
 	endif
 @End
 
@@ -1929,7 +1926,7 @@
 		LabelPad 0, {MUTE} //MIXER
 		LabelPad 1, {SOLO} //MIXER
 		LabelPad 2, {ARM} //MIXER
-		LabelPad 3, {UPDATE SCENES} //MIXER
+		LabelPad 3, {TO KNTRL} //MIXER
 		LabelPad 4, {TO AUM} //MIXER
 		LabelPad 5, {<<RWD} //TSPORT
 		LabelPad 6, {[STOP]} //TSPORT

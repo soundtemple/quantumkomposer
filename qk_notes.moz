@@ -427,7 +427,7 @@
 	pattn_slot = (current_scene * 8) + (current_pattn)
 	current_pattn_duration = pattn_durs[pattn_slot]
 	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
-	Log {Scene beats left: }, current_scene_duration - scene_beat_count, { Pattern beats left: }, current_pattn_duration - pattn_beat_count
+	//Log {Scene beats left: }, current_scene_duration - scene_beat_count, { Pattern beats left: }, current_pattn_duration - pattn_beat_count
   time_for_turnaround = FALSE
   if use_turn_around
   	Call @TimeForTurnaround
@@ -827,6 +827,7 @@
 			if NOT HostRunning //# immediate change else newbeat/bar handles
 	  		Call @HandleSceneChange 
 	  	endif
+			Call @SetupLayout
 		elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
     	//# handle return to song mode requested
     	return_to_song_mode_requested = TRUE
@@ -834,7 +835,7 @@
     	in_mode_select = FALSE
     	songmode = 0
     	mode = 0
-    	ColorPad 0, 3
+    	ColorPad current_scene, 3
 	    ColorPad 8, 3
 		elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
 			in_mode_select = FALSE

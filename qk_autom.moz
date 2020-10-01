@@ -5,7 +5,7 @@
 @OnLoad
 	SetShortName {AUTOM} 
 	ShowLayout 2
-	LabelPads {[ KNTRL ]}
+	LabelPads {[ AUTOM ]}
 	if unassigned scene_durs //# duration in first scene
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
@@ -21,7 +21,7 @@
 		locked_to_scene=0
 		last_channel_visited=0 //# last channel a user visited 0-16 (16 is top level)
 		scene_change_requested = -1 //# on pad down has next scene number
-		in_mode_select = FALSE //# Toggle for changing modes mode
+		in_mode_select = TRUE //# Toggle for changing modes mode
 		number_of_modes = 16 //# Change in operational mode 
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		curr_chan=0 //# 0-15 KNTRL channels + Channel Select + M-Kontrol Channel
@@ -29,8 +29,7 @@
 		send_cc_back_to_knobs = TRUE
 		midi_controller=[15,124,125,126,127] //midi controller is sending on channel and 4 ccs
 		Call @InitKnobVariables //# All knob settings on start
-		Call @SetupKnobset0
-		Call @SetupLayoutScenes
+		Call @SetupSettingsLayout
 	endif
 @End
 
@@ -273,7 +272,7 @@
 			Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
 		elseif mode=3
 			in_mode_select = FALSE
-			LabelPads {KNTRL : [ MACROS ] }
+			LabelPads {AUTOM : [ MACROS ] }
 			ShowLayout 2
 			for i = 0 to 15
 				LatchPad i, NO 
@@ -307,7 +306,7 @@
 	else //not in mode select
 		Call @SetupSettingsLayout
 		Call @UpdateCurrentKnobset
-		LabelPads {KNTRL : [ SETTINGS ]}
+		LabelPads {AUTOM : [ SETTINGS ]}
 	endif
 @End
 
@@ -353,7 +352,7 @@
 				edit_chan=0
 			endif
 			LatchPad curr_chan, YES
-			LabelPads {KNTRL : [ CHANNELS ]}
+			LabelPads {AUTOM : [ CHANNELS ]}
 		elseif LastPad=5
 			mode=2 //AUTOMATION
 			in_mode_select = FALSE
@@ -371,7 +370,7 @@
 		elseif LastPad=6
 			mode=3 //MACROS
 			in_mode_select = FALSE
-			LabelPads {KNTRL : [ MACROS ]}
+			LabelPads {AUTOM : [ MACROS ]}
 			ShowLayout 2
 			for i = 0 to 15
 				LatchPad i, NO 
@@ -595,7 +594,7 @@
 	macro_num = (Div LastPad, 4) + 1
 	param_num = (LastPad % 4) + 1	
 	sel_macro=LastPad 
-	LabelPads {KNTRL : [ MACRO }, macro_num, { PARAM }, param_num, { ]}
+	LabelPads {AUTOM : [ MACRO }, macro_num, { PARAM }, param_num, { ]}
 	for i = 0 to 15
 		LatchPad i, no 
 	endfor
@@ -702,14 +701,14 @@
 @LogCurrentInfo
 	current_scene_duration = scene_durs[current_scene]
 	Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
-	LabelPads {KNTRL : [ Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1, { ]}
+	LabelPads {AUTOM : [ Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1, { ]}
 @End
 
 @SetupSettingsLayout
 	// #Label all settings mode pads
 	in_mode_select = TRUE
 	ShowLayout 2
-	LabelPads {KNTRL : [ SETTINGS ]}
+	LabelPads {AUTOM : [ SETTINGS ]}
 	for i = 0 to 15
 		ColorPad i, col_mode_select
 		LatchPad i, NO
@@ -818,7 +817,7 @@
 @SetupKnobset0
 	//# Scene settings
 	knob_set = 0
-	LabelPads {KNTRL : [ SCENES ]}
+	LabelPads {AUTOM : [ SCENES ]}
 	LabelKnobs {SCENE SETUP}
 	LabelKnob 0, {Scene }, edit_scene+1
 	LabelKnob 1, {Bars }, scene_durs[edit_scene]
@@ -871,7 +870,7 @@
 	//# Channels Setup
 	knob_set = 1
 	LabelKnobs {CHANNEL }, edit_chan+1, { SETUP}
-	LabelPads {KNTRL : [ CHANNELS ]}
+	LabelPads {AUTOM : [ CHANNELS ]}
 	LabelKnob 0, {Label }, chan_labels[edit_chan]
 	LabelKnob 1, {Color }, chan_colors[edit_chan]
 	LabelKnob 2, {MidiCH }, chan_midi_chs[edit_chan]
@@ -947,7 +946,7 @@
 
 @LabelInstrumentKnobs
 	LabelKnobs {PAD: }, edit_pad+1
-	LabelPads {KNTRL : [ INSTRUMENT }, curr_chan+1, { ] }
+	LabelPads {AUTOM : [ INSTRUMENT }, curr_chan+1, { ] }
 	if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
 		LabelKnob 2, {Value }, chan_pgm[curr_chan]
 	else
@@ -1112,10 +1111,10 @@
 	//# AUTOMATION PARAMS
 	knob_set = 4
 	if edit_mode_active
-		LabelPads {KNTRL : [ AUTOMATION SETUP ]}
+		LabelPads {AUTOM : [ AUTOMATION SETUP ]}
 		LabelKnobs {AUTOM SETUP P}, auto_lane+1
 	else 
-		LabelPads {KNTRL : [ AUTOMATION PARAMTERS ]}
+		LabelPads {AUTOM : [ AUTOMATION PARAMTERS ]}
 		LabelKnobs {AUTOMATION P}, auto_lane+1
 	endif
 	a_ch = automation_chs[sel_autom_pad]
@@ -1166,10 +1165,10 @@
 		if rec <> record_autom_on
 			record_autom_on = rec	
 			if record_autom_on
-				LabelPads {KNTRL : [ Press play. Turn knobs. Automation will record until end of scene ]}
+				LabelPads {AUTOM : [ Press play. Turn knobs. Automation will record until end of scene ]}
 				Log {On beat get midi value send for midi kontrol param and save it to automation. Only while in automation mode}
 			else
-			  LabelPads {KNTRL : [ AUTOMATION SETUP PARAMTERS ] }
+			  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS ] }
 			endif
 		endif
 	endif
@@ -1365,7 +1364,7 @@
 
 @LabelLFOKnobs
 	LabelPads {[ LFO },lfo_num+1, { DESTINATIONS ]} 
-	LabelKnobs {KNTRL : [ LFO },lfo_num+1, { SETUP ]}   
+	LabelKnobs {AUTOM : [ LFO },lfo_num+1, { SETUP ]}   
 	LabelXY {[ LFO }, lfo_num+1, { OUTPUT ]}
 	d_ch =  lfo_dests[(lfo_num*8) + (dest_num*2)] //destination channel
 	d_pad = lfo_dests[(lfo_num*8) + (dest_num*2) + 1] //destination 0-15 setup in kntrl mode
@@ -1458,33 +1457,33 @@
 		LabelKnobs {CHANNEL }, curr_chan+1
 	endif
 	if mixer_mode=0
-		LabelPads {KNTRL : [ VOL PAN GAIN MID/SIDE ]}
+		LabelPads {AUTOM : [ VOL PAN GAIN MID/SIDE ]}
 		LabelKnob 0, {VOL }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
 		LabelKnob 1, {PAN }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
 		LabelKnob 2, {GAIN }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
 		LabelKnob 3, {M/S } , GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=1
 		mixer_mode=1 
-	  LabelPads {KNTRL : [ SENDS FILTER ]}
+	  LabelPads {AUTOM : [ SENDS FILTER ]}
 		LabelKnob 0, {SENDA }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
 		LabelKnob 1, {SENDB }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
 		LabelKnob 2, {LPF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
 		LabelKnob 3, {HPF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=2
 	  mixer_mode=2 
-		LabelPads {KNTRL : [ EQ ] }
+		LabelPads {AUTOM : [ EQ ] }
 		LabelKnob 0, {GAIN }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
 		LabelKnob 1, {FREQ }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
 		LabelKnob 2, {RES }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
 		LabelKnob 3, {SHELF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=3
-		LabelPads {KNTRL : [ FX ] }
+		LabelPads {AUTOM : [ FX ] }
 		LabelKnob 0, {D/W1 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
 		LabelKnob 1, {AMT1 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
 		LabelKnob 2, {D/W2 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
 		LabelKnob 3, {AMT2 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=4
-		LabelPads {KNTRL : [ MUTE SOLO ARM ]}
+		LabelPads {AUTOM : [ MUTE SOLO ARM ]}
 		if mute_solo_arm=0
 			LabelKnob 0, {MUTE}
 		elseif mute_solo_arm=1
@@ -1528,7 +1527,7 @@
 	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
 	knob_set = 8
 	pad_slot=[16 + last_mkntrl_pad] 
-	LabelPads {KNTRL : [ MIDI GENERATORS ]}
+	LabelPads {AUTOM : [ MIDI GENERATORS ]}
 	LabelKnobs {SETUP PAD }, last_mkntrl_pad+1
 	LabelKnob 0, {Label }, chan_labels[pad_slot]
 	LabelKnob 1, {Color }, chan_colors[pad_slot]
@@ -1568,7 +1567,7 @@
 	//# MGEN -KONTROL SETUP B - CC#s 1-4
 	knob_set = 9
 	pad_slot=[4 * last_mkntrl_pad] //location channel 17
-	LabelPads {KNTRL : [ MIDI GENERATORS ]}
+	LabelPads {AUTOM : [ MIDI GENERATORS ]}
 	LabelKnobs {SETUP PAD }, last_mkntrl_pad+1
 	LabelKnob 0, {CC1-}, mgen_ccs[pad_slot]
 	LabelKnob 1, {CC2-}, mgen_ccs[pad_slot+1]
@@ -1605,7 +1604,7 @@
 	//# MGEN-KONTROL USAGE - VAL KNOBS1-4
 	knob_set = 10
 	pad_slot=[4 * last_mkntrl_pad] //location channel 17
-	LabelPads {KNTRL : [ MIDI GENERATORS ]}
+	LabelPads {AUTOM : [ MIDI GENERATORS ]}
 	LabelKnobs {PAD }, last_mkntrl_pad+1
 	LabelKnob 0, {K1 }, mgen_vals[pad_slot]
 	LabelKnob 1, {K2 }, mgen_vals[pad_slot+1]

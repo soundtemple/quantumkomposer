@@ -24,10 +24,7 @@
 	  //# used for LED feedback
 	  midi_channel_conflict = FALSE //# allowing midi OUT channel conflicts
 	  send_cc_back_to_knobs = FALSE 
-	  knob1_cc = 121 //# Used for sending midi feedback to LED knobs
-	  knob2_cc = 122
-	  knob3_cc = 123
-	  knob4_cc = 124
+	  midi_controller=[15,14,15,16,17] //midi controller channel then 4 ccs
 	  Call @TransposeCalcArrays
 	  Call @InitKnobVariables //# All knob settings on start
 	  Call @SetupChordsScenes
@@ -110,8 +107,7 @@
 	//CC Messages from KNTRL
 	cc_scene_select=100
 	cc_scene_duration=101 //+ scene_num0-7 ie 101-108
-	cc_rtn_to_song_mode=21
-	cc_swing=23
+	cc_rtn_to_song_mode=22
 @End
 
 @SetupChordsScenes
@@ -311,7 +307,7 @@
 @End
 
 @HandleSceneChange
-	//# Work out which scene is next xhsc
+	//# Work out which scene is next 
 	scene_changed = TRUE
   if scene_change_requested > -1
   	current_scene = scene_change_requested
@@ -343,7 +339,7 @@
 @End
 
 @HandleChordChange
-	//# Work out what the next chord is xhcc
+	//# Work out what the next chord is 
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	if (chord_change_requested > -1)
 		current_chord = chord_change_requested
@@ -583,10 +579,10 @@
 @SendMidiCCBackToKnobs
 	//# Update controller knob vals with midi cc
 	//# Log {Updating Twister... }, Round GetKnobValue 0
-	SendMidiCC 0, knob1_cc, Round GetKnobValue 0
-	SendMidiCC 0, knob2_cc, Round GetKnobValue 1
-	SendMidiCC 0, knob3_cc, Round GetKnobValue 2
-	SendMidiCC 0, knob4_cc, Round GetKnobValue 3
+	SendMidiCC 0, midi_controller[1], Round GetKnobValue 0
+	SendMidiCC 0, midi_controller[2], Round GetKnobValue 1
+	SendMidiCC 0, midi_controller[3], Round GetKnobValue 2
+	SendMidiCC 0, midi_controller[4], Round GetKnobValue 3
 @End
 
 @OnAuParameter
@@ -608,6 +604,7 @@
 			if NOT HostRunning //# immediate change else newbeat/bar handles
 	  		Call @HandleSceneChange 
 	  	endif
+			Call @SetupLayout
 		elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
     	//# handle return to song mode requested
     	return_to_song_mode_requested = TRUE
@@ -615,8 +612,8 @@
     	in_mode_select = FALSE
     	songmode = 0
     	mode = 0
-    	Call@SetupLayout
-    	ColorPad 0, col_pending
+    	Call @SetupLayout
+    	ColorPad current_scene, col_pending
 	    ColorPad 8, col_pending	
 		elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
 			in_mode_select = FALSE //# return to song 
@@ -2404,7 +2401,7 @@
 	  elseif (songmode = 1) //# Lock to scene
 	    ColorPad current_chord+8, col_sel_chord
 	    LatchPad current_scene, YES
-	  elseif (songmode = 2)
+	  elseif (songmode = 2) // Lock to chord
 	  	LatchPad current_scene, YES
 	    LatchPad current_chord+8, YES
 	  elseif (mode = 3) //# REC CHORDS 
@@ -2467,11 +2464,6 @@
     txpose_labels[txpose_index] = label
     txpose_index = txpose_index + 1
   endfor
-  
-  //# Log {Txpose vals and Labels}
-  //#for a = 0 to 12
-    //# Log (NoteName txpose_labels[a]) , { val: }, txpose_array[a]
-  //#endfor
 @End
 
 @ChangeScenePreset
