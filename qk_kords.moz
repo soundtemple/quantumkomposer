@@ -395,10 +395,15 @@
 	if in_mode_select and (LastPad <= (number_of_modes - 1))
 		if (HostRunning and (LastPad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
-		elseif (LastPad=1 or LastPad=5 or LastPad=14)
+		elseif (LastPad=5 or LastPad=14)
 			Exit //# Not in use
 		elseif (HostRunning and LastPad=8)
 			Exit //# Not allowed in playback
+		elseif (LastPad = 1)
+			in_mode_select = FALSE
+			mode = 0
+			knob_set = 1
+			Call @SetupLayout
 		elseif (LastPad = 7)
 			Call @LogCurrentSceneToPresetFormat
 		elseif (LastPad>=2 and LastPad<=4) //# +CHORDS MODES
@@ -2178,7 +2183,7 @@
 		else
 			LabelPad 0, {PLAYSONG: Disabled}
 		endif	
-		LabelPad 1, { }
+		LabelPad 1, {SCENES}
 		if (NOT HostRunning) or (HostRunning and allow_mode_chg_playbk)
 			LabelPad 2, {+CHORDS: Select}
 		endif		
