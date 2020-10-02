@@ -14,9 +14,9 @@
 		edit_pad=0 //selected pad in a channel for editing
 		use_instr_knobset_a=TRUE //used to toggle between two kntrl knobsets. Edit mode cant access
 		use_mgen_knobset_a=TRUE
-		kntrl_instance_num=0 //# each instance of KORDS, NOTES & BEATS should have a unique num
- 		SetMetroPPQN 4
+		SetMetroPPQN 4
 		ppqn = 4
+		knob_set=0
 		edit_scene=0
 		locked_to_scene=0
 		last_channel_visited=0 //# last channel a user visited 0-16 (16 is top level)
@@ -322,6 +322,8 @@
 			mode=0 //SCENES
 			Call @SetupKnobset0
 			Call @SetupLayoutScenes
+		elseif LastPad=1 or LastPad=3 or LastPad=4 or (LastPad>=8 and LastPad<=12)
+			Exit //# Not in use
 		elseif LastPad=1 //# ___MG___ KONTRL CHANNEL
 			mode=6
 			in_mode_select=FALSE

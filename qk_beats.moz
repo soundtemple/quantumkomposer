@@ -8,8 +8,7 @@
 	  ResetNoteStates FALSE // #reset the locker with the value FALSE!
 	  mode = 0 //# modes of operation
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:PatternLocked
-	  kntrl_instance_num=2 //# each instance of KORDS, NOTES & BEATS should have a unique num
- 		SetMetroPPQN 4
+	  SetMetroPPQN 4
 	  ppqn = 4 
 	  scene_change_requested = -1 //# on pad down has next scene number
 	  pattn_change_requested = -1 //# on pad down has next pattn number
@@ -586,7 +585,7 @@
 	if in_mode_select and (LastPad <= (number_of_modes - 1))
 		if (HostRunning and (LastPad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
-		elseif LastPad=14
+		elseif LastPad=14 or LastPad=2
 			Exit //# Not in use
 		elseif (HostRunning and (LastPad>=3 and LastPad<=5))
 			Exit //# Not allowed in playback
@@ -594,9 +593,6 @@
 			Exit //# COPY PASTE not allowed
 		elseif (LastPad=7) and not (mode<=1 or mode>=8)
 			Exit //# DELETE not allowed
-		elseif (LastPad=2) //# Setup KONTROLLER SLAVE instance number
-			Call @SetupKnobset10
-			Exit
 		elseif (LastPad>=3 and LastPad<=5) or (LastPad=13 or LastPad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
     	LabelPad 6, { } //# CopyPaste not allowed
@@ -847,40 +843,38 @@
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if kntrl_instance_num>0
-		if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
-			//# handle scene duration change
-			scene_durs[MIDIByte2-cc_scene_duration] = MIDIByte3
-			Call @SetupLayout
-		elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
-			//# handle scene change requested (ie: PadDown Scene change)
-			scene_change_requested = MIDIByte3
-			if NOT HostRunning //# immediate change else newbeat/bar handles
-	  		Call @HandleSceneChange 
-	  	endif
-			Call @SetupLayout
-		elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
-    	//# handle return to song mode requested
-    	return_to_song_mode_requested = TRUE
-    	scene_change_requested = current_scene
-    	in_mode_select = FALSE
-    	songmode = 0
-    	mode = 0
-    	ColorPad current_scene, col_pending
-	    ColorPad 8, col_pending
-		elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
-			in_mode_select = FALSE
-    	songmode = 0
-    	mode = 0
-			current_scene=0
-    	Call @SetupLayout
-			ColorPad current_scene, col_pending
-	    ColorPad current_pattn+8, col_pending
-	  elseif (MIDIByte2=cc_swing) //# Global swing
-	  	swng=MIDIByte3
-	  	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
-	  	Call @SetupLayout
-		endif
+	if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
+		//# handle scene duration change
+		scene_durs[MIDIByte2-cc_scene_duration] = MIDIByte3
+		Call @SetupLayout
+	elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
+		//# handle scene change requested (ie: PadDown Scene change)
+		scene_change_requested = MIDIByte3
+		if NOT HostRunning //# immediate change else newbeat/bar handles
+  		Call @HandleSceneChange 
+  	endif
+		Call @SetupLayout
+	elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
+  	//# handle return to song mode requested
+  	return_to_song_mode_requested = TRUE
+  	scene_change_requested = current_scene
+  	in_mode_select = FALSE
+  	songmode = 0
+  	mode = 0
+  	ColorPad current_scene, col_pending
+    ColorPad 8, col_pending
+	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
+		in_mode_select = FALSE
+  	songmode = 0
+  	mode = 0
+		current_scene=0
+  	Call @SetupLayout
+		ColorPad current_scene, col_pending
+    ColorPad current_pattn+8, col_pending
+  elseif (MIDIByte2=cc_swing) //# Global swing
+  	swng=MIDIByte3
+  	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
+  	Call @SetupLayout
 	endif
 @End
 
@@ -2423,36 +2417,6 @@ if note_set_type=0
   LabelKnob 3, { }
 @End
 
-@SetupKnobset10
-	//# KONTROLLER INSTANCE NUMBER
-	knob_set = 10
-	LabelKnobs {KNTRL INSTANCE}
-	SetKnobValue 0, TranslateScale kntrl_instance_num, 0, 8, 0, 127
-	SetKnobValue 1, 0
-	SetKnobValue 2, 0
-	SetKnobValue 3, 0
-	LabelKnob 0, {KNTRL:}, kntrl_instance_num
-	if kntrl_instance_num=0
-		LabelKnob 0, {KNTRL:OFF}
-	endif
-	LabelKnob 1, { }
-	LabelKnob 2, { }
-	LabelKnob 3, { }
-@End
-
-@KnobChangeSet10
-	//# KNTRL instance number
-	if LastKnob = 0
-	  kntrl_instance_num = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 8
-		LabelKnob 0, {KNTRL:}, kntrl_instance_num
-		LabelPad 2, {KNTRL INSTANCE }, kntrl_instance_num
-		if kntrl_instance_num=0
-			LabelKnob 0, {KNTRL:OFF}
-			LabelPad 2, {KNTRL OFF}
-		endif
-  endif
-@End
-
 @OnKnobChange
 	//# Knob change router xokc
   if knob_set = 0 
@@ -2475,8 +2439,6 @@ if note_set_type=0
     Call @KnobChangeSet8 //# SEQ GENERATION
   elseif knob_set = 9
     Call @KnobChangeSet9 //# ROTATION
-  elseif knob_set = 10
-    Call @KnobChangeSet10 //# KNTRL INSTANCE
 	endif
 @End  
 	
@@ -2521,10 +2483,7 @@ if note_set_type=0
 			LabelPad 0, {PLAYSONG: Disabled}
 		endif
 		LabelPad 1, {SCENES/PATTERNS}
-		LabelPad 2, {KNTRL INSTANCE }, kntrl_instance_num
-		if kntrl_instance_num=0
-			LabelPad 2, {KNTRL OFF}
-		endif
+		LabelPad 2, { }
 		if NOT HostRunning
 			Call @LabelSet3
 		endif

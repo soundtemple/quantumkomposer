@@ -6,8 +6,7 @@
   LabelPads {_QK:KORDS}
   if unassigned scene_bank //# duration in first scene
 	  ResetNoteStates FALSE // #reset the locker with the value FALSE!
-	  kntrl_instance_num=1 //# each instance of KORDS, NOTES & BEATS should have a unique num
- 		mode = 0 //# See @HandleModeChange for modes
+	  mode = 0 //# See @HandleModeChange for modes
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 	  SetMetroPPQN 4
 	  ppqn = 4 
@@ -396,15 +395,12 @@
 	if in_mode_select and (LastPad <= (number_of_modes - 1))
 		if (HostRunning and (LastPad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
-		elseif (LastPad=5 or LastPad=14)
+		elseif (LastPad=1 or LastPad=5 or LastPad=14)
 			Exit //# Not in use
 		elseif (HostRunning and LastPad=8)
 			Exit //# Not allowed in playback
 		elseif (LastPad = 7)
 			Call @LogCurrentSceneToPresetFormat
-    elseif (LastPad=1) //# Setup KONTROLLER SLAVE instance number
-			Call @SetupKnobset10
-			Exit
 		elseif (LastPad>=2 and LastPad<=4) //# +CHORDS MODES
 			mode = LastPad-1 //# shifting mode to add kontroller slave in menu
 			Log {MODE:}, mode-1
@@ -593,37 +589,35 @@
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	// Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if kntrl_instance_num>0
-		if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
-			//# handle scene duration change
-			scene_bank[((MIDIByte2-cc_scene_duration) * sc_size)] = MIDIByte3 
-			Call @SetupLayout
-		elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
-			//# handle scene change requested (ie: PadDown Scene change)
-			scene_change_requested = MIDIByte3
-			if NOT HostRunning //# immediate change else newbeat/bar handles
-	  		Call @HandleSceneChange 
-	  	endif
-			Call @SetupLayout
-		elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
-    	//# handle return to song mode requested
-    	return_to_song_mode_requested = TRUE
-    	scene_change_requested = current_scene
-    	in_mode_select = FALSE
-    	songmode = 0
-    	mode = 0
-    	Call @SetupLayout
-    	ColorPad current_scene, col_pending
-	    ColorPad 8, col_pending	
-		elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
-			in_mode_select = FALSE //# return to song 
-    	songmode = 0
-    	mode = 0
-			current_scene=0
-    	Call @SetupLayout
-			ColorPad current_scene, col_pending
-	    ColorPad current_chord+8, col_pending
-		endif
+	if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
+		//# handle scene duration change
+		scene_bank[((MIDIByte2-cc_scene_duration) * sc_size)] = MIDIByte3 
+		Call @SetupLayout
+	elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
+		//# handle scene change requested (ie: PadDown Scene change)
+		scene_change_requested = MIDIByte3
+		if NOT HostRunning //# immediate change else newbeat/bar handles
+  		Call @HandleSceneChange 
+  	endif
+		Call @SetupLayout
+	elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
+  	//# handle return to song mode requested
+  	return_to_song_mode_requested = TRUE
+  	scene_change_requested = current_scene
+  	in_mode_select = FALSE
+  	songmode = 0
+  	mode = 0
+  	Call @SetupLayout
+  	ColorPad current_scene, col_pending
+    ColorPad 8, col_pending	
+	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
+		in_mode_select = FALSE //# return to song 
+  	songmode = 0
+  	mode = 0
+		current_scene=0
+  	Call @SetupLayout
+		ColorPad current_scene, col_pending
+    ColorPad current_chord+8, col_pending
 	endif
 @End
 
@@ -1595,36 +1589,6 @@
 	Call @LabelChordNotesOutPad
 @End
 
-@SetupKnobset10
-	//# KONTROLLER INSTANCE NUMBER
-	knob_set = 10
-	LabelKnobs {KNTRL INSTANCE}
-	SetKnobValue 0, TranslateScale kntrl_instance_num, 0, 8, 0, 127
-	SetKnobValue 1, 0
-	SetKnobValue 2, 0
-	SetKnobValue 3, 0
-	LabelKnob 0, {KNTRL:}, kntrl_instance_num
-	if kntrl_instance_num=0
-		LabelKnob 0, {KNTRL:OFF}
-	endif
-	LabelKnob 1, { }
-	LabelKnob 2, { }
-	LabelKnob 3, { }
-@End
-
-@KnobChangeSet10
-	//# KNTRL instance number
-	if LastKnob = 0
-	  kntrl_instance_num = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 8
-		LabelKnob 0, {KNTRL:}, kntrl_instance_num
-		LabelPad 1, {KNTRL INSTANCE }, kntrl_instance_num
-		if kntrl_instance_num=0
-			LabelKnob 0, {KNTRL:OFF}
-			LabelPad 1, {KNTRL OFF}
-		endif
-  endif
-@End
-
 @LabelKnobset4
 	if midi_channels_used[1] = -1
 	  LabelKnob 0, {IN1 Ch: }, {off}
@@ -1811,8 +1775,6 @@
   	Call @KnobChangeSet8	//# Midi out channels B
   elseif knob_set = 9
   	Call @KnobChangeSet9	//# Midi out channel On/Off
-  elseif knob_set = 10
-  	Call @KnobChangeSet10	//# Kontroller instance num
 	endif 
 @End 
 
@@ -2216,10 +2178,7 @@
 		else
 			LabelPad 0, {PLAYSONG: Disabled}
 		endif	
-		LabelPad 1, {KNTRL INSTANCE }, kntrl_instance_num
-		if kntrl_instance_num=0
-			LabelPad 1, {KNTRL OFF}
-		endif		
+		LabelPad 1, { }
 		if (NOT HostRunning) or (HostRunning and allow_mode_chg_playbk)
 			LabelPad 2, {+CHORDS: Select}
 		endif		
