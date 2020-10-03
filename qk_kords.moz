@@ -61,11 +61,13 @@
 	constructed_3rd = 2
 	constructed_5th = 1
 	constructed_7th = 3
+	//Chord notes out sent gated by any incoming note
+	gate_chords_on = FALSE
 	
 	//# Midi channel options Mozaic uses 0-15 - we display 1-16
 	//# Record Chords Ch [0]. EXT MIDI IN CH's [1-4]
 	//# INT MIDI IN CH's [5-8]. Midi OUT CH's' [9-12] for outgoing chords. 
-	midi_channels_used = [3,4,5,6,7,8,9,10,11,12,13,14,15]
+	midi_channels_used = [2,3,4,5,6,7,8,9,10,11,12,13,14]
 	
 	//# enable chords to be saved 
   FillArray sort_list, 0 //# empty array for sorting chord notes as arrive
@@ -89,20 +91,6 @@
 	c5th_intervals = [6, 7, 8] //# dim (b5), P5, aug (#5)
 	c7th_intervals = [-1, 8, 9, 10, 11] //# min6 (b6), maj6, min7 (b7), maj7	
 	
-	//# Color Scheme
-	col_scene = 2
-	col_sel_scene = 4
-	col_chord = 2
-	col_pattern = 2
-	col_pattern_pending = 3
-	col_sel_chord = 4
-	col_rec_chord = 1 //# in record mode
-	col_chord_waiting = 1 //# selected waiting for notes
-	col_pending = 3
-	loop_col = 6
-	col_del_chord = 1
-	col_mode_select = 6 //# Mode selection buttons
-	col_unused = 0
 	//CC Messages from KNTRL
 	cc_scene_select=100
 	cc_scene_duration=101 //+ scene_num0-7 ie 101-108
@@ -225,10 +213,10 @@
 	endif
 	Log {---- Host Started ----}
 	Call @SetupLayout
-	Call @SendOutChordNotes //# Midi OUT channel processing for chords
 @End
 
 @OnHostStop
+	gate_chords_on = FALSE
   Call @SetupLayout
   Call @ResetBeatCounts
   Call @TurnOffChordNotes
@@ -373,7 +361,7 @@
   chord_beat_count = 0 //# reset chord beat count on new chord
   	
   if HostRunning
-	  Call @SendOutChordNotes
+	  Call @SendOutChordNotes //update gated chords and send new if gate_chords_on = TRUE
   endif
   //# Label pads
   if not in_mode_select
@@ -424,8 +412,8 @@
     	in_mode_select = FALSE
     	songmode = 0
     	mode = 0
-    	ColorPad 0, col_pending
-	    ColorPad 8, col_pending
+    	ColorPad 0, 3
+	    ColorPad 8, 3
 		else
 			mode = LastPad
 			Log {MODE:}, mode
@@ -445,7 +433,7 @@
 			Call @SetupLayout
 	  	rec_chord_note_count = 0
   		LabelPad current_chord+8, {...waiting}
-  		ColorPad current_chord+8, col_chord_waiting
+  		ColorPad current_chord+8, 1
 		elseif (mode = 6) //# COPY/PASTE
     	//# only call CP if pad and copy mode correspond
     	if copy_mode=0 and LastPad<=7
@@ -461,6 +449,7 @@
     	Call @ResetChord
   	endif
   	if NOT HostRunning and (LastPad >= 8)
+			gate_chords_on = TRUE
   		Call @SendOutChordNotes
   	endif
 	endif
@@ -468,6 +457,7 @@
 
 @OnPadUp
 	if NOT HostRunning and (LastPad >= 8)
+			gate_chords_on = FALSE
   		Call @TurnOffChordNotes
   endif
 @End
@@ -518,10 +508,10 @@
 		LabelPads {SEQ B MIDI CHANNELS: Midi thru _QK:KORDS from sequences to instruments}
 		Call @SetupKnobset8
 	elseif mode = 12
-		LabelPads {CHORDS OUT: Midi channels. See modes for chord note combinations}
+		LabelPads {GATED CHORDS: Midi channels. See modes for chord note combinations}
 		Call @SetupKnobset7
 	elseif mode = 13
-		LabelPads {CHORDS OUT: 4 channels of sustained chord notes. Select type per channel}
+		LabelPads {GATED CHORDS: 4 chs of chord notes. Gated by note in. Select type per ch}
 		Call @SetupKnobset9
 	elseif mode = 15
 		LabelPads {DELETE: Select a scene or chord slot to reset}
@@ -613,16 +603,16 @@
   	songmode = 0
   	mode = 0
   	Call @SetupLayout
-  	ColorPad current_scene, col_pending
-    ColorPad 8, col_pending	
+  	ColorPad current_scene, 3
+    ColorPad 8, 3	
 	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
 		in_mode_select = FALSE //# return to song 
   	songmode = 0
   	mode = 0
 		current_scene=0
   	Call @SetupLayout
-		ColorPad current_scene, col_pending
-    ColorPad current_chord+8, col_pending
+		ColorPad current_scene, 3
+    ColorPad current_chord+8, 3
 	endif
 @End
 
@@ -722,6 +712,14 @@
 			midi_note = MidiNote
 			midi_channel = MIDIChannel
 			Call @ConvertToHarmonyNotes
+			Exit
+		endif
+	endfor
+	for i = 9 to 11 // gated chord notes turned on an off by incoming note
+		if MIDIChannel = midi_channels_used[i] and not (mode = 3)
+			gate_chords_on = TRUE
+			Call @SendOutChordNotes // gate_chords_on = TRUE will determine if chord notes turned on or off
+			Exit
 		endif
 	endfor
 	
@@ -732,14 +730,16 @@
 @End
 
 @SendOutChordNotes
-	//# Send out chord notes based on Midi OUT Channel settings xsn
+	//# Send out chord notes based on Midi OUT Channel settings
 	//# Also send out chord notes if chord pad pressed when HostStopped
 	//# Basically send out chord notes when a chord changes
 	chord_slot = (current_scene * 100) + (current_chord * 10)
 	
 	//# First turn off old chord notes
 	Call @TurnOffChordNotes
-	
+	if NOT gate_chords_on
+		Exit
+	endif
 	//# Use a standardised octave for chord notes out
 	//# First remove octave and then assign
 	//# Add octave to avoid C=0 issues
@@ -786,7 +786,7 @@
 	
 	//# make a dummy scale to represent chord degrees saved in cno_degrees
 	chord_scale = [chord_bass, chord_root, chord_root, chord_3rd, chord_3rd, chord_5th, chord_5th, chord_7th, chord_7th]
-	//# midi channes ch1-4 set in TurnOffChordNotes called above
+	//# midi channels ch1-4 set in TurnOffChordNotes called above
 	for i = 0 to 3 //# up to 4 notes can be sent in a mode
 		ch1_degree = cno_degrees[(4 * out1_type) + i]
 		ch2_degree = cno_degrees[(4 * out2_type) + i]
@@ -1197,8 +1197,17 @@
 			// #retrieve the harmony_note sent from note locker
     	harmony_note = GetNoteState MIDIChannel, MIDINote  
     	SendMIDINoteOff MIDIChannel, harmony_note, MIDIVelocity  
-    	SetNoteState MIDIChannel, MIDINote, FALSE	
+    	SetNoteState MIDIChannel, MIDINote, FALSE
+			Exit	
 		endif
+	endfor
+	for i = 9 to 11 // gated chord notes turned on an off by incoming note
+		if MIDIChannel = midi_channels_used[i] and not (mode = 3)
+			gate_chords_on = FALSE
+			Call @TurnOffChordNotes
+			Exit
+		endif
+		Call @SendOutChordNotes // gate_chords_on = TRUE will determine if chord notes turned on or off
 	endfor
 @End
 
@@ -1469,7 +1478,7 @@
 @SetupKnobset4
 	//# SEQ CH A midi in channels
 	knob_set = 4
-	LabelKnobs {SEQ CHs A}
+	LabelKnobs {MELODY A}
 	SetKnobValue 0, TranslateScale midi_channels_used[1], -1, 15, 0, 127
 	SetKnobValue 1, TranslateScale midi_channels_used[2], -1, 15, 0, 127
 	SetKnobValue 2, TranslateScale midi_channels_used[3], -1, 15, 0, 127
@@ -1557,7 +1566,7 @@
 @SetupKnobset7
 	//# midi out channels
 	knob_set = 7
-	LabelKnobs {Chords out Chs}
+	LabelKnobs {GATED CHRDS CHS}
 	SetKnobValue 0, TranslateScale midi_channels_used[9], -1, 15, 0, 127
 	SetKnobValue 1, TranslateScale midi_channels_used[10], -1, 15, 0, 127
 	SetKnobValue 2, TranslateScale midi_channels_used[11], -1, 15, 0, 127
@@ -1569,7 +1578,7 @@
 @SetupKnobset8
 	//# Sequences midi in channels
 	knob_set = 8
-	LabelKnobs {SEQ CHs B}
+	LabelKnobs {MELODY B}
 	SetKnobValue 0, TranslateScale midi_channels_used[5], -1, 15, 0, 127
 	SetKnobValue 1, TranslateScale midi_channels_used[6], -1, 15, 0, 127
 	SetKnobValue 2, TranslateScale midi_channels_used[7], -1, 15, 0, 127
@@ -1581,7 +1590,7 @@
 @SetupKnobset9
 	//# Chord Notes out styles
 	knob_set = 9
-	LabelKnobs {Chords out modes}
+	LabelKnobs {GATED CHRDS modes}
 	kv1 = scene_bank[(current_scene * sc_size) + sc_och1_slot]
 	kv2 = scene_bank[(current_scene * sc_size) + sc_och2_slot]
 	kv3 = scene_bank[(current_scene * sc_size) + sc_och3_slot]
@@ -2113,7 +2122,7 @@
 @LabelMidiInChannelsPadA
 	//# Call @CheckMidiChannelConflict -- turning off for now
 	if NOT midi_channel_conflict
-		LabelPad 9, {SEQ CHs A   }, { Midi chs }, midi_channels_used[1]+1, {-}, midi_channels_used[2]+1, {-}, midi_channels_used[3]+1, {-}, midi_channels_used[4]+1
+		LabelPad 9, {MELODY A   }, { Midi chs }, midi_channels_used[1]+1, {-}, midi_channels_used[2]+1, {-}, midi_channels_used[3]+1, {-}, midi_channels_used[4]+1
 	else
 		LabelPad 9, {EXT MIDI    }, {!CONFLICT! }, midi_channels_used[1]+1, {-}, midi_channels_used[2]+1, {-}, midi_channels_used[3]+1, {-}, midi_channels_used[4]+1
 	endif
@@ -2125,14 +2134,14 @@
 		scm2 = scene_bank[(current_scene * sc_size) + sc_mh2_slot] + 1
 		scm3 = scene_bank[(current_scene * sc_size) + sc_mh3_slot] + 1
 		scm4 = scene_bank[(current_scene * sc_size) + sc_mh4_slot] + 1
-		LabelPad 10, {SEQ CHs A Modes }, { S}, current_scene+1, {      }, scm1, {-}, scm2, {-}, scm3, {-}, scm4
+		LabelPad 10, {MELODY A Modes }, { S}, current_scene+1, {      }, scm1, {-}, scm2, {-}, scm3, {-}, scm4
 	endif
 @End
 
 @LabelMidiInChannelsPadB
 	//# Call @CheckMidiChannelConflict -- turning off for now
 	if NOT midi_channel_conflict
-		LabelPad 11, {SEQ CHs B  }, { Midi chs }, midi_channels_used[5]+1, {-}, midi_channels_used[6]+1, {-}, midi_channels_used[7]+1, {-}, midi_channels_used[8]+1
+		LabelPad 11, {MELODY B  }, { Midi chs }, midi_channels_used[5]+1, {-}, midi_channels_used[6]+1, {-}, midi_channels_used[7]+1, {-}, midi_channels_used[8]+1
 	else
 		LabelPad 11, {SEQUENCE   }, {!CONFLICT! }, midi_channels_used[5]+1, {-}, midi_channels_used[6]+1, {-}, midi_channels_used[7]+1, {-}, midi_channels_used[8]+1
 	endif
@@ -2141,7 +2150,7 @@
 @LabelMidiOutChannelsPad
 	//# Call @CheckMidiChannelConflict -- turning off for now
 	if NOT midi_channel_conflict
-		LabelPad 12, {CHORDS OUT   }, { Midi chs   }, midi_channels_used[9]+1, {-}, midi_channels_used[10]+1, {-}, midi_channels_used[11]+1, {-}, midi_channels_used[12]+1
+		LabelPad 12, {HARMONY   }, { Midi chs   }, midi_channels_used[9]+1, {-}, midi_channels_used[10]+1, {-}, midi_channels_used[11]+1, {-}, midi_channels_used[12]+1
 	else
 		LabelPad 12, {CHORDS     }, {  !CONFLICT!  }, midi_channels_used[9]+1, {-}, midi_channels_used[10]+1, {-}, midi_channels_used[11]+1, {-}, midi_channels_used[12]+1
 	endif
@@ -2152,7 +2161,7 @@
 	o2 = scene_bank[(current_scene * sc_size) + sc_och2_slot]
 	o3 = scene_bank[(current_scene * sc_size) + sc_och3_slot]
 	o4 = scene_bank[(current_scene * sc_size) + sc_och4_slot]
-	LabelPad 13, {CHORDS OUT  }, {S}, current_scene+1, { modes }, o1, {-}, o2, {-}, o3, {-}, o4
+	LabelPad 13, {HARMONY  }, {S}, current_scene+1, { modes }, o1, {-}, o2, {-}, o3, {-}, o4
 @End
 	
 @OnShiftDown
@@ -2170,7 +2179,7 @@
 		in_mode_select = TRUE
 		LabelPads {_QK:KORDS SETTINGS:   (shift to exit)}
 		for i = 0 to (number_of_modes - 1)
-			ColorPad i, col_mode_select
+			ColorPad i, 6
 			LabelPad i, { } //# empty label to overwrite chord info
 			LatchPad i, NO 
 		endfor
@@ -2328,16 +2337,16 @@
 	  //# Setup scene pads
    for i = 0 to 7  
 	    if scene_bank[i * sc_size] > 0
-		    ColorPad i, col_scene
+		    ColorPad i, 2
 				scn_to_label = i
 				Call @LabelScenePad
 	  	else
-	  		ColorPad i, col_unused
+	  		ColorPad i, 0
 	  		LabelPad i, { }
 	  	endif
 	    LatchPad i, NO
 	    if (scene_bank[i * sc_size] > 0) and (mode = 15) and NOT in_mode_select
-	      ColorPad i, col_del_chord
+	      ColorPad i, 1
 	    endif
 	  endfor		  
 	  //# Setup chord pads  
@@ -2345,31 +2354,31 @@
 	    chord_slot = (current_scene * 100) + ((i-8) * 10)
 	    LatchPad i, NO
 	    if chord_bank[chord_slot + dur_slot] > 0
-	    	ColorPad i, col_chord
+	    	ColorPad i, 2
 	    	chrd_to_label = i
 	    	Call @LabelChordPad
 	    else
-	  		ColorPad i, col_unused
+	  		ColorPad i, 0
 	  		LabelPad i, { }
 	  	endif
 	    if (mode = 3)
-		    ColorPad i, col_rec_chord
+		    ColorPad i, 1
 		  elseif (mode = 15) and (chord_bank[chord_slot] >= 0)
-		  	ColorPad i, col_del_chord
+		  	ColorPad i, 1
 		  endif
 	  endfor
 		//# Handle current scene and chord colors
 	  if (songmode = 0) //# Playthru no lock
-	  	ColorPad current_scene, col_sel_scene
-	  	ColorPad current_chord+8, col_sel_chord
+	  	ColorPad current_scene, 4
+	  	ColorPad current_chord+8, 4
 	  elseif (songmode = 1) //# Lock to scene
-	    ColorPad current_chord+8, col_sel_chord
+	    ColorPad current_chord+8, 4
 	    LatchPad current_scene, YES
 	  elseif (songmode = 2) // Lock to chord
 	  	LatchPad current_scene, YES
 	    LatchPad current_chord+8, YES
 	  elseif (mode = 3) //# REC CHORDS 
-			ColorPad current_scene, loop_col //# Locked playback doesnt change
+			ColorPad current_scene, 6 //# Locked playback doesnt change
 			if rec_chord_note_count = 0
 				LabelPad current_chord+8, {... waiting}
 			endif
@@ -2382,10 +2391,10 @@
 		//# Handle pending chord and scene changes in playback
 	  if HostRunning and (songmode <=2)
 	  	if chord_change_requested >= 0
-	  		ColorPad chord_change_requested+8, col_pending
+	  		ColorPad chord_change_requested+8, 3
 	  	endif
 	  	if scene_change_requested >= 0
-	  		ColorPad scene_change_requested, col_pending
+	  		ColorPad scene_change_requested, 3
 	  	endif
 	  endif
 	endif
