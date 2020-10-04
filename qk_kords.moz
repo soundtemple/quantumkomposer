@@ -20,6 +20,7 @@
 	  return_to_song_mode_requested = FALSE //# used for switching on new bar 
 	  rec_chord_note_count = 0 //# recording notes in chord slot
 	  use_turn_around = TRUE //# last chord as turn around on last bar of scene
+		allow_mel_harm_midi_ch_chg=FALSE
 	  //# used for LED feedback
 	  midi_channel_conflict = FALSE //# allowing midi OUT channel conflicts
 	  send_cc_back_to_knobs = FALSE 
@@ -61,13 +62,12 @@
 	constructed_3rd = 2
 	constructed_5th = 1
 	constructed_7th = 3
-	//Chord notes out sent gated by any incoming note
-	gate_chords_on = FALSE
+	//Chord notes out sent gated by any incoming note on chans 8-11 or 9-12display
+	gate_chords_on[8] = [FALSE,FALSE,FALSE,FALSE]
 	
 	//# Midi channel options Mozaic uses 0-15 - we display 1-16
-	//# Record Chords Ch [0]. EXT MIDI IN CH's [1-4]
-	//# INT MIDI IN CH's [5-8]. Midi OUT CH's' [9-12] for outgoing chords. 
-	midi_channels_used = [2,3,4,5,6,7,8,9,10,11,12,13,14]
+	//# Record Chords Ch [0]. MELODY A CH's [1-4]. HARMONY CH's' [5-8] for outgoing chords. 
+	midi_channels_used = [0, 4,5,6,7, 8,9,10,11]
 	
 	//# enable chords to be saved 
   FillArray sort_list, 0 //# empty array for sorting chord notes as arrive
@@ -216,10 +216,13 @@
 @End
 
 @OnHostStop
-	gate_chords_on = FALSE
+	gate_chords_on[8] = [FALSE,FALSE,FALSE,FALSE] //midi chs 12-13-14-15
   Call @SetupLayout
   Call @ResetBeatCounts
-  Call @TurnOffChordNotes
+	for i = 5 to 8
+		ch = midi_channels_used[i]
+	  Call @TurnOffChordNotes
+	endfor
   Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
   Call @SetupLayout
 @End 
@@ -361,7 +364,12 @@
   chord_beat_count = 0 //# reset chord beat count on new chord
   	
   if HostRunning
-	  Call @SendOutChordNotes //update gated chords and send new if gate_chords_on = TRUE
+		for i = 5 to 8
+			ch = midi_channels_used[i]
+			if gate_chords_on[ch]
+	  		Call @SendOutChordNotes //update gated chords and send new if gate_chords_on = TRUE
+			endif
+		endfor
   endif
   //# Label pads
   if not in_mode_select
@@ -383,7 +391,7 @@
 	if in_mode_select and (LastPad <= (number_of_modes - 1))
 		if (HostRunning and (LastPad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
-		elseif (LastPad=5 or LastPad=14)
+		elseif (LastPad=5 or LastPad=11 or LastPad=14)
 			Exit //# Not in use
 		elseif (HostRunning and LastPad=8)
 			Exit //# Not allowed in playback
@@ -449,16 +457,22 @@
     	Call @ResetChord
   	endif
   	if NOT HostRunning and (LastPad >= 8)
-			gate_chords_on = TRUE
-  		Call @SendOutChordNotes
+			gate_chords_on[8] = [TRUE,TRUE,TRUE,TRUE] //midi chs
+			for i = 5 to 8
+				ch = midi_channels_used[i]
+	  		Call @SendOutChordNotes //update gated chords and send new if gate_chords_on = TRUE
+			endfor
   	endif
 	endif
 @End
 
 @OnPadUp
 	if NOT HostRunning and (LastPad >= 8)
-			gate_chords_on = FALSE
+		gate_chords_on[8] = [FALSE,FALSE,FALSE,FALSE]
+		for i = 5 to 8
+			ch = midi_channels_used[i]
   		Call @TurnOffChordNotes
+		endfor
   endif
 @End
 
@@ -495,23 +509,20 @@
 		endif
 	elseif mode = 8
 		if NOT HostRunning
-			LabelPads {MIDI INPUT Scale: The scale used to transpose sequence notes to chord notes}
+			LabelPads {MIDI INPUT Scale: Maps scale degrees IN to chord notes OUT}
 			Call @SetupKnobset5
 		endif
 	elseif mode = 9
-		LabelPads {SEQ A MIDI CHANNELS: Midi thru _QK:KORDS from sequences to instruments}
+		LabelPads {MELODY MIDI CHANNELS: Notes transposed to current chord based on mode (per scene)}
 		Call @SetupKnobset4
 	elseif mode = 10
-		LabelPads {SEQ A MODES:  0.OFF 1.Chord, 2.RoundToChord, 3.+NonChord, 4.Bass, 5.Root, 6.Third, 7.Fifth 8.THRU}
+		LabelPads {MELODY MODES: 0.OFF 1.Chord, 2.RoundToChord, 3.+NonChord, 4.Bass, 5.Root, 6.Third, 7.Fifth 8.THRU}
 		Call @SetupKnobset3
-	elseif mode = 11
-		LabelPads {SEQ B MIDI CHANNELS: Midi thru _QK:KORDS from sequences to instruments}
-		Call @SetupKnobset8
 	elseif mode = 12
-		LabelPads {GATED CHORDS: Midi channels. See modes for chord note combinations}
+		LabelPads {HARMONY MIDI CHANNELS: Notes transposed to current chord based on mode (per scene)}
 		Call @SetupKnobset7
 	elseif mode = 13
-		LabelPads {GATED CHORDS: 4 chs of chord notes. Gated by note in. Select type per ch}
+		LabelPads {HARMONY MODES: Any note in will trigger chord note out based on mode}
 		Call @SetupKnobset9
 	elseif mode = 15
 		LabelPads {DELETE: Select a scene or chord slot to reset}
@@ -697,35 +708,39 @@
 	//# Process incoming midi to be re-harmonized (if not Rec Chords mode)
 	//# Log {Midi received on CH: }, MIDIChannel, { note: }, MidiNote
 	//# -1Off 0Chord 1Round 2+NonChord 3Bass 4Root 5Third 6Fifth 7thru
-	for i = 1 to 8
-		if MIDIChannel = midi_channels_used[i] and not (mode = 3)
-			if i <= 4
-				//# What is the scene harm. mode for this channel scene array slot 4-7
-				sc_harm_mode = scene_bank[(current_scene * sc_size) + i + 2]
-			else
-				//# ch's 5-8 no mode select so default to 
-				sc_harm_mode = 2 //# +NonChord = All Scale notes get harmonized
-			endif
-			//# Log {sc_harm_mode for harmony note is: }, sc_harm_mode, { Call CHN}
-			//# Need to be able to call ConvertToHNotes to switch held notes 
-			//# over chord change where there in no MidiNote
-			midi_note = MidiNote
-			midi_channel = MIDIChannel
-			Call @ConvertToHarmonyNotes
-			Exit
-		endif
-	endfor
-	for i = 9 to 11 // gated chord notes turned on an off by incoming note
-		if MIDIChannel = midi_channels_used[i] and not (mode = 3)
-			gate_chords_on = TRUE
-			Call @SendOutChordNotes // gate_chords_on = TRUE will determine if chord notes turned on or off
-			Exit
-		endif
-	endfor
-	
 	//# Record chords from the channel set 
-	if (MIDIChannel = midi_channels_used[0]) and (mode = 3)
-	  Call @HandleRecordNotes
+	if mode=3 // records mode 
+		Call @HandleRecordNotes
+	else 
+		if MIDIChannel>=4 and MIDIChannel<=7 //MELODY Notes coming in
+			for i = 1 to 4
+				if MIDIChannel = midi_channels_used[i] and not (mode = 3)
+					if i <= 4
+						//# What is the scene harm. mode for this channel scene array slot 4-7
+						sc_harm_mode = scene_bank[(current_scene * sc_size) + i + 2]
+					else
+						//# ch's 5-8 no mode select so default to 
+						sc_harm_mode = 2 //# +NonChord = All Scale notes get harmonized
+					endif
+					//# Log {sc_harm_mode for harmony note is: }, sc_harm_mode, { Call CHN}
+					//# Need to be able to call ConvertToHNotes to switch held notes 
+					//# over chord change where there in no MidiNote
+					midi_note = MidiNote
+					midi_channel = MIDIChannel
+					Call @ConvertToHarmonyNotes
+					Exit
+				endif
+			endfor
+		elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY trigger/gate notes coming in  
+			for i = 5 to 8 // gated chord notes turned on an off by incoming note
+				if MIDIChannel = midi_channels_used[i]
+					gate_chords_on[MIDIChannel] = TRUE // gate_chords_on = TRUE will determine if chord notes turned on or off
+					ch = MIDIChannel
+					Call @SendOutChordNotes 
+					Exit
+				endif
+			endfor
+		endif
 	endif
 @End
 
@@ -737,9 +752,7 @@
 	
 	//# First turn off old chord notes
 	Call @TurnOffChordNotes
-	if NOT gate_chords_on
-		Exit
-	endif
+	
 	//# Use a standardised octave for chord notes out
 	//# First remove octave and then assign
 	//# Add octave to avoid C=0 issues
@@ -779,75 +792,32 @@
 	endif
 	
 	//# Get per scene Midi Out channel On/Off settings
-	out1_type = scene_bank[(current_scene * sc_size) + sc_och1_slot]
-	out2_type = scene_bank[(current_scene * sc_size) + sc_och2_slot]
-	out3_type = scene_bank[(current_scene * sc_size) + sc_och3_slot]
-	out4_type = scene_bank[(current_scene * sc_size) + sc_och4_slot]
+	out_type = scene_bank[(current_scene * sc_size) + ch-5] // xyz need to lock m.channels????
 	
 	//# make a dummy scale to represent chord degrees saved in cno_degrees
 	chord_scale = [chord_bass, chord_root, chord_root, chord_3rd, chord_3rd, chord_5th, chord_5th, chord_7th, chord_7th]
 	//# midi channels ch1-4 set in TurnOffChordNotes called above
-	for i = 0 to 3 //# up to 4 notes can be sent in a mode
-		ch1_degree = cno_degrees[(4 * out1_type) + i]
-		ch2_degree = cno_degrees[(4 * out2_type) + i]
-		ch3_degree = cno_degrees[(4 * out3_type) + i]
-		ch4_degree = cno_degrees[(4 * out4_type) + i]
+	for i = 0 to 3  //up to 4 notes can be sent in a mode
+		ch_degree = cno_degrees[(4 * out_type) + i]
 		Call @HumanizeVelocity
 		//# send out chord notes
-		if (ch1_degree >=0) and chord_formed
-			if chord_scale[ch1_degree] > 0
-				SendMIDINoteOn ch1, chord_scale[ch1_degree], velocity
-				SetNoteState ch1, i, chord_scale[ch1_degree]
-			endif
-		endif
-		if (ch2_degree >=0) and chord_formed
-			if chord_scale[ch2_degree] > 0
-				SendMIDINoteOn ch2, chord_scale[ch2_degree], velocity
-				SetNoteState ch2, i, chord_scale[ch2_degree]
-			endif
-		endif
-		if (ch3_degree >=0) and chord_formed
-			if chord_scale[ch3_degree] > 0
-				SendMIDINoteOn ch3, chord_scale[ch3_degree], velocity
-				SetNoteState ch3, i, chord_scale[ch3_degree]
-			endif
-		endif
-		if (ch4_degree >=0) and chord_formed
-			if chord_scale[ch4_degree] > 0
-				SendMIDINoteOn ch4, chord_scale[ch4_degree], velocity
-				SetNoteState ch4, i, chord_scale[ch4_degree]
+		if (ch_degree >=0) and chord_formed
+			if chord_scale[ch_degree] > 0
+				SendMIDINoteOn ch, chord_scale[ch_degree], velocity
+				SetNoteState ch, i, chord_scale[ch_degree]
 			endif
 		endif
 	endfor	
 @End
 
 @TurnOffChordNotes
-	//# channels
-	ch1 = midi_channels_used[9]
-	ch2 = midi_channels_used[10]
-	ch3 = midi_channels_used[11]
-	ch4 = midi_channels_used[12]
+	//# channels. requires a ch variable to be set before calling
 	for i = 0 to 3
 		//# stored in 1st 4 note slots (0-3) on each channel
-		if (GetNoteState ch1, i)
-			SendMIDINoteOff ch1, (GetNoteState ch1, i), 127
-	  	SetNoteState ch1, i, FALSE
+		if (GetNoteState ch, i)
+			SendMIDINoteOff ch, (GetNoteState ch, i), 127
+	  	SetNoteState ch, i, FALSE
   	endif
-  	
-  	if (GetNoteState ch2, i)
-  		SendMIDINoteOff ch2, (GetNoteState ch2, i), 127
-  		SetNoteState ch1, i, FALSE
-  	endif
-  	
-  	if (GetNoteState ch3, i)
-	  	SendMIDINoteOff ch3, (GetNoteState ch3, i), 127
-	  	SetNoteState ch1, i, FALSE
-  	endif
-  	
-  	if (GetNoteState ch4, i)	
-	  	SendMIDINoteOff ch4, (GetNoteState ch4, i), 127
-	  	SetNoteState ch1, i, FALSE
-	  endif
   endfor
 @End
 
@@ -1192,23 +1162,25 @@
 
 @OnMidiNoteOff  
   // #handle midi notes for harmonizing note OFF
-  for i = 1 to 8
-		if MIDIChannel = midi_channels_used[i] and not (mode = 3)
-			// #retrieve the harmony_note sent from note locker
-    	harmony_note = GetNoteState MIDIChannel, MIDINote  
-    	SendMIDINoteOff MIDIChannel, harmony_note, MIDIVelocity  
-    	SetNoteState MIDIChannel, MIDINote, FALSE
-			Exit	
-		endif
-	endfor
-	for i = 9 to 11 // gated chord notes turned on an off by incoming note
-		if MIDIChannel = midi_channels_used[i] and not (mode = 3)
-			gate_chords_on = FALSE
-			Call @TurnOffChordNotes
-			Exit
-		endif
-		Call @SendOutChordNotes // gate_chords_on = TRUE will determine if chord notes turned on or off
-	endfor
+	if MIDIChannel>=4 and MIDIChannel<=7 //MELODY Notes OFF (chs5-8 display)  
+		for i = 1 to 4
+			if MIDIChannel = midi_channels_used[i] 
+				// #retrieve the harmony_note sent from note locker
+	    	harmony_note = GetNoteState MIDIChannel, MIDINote  
+	    	SendMIDINoteOff MIDIChannel, harmony_note, MIDIVelocity  
+	    	SetNoteState MIDIChannel, MIDINote, FALSE
+				Exit	
+			endif
+		endfor
+	elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY Notes off (chs9-12 display)	  
+		for i = 5 to 8 // gated chord notes turned on an off by incoming note
+			if MIDIChannel = midi_channels_used[i]
+				gate_chords_on[MIDIChannel] = FALSE
+				Call @TurnOffChordNotes
+				Exit
+			endif
+		endfor
+	endif
 @End
 
 @HandleRecordNotes
@@ -1385,6 +1357,39 @@
 	SetKnobValue 2, TranslateScale scn_preset, 1, num_sc_presets, 0, 127
 	SetKnobValue 3, TranslateScale rnd_scene_chg, 0, 1, 0, 127 
 @End
+@KnobChangeSet0
+	//# scene settings
+	if LastKnob = 0
+	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
+	  if scn_duration <> scene_bank[current_scene * sc_size] 	
+		  scene_bank[current_scene * sc_size] = scn_duration
+	  	LabelKnob 0 , {Dur }, scn_duration
+	  endif
+  endif
+  if LastKnob = 1
+	  scn_txpose = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 12
+	  if scn_txpose <> scene_bank[(current_scene * sc_size) + sc_txp_slot] 	
+		  scene_bank[(current_scene * sc_size) + sc_txp_slot] = scn_txpose
+		  Call @SetupLayout //# re-label all chord pads
+		endif
+  endif
+  if LastKnob = 2
+	  scn_preset = Round TranslateScale (GetKnobValue 2), 0, 127, 1, num_sc_presets
+	  scene_bank[(current_scene * sc_size) + sc_preset_slot] = scn_preset
+	  LabelKnob 2, scn_preset
+  	Call @ChangeScenePreset
+  endif
+  if LastKnob = 3
+	  rnd_scene_chg = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
+		if rnd_scene_chg = 0
+				LabelKnob 3, {RndScOFF} 
+			else
+				LabelKnob 3, {RndScON}
+		endif
+  endif
+  scn_to_label = current_scene
+  Call @LabelScenePad
+@End
 
 @SetupKnobset1
 	//# Chord settings
@@ -1400,7 +1405,7 @@
 	endif
 	if mode = 3
 		LabelKnob 1, {REC CH }, midi_channels_used[0] + 1
-		SetKnobValue 1, TranslateScale midi_channels_used[0], 0, 15, 0, 127
+		SetKnobValue 1, TranslateScale midi_channels_used[0], 0, 3, 0, 127
 	else
 		LabelKnob 1, {Suggest}, chrd_sugg
 		SetKnobValue 1, TranslateScale chrd_sugg, 0, 16, 0, 127
@@ -1415,6 +1420,55 @@
 	SetKnobValue 0, TranslateScale chrd_duration, 0, 64, 0, 127
 	SetKnobValue 2, TranslateScale chrd_inversion, -4, 4, 0, 127
 	SetKnobValue 3, TranslateScale chrd_bass, -1, 11, 0, 127
+@End
+@KnobChangeSet1
+//# chord settings
+	chord_slot = (current_scene * 100) + ((current_chord) * 10)
+	if LastKnob = 0
+	  chrd_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 64
+	  if chrd_duration <> chord_bank[chord_slot + dur_slot] 
+		  chord_bank[chord_slot + dur_slot] = chrd_duration
+		  dur_bars = Div chrd_duration, 4
+			dur_beats = (chrd_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
+	  	LabelKnob 0 , {Dur }, dur_bars, {.}, dur_beats
+  	endif
+  endif
+  if (mode = 3)
+	  if LastKnob = 1
+		  midi_channels_used[0] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
+			LabelKnob 1, {REC CH }, midi_channels_used[0] + 1
+	  endif
+	else
+		if LastKnob = 1
+		  chrd_sugg = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 16
+			if chrd_sugg <> chord_bank[chord_slot + sugg_slot] 
+		  	chord_bank[chord_slot + sugg_slot] = chrd_sugg
+		  	LabelKnob 1, {Suggest}, chrd_sugg
+	  		Call @SuggestChord
+			endif
+	  endif
+  endif
+  if LastKnob = 2
+	  chrd_inversion = Round TranslateScale (GetKnobValue 2), 0, 127, -4, 4
+	  if chrd_inversion <> chord_bank[chord_slot + inv_slot] 
+		  chord_bank[chord_slot + inv_slot] = chrd_inversion
+		  LabelKnob 2, {Inv }, chrd_inversion
+	  endif 
+  endif
+  if LastKnob = 3
+	  chrd_bass = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 11
+	 	if chrd_bass <> chord_bank[chord_slot + bass_slot] 
+		  chord_bank[chord_slot + bass_slot] = chrd_bass
+		  if chrd_bass >= 0
+			  LabelKnob 3, {Bass }, (NoteName chrd_bass)
+  		else
+  			LabelKnob 3, {Bass }, {Off}
+  		endif
+  	endif
+  endif
+  //# Knob 1 not used in this set
+  chrd_to_label = current_chord+8
+  Call @LabelChordPad
 @End
 
 @SetupKnobset2
@@ -1443,11 +1497,58 @@
 	bass_updated = FALSE
 	inv_updated = FALSE
 @End
+@KnobChangeSet2
+	bass_updated = FALSE
+	inv_updated = FALSE
+	if LastKnob = 0
+	  slct_chord_root = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
+  	LabelKnob LastKnob, {Root }, (NoteName slct_chord_root)
+  	root_updated = TRUE
+  	Call @SaveSelectedChordPad
+  elseif LastKnob = 1
+  	slct_chord_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_chord_types-1
+  	if slct_chord_type = 0
+  		LabelKnob 1, {Major}
+  	elseif slct_chord_type = 1
+  		LabelKnob 1, {Minor}
+  	elseif slct_chord_type = 2
+  		LabelKnob 1, {Diminished}
+  	elseif slct_chord_type = 3
+  		LabelKnob 1, {Augmented}
+  	elseif slct_chord_type = 4
+  		LabelKnob 1, {Sus2}
+  	elseif slct_chord_type = 5
+  		LabelKnob 1, {Sus4}
+  	elseif slct_chord_type = 6
+  		LabelKnob 1, {Minor 6th}
+  	elseif slct_chord_type = 7
+  		LabelKnob 1, {Major 6th}
+  	elseif slct_chord_type = 8
+  		LabelKnob 1, {Minor 7th}
+  	elseif slct_chord_type = 9
+  		LabelKnob 1, {Dom 7th}
+  	elseif slct_chord_type = 10
+  		LabelKnob 1, {Major 7th}
+  	endif
+  	type_updated = TRUE
+  	Call @SaveSelectedChordPad
+  elseif LastKnob = 2
+  	slct_chord_inversion = Round TranslateScale (GetKnobValue 2), 0, 127, -4, 4
+	  LabelKnob LastKnob, {Inv: }, slct_chord_inversion
+	  inv_updated = TRUE
+	  Call @SaveSelectedChordPad
+  elseif LastKnob = 3
+	  slct_chord_bass_note = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 11
+  	LabelKnob LastKnob, {Bass }, (NoteName slct_chord_bass_note)
+  	bass_updated = TRUE
+  	Call @SaveSelectedChordPad 
+	endif
+@End
 
 @SetupKnobset3
-	//# Harmony modes: Chord only, Round2chord,  NonChord, Bass, Root, 3rd, 5th
+	//# MELODY modes: Chord only, Round2chord,  NonChord, Bass, Root, 3rd, 5th
 	knob_set = 3
-	LabelKnobs {SEQ A Scene}, current_scene+1, { modes}
+	LabelKnobs {MELODY MODES S}, current_scene+1
 	scn_mh1_mode = scene_bank[(current_scene * sc_size) + sc_mh1_slot]
 	scn_mh2_mode = scene_bank[(current_scene * sc_size) + sc_mh2_slot]
 	scn_mh3_mode = scene_bank[(current_scene * sc_size) + sc_mh3_slot]
@@ -1464,8 +1565,37 @@
 	LabelKnob 1, {Ch}, in2ch, {: }, scn_mh2_mode+1
 	LabelKnob 2, {Ch}, in3ch, {: }, scn_mh3_mode+1
 	LabelKnob 3, {Ch}, in4ch, {: }, scn_mh4_mode+1
-	Call @LabelSceneModesPad
+	Call @LabelMelodyModesPad
 	in1ch = midi_channels_used[1]
+	in2ch = midi_channels_used[2]
+	in3ch = midi_channels_used[3]
+	in4ch = midi_channels_used[4]
+	LabelKnob 0, {Ch}, in1ch+1, {: }, scn_mh1_mode+1
+	LabelKnob 1, {Ch}, in2ch+1, {: }, scn_mh2_mode+1
+	LabelKnob 2, {Ch}, in3ch+1, {: }, scn_mh3_mode+1
+	LabelKnob 3, {Ch}, in4ch+1, {: }, scn_mh4_mode+1
+@End
+@KnobChangeSet3
+	//# MELODY MODES settings
+	//# Harmony modes: Chord only, Round to chord,  Scene Scale, Bass, Root, 3rd, 5th
+	if LastKnob = 0
+	  scn_mh1_mode = Round TranslateScale (GetKnobValue 0), 0, 127, -1, num_sc_mh_modes-1
+	  scene_bank[(current_scene * sc_size) + sc_mh1_slot] = scn_mh1_mode
+  endif
+  if LastKnob = 1
+	  scn_mh2_mode = Round TranslateScale (GetKnobValue 1), 0, 127, -1, num_sc_mh_modes-1
+	  scene_bank[(current_scene * sc_size) + sc_mh2_slot] = scn_mh2_mode
+  endif
+  if LastKnob = 2
+	  scn_mh3_mode = Round TranslateScale (GetKnobValue 2), 0, 127, -1, num_sc_mh_modes-1
+	  scene_bank[(current_scene * sc_size) + sc_mh3_slot] = scn_mh3_mode
+  endif
+	if LastKnob = 3
+	  scn_mh4_mode = Round TranslateScale (GetKnobValue 3), 0, 127, -1, num_sc_mh_modes-1
+	  scene_bank[(current_scene * sc_size) + sc_mh4_slot] = scn_mh4_mode
+  endif
+  Call @LabelMelodyModesPad
+  in1ch = midi_channels_used[1]
 	in2ch = midi_channels_used[2]
 	in3ch = midi_channels_used[3]
 	in4ch = midi_channels_used[4]
@@ -1476,15 +1606,50 @@
 @End
 	
 @SetupKnobset4
-	//# SEQ CH A midi in channels
+	//# MELODY CHANNELS
 	knob_set = 4
-	LabelKnobs {MELODY A}
-	SetKnobValue 0, TranslateScale midi_channels_used[1], -1, 15, 0, 127
-	SetKnobValue 1, TranslateScale midi_channels_used[2], -1, 15, 0, 127
-	SetKnobValue 2, TranslateScale midi_channels_used[3], -1, 15, 0, 127
-	SetKnobValue 3, TranslateScale midi_channels_used[4], -1, 15, 0, 127
+	LabelKnobs {MELODY}
+	for i=0 to 3
+		SetKnobValue i, TranslateScale (midi_channels_used[i+1] - 4), -1, 3, 0, 127
+	endfor
 	Call @LabelKnobset4
-	Call @LabelMidiInChannelsPadA
+	Call @LabelMelodyChannelsPad
+@End
+@LabelKnobset4
+	//MELODY midi chs
+	if midi_channels_used[1] = -1
+	  LabelKnob 0, {Ch: }, {off}
+	else
+		LabelKnob 0, {Ch: }, midi_channels_used[1]+1  
+	endif
+	if midi_channels_used[2] = -1
+	  LabelKnob 1, {Ch: }, {off}
+	else
+		LabelKnob 1, {Ch: }, midi_channels_used[2]+1  
+	endif
+	if midi_channels_used[3] = -1
+	  LabelKnob 2, {Ch: }, {off}
+	else
+		LabelKnob 2, {Ch: }, midi_channels_used[3]+1  
+	endif
+	if midi_channels_used[4] = -1
+	  LabelKnob 3, {Ch: }, {off}
+	else
+		LabelKnob 3, {Ch: }, midi_channels_used[4]+1  
+	endif
+@End
+@KnobChangeSet4
+	//# Midi in channels allowed 5-8 (store 4-9)
+	if allow_mel_harm_midi_ch_chg
+		sel_ch = (Round TranslateScale (GetKnobValue LastKnob), 0, 127, -1, 3)
+		if sel_ch>=0
+			sel_ch=sel_ch+4
+		endif
+		midi_channels_used[LastKnob+1] = sel_ch
+	  Call @LabelMelodyChannelsPad
+	  Call @LabelHarmonyChannelsPad
+	  Call @LabelKnobset4
+	endif
 @End
 
 @SetupKnobset5
@@ -1499,6 +1664,20 @@
 	SetKnobValue 1, TranslateScale selected_midi_in_scale, 0, num_scale_types-1, 0, 127
 	SetKnobValue 2, 0
 	SetKnobValue 3, 0
+@End
+@KnobChangeSet5
+	//# Midi in scale
+	if LastKnob = 0
+	  selected_midi_in_root = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
+	  LabelKnob LastKnob, (NoteName selected_midi_in_root)
+	  Call @GetMidiInScale
+  endif
+  if LastKnob = 1
+	  selected_midi_in_scale = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_scale_types-1
+	  LabelKnob LastKnob, (ScaleName allowed_scales[selected_midi_in_scale])
+	  Call @GetMidiInScale
+  endif
+  LabelPad 8, {  MIDI INPUT  }, {   Key/Scale      }, (NoteName selected_midi_in_root), { }, (ScaleName allowed_scales[selected_midi_in_scale])
 @End
 
 @SetupKnobset6
@@ -1562,35 +1741,124 @@
 	5th_updated = FALSE
 	7th_updated = FALSE
 @End
-
-@SetupKnobset7
-	//# midi out channels
-	knob_set = 7
-	LabelKnobs {GATED CHRDS CHS}
-	SetKnobValue 0, TranslateScale midi_channels_used[9], -1, 15, 0, 127
-	SetKnobValue 1, TranslateScale midi_channels_used[10], -1, 15, 0, 127
-	SetKnobValue 2, TranslateScale midi_channels_used[11], -1, 15, 0, 127
-	SetKnobValue 3, TranslateScale midi_channels_used[12], -1, 15, 0, 127
-	Call @LabelKnobset7
-	Call @LabelMidiOutChannelsPad
+@KnobChangeSet6
+	if LastKnob = 0
+	  constructed_root = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
+  	LabelKnob 0, {Root }, (NoteName constructed_root)
+  	root_updated = TRUE
+  elseif LastKnob = 1
+  	constructed_3rd = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
+  	Call @LabelConstructed3rd
+  	3rd_updated = TRUE
+  elseif LastKnob = 2
+  	constructed_5th = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
+	  Call @LabelConstructed5th 
+	  5th_updated = TRUE
+  elseif LastKnob = 3
+	  constructed_7th = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 4
+  	Call @LabelConstructed7th
+  	7th_updated = TRUE 
+	endif
+	Call @SaveConstructedChordPad
+@End
+@LabelConstructed3rd
+	if constructed_3rd = 0
+		LabelKnob 1, {sus2}
+	elseif constructed_3rd = 1
+		LabelKnob 1, {min3 (b3)}
+	elseif constructed_3rd = 2
+		LabelKnob 1, {maj3}
+	elseif constructed_3rd = 3
+		LabelKnob 1, {sus4}
+	endif
 @End
 
+@LabelConstructed5th
+	if constructed_5th = 0
+  	LabelKnob 2, {dim (b5)}
+  elseif constructed_5th = 1
+  	LabelKnob 2, {P5}
+  elseif constructed_5th = 2
+  	LabelKnob 2, {Aug (#5)}
+  endif
+@End
+
+@LabelConstructed7th
+	if constructed_7th = 0
+  	LabelKnob 3, {None}
+  elseif constructed_7th = 1
+  	LabelKnob 3, {Min6 (b6)}
+ 	elseif constructed_7th = 2
+  	LabelKnob 3, {Maj6}
+  elseif constructed_7th = 3
+ 		LabelKnob 3, {Min7 (b7)}
+ 	elseif constructed_7th = 4
+ 		LabelKnob 3, {Maj7}
+  endif
+@End
+
+@SetupKnobset7
+	//# harmony channels
+	knob_set = 7
+	LabelKnobs {HARMONY CHS}
+	for i = 0 to 3
+		SetKnobValue i, TranslateScale (midi_channels_used[i+5]-8), -1, 3, 0, 127
+	endfor
+	Call @LabelKnobset7
+	Call @LabelHarmonyChannelsPad
+@End
+@KnobChangeSet7
+	//# harmony channels
+	if allow_mel_harm_midi_ch_chg
+		sel_ch = (Round TranslateScale (GetKnobValue LastKnob), 0, 127, -1, 3)
+		if sel_ch>=0
+			sel_ch=sel_ch+8
+		endif
+		midi_channels_used[LastKnob+5] = sel_ch
+		Call @LabelMelodyChannelsPad
+	  Call @LabelHarmonyChannelsPad
+	  Call @LabelKnobset7
+	endif
+@End
+@LabelKnobset7
+	if midi_channels_used[5] = -1
+	  LabelKnob 0, {Ch: }, {off}
+	else
+		LabelKnob 0, {Ch: }, midi_channels_used[5]+1
+	endif
+	if midi_channels_used[6] = -1
+	  LabelKnob 1, {Ch: }, {off}
+	else
+		LabelKnob 1, {Ch: }, midi_channels_used[6]+1
+	endif
+	if midi_channels_used[7] = -1
+	  LabelKnob 2, {Ch: }, {off}
+	else
+		LabelKnob 2,{Ch: }, midi_channels_used[7]+1
+	endif
+	if midi_channels_used[8] = -1
+		LabelKnob 3, {Ch: }, {off}
+	else
+		LabelKnob 3, {Ch:}, midi_channels_used[8]+1
+	endif
+@End
+	
 @SetupKnobset8
-	//# Sequences midi in channels
 	knob_set = 8
-	LabelKnobs {MELODY B}
-	SetKnobValue 0, TranslateScale midi_channels_used[5], -1, 15, 0, 127
-	SetKnobValue 1, TranslateScale midi_channels_used[6], -1, 15, 0, 127
-	SetKnobValue 2, TranslateScale midi_channels_used[7], -1, 15, 0, 127
-	SetKnobValue 3, TranslateScale midi_channels_used[8], -1, 15, 0, 127
-	Call @LabelKnobset8
-	Call @LabelMidiInChannelsPadB
+	LabelKnobs {UNUSED}
+	SetKnobValue 0, 0
+	SetKnobValue 1, 0
+	SetKnobValue 2, 0
+	SetKnobValue 3, 0
+@End
+@KnobChangeSet8
+	//# Unused
 @End
 
 @SetupKnobset9
 	//# Chord Notes out styles
 	knob_set = 9
-	LabelKnobs {GATED CHRDS modes}
+	LabelKnobs {HARMONY MODES S}, current_scene+1 
 	kv1 = scene_bank[(current_scene * sc_size) + sc_och1_slot]
 	kv2 = scene_bank[(current_scene * sc_size) + sc_och2_slot]
 	kv3 = scene_bank[(current_scene * sc_size) + sc_och3_slot]
@@ -1600,88 +1868,34 @@
 	SetKnobValue 2, TranslateScale kv3, 0, cno_choices, 0, 127
 	SetKnobValue 3, TranslateScale kv4, 0, cno_choices, 0, 127
 	Call @LabelKnobset9
-	Call @LabelChordNotesOutPad
+	Call @LabelHarmonyModesPad
 @End
-
-@LabelKnobset4
-	if midi_channels_used[1] = -1
-	  LabelKnob 0, {IN1 Ch: }, {off}
-	else
-		LabelKnob 0, {IN1 Ch: }, midi_channels_used[1]+1  
+@KnobChangeSet9
+	//# Chord Notes Out style
+	if LastKnob = 0
+	  scene_bank[(current_scene * sc_size) + sc_och1_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, cno_choices
+  endif
+  if LastKnob = 1
+	  scene_bank[(current_scene * sc_size) + sc_och2_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, cno_choices
 	endif
-	if midi_channels_used[2] = -1
-	  LabelKnob 1, {IN2 Ch: }, {off}
-	else
-		LabelKnob 1, {IN2 Ch: }, midi_channels_used[2]+1  
-	endif
-	if midi_channels_used[3] = -1
-	  LabelKnob 2, {IN3 Ch: }, {off}
-	else
-		LabelKnob 2, {IN3 Ch: }, midi_channels_used[3]+1  
-	endif
-	if midi_channels_used[4] = -1
-	  LabelKnob 3, {IN4 Ch: }, {off}
-	else
-		LabelKnob 3, {IN4 Ch: }, midi_channels_used[4]+1  
-	endif
+  if LastKnob = 2
+	  scene_bank[(current_scene * sc_size) + sc_och3_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, cno_choices
+  endif
+  if LastKnob = 3
+	  scene_bank[(current_scene * sc_size) + sc_och4_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, cno_choices
+  endif
+  Call @LabelHarmonyModesPad
+  Call @LabelKnobset9
 @End
-
-
-@LabelKnobset7
-	if midi_channels_used[5] = -1
-	  LabelKnob 0, {Ch: }, {off}
-	else
-		LabelKnob 0, {Ch: }, midi_channels_used[9]+1
-	endif
-	if midi_channels_used[6] = -1
-	  LabelKnob 1, {Ch: }, {off}
-	else
-		LabelKnob 1, {Ch: }, midi_channels_used[10]+1
-	endif
-	if midi_channels_used[7] = -1
-	  LabelKnob 2, {Ch: }, {off}
-	else
-		LabelKnob 2,{Ch: }, midi_channels_used[11]+1
-	endif
-	if midi_channels_used[8] = -1
-		LabelKnob 3, {Ch: }, {off}
-	else
-		LabelKnob 3, {Ch:}, midi_channels_used[12]+1
-	endif
-@End
-
-@LabelKnobset8
-	if midi_channels_used[5] = -1
-	  LabelKnob 0, {IN5 Ch: }, {off}
-	else
-		LabelKnob 0, {IN5 Ch: }, midi_channels_used[5]+1  
-	endif
-	if midi_channels_used[6] = -1
-	  LabelKnob 1, {IN6 Ch: }, {off}
-	else
-		LabelKnob 1, {IN6 Ch: }, midi_channels_used[6]+1  
-	endif
-	if midi_channels_used[7] = -1
-	  LabelKnob 2, {IN7 Ch: }, {off}
-	else
-		LabelKnob 2, {IN7 Ch: }, midi_channels_used[7]+1  
-	endif
-	if midi_channels_used[8] = -1
-	  LabelKnob 3, {IN8 Ch: }, {off}
-	else
-		LabelKnob 3, {IN8 Ch: }, midi_channels_used[8]+1  
-	endif
-@End
-
 @LabelKnobset9
 	kv1 = scene_bank[(current_scene * sc_size) + sc_och1_slot]
 	kv2 = scene_bank[(current_scene * sc_size) + sc_och2_slot]
 	kv3 = scene_bank[(current_scene * sc_size) + sc_och3_slot]
 	kv4 = scene_bank[(current_scene * sc_size) + sc_och4_slot]
-	chA = midi_channels_used[9]+1
-	chB = midi_channels_used[10]+1
-	chC = midi_channels_used[11]+1
-	chD = midi_channels_used[12]+1
+	chA = midi_channels_used[5]+1
+	chB = midi_channels_used[6]+1
+	chC = midi_channels_used[7]+1
+	chD = midi_channels_used[8]+1
 	if kv1 >= 2
 		kv1_label = cno_labels[kv1]
 		LabelKnob 0, {CH}, chA, { }, kv1_label
@@ -1725,21 +1939,19 @@
   elseif knob_set = 1
   	Call @SetupKnobset1 //# chord settings
   elseif knob_set = 2
-  	Call @SetupKnobset2	//# chord select
+  	Call @SetupKnobset2	//# CHORD select
   elseif knob_set = 3
-  	Call @SetupKnobset3	//# scene midi in modes (harmony modes)
+  	Call @SetupKnobset3	//# MELODY MODES
   elseif knob_set = 4
-  	Call @SetupKnobset4	//# midi in channels
+  	Call @SetupKnobset4	//# MELODY midi channels
   elseif knob_set = 5
   	Call @SetupKnobset5	//# midi in key scale
   elseif knob_set = 6
-  	Call @SetupKnobset6	//# midi construct
+  	Call @SetupKnobset6	//# CHORD construct
   elseif knob_set = 7
-  	Call @SetupKnobset7	//# midi out channels A
-  elseif knob_set = 8
-  	Call @SetupKnobset8	//# midi out channels B
-  elseif knob_set = 9
-  	Call @SetupKnobset9	//# midi out channels B
+  	Call @SetupKnobset7	//# HARMONY Midi channels
+	elseif knob_set = 9
+  	Call @SetupKnobset9	//# HARMONY MODES
   endif
 	//# On entering select mode the following need knobsets selected
 	if in_mode_select
@@ -1749,8 +1961,6 @@
 			Call @SetupKnobset5
 		elseif (mode = 10)
 			Call @SetupKnobset7
-		elseif (mode = 11)
-			Call @SetupKnobset8
 		elseif (mode = 12)
 			Call @SetupKnobset9
 		else
@@ -1774,342 +1984,27 @@
   elseif knob_set = 1
   	Call @KnobChangeSet1 //# chord settings
   elseif knob_set = 2
-  	Call @KnobChangeSet2	//# chord select
+  	Call @KnobChangeSet2	//# CHORD select
   elseif knob_set = 3
-  	Call @KnobChangeSet3	//# scene midi in modes
+  	Call @KnobChangeSet3	//# MELODY modes
   elseif knob_set = 4
-  	Call @KnobChangeSet4	//# midi in channels
+  	Call @KnobChangeSet4	//# MELODY midi channels
   elseif knob_set = 5
   	Call @KnobChangeSet5	//# midi in scale
   elseif knob_set = 6
-  	Call @KnobChangeSet6	//# chord construct
+  	Call @KnobChangeSet6	//# CHORD construct
   elseif knob_set = 7
-  	Call @KnobChangeSet7	//# Midi out channels A
- 	elseif knob_set = 8
-  	Call @KnobChangeSet8	//# Midi out channels B
-  elseif knob_set = 9
-  	Call @KnobChangeSet9	//# Midi out channel On/Off
+  	Call @KnobChangeSet7	//# HARMONY channels
+	elseif knob_set = 9
+  	Call @KnobChangeSet9	//# HARMONY modes
 	endif 
 @End 
-
-@KnobChangeSet0
-	//# scene settings
-	if LastKnob = 0
-	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
-	  if scn_duration <> scene_bank[current_scene * sc_size] 	
-		  scene_bank[current_scene * sc_size] = scn_duration
-	  	LabelKnob 0 , {Dur }, scn_duration
-	  endif
-  endif
-  if LastKnob = 1
-	  scn_txpose = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 12
-	  if scn_txpose <> scene_bank[(current_scene * sc_size) + sc_txp_slot] 	
-		  scene_bank[(current_scene * sc_size) + sc_txp_slot] = scn_txpose
-		  Call @SetupLayout //# re-label all chord pads
-		endif
-  endif
-  if LastKnob = 2
-	  scn_preset = Round TranslateScale (GetKnobValue 2), 0, 127, 1, num_sc_presets
-	  scene_bank[(current_scene * sc_size) + sc_preset_slot] = scn_preset
-	  LabelKnob 2, scn_preset
-  	Call @ChangeScenePreset
-  endif
-  if LastKnob = 3
-	  rnd_scene_chg = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
-		if rnd_scene_chg = 0
-				LabelKnob 3, {RndScOFF} 
-			else
-				LabelKnob 3, {RndScON}
-		endif
-  endif
-  scn_to_label = current_scene
-  Call @LabelScenePad
-@End
-
-@KnobChangeSet1
-//# chord settings
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	if LastKnob = 0
-	  chrd_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 64
-	  if chrd_duration <> chord_bank[chord_slot + dur_slot] 
-		  chord_bank[chord_slot + dur_slot] = chrd_duration
-		  dur_bars = Div chrd_duration, 4
-			dur_beats = (chrd_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
-	  	LabelKnob 0 , {Dur }, dur_bars, {.}, dur_beats
-  	endif
-  endif
-  if (mode = 3)
-	  if LastKnob = 1
-		  midi_channels_used[0] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
-			LabelKnob 1, {REC CH }, midi_channels_used[0] + 1
-	  endif
-	else
-		if LastKnob = 1
-		  chrd_sugg = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 16
-			if chrd_sugg <> chord_bank[chord_slot + sugg_slot] 
-		  	chord_bank[chord_slot + sugg_slot] = chrd_sugg
-		  	LabelKnob 1, {Suggest}, chrd_sugg
-	  		Call @SuggestChord
-			endif
-	  endif
-  endif
-  if LastKnob = 2
-	  chrd_inversion = Round TranslateScale (GetKnobValue 2), 0, 127, -4, 4
-	  if chrd_inversion <> chord_bank[chord_slot + inv_slot] 
-		  chord_bank[chord_slot + inv_slot] = chrd_inversion
-		  LabelKnob 2, {Inv }, chrd_inversion
-	  endif 
-  endif
-  if LastKnob = 3
-	  chrd_bass = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 11
-	 	if chrd_bass <> chord_bank[chord_slot + bass_slot] 
-		  chord_bank[chord_slot + bass_slot] = chrd_bass
-		  if chrd_bass >= 0
-			  LabelKnob 3, {Bass }, (NoteName chrd_bass)
-  		else
-  			LabelKnob 3, {Bass }, {Off}
-  		endif
-  	endif
-  endif
-  //# Knob 1 not used in this set
-  chrd_to_label = current_chord+8
-  Call @LabelChordPad
-@End
-
-@KnobChangeSet2
-	bass_updated = FALSE
-	inv_updated = FALSE
-	if LastKnob = 0
-	  slct_chord_root = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
-  	LabelKnob LastKnob, {Root }, (NoteName slct_chord_root)
-  	root_updated = TRUE
-  	Call @SaveSelectedChordPad
-  elseif LastKnob = 1
-  	slct_chord_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_chord_types-1
-  	if slct_chord_type = 0
-  		LabelKnob 1, {Major}
-  	elseif slct_chord_type = 1
-  		LabelKnob 1, {Minor}
-  	elseif slct_chord_type = 2
-  		LabelKnob 1, {Diminished}
-  	elseif slct_chord_type = 3
-  		LabelKnob 1, {Augmented}
-  	elseif slct_chord_type = 4
-  		LabelKnob 1, {Sus2}
-  	elseif slct_chord_type = 5
-  		LabelKnob 1, {Sus4}
-  	elseif slct_chord_type = 6
-  		LabelKnob 1, {Minor 6th}
-  	elseif slct_chord_type = 7
-  		LabelKnob 1, {Major 6th}
-  	elseif slct_chord_type = 8
-  		LabelKnob 1, {Minor 7th}
-  	elseif slct_chord_type = 9
-  		LabelKnob 1, {Dom 7th}
-  	elseif slct_chord_type = 10
-  		LabelKnob 1, {Major 7th}
-  	endif
-  	type_updated = TRUE
-  	Call @SaveSelectedChordPad
-  elseif LastKnob = 2
-  	slct_chord_inversion = Round TranslateScale (GetKnobValue 2), 0, 127, -4, 4
-	  LabelKnob LastKnob, {Inv: }, slct_chord_inversion
-	  inv_updated = TRUE
-	  Call @SaveSelectedChordPad
-  elseif LastKnob = 3
-	  slct_chord_bass_note = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 11
-  	LabelKnob LastKnob, {Bass }, (NoteName slct_chord_bass_note)
-  	bass_updated = TRUE
-  	Call @SaveSelectedChordPad 
-	endif
-@End
-
-@KnobChangeSet3
-	//# scene midi IN settings
-	//# Harmony modes: Chord only, Round to chord,  Scene Scale, Bass, Root, 3rd, 5th
-	if LastKnob = 0
-	  scn_mh1_mode = Round TranslateScale (GetKnobValue 0), 0, 127, -1, num_sc_mh_modes-1
-	  scene_bank[(current_scene * sc_size) + sc_mh1_slot] = scn_mh1_mode
-  endif
-  if LastKnob = 1
-	  scn_mh2_mode = Round TranslateScale (GetKnobValue 1), 0, 127, -1, num_sc_mh_modes-1
-	  scene_bank[(current_scene * sc_size) + sc_mh2_slot] = scn_mh2_mode
-  endif
-  if LastKnob = 2
-	  scn_mh3_mode = Round TranslateScale (GetKnobValue 2), 0, 127, -1, num_sc_mh_modes-1
-	  scene_bank[(current_scene * sc_size) + sc_mh3_slot] = scn_mh3_mode
-  endif
-	if LastKnob = 3
-	  scn_mh4_mode = Round TranslateScale (GetKnobValue 3), 0, 127, -1, num_sc_mh_modes-1
-	  scene_bank[(current_scene * sc_size) + sc_mh4_slot] = scn_mh4_mode
-  endif
-  Call @LabelSceneModesPad
-  in1ch = midi_channels_used[1]
-	in2ch = midi_channels_used[2]
-	in3ch = midi_channels_used[3]
-	in4ch = midi_channels_used[4]
-	LabelKnob 0, {Ch}, in1ch+1, {: }, scn_mh1_mode+1
-	LabelKnob 1, {Ch}, in2ch+1, {: }, scn_mh2_mode+1
-	LabelKnob 2, {Ch}, in3ch+1, {: }, scn_mh3_mode+1
-	LabelKnob 3, {Ch}, in4ch+1, {: }, scn_mh4_mode+1
-@End
-
-@KnobChangeSet4
-	//# Midi in channels
-	if LastKnob = 0
-	  midi_channels_used[1] = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 15
-  endif
-  if LastKnob = 1
-	  midi_channels_used[2] = Round TranslateScale (GetKnobValue 1), 0, 127, -1, 15
-  endif
-  if LastKnob = 2
-	  midi_channels_used[3] = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 15
-  endif
-  if LastKnob = 3
-	  midi_channels_used[4] = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 15
-  endif
-  Call @LabelMidiInChannelsPadA
-  Call @LabelMidiInChannelsPadB
-  Call @LabelMidiOutChannelsPad
-  Call @LabelKnobset4
-@End
-
-@KnobChangeSet5
-	//# Midi in scale
-	if LastKnob = 0
-	  selected_midi_in_root = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
-	  LabelKnob LastKnob, (NoteName selected_midi_in_root)
-	  Call @GetMidiInScale
-  endif
-  if LastKnob = 1
-	  selected_midi_in_scale = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_scale_types-1
-	  LabelKnob LastKnob, (ScaleName allowed_scales[selected_midi_in_scale])
-	  Call @GetMidiInScale
-  endif
-  LabelPad 8, {  MIDI INPUT  }, {   Key/Scale      }, (NoteName selected_midi_in_root), { }, (ScaleName allowed_scales[selected_midi_in_scale])
-@End
-
-@KnobChangeSet6
-	if LastKnob = 0
-	  constructed_root = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
-  	LabelKnob 0, {Root }, (NoteName constructed_root)
-  	root_updated = TRUE
-  elseif LastKnob = 1
-  	constructed_3rd = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
-  	Call @LabelConstructed3rd
-  	3rd_updated = TRUE
-  elseif LastKnob = 2
-  	constructed_5th = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
-	  Call @LabelConstructed5th 
-	  5th_updated = TRUE
-  elseif LastKnob = 3
-	  constructed_7th = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 4
-  	Call @LabelConstructed7th
-  	7th_updated = TRUE 
-	endif
-	Call @SaveConstructedChordPad
-@End
-
-@LabelConstructed3rd
-		if constructed_3rd = 0
-  		LabelKnob 1, {sus2}
-  	elseif constructed_3rd = 1
-  		LabelKnob 1, {min3 (b3)}
-  	elseif constructed_3rd = 2
-  		LabelKnob 1, {maj3}
-  	elseif constructed_3rd = 3
-  		LabelKnob 1, {sus4}
-	  endif
-@End
-
-@LabelConstructed5th
-	if constructed_5th = 0
-  	LabelKnob 2, {dim (b5)}
-  elseif constructed_5th = 1
-  	LabelKnob 2, {P5}
-  elseif constructed_5th = 2
-  	LabelKnob 2, {Aug (#5)}
-  endif
-@End
-
-@LabelConstructed7th
-	if constructed_7th = 0
-  	LabelKnob 3, {None}
-  elseif constructed_7th = 1
-  	LabelKnob 3, {Min6 (b6)}
- 	elseif constructed_7th = 2
-  	LabelKnob 3, {Maj6}
-  elseif constructed_7th = 3
- 		LabelKnob 3, {Min7 (b7)}
- 	elseif constructed_7th = 4
- 		LabelKnob 3, {Maj7}
-  endif
-@End
-
-
-@KnobChangeSet7
-	//# Midi OUT channels
-	if LastKnob = 0
-	  midi_channels_used[9] = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 15
-  endif
-  if LastKnob = 1
-	  midi_channels_used[10] = Round TranslateScale (GetKnobValue 1), 0, 127, -1, 15
-	endif
-  if LastKnob = 2
-	  midi_channels_used[11] = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 15
-  endif
-  if LastKnob = 3
-	  midi_channels_used[12] = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 15
-  endif
-  Call @LabelMidiInChannelsPadA
-  Call @LabelMidiInChannelsPadB
-  Call @LabelMidiOutChannelsPad
-  Call @LabelKnobset7
-@End
-
-@KnobChangeSet8
-	//# Midi in channels B
-	if LastKnob = 0
-	  midi_channels_used[5] = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 15
-  endif
-  if LastKnob = 1
-	  midi_channels_used[6] = Round TranslateScale (GetKnobValue 1), 0, 127, -1, 15
-	endif
-  if LastKnob = 2
-	  midi_channels_used[7] = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 15
-	endif
-  if LastKnob = 3
-	  midi_channels_used[8] = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 15
-  endif
-  Call @LabelMidiInChannelsPadA
-  Call @LabelMidiInChannelsPadB
-  Call @LabelMidiOutChannelsPad
-  Call @LabelKnobset8
-@End
-
-@KnobChangeSet9
-	//# Chord Notes Out style
-	if LastKnob = 0
-	  scene_bank[(current_scene * sc_size) + sc_och1_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, cno_choices
-  endif
-  if LastKnob = 1
-	  scene_bank[(current_scene * sc_size) + sc_och2_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, cno_choices
-	endif
-  if LastKnob = 2
-	  scene_bank[(current_scene * sc_size) + sc_och3_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, cno_choices
-  endif
-  if LastKnob = 3
-	  scene_bank[(current_scene * sc_size) + sc_och4_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, cno_choices
-  endif
-  Call @LabelChordNotesOutPad
-  Call @LabelKnobset9
-@End
 		
 @CheckMidiChannelConflict
 	//# check for conflicts no recording channel list[0] or -1 settings
 	midi_channel_conflict = FALSE
-	for a = 1 to 12
-		for b = 1 to 12
+	for a = 1 to 8
+		for b = 1 to 8
 			if a <> b
 				if (midi_channels_used[a] = midi_channels_used[b]) and (midi_channels_used[a] >= 0) and (a <= 8 or b <= 8)
 						midi_channel_conflict = TRUE
@@ -2119,49 +2014,40 @@
 	endfor
 @End
 
-@LabelMidiInChannelsPadA
+@LabelMelodyChannelsPad
 	//# Call @CheckMidiChannelConflict -- turning off for now
 	if NOT midi_channel_conflict
-		LabelPad 9, {MELODY A   }, { Midi chs }, midi_channels_used[1]+1, {-}, midi_channels_used[2]+1, {-}, midi_channels_used[3]+1, {-}, midi_channels_used[4]+1
+		LabelPad 9, {MELODY     }, { Midi chs }, midi_channels_used[1]+1, {-}, midi_channels_used[2]+1, {-}, midi_channels_used[3]+1, {-}, midi_channels_used[4]+1
 	else
-		LabelPad 9, {EXT MIDI    }, {!CONFLICT! }, midi_channels_used[1]+1, {-}, midi_channels_used[2]+1, {-}, midi_channels_used[3]+1, {-}, midi_channels_used[4]+1
+		LabelPad 9, {MELODY    }, {!CONFLICT! }, midi_channels_used[1]+1, {-}, midi_channels_used[2]+1, {-}, midi_channels_used[3]+1, {-}, midi_channels_used[4]+1
 	endif
 @End
 
-@LabelSceneModesPad
+@LabelMelodyModesPad
 	if in_mode_select
 		scm1 = scene_bank[(current_scene * sc_size) + sc_mh1_slot] + 1
 		scm2 = scene_bank[(current_scene * sc_size) + sc_mh2_slot] + 1
 		scm3 = scene_bank[(current_scene * sc_size) + sc_mh3_slot] + 1
 		scm4 = scene_bank[(current_scene * sc_size) + sc_mh4_slot] + 1
-		LabelPad 10, {MELODY A Modes }, { S}, current_scene+1, {      }, scm1, {-}, scm2, {-}, scm3, {-}, scm4
+		LabelPad 10, {MELODY Modes }, { S}, current_scene+1, {      }, scm1, {-}, scm2, {-}, scm3, {-}, scm4
 	endif
 @End
 
-@LabelMidiInChannelsPadB
+@LabelHarmonyChannelsPad
 	//# Call @CheckMidiChannelConflict -- turning off for now
 	if NOT midi_channel_conflict
-		LabelPad 11, {MELODY B  }, { Midi chs }, midi_channels_used[5]+1, {-}, midi_channels_used[6]+1, {-}, midi_channels_used[7]+1, {-}, midi_channels_used[8]+1
+		LabelPad 12, {HARMONY   }, { Midi chs   }, midi_channels_used[5]+1, {-}, midi_channels_used[6]+1, {-}, midi_channels_used[7]+1, {-}, midi_channels_used[8]+1
 	else
-		LabelPad 11, {SEQUENCE   }, {!CONFLICT! }, midi_channels_used[5]+1, {-}, midi_channels_used[6]+1, {-}, midi_channels_used[7]+1, {-}, midi_channels_used[8]+1
+		LabelPad 12, {HARMONY   }, {  !CONFLICT!  }, midi_channels_used[5]+1, {-}, midi_channels_used[6]+1, {-}, midi_channels_used[7]+1, {-}, midi_channels_used[8]+1
 	endif
 @End
 
-@LabelMidiOutChannelsPad
-	//# Call @CheckMidiChannelConflict -- turning off for now
-	if NOT midi_channel_conflict
-		LabelPad 12, {HARMONY   }, { Midi chs   }, midi_channels_used[9]+1, {-}, midi_channels_used[10]+1, {-}, midi_channels_used[11]+1, {-}, midi_channels_used[12]+1
-	else
-		LabelPad 12, {CHORDS     }, {  !CONFLICT!  }, midi_channels_used[9]+1, {-}, midi_channels_used[10]+1, {-}, midi_channels_used[11]+1, {-}, midi_channels_used[12]+1
-	endif
-@End
-
-@LabelChordNotesOutPad
+@LabelHarmonyModesPad
 	o1 = scene_bank[(current_scene * sc_size) + sc_och1_slot]
 	o2 = scene_bank[(current_scene * sc_size) + sc_och2_slot]
 	o3 = scene_bank[(current_scene * sc_size) + sc_och3_slot]
 	o4 = scene_bank[(current_scene * sc_size) + sc_och4_slot]
-	LabelPad 13, {HARMONY  }, {S}, current_scene+1, { modes }, o1, {-}, o2, {-}, o3, {-}, o4
+	LabelPad 13, {HARMONY Modes }, {S}, current_scene+1, {     }, o1, {-}, o2, {-}, o3, {-}, o4
 @End
 	
 @OnShiftDown
@@ -2214,11 +2100,11 @@
 		if NOT HostRunning
 			LabelPad 8, { MIDI INPUT  }, {   Key/Scale      }, (NoteName selected_midi_in_root), { }, (ScaleName allowed_scales[selected_midi_in_scale])
 		endif
-		Call @LabelMidiInChannelsPadA //pad8
-		Call @LabelSceneModesPad		//pad9
-		Call @LabelMidiInChannelsPadB //pad10
-		Call @LabelMidiOutChannelsPad //pad11
-		Call @LabelChordNotesOutPad //pad12
+		Call @LabelMelodyChannelsPad //pad8
+		Call @LabelMelodyModesPad		//pad9
+		LabelPad 11,{ }
+		Call @LabelHarmonyChannelsPad //pad11
+		Call @LabelHarmonyModesPad //pad12
 		LabelPad 14,{ }
 		LabelPad 15, {DELETE  }
 		if (mode>=1 and mode<=3)
