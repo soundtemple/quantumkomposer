@@ -62,8 +62,6 @@
 	constructed_3rd = 2
 	constructed_5th = 1
 	constructed_7th = 3
-	//Chord notes out sent gated by any incoming note on chans 8-11 or 9-12display
-	gate_chords_on[8] = [FALSE,FALSE,FALSE,FALSE]
 	
 	//# Midi channel options Mozaic uses 0-15 - we display 1-16
 	//# Record Chords Ch [0]. MELODY A CH's [1-4]. HARMONY CH's' [5-8] for outgoing chords. 
@@ -188,6 +186,7 @@
 	//# Fixed by BramBos in June2020
 	Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
 	if (HostBeat = 0) and (HostBar = 0)
+		Log {Host beat n bar =0}
 		//# starting playback from beginning		
 		chord_beat_count = -1
 		scene_beat_count = -1
@@ -216,13 +215,8 @@
 @End
 
 @OnHostStop
-	gate_chords_on[8] = [FALSE,FALSE,FALSE,FALSE] //midi chs 12-13-14-15
-  Call @SetupLayout
+	Call @SetupLayout
   Call @ResetBeatCounts
-	for i = 5 to 8
-		ch = midi_channels_used[i]
-	  Call @TurnOffChordNotes
-	endfor
   Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
   Call @SetupLayout
 @End 
@@ -242,6 +236,7 @@
 @End 
 
 @OnNewBeat
+	Call @LogCurrentInfo
 	//# increment beat counts xonb
 	scene_beat_count = scene_beat_count + 1
 	chord_beat_count = chord_beat_count + 1
@@ -276,7 +271,6 @@
 	elseif (chord_beat_count >= current_chord_duration)
 		Call @HandleChordChange
 	endif
-	Call @LogCurrentInfo
 @End
 
 @TimeForTurnaround
@@ -362,15 +356,7 @@
     current_chord = current_chord + 1
   endif
   chord_beat_count = 0 //# reset chord beat count on new chord
-  	
-  if HostRunning
-		for i = 5 to 8
-			ch = midi_channels_used[i]
-			if gate_chords_on[ch]
-	  		Call @SendOutChordNotes //update gated chords and send new if gate_chords_on = TRUE
-			endif
-		endfor
-  endif
+	
   //# Label pads
   if not in_mode_select
 	  LabelPads {_QK:KORDS  Scene: }, current_scene+1, { Chord: }, current_chord+1
@@ -457,10 +443,9 @@
     	Call @ResetChord
   	endif
   	if NOT HostRunning and (LastPad >= 8)
-			gate_chords_on[8] = [TRUE,TRUE,TRUE,TRUE] //midi chs
 			for i = 5 to 8
 				ch = midi_channels_used[i]
-	  		Call @SendOutChordNotes //update gated chords and send new if gate_chords_on = TRUE
+	  		Call @SendOutChordNotes
 			endfor
   	endif
 	endif
@@ -468,7 +453,6 @@
 
 @OnPadUp
 	if NOT HostRunning and (LastPad >= 8)
-		gate_chords_on[8] = [FALSE,FALSE,FALSE,FALSE]
 		for i = 5 to 8
 			ch = midi_channels_used[i]
   		Call @TurnOffChordNotes
@@ -733,10 +717,8 @@
 	elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY trigger/gate notes coming in  
 		for i = 5 to 8 // gated chord notes turned on an off by incoming note
 			if MIDIChannel = midi_channels_used[i]
-				gate_chords_on[MIDIChannel] = TRUE // gate_chords_on = TRUE will determine if chord notes turned on or off
 				ch = MIDIChannel
 				Call @SendOutChordNotes
-				Log {SENDING OUT HARM NOTE: CH}, MIDIChannel 
 				Exit
 			endif
 		endfor
@@ -744,14 +726,10 @@
 @End
 
 @SendOutChordNotes
-	Log {Sending out chord notes ch},ch
 	//# Send out chord notes based on Midi OUT Channel settings
 	//# Also send out chord notes if chord pad pressed when HostStopped
 	//# Basically send out chord notes when a chord changes
 	chord_slot = (current_scene * 100) + (current_chord * 10)
-	
-	//# First turn off old chord notes
-	Call @TurnOffChordNotes
 	
 	//# Use a standardised octave for chord notes out
 	//# First remove octave and then assign
@@ -793,11 +771,9 @@
 	
 	//# Get per scene Midi Out channel On/Off settings (ch=8-11 => slots 7-10)
 	out_type = scene_bank[(current_scene * sc_size) + ch-1] //!!! relies on FIXED midi ch's see sc_har1_slot=7
-	Log {out type:}, out_type
 	
 	//# make a dummy scale to represent chord degrees saved in cno_degrees
 	chord_scale = [chord_bass, chord_root, chord_root, chord_3rd, chord_3rd, chord_5th, chord_5th, chord_7th, chord_7th]
-	//# midi channels ch1-4 set in TurnOffChordNotes called above
 	for i = 0 to 3  //up to 4 notes can be sent in a mode
 		ch_degree = cno_degrees[(4 * out_type) + i]
 		Call @HumanizeVelocity
@@ -806,7 +782,7 @@
 			if chord_scale[ch_degree] > 0
 				SendMIDINoteOn ch, chord_scale[ch_degree], velocity
 				SetNoteState ch, i, chord_scale[ch_degree]
-				Log {sending harmony note: CH:}, ch+1, { - }, chord_scale[ch_degree]
+				Log {Chord Note sent curr_chord}, current_chord, { note: }, chord_scale[ch_degree]
 			endif
 		endif
 	endfor	
@@ -994,6 +970,7 @@
 				velocity = velocity_dipped
 			endif
 	    SendMIDINoteOn MIDIChannel, HAR_NOTE_OUT, velocity  
+			Log {Melody note sent CH},MIDIChannel, HAR_NOTE_OUT
 		endif
 	elseif (sc_harm_mode = 7) 
 		//# ignore scn_txpose and octave adj in thru mode
@@ -1177,7 +1154,7 @@
 	elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY Notes off (chs9-12 display)	  
 		for i = 5 to 8 // gated chord notes turned on an off by incoming note
 			if MIDIChannel = midi_channels_used[i]
-				gate_chords_on[MIDIChannel] = FALSE
+				ch=MIDIChannel
 				Call @TurnOffChordNotes
 				Exit
 			endif
