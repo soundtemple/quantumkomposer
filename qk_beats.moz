@@ -150,6 +150,7 @@
 	//# stored at time midi note on is sent. see @OnMetroPulse
 	playing_notes=[0,0,0,0]
 	steps_record_mode=FALSE //# steps mode: tap on step or tap any step record step at playhead
+	pattn_length=0
 	
 	//# MEL & SEQ GENERATION
 	mg_density=0
@@ -429,7 +430,7 @@
 		endif
 		SendMIDINoteOn midi_out_chs[ch], note_val, velo_val
 		playing_notes[ch]= note_val
-		Log {NotePlayed: }, note_val, { CMP: }, CurrentMetroPulse
+		Log {NotePlayed: }, note_val, { HBEAT:}, HostBeat, { HBAR:}, HostBar, { CMP: }, CurrentMetroPulse
 	endif
 	
 @End

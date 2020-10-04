@@ -236,7 +236,7 @@
 @End 
 
 @OnNewBeat
-	Call @LogCurrentInfo
+	Log {-- new beat --}
 	//# increment beat counts xonb
 	scene_beat_count = scene_beat_count + 1
 	chord_beat_count = chord_beat_count + 1
@@ -271,6 +271,7 @@
 	elseif (chord_beat_count >= current_chord_duration)
 		Call @HandleChordChange
 	endif
+	Call @LogCurrentInfo
 @End
 
 @TimeForTurnaround
@@ -970,7 +971,7 @@
 				velocity = velocity_dipped
 			endif
 	    SendMIDINoteOn MIDIChannel, HAR_NOTE_OUT, velocity  
-			Log {Melody note sent CH},MIDIChannel, HAR_NOTE_OUT
+			Log {Melody note sent CH},MIDIChannel, { - }, HAR_NOTE_OUT, { HBEAT:}, HostBeat, { HBAR:}, HostBar
 		endif
 	elseif (sc_harm_mode = 7) 
 		//# ignore scn_txpose and octave adj in thru mode
