@@ -405,9 +405,9 @@
 			velo_val = Clip (velo_val+mutate_val), 0, 127
 			//# Log {Mutate velo amt: }, mutate_val
 		endif
-		SendMIDINoteOn midi_out_chs[ch], note_val, velo_val
+		SendMIDINoteOn midi_out_chs[ch], note_val, velo_val, 5
 		playing_notes[ch]= note_val
-		Log {NotePlayed: }, note_val, { CMP: }, CurrentMetroPulse
+		Log {NotePlayed: }, note_val, { HBEAT:}, HostBeat, { HBAR:}, HostBar, { CMP: }, CurrentMetroPulse
 	endif
 @End
 
