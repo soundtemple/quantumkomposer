@@ -711,40 +711,40 @@
 	//# Record chords from the channel set 
 	if mode=3 // records mode 
 		Call @HandleRecordNotes
-	else 
-		if MIDIChannel>=4 and MIDIChannel<=7 //MELODY Notes coming in
-			for i = 1 to 4
-				if MIDIChannel = midi_channels_used[i] and not (mode = 3)
-					if i <= 4
-						//# What is the scene harm. mode for this channel scene array slot 4-7
-						sc_harm_mode = scene_bank[(current_scene * sc_size) + i + 2]
-					else
-						//# ch's 5-8 no mode select so default to 
-						sc_harm_mode = 2 //# +NonChord = All Scale notes get harmonized
-					endif
-					//# Log {sc_harm_mode for harmony note is: }, sc_harm_mode, { Call CHN}
-					//# Need to be able to call ConvertToHNotes to switch held notes 
-					//# over chord change where there in no MidiNote
-					midi_note = MidiNote
-					midi_channel = MIDIChannel
-					Call @ConvertToHarmonyNotes
-					Exit
+	elseif MIDIChannel>=4 and MIDIChannel<=7 //MELODY Notes coming in
+		for i = 1 to 4
+			if MIDIChannel = midi_channels_used[i] and not (mode = 3)
+				if i <= 4
+					//# What is the scene harm. mode for this channel scene array slot 4-7
+					sc_harm_mode = scene_bank[(current_scene * sc_size) + i + 2]
+				else
+					//# ch's 5-8 no mode select so default to 
+					sc_harm_mode = 2 //# +NonChord = All Scale notes get harmonized
 				endif
-			endfor
-		elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY trigger/gate notes coming in  
-			for i = 5 to 8 // gated chord notes turned on an off by incoming note
-				if MIDIChannel = midi_channels_used[i]
-					gate_chords_on[MIDIChannel] = TRUE // gate_chords_on = TRUE will determine if chord notes turned on or off
-					ch = MIDIChannel
-					Call @SendOutChordNotes 
-					Exit
-				endif
-			endfor
-		endif
+				//# Log {sc_harm_mode for harmony note is: }, sc_harm_mode, { Call CHN}
+				//# Need to be able to call ConvertToHNotes to switch held notes 
+				//# over chord change where there in no MidiNote
+				midi_note = MidiNote
+				midi_channel = MIDIChannel
+				Call @ConvertToHarmonyNotes
+				Exit
+			endif
+		endfor
+	elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY trigger/gate notes coming in  
+		for i = 5 to 8 // gated chord notes turned on an off by incoming note
+			if MIDIChannel = midi_channels_used[i]
+				gate_chords_on[MIDIChannel] = TRUE // gate_chords_on = TRUE will determine if chord notes turned on or off
+				ch = MIDIChannel
+				Call @SendOutChordNotes
+				Log {SENDING OUT HARM NOTE: CH}, MIDIChannel 
+				Exit
+			endif
+		endfor
 	endif
 @End
 
 @SendOutChordNotes
+	Log {Sending out chord notes ch},ch
 	//# Send out chord notes based on Midi OUT Channel settings
 	//# Also send out chord notes if chord pad pressed when HostStopped
 	//# Basically send out chord notes when a chord changes
@@ -805,6 +805,7 @@
 			if chord_scale[ch_degree] > 0
 				SendMIDINoteOn ch, chord_scale[ch_degree], velocity
 				SetNoteState ch, i, chord_scale[ch_degree]
+				Log {sending harmony note: CH:}, ch+1, { - }, chord_scale[ch_degree]
 			endif
 		endif
 	endfor	
