@@ -20,7 +20,7 @@
 	  return_to_song_mode_requested = FALSE //# used for switching on new bar 
 	  rec_chord_note_count = 0 //# recording notes in chord slot
 	  use_turn_around = TRUE //# last chord as turn around on last bar of scene
-		allow_mel_harm_midi_ch_chg=FALSE
+		allow_mel_harm_midi_ch_chg=FALSE //dangerous see sc_har1_slot see SendOutChordNotes
 	  //# used for LED feedback
 	  midi_channel_conflict = FALSE //# allowing midi OUT channel conflicts
 	  send_cc_back_to_knobs = FALSE 
@@ -38,16 +38,16 @@
 	scn_duration = 0 
 	scn_txpose = 0 
 	scn_preset = 1
-	scn_mh1_mode = 0
-	scn_mh2_mode = 0
-	scn_mh3_mode = 0 
-	scn_mh4_mode = 0
+	scn_mel1_mode = 0
+	scn_mel2_mode = 0
+	scn_mel3_mode = 0 
+	scn_mel4_mode = 0
 	scn_out1_on = 1 //# 0 for off default ON
 	scn_out2_on = 1
 	scn_out3_on = 1
 	scn_out4_on = 1
 	num_sc_presets = 13
-	num_sc_mh_modes = 8 //# Harmonization rules for incoming midi
+	num_mel_modes = 8 //# Harmonization rules for incoming midi
 	//# modes: Off, ChordOnly, Round2Chord,  NonChord, Bass, Root, 3rd, 5th, Thru
 	chrd_duration = 0
 	chrd_inversion = 0
@@ -105,14 +105,14 @@
   //# MG Modes determine how harmonization occurs per scene
   sc_txp_slot = 1
   sc_preset_slot = 2
-  sc_mh1_slot = 3 //# harmonization mode
-  sc_mh2_slot = 4
-  sc_mh3_slot = 5
-  sc_mh4_slot = 6
-  sc_och1_slot = 7 //# midi out ch per scene x4
-  sc_och2_slot = 8
-  sc_och3_slot = 9
-  sc_och4_slot = 10
+  sc_mel1_slot = 3 //# MELODY MODE slots in the scene bank
+  sc_mel2_slot = 4
+  sc_mel3_slot = 5
+  sc_mel4_slot = 6
+  sc_har1_slot = 7 //# HARMONY MODE slots in the scene bank
+  sc_har2_slot = 8
+  sc_har3_slot = 9
+  sc_har4_slot = 10
   sc_size = 15 //# ^ above slots + duration = 11 + 4 spare for even sizing 
   rnd_scene_chg=FALSE //# will select rnd scene on (auto) change not user change
   
@@ -791,8 +791,9 @@
 		chord_bass = chord_bass + txpose_amt
 	endif
 	
-	//# Get per scene Midi Out channel On/Off settings
-	out_type = scene_bank[(current_scene * sc_size) + ch-5] // xyz need to lock m.channels????
+	//# Get per scene Midi Out channel On/Off settings (ch=8-11 => slots 7-10)
+	out_type = scene_bank[(current_scene * sc_size) + ch-1] //!!! relies on FIXED midi ch's see sc_har1_slot=7
+	Log {out type:}, out_type
 	
 	//# make a dummy scale to represent chord degrees saved in cno_degrees
 	chord_scale = [chord_bass, chord_root, chord_root, chord_3rd, chord_3rd, chord_5th, chord_5th, chord_7th, chord_7th]
@@ -1550,60 +1551,60 @@
 	//# MELODY modes: Chord only, Round2chord,  NonChord, Bass, Root, 3rd, 5th
 	knob_set = 3
 	LabelKnobs {MELODY MODES S}, current_scene+1
-	scn_mh1_mode = scene_bank[(current_scene * sc_size) + sc_mh1_slot]
-	scn_mh2_mode = scene_bank[(current_scene * sc_size) + sc_mh2_slot]
-	scn_mh3_mode = scene_bank[(current_scene * sc_size) + sc_mh3_slot]
-	scn_mh4_mode = scene_bank[(current_scene * sc_size) + sc_mh4_slot]
-	SetKnobValue 0, TranslateScale scn_mh1_mode, -1, num_sc_mh_modes-1, 0, 127
-	SetKnobValue 1, TranslateScale scn_mh2_mode, -1, num_sc_mh_modes-1, 0, 127
-	SetKnobValue 2, TranslateScale scn_mh3_mode, -1, num_sc_mh_modes-1, 0, 127
-	SetKnobValue 3, TranslateScale scn_mh4_mode, -1, num_sc_mh_modes-1, 0, 127
+	scn_mel1_mode = scene_bank[(current_scene * sc_size) + sc_mel1_slot]
+	scn_mel2_mode = scene_bank[(current_scene * sc_size) + sc_mel2_slot]
+	scn_mel3_mode = scene_bank[(current_scene * sc_size) + sc_mel3_slot]
+	scn_mel4_mode = scene_bank[(current_scene * sc_size) + sc_mel4_slot]
+	SetKnobValue 0, TranslateScale scn_mel1_mode, -1, num_mel_modes-1, 0, 127
+	SetKnobValue 1, TranslateScale scn_mel2_mode, -1, num_mel_modes-1, 0, 127
+	SetKnobValue 2, TranslateScale scn_mel3_mode, -1, num_mel_modes-1, 0, 127
+	SetKnobValue 3, TranslateScale scn_mel4_mode, -1, num_mel_modes-1, 0, 127
 	in1ch = midi_channels_used[1]
 	in2ch = midi_channels_used[2]
 	in3ch = midi_channels_used[3]
 	in4ch = midi_channels_used[4]
-	LabelKnob 0, {Ch}, in1ch, {: }, scn_mh1_mode+1
-	LabelKnob 1, {Ch}, in2ch, {: }, scn_mh2_mode+1
-	LabelKnob 2, {Ch}, in3ch, {: }, scn_mh3_mode+1
-	LabelKnob 3, {Ch}, in4ch, {: }, scn_mh4_mode+1
+	LabelKnob 0, {Ch}, in1ch, {: }, scn_mel1_mode+1
+	LabelKnob 1, {Ch}, in2ch, {: }, scn_mel2_mode+1
+	LabelKnob 2, {Ch}, in3ch, {: }, scn_mel3_mode+1
+	LabelKnob 3, {Ch}, in4ch, {: }, scn_mel4_mode+1
 	Call @LabelMelodyModesPad
 	in1ch = midi_channels_used[1]
 	in2ch = midi_channels_used[2]
 	in3ch = midi_channels_used[3]
 	in4ch = midi_channels_used[4]
-	LabelKnob 0, {Ch}, in1ch+1, {: }, scn_mh1_mode+1
-	LabelKnob 1, {Ch}, in2ch+1, {: }, scn_mh2_mode+1
-	LabelKnob 2, {Ch}, in3ch+1, {: }, scn_mh3_mode+1
-	LabelKnob 3, {Ch}, in4ch+1, {: }, scn_mh4_mode+1
+	LabelKnob 0, {Ch}, in1ch+1, {: }, scn_mel1_mode+1
+	LabelKnob 1, {Ch}, in2ch+1, {: }, scn_mel2_mode+1
+	LabelKnob 2, {Ch}, in3ch+1, {: }, scn_mel3_mode+1
+	LabelKnob 3, {Ch}, in4ch+1, {: }, scn_mel4_mode+1
 @End
 @KnobChangeSet3
 	//# MELODY MODES settings
 	//# Harmony modes: Chord only, Round to chord,  Scene Scale, Bass, Root, 3rd, 5th
 	if LastKnob = 0
-	  scn_mh1_mode = Round TranslateScale (GetKnobValue 0), 0, 127, -1, num_sc_mh_modes-1
-	  scene_bank[(current_scene * sc_size) + sc_mh1_slot] = scn_mh1_mode
+	  scn_mel1_mode = Round TranslateScale (GetKnobValue 0), 0, 127, -1, num_mel_modes-1
+	  scene_bank[(current_scene * sc_size) + sc_mel1_slot] = scn_mel1_mode
   endif
   if LastKnob = 1
-	  scn_mh2_mode = Round TranslateScale (GetKnobValue 1), 0, 127, -1, num_sc_mh_modes-1
-	  scene_bank[(current_scene * sc_size) + sc_mh2_slot] = scn_mh2_mode
+	  scn_mel2_mode = Round TranslateScale (GetKnobValue 1), 0, 127, -1, num_mel_modes-1
+	  scene_bank[(current_scene * sc_size) + sc_mel2_slot] = scn_mel2_mode
   endif
   if LastKnob = 2
-	  scn_mh3_mode = Round TranslateScale (GetKnobValue 2), 0, 127, -1, num_sc_mh_modes-1
-	  scene_bank[(current_scene * sc_size) + sc_mh3_slot] = scn_mh3_mode
+	  scn_mel3_mode = Round TranslateScale (GetKnobValue 2), 0, 127, -1, num_mel_modes-1
+	  scene_bank[(current_scene * sc_size) + sc_mel3_slot] = scn_mel3_mode
   endif
 	if LastKnob = 3
-	  scn_mh4_mode = Round TranslateScale (GetKnobValue 3), 0, 127, -1, num_sc_mh_modes-1
-	  scene_bank[(current_scene * sc_size) + sc_mh4_slot] = scn_mh4_mode
+	  scn_mel4_mode = Round TranslateScale (GetKnobValue 3), 0, 127, -1, num_mel_modes-1
+	  scene_bank[(current_scene * sc_size) + sc_mel4_slot] = scn_mel4_mode
   endif
   Call @LabelMelodyModesPad
   in1ch = midi_channels_used[1]
 	in2ch = midi_channels_used[2]
 	in3ch = midi_channels_used[3]
 	in4ch = midi_channels_used[4]
-	LabelKnob 0, {Ch}, in1ch+1, {: }, scn_mh1_mode+1
-	LabelKnob 1, {Ch}, in2ch+1, {: }, scn_mh2_mode+1
-	LabelKnob 2, {Ch}, in3ch+1, {: }, scn_mh3_mode+1
-	LabelKnob 3, {Ch}, in4ch+1, {: }, scn_mh4_mode+1
+	LabelKnob 0, {Ch}, in1ch+1, {: }, scn_mel1_mode+1
+	LabelKnob 1, {Ch}, in2ch+1, {: }, scn_mel2_mode+1
+	LabelKnob 2, {Ch}, in3ch+1, {: }, scn_mel3_mode+1
+	LabelKnob 3, {Ch}, in4ch+1, {: }, scn_mel4_mode+1
 @End
 	
 @SetupKnobset4
@@ -1860,10 +1861,10 @@
 	//# Chord Notes out styles
 	knob_set = 9
 	LabelKnobs {HARMONY MODES S}, current_scene+1 
-	kv1 = scene_bank[(current_scene * sc_size) + sc_och1_slot]
-	kv2 = scene_bank[(current_scene * sc_size) + sc_och2_slot]
-	kv3 = scene_bank[(current_scene * sc_size) + sc_och3_slot]
-	kv4 = scene_bank[(current_scene * sc_size) + sc_och4_slot]
+	kv1 = scene_bank[(current_scene * sc_size) + sc_har1_slot]
+	kv2 = scene_bank[(current_scene * sc_size) + sc_har2_slot]
+	kv3 = scene_bank[(current_scene * sc_size) + sc_har3_slot]
+	kv4 = scene_bank[(current_scene * sc_size) + sc_har4_slot]
 	SetKnobValue 0, TranslateScale kv1, 0, cno_choices, 0, 127
 	SetKnobValue 1, TranslateScale kv2, 0, cno_choices, 0, 127
 	SetKnobValue 2, TranslateScale kv3, 0, cno_choices, 0, 127
@@ -1874,25 +1875,25 @@
 @KnobChangeSet9
 	//# Chord Notes Out style
 	if LastKnob = 0
-	  scene_bank[(current_scene * sc_size) + sc_och1_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, cno_choices
+	  scene_bank[(current_scene * sc_size) + sc_har1_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, cno_choices
   endif
   if LastKnob = 1
-	  scene_bank[(current_scene * sc_size) + sc_och2_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, cno_choices
+	  scene_bank[(current_scene * sc_size) + sc_har2_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, cno_choices
 	endif
   if LastKnob = 2
-	  scene_bank[(current_scene * sc_size) + sc_och3_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, cno_choices
+	  scene_bank[(current_scene * sc_size) + sc_har3_slot] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, cno_choices
   endif
   if LastKnob = 3
-	  scene_bank[(current_scene * sc_size) + sc_och4_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, cno_choices
+	  scene_bank[(current_scene * sc_size) + sc_har4_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, cno_choices
   endif
   Call @LabelHarmonyModesPad
   Call @LabelKnobset9
 @End
 @LabelKnobset9
-	kv1 = scene_bank[(current_scene * sc_size) + sc_och1_slot]
-	kv2 = scene_bank[(current_scene * sc_size) + sc_och2_slot]
-	kv3 = scene_bank[(current_scene * sc_size) + sc_och3_slot]
-	kv4 = scene_bank[(current_scene * sc_size) + sc_och4_slot]
+	kv1 = scene_bank[(current_scene * sc_size) + sc_har1_slot]
+	kv2 = scene_bank[(current_scene * sc_size) + sc_har2_slot]
+	kv3 = scene_bank[(current_scene * sc_size) + sc_har3_slot]
+	kv4 = scene_bank[(current_scene * sc_size) + sc_har4_slot]
 	chA = midi_channels_used[5]+1
 	chB = midi_channels_used[6]+1
 	chC = midi_channels_used[7]+1
@@ -2026,10 +2027,10 @@
 
 @LabelMelodyModesPad
 	if in_mode_select
-		scm1 = scene_bank[(current_scene * sc_size) + sc_mh1_slot] + 1
-		scm2 = scene_bank[(current_scene * sc_size) + sc_mh2_slot] + 1
-		scm3 = scene_bank[(current_scene * sc_size) + sc_mh3_slot] + 1
-		scm4 = scene_bank[(current_scene * sc_size) + sc_mh4_slot] + 1
+		scm1 = scene_bank[(current_scene * sc_size) + sc_mel1_slot] + 1
+		scm2 = scene_bank[(current_scene * sc_size) + sc_mel2_slot] + 1
+		scm3 = scene_bank[(current_scene * sc_size) + sc_mel3_slot] + 1
+		scm4 = scene_bank[(current_scene * sc_size) + sc_mel4_slot] + 1
 		LabelPad 10, {MELODY Modes }, { S}, current_scene+1, {      }, scm1, {-}, scm2, {-}, scm3, {-}, scm4
 	endif
 @End
@@ -2044,10 +2045,10 @@
 @End
 
 @LabelHarmonyModesPad
-	o1 = scene_bank[(current_scene * sc_size) + sc_och1_slot]
-	o2 = scene_bank[(current_scene * sc_size) + sc_och2_slot]
-	o3 = scene_bank[(current_scene * sc_size) + sc_och3_slot]
-	o4 = scene_bank[(current_scene * sc_size) + sc_och4_slot]
+	o1 = scene_bank[(current_scene * sc_size) + sc_har1_slot]
+	o2 = scene_bank[(current_scene * sc_size) + sc_har2_slot]
+	o3 = scene_bank[(current_scene * sc_size) + sc_har3_slot]
+	o4 = scene_bank[(current_scene * sc_size) + sc_har4_slot]
 	LabelPad 13, {HARMONY Modes }, {S}, current_scene+1, {     }, o1, {-}, o2, {-}, o3, {-}, o4
 @End
 	
