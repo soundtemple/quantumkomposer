@@ -496,7 +496,7 @@
 		endfor
 		LatchPad last_pad, YES	
 		Call @SendMidiCCBackToKnobs
-	else
+	elseif chan_labels[LastPad]>0
 		mode=5 //goto INSTRUMENT MODE
 		curr_chan = last_pad  
 		edit_pad=0
