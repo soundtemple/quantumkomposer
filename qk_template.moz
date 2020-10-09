@@ -100,14 +100,12 @@
 	lbl_num_res_inst=60
 	lbl_num_ch_num=62
 	lbl_num_drum_ch=63
-	lbl_num_mute=64
-	lbl_num_solo=65
-	lbl_num_arm=66
 	// MIXER - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO, [instr],[eq],[fx1],[fx2]
 	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 113,114,115,116, 117,118,119,120, 121,122,123, 124,125,126,127]
 	chan_mx_def_vals = [90,64,64,64, 0,0,127,0, 64,64,0,64, 0,0,0,0, 0,0,0] //def values for mixer params
 	protected_cc_to_label=[-1,35,36,37,38,39, 1,0,2,3, 4,5,6,7] 
+	protected_cc_to_label[113]=[8,9,10,11, 12,13,14,15, 64,65,66, 124,125,126,127]
 	mute_solo_arm=0 //remember pad state 0-2
 	for ch = 0 to 15 //set up mixer on all channels with default vals on def cc's
 		for i = 0 to 12
@@ -515,43 +513,51 @@
 	for i = 0 to 15
 		LatchPad i, no 
 	endfor
-	if inst_labels[pad_slot]=124 //PLUGIN INSTR GUI
-		SendMIDICC chan, 124, 127 
-		use_instr_knobset_a = NOT use_instr_knobset_a
-	elseif inst_labels[pad_slot]=125 //EQ GUI
-		SendMIDICC chan, 125, 127 
-		use_instr_knobset_a = NOT use_instr_knobset_a
-	elseif inst_labels[pad_slot]=126 //MIDIGEN GUI
-		SendMIDICC chan, 126, 127 
-		use_instr_knobset_a = NOT use_instr_knobset_a
-	elseif inst_labels[pad_slot]=127 //FX2 GUI
-		SendMIDICC chan, 127, 127 
-		use_instr_knobset_a = NOT use_instr_knobset_a
-	elseif inst_labels[pad_slot]=lbl_num_mute //MUTE
+	lbl=inst_labels[pad_slot]
+	if inst_ccs[pad_slot]=121 //MUTE
 		chan_mute[curr_chan] = NOT chan_mute[curr_chan]
 		inst_colors[pad_slot] = 6
 		if not chan_mute[curr_chan]
 			val=0
+			inst_colors[pad_slot] = 0
 		endif
 		SendMIDICC chan, chan_mx_ccs[16], val
 		latch_last_pad=FALSE
 		re_label_pad_on_press=TRUE
-	elseif inst_labels[pad_slot]=lbl_num_solo //SOLO
+	elseif inst_ccs[pad_slot]=122 //SOLO
 		chan_solo[curr_chan] = NOT chan_solo[curr_chan]
 		inst_colors[pad_slot] = 4
 		if not chan_solo[curr_chan] 
 			val=0
+			inst_colors[pad_slot] = 0
 		endif
 		SendMIDICC chan, chan_mx_ccs[17], val
 		latch_last_pad=FALSE
 		re_label_pad_on_press=TRUE
-	elseif inst_labels[pad_slot]=lbl_num_arm //ARM
+	elseif inst_ccs[pad_slot]=123 //ARM
 		chan_arm[curr_chan] = NOT chan_arm[curr_chan]
 		inst_colors[pad_slot] = 1
 		if not chan_arm[curr_chan]
 			val=0
+			inst_colors[pad_slot] = 0
 		endif
 		SendMIDICC chan, chan_mx_ccs[18], val
+		latch_last_pad=FALSE
+		re_label_pad_on_press=TRUE
+	elseif lbl=61 or lbl=100 or lbl=101 or lbl=124 or lbl=125 or lbl=126 or lbl=127
+		SendMIDICC chan, inst_ccs[pad_slot], 127 //buttons for plugins
+		use_instr_knobset_a = NOT use_instr_knobset_a
+	elseif lbl=64 or lbl=65 or lbl=66 //mute solo arm but not std mixer is return or mixbus
+		rtnbuscols[64]=[6,4,1]
+		if (GetNoteState curr_chan, inst_ccs[pad_slot])=127
+			val=0
+			inst_colors[pad_slot] = 0
+		else
+		  val=127
+			inst_colors[pad_slot] = rtnbuscols[lbl]
+		endif
+		SetNoteState curr_chan, inst_ccs[pad_slot], val
+		SendMIDICC chan, inst_ccs[pad_slot], val
 		latch_last_pad=FALSE
 		re_label_pad_on_press=TRUE
 	elseif inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc // PGM CHG MSG
@@ -1024,7 +1030,7 @@
 		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
 	endif	
 	if use_instr_knobset_a // Label : Color : Value : CC#
-		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 99, 0, 127
+		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 101, 0, 127
 		SetKnobValue 1, TranslateScale inst_colors[pad_slot], 0, 6, 0, 127
 		SetKnobValue 3, TranslateScale inst_curr_page[curr_chan], 0, 3, 0, 127
 	else 
@@ -1050,7 +1056,7 @@
 	if last_knob = 0 // LABEL : LSB / CC#
 		if use_instr_knobset_a
 			if not layout_locked[chan_layouts[curr_chan]]
-				new_label_num = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 99
+				new_label_num = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 101
 				if new_label_num <> inst_labels[pad_slot]
 					inst_labels[pad_slot] = new_label_num 
 					Call @LabelInstrPad
@@ -1063,7 +1069,6 @@
 				if not layout_locked[chan_layouts[curr_chan]]
 					inst_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 					if inst_ccs[pad_slot]<= 13 or inst_ccs[pad_slot]>=113
-					if inst_ccs[pad_slot]<= 13 or inst_ccs[pad_slot]>=111
 						inst_labels[pad_slot]=protected_cc_to_label[inst_ccs[pad_slot]] 
 						Call @LabelInstrPad //protected cc - has a fixed label
 					endif
@@ -1769,35 +1774,32 @@
 		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,8,12,15,124,92,93]
 	elseif chan_layouts[edit_chan]=16
 		LabelKnob 3, {Returns}
-		def_labels[16*0] = [0,2,1,3,6,10,7,10,8,9,10,11,64,65,66,61]
-		def_colors[16*0] = [2,2,2,2,3,3,3,3,4,4,4,4,6,0,1,0]
-		def_vals[16*0]   = [90,64,64,64,0,64,127,64,64,64,0,64,0,0,0,0]
-		def_labels[16*1] = [27,7,43,46,51,-1,-1,46,48,6,44,-1,61,77,1,18]
-		def_colors[16*1] = [2,2,2,4,4,0,0,0,2,2,2,0,0,3,3,3]
-		def_vals[16*1]   = [127,0,90,64,0,30,0,0,0,0,0,0,0,127,127,64]
-		def_labels[16*2] = [0,2,1,3,6,10,7,10,8,9,10,11,64,65,66,61]
-		def_colors[16*2] = [2,2,2,2,3,3,3,3,4,4,4,4,6,0,1,0]
-		def_vals[16*2]   = [90,64,64,64,0,64,127,64,64,64,0,64,0,0,0,0]
+		def_labels[16*0] = [0,2,1,3,6,10,7,10,8,9,10,11,64,65,66,125]
+		def_colors[16*0] = [2,2,2,2,3,3,1,1,4,4,4,6,0,0,0,0]
+		def_vals[16*0]   = [90,64,64,64,0,64,127,64,64,57,64,64,0,0,0,-1]
+		def_labels[16*1] = [27,7,43,52,51,-1,61,13,48,6,44,-1,61,77,1,18]
+		def_colors[16*1] = [2,2,2,4,4,0,0,6,2,2,2,0,0,3,3,3]
+		def_vals[16*1]   = [127,127,91,44,0,30,0,0,19,32,14,0,0,127,127,127]
+		def_labels[16*2] = [0,2,1,3,6,10,7,10,8,9,10,11,64,65,66,125]
+		def_colors[16*2] = [2,2,2,2,3,3,1,1,4,4,4,6,0,0,0,0]
+		def_vals[16*2]   = [90,64,64,64,0,64,127,64,64,57,64,64,0,0,0,-1]
 		def_labels[16*3] = [-1,-1,-1,-1,-1,-1,-1,-1,  49,68,53,96,47,86,7,6]			
 		def_colors[16*3] = [0,0,0,0,0,0,0,0,  2,2,2,2,4,4,4,4]			
 		def_vals[16*3]   = [0,20,50,64,0,30,0, 64,  0,64,30,0,0,64,64,0]
-		for p = 0 to 15
-			def_ccs[(16*i)+p] = 30 + (16*i) + p
-		endfor
+			
 	elseif chan_layouts[edit_chan]=17
 		LabelKnob 3, {Master}
-		def_labels[16*0] = [0,2,1,3,4,5,6,7,12,13,14,15,64,65,66,59]
-		def_colors[16*0] = [2,2,2,2,6,6,3,3,4,4,4,4,0,0,0,0]
-		def_vals[16*0]   = [90,64,64,64,0,0,0,127,0,0,0,0,0,0,0,0]
-		def_ccs[16*0]    = [7,8,6,9,10,11,12,13,117,118,119,120,121,122,123,93]
-		def_labels[16*1] = [8,9,10,-1,8,9,10,59,8,9,10,-1,11,9,10,125]
-		def_colors[16*1] = [4,4,4,0,3,3,3,0,6,6,6,0,5,5,5,0]
-		def_vals[16*1]   = [66,40,0,-1,64,80,0,-1,64,100,0,0,64,100,64,0]
-		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,125]
-		def_labels[16*2] = [6,25,61,28,31,1,54,55,7,25,61,28,31,1,53,56]
-		def_colors[16*2] = [3,3,6,6,6,6,6,6,3,3,4,4,4,4,4,4]
-		def_vals[16*2]   = [0,0,0,0,0,64,30,0,127,0,0,0,0,64,0,127]
-		def_ccs[16*2]    = [62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77]
+		def_labels[16*0] = [0,2,1,-1,125,126,100,101,14,13,13,12,64,65,66,59]
+		def_colors[16*0] = [2,2,2,0,0,0,0,0,4,4,4,4,6,4,1,0]
+		def_vals[16*0]   = [90,64,64,64,15,0,0,0,64,64,64,0,0,0,0,0]
+		def_ccs[16*0]    = [7,8,6,9,125,126,37,37,38,39,40,41,121,122,123,93]
+		def_labels[16*1] = [8,9,10,6,8,9,10,7,8,9,10,25,8,9,10,25]
+		def_colors[16*1] = [4,4,4,3,6,6,6,3,1,1,1,3,5,5,5,3]
+		def_vals[16*1]   = [64,39,64,0,64,55,64,127,64,73,64,64,64,98,64,64]
+		def_labels[16*2] = [100,28,31,53,54,55,-1,-1,101,28,31,99,1,56,-1,-1]
+		def_colors[16*2] = [0,6,6,6,6,6,0,0,0,4,4,4,4,4,0,0]
+		def_vals[16*2]   = [0,11,13,127,34,127,0,0,0,1,7,0,64,127,0,0]
+		def_ccs[16*2]    = [37,63,64,65,66,67,68,69,37,71,72,73,74,75,76,77]
 		def_labels[16*3] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 		def_colors[16*3] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 	endif	
@@ -2113,10 +2115,12 @@
 		LabelPad pad_to_label, {FEEDBACK} //FX
 	elseif (label_num=52)
 		LabelPad pad_to_label, {SIZE} //FX
-	elseif (label_num=53) and chan_layouts[curr_chan]=3
+	elseif (label_num=53) and (chan_layouts[curr_chan]=3 or chan_layouts[curr_chan]=16)
 		LabelPad pad_to_label, {DELAY TIME} //FX
 	elseif (label_num=53) and chan_layouts[edit_chan]=2
 		LabelPad pad_to_label, {LOOKAHEAD} //FX
+	elseif (label_num=53) and chan_layouts[edit_chan]=17
+		LabelPad pad_to_label, {THRESHOLD} //FX
 	elseif (label_num=53) 
 		LabelPad pad_to_label, {RATE} //FX
 	elseif (label_num=54)
@@ -2143,19 +2147,10 @@
 		LabelPad pad_to_label, {DRUM#}, GetNoteState curr_chan, inst_ccs[pad_slot] //OTHER
 	elseif (label_num=64)
 		LabelPad pad_to_label, {MUTE} //OTHER
-		if not chan_mute[curr_chan]
-			ColorPad pad_to_label, col_unused
-		endif
 	elseif (label_num=65)
 		LabelPad pad_to_label, {SOLO} //OTHER
-		if not chan_solo[curr_chan]
-			ColorPad pad_to_label, col_unused
-			endif
 	elseif (label_num=66)
 		LabelPad pad_to_label, {ARM} //OTHER
-		if not chan_arm[curr_chan]
-			ColorPad pad_to_label, col_unused
-		endif
 	elseif (label_num=67)
 		LabelPad pad_to_label, {SPEED} //CUSTOM
 	elseif (label_num=68)
@@ -2222,10 +2217,10 @@
 		LabelPad pad_to_label, {REVERSE} //CUSTOM
 	elseif (label_num=99)
 		LabelPad pad_to_label, {MODE} //CUSTOM
-	elseif (label_num=122)
+	elseif (label_num=100)
 		LabelPad pad_to_label, {[CMPRSR]} //CUSTOM
-	elseif (label_num=123)
-		LabelPad pad_to_label, {[LIMITER]} //CUSTOM
+	elseif (label_num=101)
+		LabelPad pad_to_label, {[LIMTER]} //CUSTOM
 	elseif (label_num=124)
 		LabelPad pad_to_label, {[INSTR]} //OPEN GUI
 	elseif (label_num=125)
