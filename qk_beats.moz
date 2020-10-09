@@ -64,7 +64,7 @@
 @End
 
 @SetupSequences
-  midi_out_chs=[8,8,8,8]
+  midi_out_chs=[1,1,1,1]
   cc_vals=[32,48,65,81]
   scene_durs = [1,0,0,0,0,0,0,0]
   scene_swing = [0,0,0,0,0,0,0,0]
