@@ -70,7 +70,7 @@
 	// 16 MidiGENs --> (channels 17-24) label,color, ccs1-4, plugin_btn, midi_ch=1
 	
 	//CHANNELS
-	layout_locked=[FALSE,FALSE,TRUE, TRUE,TRUE,TRUE,TRUE, FALSE,FALSE,FALSE,FALSE,FALSE,FALSE]
+	layout_locked=[FALSE,FALSE,TRUE, TRUE,TRUE,TRUE,TRUE, TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE]
 	chan_lsb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
 	chan_msb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
 	chan_pgm=[]
@@ -115,7 +115,7 @@
 	//SETUP MIDI MAPPING PARAMS FOR DEFAULT INSTR. CHANNELS
 	for i = 0 to 15
 		edit_chan=i 
-		Call @BuildLayoutPage
+		Call @BuildLayoutPages
 	endfor
 	//# MIDI GEN KONTROL SECTION
 	allow_edit_mgen_ccs=FALSE
@@ -132,9 +132,9 @@
 	endfor 
 	//Ruismaker instruments per channel 
 	rmkr_instrs[0*8] = [10,11,12,13, 14,15,16,17] //ch1 8 kiks all arrays len=8
-	rmkr_instrs[1*8] = [30,31,32,33, 34,35,36,36] //ch2 snares
-	rmkr_instrs[2*8] = [50,50,51,51, 101,101,111,111] //ch3 claps
-	rmkr_instrs[3*8] = [70,73,76,79, 82,85,88,91] //ch4 low toms
+	rmkr_instrs[1*8] = [70,73,76,79, 82,85,88,91] //ch4 low toms
+	rmkr_instrs[2*8] = [30,31,32,33, 34,35,36,36] //ch2 snares
+	rmkr_instrs[3*8] = [50,50,51,51, 101,101,111,111] //ch3 claps
 	rmkr_instrs[4*8] = [60,60,60,62, 62,62,66,66] //ch5 hhc
 	rmkr_instrs[5*8] = [61,63,63,64, 65,65,67,67] //ch6 hho
 	rmkr_instrs[6*8] = [71,80,74,77, 86,89,92,83] //ch7 perc1
@@ -589,12 +589,16 @@
 		else 
 			LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
 		endif
-	elseif inst_labels[pad_slot]=lbl_num_res_inst //RESET INSTRUMENT LAYOUT
+	elseif inst_labels[pad_slot]=lbl_num_res_inst //RESET PAGE LAYOUT
 		if last_pad = edit_pad //user hit same pad again. switch knobset
 			edit_chan=curr_chan
-			Call @BuildLayoutPage
+			Call @BuildLayoutPages
 			Call @LabelInstrumentKnobs
 			Call @SetupLayoutChannels
+			page_slot = (64*curr_chan)
+			for i = 0 to 63
+				SendMIDICC chan, inst_ccs[page_slot+i], (GetNoteState curr_chan, inst_ccs[page_slot+i])
+			endfor
 		else
 			LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
 		endif
@@ -968,7 +972,7 @@
 	endif
 	if last_knob = 3
 		chan_layouts[edit_chan] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 17
-		Call @BuildLayoutPage 
+		Call @BuildLayoutPages 
 		SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 32, 0, 127
 		SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 7, 0, 127
 		SetKnobValue 2, TranslateScale chan_midi_chs[edit_chan], 0, 15, 0, 127
@@ -1541,7 +1545,7 @@
 	endif
 @End
 
-@BuildLayoutPage
+@BuildLayoutPages
 	//Setup a default layout page
 	for i = 0 to 3 //wiping layout so we only need to add back in what has changed
 		def_labels[16*i] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
@@ -1580,8 +1584,8 @@
 	elseif chan_layouts[edit_chan]=2
 		LabelKnob 3, {Bus A-D} //MIX BUSSES ABCD
 		for i = 0 to 3
-			def_labels[16*i] = [0,2,1,3,4,5,6,7,12,13,14,15,64,65,66,59]
-			def_colors[16*i] = [2,2,2,2,6,6,3,3,4,4,4,4,0,0,0,0]
+			def_labels[16*i] = [0,2,1,3,4,5,6,7,61,13,-1,60,64,65,66,125]
+			def_colors[16*i] = [2,2,2,2,6,6,3,3,5,5,0,0,0,0,0,0]
 			def_vals[16*i]   = [90,64,64,64,0,0,0,127,0,0,0,0,0,0,0,0]
 		endfor
 		for p = 0 to 15
@@ -1777,20 +1781,19 @@
 		def_labels[16*0] = [0,2,1,3,6,10,7,10,8,9,10,11,64,65,66,125]
 		def_colors[16*0] = [2,2,2,2,3,3,1,1,4,4,4,6,0,0,0,0]
 		def_vals[16*0]   = [90,64,64,64,0,64,127,64,64,57,64,64,0,0,0,-1]
-		def_labels[16*1] = [27,7,43,52,51,-1,61,13,48,6,44,-1,61,77,1,18]
-		def_colors[16*1] = [2,2,2,4,4,0,0,6,2,2,2,0,0,3,3,3]
+		def_labels[16*1] = [27,7,43,86,51,-1,61,13,48,6,44,-1,61,77,1,18]
+		def_colors[16*1] = [2,2,2,4,4,0,6,6,2,2,2,0,0,3,3,3]
 		def_vals[16*1]   = [127,127,91,44,0,30,0,0,19,32,14,0,0,127,127,127]
 		def_labels[16*2] = [0,2,1,3,6,10,7,10,8,9,10,11,64,65,66,125]
 		def_colors[16*2] = [2,2,2,2,3,3,1,1,4,4,4,6,0,0,0,0]
 		def_vals[16*2]   = [90,64,64,64,0,64,127,64,64,57,64,64,0,0,0,-1]
-		def_labels[16*3] = [-1,-1,-1,-1,-1,-1,-1,-1,  49,68,53,96,47,86,7,6]			
-		def_colors[16*3] = [0,0,0,0,0,0,0,0,  2,2,2,2,4,4,4,4]			
-		def_vals[16*3]   = [0,20,50,64,0,30,0, 64,  0,64,30,0,0,64,64,0]
-			
+		def_labels[16*3] = [18,42,52,46,9,9,61,13,1,68,86,51,10,1,37,61]
+		def_colors[16*3] = [4,4,4,4,4,4,6,6,0,4,4,4,4,0,3,4]
+		def_vals[16*3]   = [127,64,62,17,64,64,0,0,104,64,63,54,58,106,0,0]
 	elseif chan_layouts[edit_chan]=17
 		LabelKnob 3, {Master}
-		def_labels[16*0] = [0,2,1,-1,125,126,100,101,14,13,13,12,64,65,66,59]
-		def_colors[16*0] = [2,2,2,0,0,0,0,0,4,4,4,4,6,4,1,0]
+		def_labels[16*0] = [0,2,1,-1,125,126,100,101,14,13,13,12,64,65,66,60]
+		def_colors[16*0] = [2,2,2,0,0,0,0,0,4,4,4,4,0,0,0,0]
 		def_vals[16*0]   = [90,64,64,64,15,0,0,0,64,64,64,0,0,0,0,0]
 		def_ccs[16*0]    = [7,8,6,9,125,126,37,37,38,39,40,41,121,122,123,93]
 		def_labels[16*1] = [8,9,10,6,8,9,10,7,8,9,10,25,8,9,10,25]
@@ -2115,7 +2118,7 @@
 		LabelPad pad_to_label, {FEEDBACK} //FX
 	elseif (label_num=52)
 		LabelPad pad_to_label, {SIZE} //FX
-	elseif (label_num=53) and (chan_layouts[curr_chan]=3 or chan_layouts[curr_chan]=16)
+	elseif (label_num=53) and chan_layouts[curr_chan]=3
 		LabelPad pad_to_label, {DELAY TIME} //FX
 	elseif (label_num=53) and chan_layouts[edit_chan]=2
 		LabelPad pad_to_label, {LOOKAHEAD} //FX
@@ -2138,7 +2141,7 @@
 	elseif (label_num=59)
 		LabelPad pad_to_label, {[RESET MXR]} //OTHER
 	elseif (label_num=60)
-		LabelPad pad_to_label, {[RESET PAGE]} //OTHER		
+		LabelPad pad_to_label, {[RESET ALL]} //OTHER		
 	elseif (label_num=61)
 		LabelPad pad_to_label, {[PLUGIN]} //OTHER
 	elseif (label_num=62)
