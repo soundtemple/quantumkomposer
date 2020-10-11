@@ -70,7 +70,7 @@
 	// 16 MidiGENs --> (channels 17-24) label,color, ccs1-4, plugin_btn, midi_ch=1
 	
 	//CHANNELS
-	layout_locked=[FALSE,FALSE,TRUE, TRUE,TRUE,TRUE,TRUE, TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE]
+	layouts_locked=FALSE
 	chan_lsb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
 	chan_msb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
 	chan_pgm=[]
@@ -324,7 +324,11 @@
 		elseif mode=5 //instrument mode
 			edit_pad=0
 			Call @SetupLayoutChannels
-			Call @Setupknobset2 //setup INSTRUMENT KNOBS
+			if layouts_locked
+				Call @Setupknobset4 //Locked instrument knobs
+			else
+				Call @Setupknobset2 //setup INSTRUMENT KNOBS
+			endif
 			LatchPad 0, YES
 		elseif mode=6 //MG control mode
 			Call @SetupLayoutChannels
@@ -402,13 +406,16 @@
 			mixer_mode=last_pad-8
 			Call @SetupKnobset7
 			Call @SendMidiCCBackToKnobs
+		elseif last_pad=14
+			layouts_locked = NOT layouts_locked
+			Call @SetupSettingsLayout	
 		elseif last_pad=15
 			mode=2 // midi learn controller
 			in_mode_select = FALSE
 			Call @SetupKnobset3
 			Call @LabelMIDILearnPads
 			ColorPad last_midi_learn_pad, 1
-		elseif last_pad>=14 and last_pad<=15
+		elseif last_pad>=13
 			if print_preset and NOT HostRunning
 				Call @PrintPreset
 			endif
@@ -499,7 +506,11 @@
 		edit_pad=0
 		Call @SetupLayoutChannels
 		use_instr_knobset_a = TRUE
-		Call @Setupknobset2 //Instrument Kontrol
+		if layouts_locked
+			Call @Setupknobset4 //Locked instrument knobs
+		else
+			Call @Setupknobset2 //setup INSTRUMENT KNOBS
+		endif
 		LatchPad 0, YES
 	endif	
 @End
@@ -583,7 +594,11 @@
 				SetNoteState curr_chan, chan_mx_ccs[i], chan_mx_def_vals[i]
 				SendMIDICC chan_midi_chs[curr_chan], chan_mx_ccs[i], chan_mx_def_vals[i]
 			endfor
-			Call @LabelInstrumentKnobs
+			if layouts_locked
+				Call @LabelInstrumentKnobsLocked
+			else
+				Call @LabelInstrumentKnobs
+			endif
 			Call @SetupLayoutChannels
 			Log {RESET MIXER PARAMS TO DEFAULTS AND SENT MIDI}
 		else 
@@ -593,7 +608,11 @@
 		if last_pad = edit_pad //user hit same pad again. switch knobset
 			edit_chan=curr_chan
 			Call @BuildLayoutPages
-			Call @LabelInstrumentKnobs
+			if layouts_locked
+				Call @LabelInstrumentKnobsLocked
+			else
+				Call @LabelInstrumentKnobs
+			endif
 			Call @SetupLayoutChannels
 			page_slot = (64*curr_chan)
 			for i = 0 to 63
@@ -615,7 +634,11 @@
 		pad_to_label=last_pad 
 		Call @LabelInstrPad
 	endif
-	Call @Setupknobset2 //Instrument kontrol
+	if layouts_locked
+		Call @Setupknobset4 //Locked instrument knobs
+	else
+		Call @Setupknobset2 //setup INSTRUMENT KNOBS
+	endif
 	LatchPad last_pad, latch_last_pad
 @End
 
@@ -764,8 +787,12 @@
 		LatchPad i, NO
 	endfor
 	LabelPad 13, { }
-	LabelPad 14, { }
-	LabelPad 15, {[midi learn]}
+	if layouts_locked
+		LabelPad 14, { ___INST___ }, {LAYOUTS 🔒}
+	else
+	  LabelPad 14, { ___INST___ }, { LAYOUTS }
+	endif
+	LabelPad 15, {[MIDI LEARN]}
 	if edit_mode_active
 		LabelPad 2, {<= EDIT =>}
 			for i = 1 to 3
@@ -787,11 +814,11 @@
 	  elseif knob_set = 1
 	  	Call @KnobChangeSet1 //# channel setup
 	  elseif knob_set = 2
-	  	Call @KnobChangeSet2	//# Midi Control setup
+	  	Call @KnobChangeSet2	//# Instrument knobs unlocked
 	  elseif knob_set = 3
 	  	Call @KnobChangeSet3	//# Midi control usage
 	  elseif knob_set = 4
-	  	Call @KnobChangeSet4	//# unused
+	  	Call @KnobChangeSet4	//# Instrument knobs locked
 	  elseif knob_set = 5
 	  	Call @KnobChangeSet5	//# unused
 	  elseif knob_set = 6
@@ -826,7 +853,11 @@
 	  	Call @SetupKnobset1 //# channel setup
 	  elseif knob_set = 2
 			pad_slot=0
-	  	Call @SetupKnobset2	//# Instrument setup
+	  	if layouts_locked
+				Call @Setupknobset4 //Locked instrument knobs
+			else
+				Call @Setupknobset2 //setup INSTRUMENT KNOBS
+			endif
 	  elseif knob_set = 3
 	  	Call @SetupKnobset3	//# unused
 	  elseif knob_set = 4
@@ -986,7 +1017,7 @@
 	LabelKnobs {PAD: }, edit_pad+1
 	LabelPads {KNTRL : [ INSTRUMENT }, curr_chan+1, { ] }
 	if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
-		LabelKnob 2, {Value }, chan_pgm[curr_chan]
+		LabelKnob 2, {Pgm }, chan_pgm[curr_chan]
 	else
 	  LabelKnob 2, {Value }, (GetNoteState curr_chan, inst_ccs[pad_slot])
 	endif	
@@ -1051,7 +1082,6 @@
 	Call @LabelInstrumentKnobs
 	Call @SendMidiCCBackToKnobs
 @End 
-
 @KnobChangeSet2
 	//# INSTRUMENT KONTROL MODE
 	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + edit_pad
@@ -1059,23 +1089,19 @@
 	chan_to_label=curr_chan
 	if last_knob = 0 // LABEL : LSB / CC#
 		if use_instr_knobset_a
-			if not layout_locked[chan_layouts[curr_chan]]
-				new_label_num = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 101
-				if new_label_num <> inst_labels[pad_slot]
-					inst_labels[pad_slot] = new_label_num 
-					Call @LabelInstrPad
-				endif
+			new_label_num = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 101
+			if new_label_num <> inst_labels[pad_slot]
+				inst_labels[pad_slot] = new_label_num 
+				Call @LabelInstrPad
 			endif
 		else
 			if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG
 				chan_lsb[curr_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
 			else
-				if not layout_locked[chan_layouts[curr_chan]]
-					inst_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
-					if inst_ccs[pad_slot]<= 13 or inst_ccs[pad_slot]>=113
-						inst_labels[pad_slot]=protected_cc_to_label[inst_ccs[pad_slot]] 
-						Call @LabelInstrPad //protected cc - has a fixed label
-					endif
+				inst_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
+				if inst_ccs[pad_slot]<= 13 or inst_ccs[pad_slot]>=113
+					inst_labels[pad_slot]=protected_cc_to_label[inst_ccs[pad_slot]] 
+					Call @LabelInstrPad //protected cc - has a fixed label
 				endif
 			endif
 		endif
@@ -1136,9 +1162,83 @@
 	endif
 	Call @LabelInstrumentKnobs
 @End
+@SetupKnobset4
+	//# INTRUMENT KONTROL MODE with locked layouts active
+	knob_set=4
+	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + edit_pad
+	SetKnobValue 0, TranslateScale inst_mins[pad_slot], 0, 127, 0, 127
+	SetKnobValue 1, TranslateScale inst_maxs[pad_slot], 0, 127, 0, 127
+	if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
+		SetKnobValue 2, TranslateScale chan_pgm[curr_chan], 0, chan_pgm_max[curr_chan], 0, 127
+	else
+		val = (GetNoteState curr_chan, inst_ccs[pad_slot]) //Value knob2
+		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
+	endif
+	SetKnobValue 3, TranslateScale inst_curr_page[curr_chan], 0, 3, 0, 127
+	Call @LabelInstrumentKnobsLocked
+	Call @SendMidiCCBackToKnobs
+@End 
+@KnobChangeSet4
+	//# INSTRUMENT KONTROL MODE with locked layouts active
+	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + edit_pad
+	pad_to_label=edit_pad 
+	chan_to_label=curr_chan
+	if last_knob = 0 // MIN
+		inst_mins[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
+		val = (GetNoteState curr_chan, inst_ccs[pad_slot])
+		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
+		SetNoteState curr_chan, inst_ccs[pad_slot], Clip val, inst_mins[pad_slot], inst_maxs[pad_slot]
+	endif
+	if last_knob = 1 // MAX
+		inst_maxs[pad_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127 //MAX VALUE
+		val = (GetNoteState curr_chan, inst_ccs[pad_slot])
+		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
+		SetNoteState curr_chan, inst_ccs[pad_slot], Clip val, inst_mins[pad_slot], inst_maxs[pad_slot]
+	endif
+	if last_knob = 2 // VALUE CC or PGM CHG
+		if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG
+			chan_pgm[curr_chan] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, chan_pgm_max[curr_chan]
+		else 
+			val = Round TranslateScale (GetKnobValue 2), 0, 127, inst_mins[pad_slot], inst_maxs[pad_slot]
+			if NOT pad_is_down
+				if inst_labels[pad_slot]=63 //Ruismaker drum ch#
+					drum_ch = inst_ccs[pad_slot]-22 //# drum ch cc's 22-29
+					val = rmkr_instrs[(8*drum_ch) + val] //see array of selectable drum sounds per ch
+					Log {Drum ch: }, drum_ch, { Instrument#: }, val, { cc#: }, inst_ccs[pad_slot]
+				endif
+				SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot], val 
+				SetNoteState curr_chan, inst_ccs[pad_slot], val
+			endif
+			if inst_labels[pad_slot]=lbl_num_drum_ch or inst_labels[pad_slot]=lbl_num_ch_num
+				Call @LabelInstrPad // drum ch# has value in label so update
+			endif
+		endif
+	endif
+	if last_knob = 3 // PAGE 
+		page = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 3 // change page
+		if (page <> inst_curr_page[curr_chan]) and NOT pad_is_down
+			inst_curr_page[curr_chan] = page
+			Call @SetupLayoutChannels
+		endif
+	endif
+	Call @LabelInstrumentKnobsLocked
+@End
+@LabelInstrumentKnobsLocked
+	LabelKnobs {PAD: }, edit_pad+1
+	LabelPads {KNTRL : [ INSTRUMENT }, curr_chan+1, { ] }
+	LabelKnob 0, {MIN }, inst_mins[pad_slot]
+	LabelKnob 1, {MAX }, inst_maxs[pad_slot]
+	if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
+		LabelKnob 2, {Pgm }, chan_pgm[curr_chan]
+	else
+	  LabelKnob 2, {Value }, (GetNoteState curr_chan, inst_ccs[pad_slot])
+	endif
+	LabelKnob 3, {Page }, inst_curr_page[curr_chan]+1
+@End
+
 
 @SetupKnobset3
-	//# MIXER KONTROLS
+	//# MIDI LEARN
 	knob_set=3
 	pad_slot = (16*midi_learn_page) + last_midi_learn_pad
 	LabelPads {KNTRL : [ MIDI LEARN ]}
@@ -1661,10 +1761,10 @@
 		def_labels[16*2] = [49,67,68,21,50,67,68,51,  46,34,51,42,47,6,7,52]			
 		def_colors[16*2] = [1,1,1,1,2,2,2,2, 2,2,2,2,1,1,1,1]			
 		def_vals[16*2]   = [0,0,0,0,0,0,0,0,  0,0,0,64,0,0,0,0]
-		def_labels[16*3] = [45,43,45,43,40,40,40,40,  35,-1,0,6,7,124,57,58]			
+		def_labels[16*3] = [45,43,45,43,40,40,40,40,  35,125,0,6,7,124,57,58]			
 		def_colors[16*3] = [2,2,2,2,3,3,3,3,  4,0,0,0,0,0,0]			
 		def_vals[16*3]   = [0,0,0,0,64,64,64,64,  0,0,90,0,127,0,0,0]
-		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,7,12,13,124,92,93]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,125,7,12,13,124,92,93]
 	elseif chan_layouts[edit_chan]=8
 		LabelKnob 3, {Mersenne}
 		def_colors[16*0] =  [6,6,6,6,6,6,6,6, 6,6,6,6,6,6,6,6]
@@ -1676,10 +1776,10 @@
 		def_vals[16*0]   =  [64,64,64,0,64,30,0,30,  64,0,64,30,0,64,100,0]
 		def_vals[16*1]   =  [64,64,64,0,64,30,0,30,  64,0,64,30,0,64,100,0]
 		def_vals[16*2]   =  [0,127,0,64,0,0,30,0, 0,0,0,64,64,0,100,90]
-		def_labels[16*3] = [49,68,46,51,24,25,47,86,35,-1,0,6,7,124,57,58]
+		def_labels[16*3] = [49,68,46,51,24,25,47,86,35,125,0,6,7,124,57,58]
 		def_colors[16*3] = [1,1,2,2,1,1,2,2,4,0,0,0,0,0,0,0]
 		def_vals[16*3]   = [0,30,0,64,50,64,0,64,-1,0,90,127,0,0,0,0]
-		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,7,12,13,124,92,93]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,125,7,12,13,124,92,93]
 	elseif chan_layouts[edit_chan]=9
 		LabelKnob 3, {Lagrange}
 		def_labels[16*0] = [82,79,32,44,32,44,28,29,  82,79,32,44,32,44,28,29]
@@ -1707,10 +1807,10 @@
 		def_labels[16*2] = [2,68,38,68,-1,48,48,39,  26,6,47,50,51,86,51,46]			
 		def_colors[16*2] = [4,4,4,4,0,1,1,0,  1,1,1,2,2,1,1,1]			
 		def_vals[16*2]   = [64,0,64,0,-1,0,0,0,  90,30,20,0,0,30,30,0]
-		def_labels[16*3] = [9,68,51,49,9,68,51,15,  35,-1,0,6,7,124,57,58]			
+		def_labels[16*3] = [9,68,51,49,9,68,51,15,  35,125,0,6,7,124,57,58]			
 		def_colors[16*3] = [1,1,1,1,2,2,2,2,  4,0,0,0,0,0,0,0]			
 		def_vals[16*3]   = [0,64,0,0,0,64,0,0,  0,-1,90,0,127,0,0,0]
-		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,86,87,7,12,13,124,92,93]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,86,125,7,12,13,124,92,93]
 	elseif chan_layouts[edit_chan]=11
 		LabelKnob 3, {Kronecker}	
 		def_labels[16*0] = [44,68,32,54,70,0,44,21,  32,44,24,28,29,30,31,19]			
@@ -1736,16 +1836,17 @@
 		def_maxs[16*0]   = [127,127,12,127,127,127,127,127, 127,127,12,127,127,127,127,127]
 		def_colors[16*0] = [6,6,6,6,6,6,6,6,  5,5,5,5,5,5,5,5]			
 		def_vals[16*0]   = [127,64,0,64,64,0,0,0,  127,64,0,64,64,0,0,0]
-		def_labels[16*1] = [28,29,30,31,28,29,30,31,44,44,44,-1,39,83,84,0]
+		def_labels[16*1] = [28,29,30,31,28,29,30,31,44,44,44,124,39,83,84,0]
 		def_colors[16*1] = [6,6,6,6,5,5,5,5,2,2,2,0,0,0,0,4]
 		def_vals[16*1]   = [0,48,127,33,0,45,127,34,127,127,127,0,0,91,64,90]
+		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,124,58,59,60,61]
 		def_labels[16*2] = [24,25,27,-1,28,29,30,31,24,25,27,-1,28,29,30,31]
 		def_colors[16*2] = [3,3,3,0,4,4,4,4,3,3,3,0,4,4,4,4]
 		def_vals[16*2]   = [30,0,0,127,0,40,127,10, 30,0,0,127,0,40,127,10]
-		def_labels[16*3] = [48,49,46,51,77,47,86,52,35,36,0,6,7,124,57,58]
+		def_labels[16*3] = [48,49,46,51,77,47,86,52,35,36,0,6,7,125,57,58]
 		def_colors[16*3] = [1,1,2,2,2,1,1,1,4,4,0,0,0,0,0,0]
 		def_vals[16*3]   = [0,25,0,20,64,0,64,20,0,0,100,0,127,0,0,0]
-		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,2,8,12,15,124,92,93]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,2,7,12,13,125,92,93]
 	elseif chan_layouts[edit_chan]=14
 		LabelKnob 3, {Redshrike}
 		def_labels[16*0] = [44,16,32,68,9,17,19,76,  32,28,29,44,26,28,29,21]			
@@ -1757,10 +1858,10 @@
 		def_labels[16*2] = [46,86,86,51,7,6,18,24,  49,68,53,96,47,86,7,6]			
 		def_colors[16*2] = [1,1,1,1,1,1,1,1,  2,2,2,2,4,4,4,4]			
 		def_vals[16*2]   = [0,20,50,64,0,30,0, 64,  0,64,30,0,0,64,64,0]
-		def_labels[16*3] = [28,29,30,31,0,23,39,1,35,-1,0,6,7,124,57,58]
+		def_labels[16*3] = [28,29,30,31,0,23,39,1,35,125,0,6,7,124,57,58]
 		def_colors[16*3] = [4,4,4,4,4,2,2,2,4,0,0,0,0,0,0,0]
 		def_vals[16*3]   = [0,64,127,0,90,64,0,64,  0,-1,90,0,127,0,0,0]
-		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,8,12,15,124,92,93]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,125,8,12,15,124,92,93]
 	elseif chan_layouts[edit_chan]=15
 		LabelKnob 3, {Lorentz}
 		def_labels[16*0] = [28,29,30,31,28,29,30,31,  19,17,20,74,76,22,21,7]			
@@ -1772,10 +1873,10 @@
 		def_labels[16*2] = [46,86,86,51,7,6,18,24,  49,68,53,96,-1,-1,-1,-1]			
 		def_colors[16*2] = [1,1,1,1,1,1,1,1, 2,2,2,2,0,0,4,4]			
 		def_vals[16*2]   = [0,0,20,40,64,20,64,64,  0,64,30,10,-1,-1,-1,-1]
-		def_labels[16*3] = [-1,-1,-1,-1,-1,23,39,1,35,-1,0,6,7,124,57,58]
+		def_labels[16*3] = [-1,-1,-1,-1,-1,23,39,1,35,125,0,6,7,124,57,58]
 		def_colors[16*3] = [0,0,0,0,0,2,2,2,4,0,0,0,0,0,0,0]
 		def_vals[16*3]   = [-1,-1,-1,-1,-1,64,0,64,  0,-1,90,0,127,0,0,0]
-		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,87,8,12,15,124,92,93]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,125,8,12,15,124,92,93]
 	elseif chan_layouts[edit_chan]=16
 		LabelKnob 3, {Returns}
 		def_labels[16*0] = [0,2,1,3,6,10,7,10,8,9,10,11,64,65,66,125]
