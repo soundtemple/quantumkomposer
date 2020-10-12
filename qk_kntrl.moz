@@ -108,7 +108,7 @@
 	protected_cc_to_label[113]=[8,9,10,11, 12,13,14,15, 64,65,66, 124,125,126,127]
 	mute_solo_arm=0 //remember pad state 0-2
 	for ch = 0 to 15 //set up mixer on all channels with default vals on def cc's
-		for i = 0 to 12
+		for i = 0 to 18
 			SetNoteState ch, chan_mx_ccs[i], chan_mx_def_vals[i] //store vals in the curr_chan not the midi chan
 		endfor
 	endfor
@@ -242,7 +242,8 @@
 		
 		else 
 			if  MIDICommand=0xB0
-				Log {OTHER MIDI CC's are blocked}
+				Log {No mapping for CC - Will pass thru}
+				SendMIDIThru
 			endif
 			Log {-- THRU TO: REMAINDER CH:}, chan_midi_chs[curr_chan] 
 			SendMIDIThruOnCh chan_midi_chs[curr_chan] //pass thru notes, aftertouch, pressure, pitchbend 
@@ -462,7 +463,7 @@
 	if mode=0 and (last_pad >= 0 and last_pad <= 7) //SCENES MODE
 		Log { SCENE CHANGE REQUESTED }
 		scene_change_requested = last_pad
-		SendMIDICC 15, cc_scene_select, last_pad
+		SendMIDICC 15, cc_scene_select, last_pad //the scene to change to
 		songmode=1 //# Lock to selected scene
 		edit_scene=last_pad
 		locked_to_scene=last_pad
@@ -499,7 +500,7 @@
 			LatchPad i, no 
 		endfor
 		LatchPad last_pad, YES	
-		Call @SendMidiCCBackToKnobs
+		Call @SendMidiCCBackToKnobs 
 	elseif chan_labels[LastPad]>0
 		mode=5 //goto INSTRUMENT MODE
 		curr_chan = last_pad  
@@ -621,10 +622,9 @@
 		else
 			LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
 		endif
-	else 
-		if last_pad = edit_pad //user hit same pad again. switch knobset
-			use_instr_knobset_a = NOT use_instr_knobset_a
-		endif
+	endif 
+	if last_pad = edit_pad //user hit same pad again. switch knobset
+		use_instr_knobset_a = NOT use_instr_knobset_a
 	endif
 	edit_pad = last_pad 
 	if re_label_pad_on_press
@@ -678,28 +678,43 @@
 @PadDownMixerMode
 	curr_chan=last_pad
 	chan = chan_midi_chs[curr_chan]
-	val=127
-	if mixer_mode=4 and mute_solo_arm=0
-		chan_mute[curr_chan] = NOT chan_mute[curr_chan]
-		if not chan_mute[curr_chan]
-			val=0
+	layout=chan_layouts[curr_chan]
+	if layout=2 or layout=16 or layout=17 //MixBus, Return or Master
+		mode=5 //goto INSTRUMENT MODE  
+		edit_pad=0
+		edit_chan=curr_chan
+		Call @SetupLayoutChannels
+		use_instr_knobset_a = TRUE
+		if layouts_locked
+			Call @Setupknobset4 //Locked instrument knobs
+		else
+			Call @Setupknobset2 //setup INSTRUMENT KNOBS
 		endif
-		SendMIDICC chan, chan_mx_ccs[16], val
-	elseif mixer_mode=4 and mute_solo_arm=1
-		chan_solo[curr_chan] = NOT chan_solo[curr_chan]
-		if not chan_solo[curr_chan]
-			val=0
+		LatchPad 0, YES
+	else
+		val=127
+		if mixer_mode=4 and mute_solo_arm=0
+			chan_mute[curr_chan] = NOT chan_mute[curr_chan]
+			if not chan_mute[curr_chan]
+				val=0
+			endif
+			SendMIDICC chan, chan_mx_ccs[16], val
+		elseif mixer_mode=4 and mute_solo_arm=1
+			chan_solo[curr_chan] = NOT chan_solo[curr_chan]
+			if not chan_solo[curr_chan]
+				val=0
+			endif
+			SendMIDICC chan, chan_mx_ccs[17], val
+		elseif mixer_mode=4 and mute_solo_arm=2
+			chan_arm[curr_chan] = NOT chan_arm[curr_chan]
+			if not chan_arm[curr_chan]
+				val=0
+			endif
+			SendMIDICC chan, chan_mx_ccs[18], val
 		endif
-		SendMIDICC chan, chan_mx_ccs[17], val
-	elseif mixer_mode=4 and mute_solo_arm=2
-		chan_arm[curr_chan] = NOT chan_arm[curr_chan]
-		if not chan_arm[curr_chan]
-			val=0
-		endif
-		SendMIDICC chan, chan_mx_ccs[18], val
+		Call @SetupKnobset7
+		Call @SendMidiCCBackToKnobs
 	endif
-	Call @SetupKnobset7
-	Call @SendMidiCCBackToKnobs
 @End
 
 @PadDownMidiLearnMode
@@ -1350,8 +1365,8 @@
 	  LabelPads {KNTRL : [ SENDS FILTER ]}
 		LabelKnob 0, {SENDA }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
 		LabelKnob 1, {SENDB }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {LPF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {HPF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
+		LabelKnob 2, {HPF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {LPF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=2
 	  mixer_mode=2 
 		LabelPads {KNTRL : [ EQ ] }
@@ -1845,7 +1860,7 @@
 		def_vals[16*2]   = [30,0,0,127,0,40,127,10, 30,0,0,127,0,40,127,10]
 		def_labels[16*3] = [48,49,46,51,77,47,86,52,35,36,0,6,7,125,57,58]
 		def_colors[16*3] = [1,1,2,2,2,1,1,1,4,4,0,0,0,0,0,0]
-		def_vals[16*3]   = [0,25,0,20,64,0,64,20,0,0,100,0,127,0,0,0]
+		def_vals[16*3]   = [0,25,0,20,64,0,64,20,0,0,90,0,127,0,0,0]
 		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,2,7,12,13,125,92,93]
 	elseif chan_layouts[edit_chan]=14
 		LabelKnob 3, {Redshrike}
