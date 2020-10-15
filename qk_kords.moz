@@ -580,7 +580,9 @@
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	// Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
+	if not MIDIChannel=15
+		Exit
+	elseif (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
 		//# handle scene duration change
 		scene_bank[((MIDIByte2-cc_scene_duration) * sc_size)] = MIDIByte3 
 		Call @SetupLayout
@@ -591,7 +593,7 @@
   		Call @HandleSceneChange 
   	endif
 		Call @SetupLayout
-	elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
+	elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and MIDIChannel=15)
   	//# handle return to song mode requested
   	return_to_song_mode_requested = TRUE
   	scene_change_requested = current_scene
@@ -601,7 +603,7 @@
   	Call @SetupLayout
   	ColorPad current_scene, 3
     ColorPad 8, 3	
-	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
+	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and MIDIChannel=15 and not HostRunning)
 		in_mode_select = FALSE //# return to song 
   	songmode = 0
   	mode = 0
