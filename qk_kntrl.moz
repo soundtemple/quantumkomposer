@@ -200,7 +200,7 @@
 			mode=1
 			Call @PadDownChannelsMode
 			
-		elseif MIDICommand = 0xB0 and MIDIChannel=15 and MIDIByte2>=92 and MIDIByte2<=99
+		elseif MIDICommand = 0xB0 and MIDIChannel=15 and MIDIByte2>=91 and MIDIByte2<=99
 				SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 // MGEN GUI - setup in MG Kntrol
 
 		elseif MIDICommand = 0xB0 and MIDIChannel=15 and MIDIByte2>=101 and MIDIByte2<=108 
