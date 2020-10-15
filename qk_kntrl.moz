@@ -147,7 +147,7 @@
 	//modwheel, vol, gain, pan, senda, sendb, hpf, lpf, fx1dw, fx1amt, fx2dw, fx2amt, [instr], [eq], [fx1], [fx2]
 	//mute, solo, arm, update_all_scenes,  aum, rwd, stop, play,  scene1-8
 	midi_learn_ccs_out    =[1,7,6,8, 10,11,12,13, 117,118,119,120, 124,125,126,127]
-	midi_learn_ccs_out[16]=[121,122,123,98, 109,110,111,112, 101,102,103,104,105,106,107,108]
+	midi_learn_ccs_out[16]=[121,122,123,18, 109,110,111,112, 101,102,103,104,105,106,107,108]
 	midi_learn_notestate_cc=[] //use these to reverse access midi learn assigns on midi input
 	midi_learn_notestate_ch=[] // ""
 	midi_learn_assign_ccs=[]
@@ -214,6 +214,8 @@
 			//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF) 
 			if MIDIChannel=15 //active channel
 				SendMIDIThruOnCh chan_midi_chs[curr_chan] 
+			elseif MIDIByte2=1
+			  SendMIDIThruOnCh chan_midi_chs[curr_chan]
 			else //designated channel 0-14 - send to channel on midi ch as set up in channels 
 			  SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3
 			endif
@@ -223,9 +225,19 @@
 			//Available for midi learn
 			if midi_learn_notestate_cc[MIDIByte2]>0 and midi_learn_notestate_ch[MIDIByte2]=MIDIChannel
 				//there must be a midi learn assignment
-				SendMIDICC chan_midi_chs[curr_chan], midi_learn_notestate_cc[MIDIByte2], MIDIByte3
-				SetNoteState curr_chan, midi_learn_notestate_cc[MIDIByte2], MIDIByte3 //update store
-				Log {-- MIDI LEARN ASSIGNMENT: CH:}, chan_midi_chs[curr_chan], { CC:}, MIDIByte2, { to CC:}, midi_learn_ccs_out[i], { val: }, MIDIByte3
+				cc=midi_learn_notestate_cc[MIDIByte2]
+				if (cc>=101 and cc<=112) or cc=18 //these are not active channel - scene select and switch
+					chan=15
+				else
+				  chan=chan_midi_chs[curr_chan]
+				endif
+				if chan=15 and MIDIByte3=0
+					Log {nah dont send cc off for buttons}
+				else
+					SendMIDICC chan, cc, MIDIByte3
+					SetNoteState curr_chan, cc, MIDIByte3 //update store
+					Log {-- MIDI LEARN ASSIGNMENT: CH:}, chan_midi_chs[curr_chan], { CC:}, MIDIByte2, { to CC:}, midi_learn_ccs_out[i], { val: }, MIDIByte3
+				endif
 			else
 			  Log {No mapping for CC - Will pass thru}
 				SendMIDIThru
@@ -247,8 +259,10 @@
 			endif
 			Log {-- LOW NOTE REC. WILL USE TO TRIGGER PAD: }, MIDINote
 		else
-			SendMIDIThruOnCh chan_midi_chs[curr_chan]	 //pass thru notes, aftertouch, pressure, pitchbend on active channel
-			Log {-- MIDI THRU on CH:}, chan_midi_chs[curr_chan]
+			if not HostRunning
+				SendMIDIThruOnCh chan_midi_chs[curr_chan]	 //pass thru notes, aftertouch, pressure, pitchbend on active channel
+				Log {-- MIDI THRU on CH:}, chan_midi_chs[curr_chan]
+			endif
 		endif
 	endif
 @End
@@ -346,7 +360,10 @@
 			mixer_mode=last_pad-8
 			Call @SetupKnobset7
 		endif
-		Call @UpdateCurrentKnobset		
+		Call @UpdateCurrentKnobset
+	elseif mode=2
+		mode=0 //just exiting midi learn
+	  Call @SetupSettingsLayout
 	else //not in mode select
 		Call @SetupSettingsLayout
 		Call @UpdateCurrentKnobset
