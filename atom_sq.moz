@@ -96,7 +96,7 @@
 	elseif shift_a //KEYS OUT MIDI CH
 		curr_chan = notes_ch_select[MIDIByte2]
 		Call @LabelAllPads
-		if curr_chan<=4
+		if curr_chan<=3
 			CopyArray lhs_notes_b, lhs_notes, 16
 		else
 		  CopyArray lhs_notes_a, lhs_notes, 16
@@ -120,6 +120,12 @@
 			endif
 			SendMIDICC MIDIChannel, MIDIByte2+24, 127
 			curr_chan=MIDIByte2
+			Call @LabelAllPads
+			if curr_chan<=3
+				CopyArray lhs_notes_b, lhs_notes, 16
+			else
+			  CopyArray lhs_notes_a, lhs_notes, 16
+			endif
 		endif
 	elseif rhs_keymode=1 and MIDIByte2<=15 and MIDIChannel=15 //rhs keys kntrl kntrl mode
 		if MIDIByte3>0
