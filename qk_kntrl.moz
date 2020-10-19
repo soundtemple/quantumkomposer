@@ -175,8 +175,8 @@
 			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
 		endif
 	elseif MIDIByte2=19 or MIDIByte2=20 //Master Volume & Master Gain
-		SendMIDICC 0, MIDIByte2-13, MIDIByte3
-		SetNoteState 0, MIDIByte2-13, MIDIByte3
+		SendMIDICC 14, MIDIByte2-13, MIDIByte3
+		SetNoteState 14, MIDIByte2-13, MIDIByte3
 		
 	elseif MIDIByte2>=24 and MIDIByte2<=39 // Switch INSTRUMENT channel 0-15
 		in_mode_select=FALSE
@@ -186,13 +186,13 @@
 		
 	elseif MIDIByte2>=76 and MIDIByte2<=79 //mix bus volumes
 		mixbusvol_ccs=[30,46,62,78]
-		SendMIDICC 13, mixbusvol_ccs[MIDIByte2-76], MIDIByte3
-		SetNoteState 13, mixbusvol_ccs[MIDIByte2-76], MIDIByte3
+		SendMIDICC 12, mixbusvol_ccs[MIDIByte2-76], MIDIByte3
+		SetNoteState 12, mixbusvol_ccs[MIDIByte2-76], MIDIByte3
 	
 	elseif MIDIByte2=80 or MIDIByte2=81 //returns A&B feedback and Ribbon/Size
 		rtn_fx_ccs=[50, 92]
-		SendMIDICC 14, rtn_fx_ccs[MIDIByte2-80], MIDIByte3
-		SetNoteState 14, rtn_fx_ccs[MIDIByte2-80], MIDIByte3
+		SendMIDICC 13, rtn_fx_ccs[MIDIByte2-80], MIDIByte3
+		SetNoteState 13, rtn_fx_ccs[MIDIByte2-80], MIDIByte3
 		
 	elseif MIDIByte2>=82 and MIDIByte2<=84
 	  mode=7 //MIXER MODES

@@ -139,9 +139,7 @@
 			endif
 		endif
 	elseif rhs_keymode=1 and MIDIByte2<=15 and MIDIChannel=15 //rhs keys kntrl kntrl mode
-		if MIDIByte3>0
-			SendMIDIThru
-		endif
+		SendMIDIThru
 	endif
 @End
 
