@@ -1251,7 +1251,7 @@
   LabelKnob 1, {CH2: }, midi_out_chs[1]+1
   LabelKnob 2, {CH3: }, midi_out_chs[2]+1
   LabelKnob 3, {CH4: }, midi_out_chs[3]+1	
-  LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]     [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+  LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 @End
 
 
