@@ -78,10 +78,10 @@
 	chan_pgm=[]
 	FillArray chan_pgm_max, 127, 16
 	// Default setup for Channels - midi chs are fixed
-	chan_labels =  [22,1,2,13,3,5,5,9,4,6,10,8,0,20,21,23]
-	chan_colors =  [5,2,2,2,4,4,4,4,3,3,3,3,0,5,5,0]
+	chan_labels =  [1,1,2,13,3,5,5,9,4,6,10,8,20,21,22,23]
+	chan_colors =  [2,2,2,2,4,4,4,4,3,3,3,3,5,5,5,0]
 	chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	chan_layouts =  [17,3,12,5,13,13,13,13,13,13,13,13,1,2,16,0]
+	chan_layouts =  [3,3,12,5, 13,13,13,13, 13,13,13,13, 2,16,17,0]
 	FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
 	FillArray chan_arm, FALSE, 16
@@ -202,11 +202,19 @@
 		mixer_mode=4
 		Call @SetupKnobset7
 		Call @SendMidiCCBackToKnobs
-	
-	elseif MIDIByte2>=91 and MIDIByte2<=99 // MGEN GUI - setup in MG Kntrol
-		if MIDIByte3>0		
+		
+	elseif MIDIByte2=90 and MIDIByte3<=8 // MGEN setup in MG Kntrol		
+			mode=6
+			in_mode_select=FALSE
+			last_mgen_pad=MIDIByte3
+			Call @SetupLayoutChannels
+			Call @SetupKnobset10
+			LatchPad last_mgen_pad, YES
+			
+	elseif MIDIByte2>=91 and MIDIByte2<=99 // MGEN GUI toggle
+		if MIDIByte3>0
 			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
-		endif
+		endif				
 		
 	elseif MIDIByte2=85 //ATOM SQ GUI
 		if MIDIByte3>0		
@@ -1033,8 +1041,8 @@
 @End
 
 @KnobChangeSet1
-	//# channels Setup - 0MASTER, 13MIXBUS, 14RETURNS, 15KNTRL are fixed
-	if last_knob=0 and (edit_chan>0 and edit_chan<13)
+	//# channels Setup - 12MIXBUS, 13RETURNS, 14MASTER, 15KNTRL are fixed
+	if last_knob=0 and edit_chan<12
 		chan_labels[edit_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 22
 		pad_to_label=edit_chan
 		chan_pad=edit_chan //settings mode label and pad pos. diff
@@ -1045,7 +1053,7 @@
 		LatchPad last_pad, NO 
 		ColorPad last_pad, chan_colors[edit_chan]
 	endif
-	if last_knob=3 and (edit_chan>0 and edit_chan<13)
+	if last_knob=3 and edit_chan<12
 		chan_layouts[edit_chan] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 17
 		Call @BuildLayoutPages 
 		SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 32, 0, 127
