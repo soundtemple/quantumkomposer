@@ -231,6 +231,13 @@
 @OnShiftUp
 @End
 
+@OnPadUp
+  if in_mode_select and (LastPad=6 or LastPad=7)
+		LabelPad LastPad, { }
+	endif	
+@End
+
+
 @OnPadDown
 	pad_is_down = TRUE
 	//# Pad Down actions
@@ -240,7 +247,11 @@
 			mode=0 //SCENES
 			Call @SetupKnobset0
 			Call @SetupLayoutScenes
-		elseif LastPad=1 or LastPad=2 or LastPad=3 or (LastPad>=8 and LastPad<=12)
+		elseif LastPad=6
+		  LabelPad 6, {MACROS COMING SOON!}
+		elseif LastPad=7
+		  LabelPad 7, {LFO'S COMING  SOON!}
+		elseif LastPad<4 or LastPad>5
 			Exit //# Not in use
 		elseif LastPad=4 // TOGGLE EDIT MODE
 			edit_mode_active = NOT edit_mode_active
@@ -424,8 +435,8 @@
 	LabelPad 3, { }
 	LabelPad 4, {EDIT}
 	LabelPad 5, {AUTOM}
-	LabelPad 6, {MACROS}
-	LabelPad 7, {LFO's}
+	LabelPad 6, { }
+	LabelPad 7, { }
 	LabelPad 8, { } 
 	LabelPad 9, { } 
 	LabelPad 10,{ }
