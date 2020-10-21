@@ -75,8 +75,11 @@
 	FillArray auto_data_ch13, -1, 1024
 	FillArray auto_data_ch14, -1, 1024
 	FillArray auto_data_ch15, -1, 1024
-	FillArray automation_cc_vals, 0, 16 //the cc num automation gets sent on 
-	FillArray automation_cc_chs, 0, 16 //the channel automation gets sent on
+	FillArray automation_ccs, 0, 16 //the cc num automation gets sent on 
+	FillArray automation_chs, 0, 16 //the channel automation gets sent on
+	FillArray automation_cols, 0, 16 //the pad color for the automation slot
+	FillArray automation_labels, 0, 16 //Label for the automation slot
+	
 	FillArray automation_chs,-1,16 //# knobs used to store and locate the param to automate
 	FillArray automation_pads,-1,16 //# knobs used to store and locate the param to automate
 
@@ -153,43 +156,50 @@
 @OnNewBar
 @End
 
+
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if kontroller_slave=1
-		if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
-			//# handle scene duration change
-			scene_durs[MIDIByte2-cc_scene_duration] = MIDIByte3
-			Call @SetupLayout
-		elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
-			//# handle scene change requested (ie: PadDown Scene change)
-			scene_change_requested = MIDIByte3
-			if NOT HostRunning //# immediate change else newbeat/bar handles
-	  		Call @HandleSceneChange 
-	  	endif
-		elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
-    	//# handle return to song mode requested
-    	return_to_song_mode_requested = TRUE
-    	scene_change_requested = MIDIByte3
-    	in_mode_select = FALSE
-    	songmode = 0
-    	mode = 0
-    	ColorPad 0, col_pending
-	    ColorPad 8, col_pending
-		elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
-			in_mode_select = FALSE
-    	songmode = 0
-    	mode = 0
-    	Call @SetupLayout
-			ColorPad current_scene, col_pending
-	    ColorPad current_pattn+8, col_pending
-	  elseif (MIDIByte2=cc_swing) //# Global swing
-	  	swng=MIDIByte3
-	  	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
-	  	Call @SetupLayout
+	if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
+		//# handle scene duration change
+		scene_durs[MIDIByte2-cc_scene_duration] = MIDIByte3
+		if mode=0
+			Call @SetupLayoutScenes
 		endif
+	elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
+		//# handle scene change requested (ie: PadDown Scene change)
+		scene_change_requested = MIDIByte3
+		locked_to_scene=MIDIByte3
+		if NOT HostRunning //# immediate change else newbeat/bar handles
+  		Call @HandleSceneChange 
+  	endif
+		if mode=0
+			Call @SetupLayoutScenes
+		endif
+	elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
+  	//# handle return to song mode requested
+  	return_to_song_mode_requested = TRUE
+  	scene_change_requested = current_scene
+  	in_mode_select = FALSE
+  	songmode = 0
+  	mode = 0
+  	ColorPad current_scene, 3
+    ColorPad 8, 3
+	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
+		in_mode_select = FALSE
+  	songmode = 0
+  	mode = 0
+		current_scene=0
+  	Call @SetupLayoutScenes
+		ColorPad current_scene, 3
+    ColorPad current_pattn+8, 3
+  elseif (MIDIByte2=cc_swing) //# Global swing
+  	swng=MIDIByte3
+  	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
+  	Call @SetupLayoutScenes
 	endif
 @End
+
 
 @OnShiftDown
 	Log {MODE: }, mode
@@ -251,7 +261,7 @@
 		  LabelPad 6, {MACROS COMING SOON!}
 		elseif LastPad=7
 		  LabelPad 7, {LFO'S COMING  SOON!}
-		elseif LastPad<4 or LastPad>5
+		elseif LastPad<4 or (LastPad>5 and LastPad<15)
 			Exit //# Not in use
 		elseif LastPad=4 // TOGGLE EDIT MODE
 			edit_mode_active = NOT edit_mode_active
@@ -292,9 +302,13 @@
 			in_mode_select = FALSE
 			Call @SetupLayoutLFOS
 			Call @SetupKnobset6 //# LFO's
-		elseif LastPad>=13 and LastPad<=15
-			if print_preset and LastPad=13 and NOT HostRunning
-				Call @PrintPreset
+		elseif LastPad=15
+			record_autom_on = not record_autom_on 	
+			if record_autom_on
+				LabelPads {AUTOM : [ Press play. Turn knobs. Automation will record until end of scene ]}
+				Log {On beat get midi value send for midi kontrol param and save it to automation. Only while in automation mode}
+			else
+			  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS ] }
 			endif
 		endif
 	elseif NOT in_mode_select
@@ -320,7 +334,6 @@
 	if mode=0 and (LastPad >= 0 and LastPad <= 7) //SCENES MODE
 		Log { SCENE CHANGE REQUESTED }
 		scene_change_requested = LastPad
-		SendMIDICC 15, 8, LastPad
 		songmode=1 //# Lock to selected scene
 		edit_scene=LastPad
 		locked_to_scene=LastPad
@@ -331,7 +344,6 @@
 		Call @SetupLayoutScenes
 	elseif mode=0 and LastPad=8
 		songmode=0 //# return to song mode
-		SendMIDICC 15, cc_rtn_to_song_mode, 1
 	elseif mode=0 and LastPad=9
 		return_to_song_mode_requested = TRUE
   	scene_change_requested = current_scene
@@ -341,10 +353,6 @@
 		LabelPads {KNTRL: [ LOOPING SONG ] }
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
-	elseif mode=0 and LastPad=10 //#update all scene durations
-		for i = 0 to 7
-			SendMIDICC 15, i, scene_durs[i]
-		endfor
 	endif
 @End
 
@@ -373,7 +381,6 @@
 	Log {Pad down in AUTOM mode}
 	sel_autom_pad=LastPad
 	if edit_mode_active
-		Call @LabelAutomationPads
 		Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
 		for i = 0 to 15
 			LatchPad i, no 
@@ -411,7 +418,9 @@
   endif
   scene_beat_count = 0
   Log {----- SCENE CHANGE -----}, {S}, current_scene+1
-	Call @SetupLayoutScenes
+	if mode=0
+		Call @SetupLayoutScenes
+	endif
 @End
 
 @LogCurrentInfo
@@ -444,7 +453,7 @@
 	LabelPad 12,{ }
 	LabelPad 13,{ }	
 	LabelPad 14, { }
-	LabelPad 15, { }
+	LabelPad 15, {RECORD AUTOM}
 	if edit_mode_active
 		LabelPad 4, {EDIT =>}
 			for i = 4 to 7
@@ -520,7 +529,6 @@
 	if LastKnob = 1
 		scn_duration = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32
 		scene_durs[edit_scene] = scn_duration
-		SendMIDICC 15, edit_scene, scene_durs[edit_scene] 
 	endif
 	scn_to_label = current_scene
 	Call @SetupLayoutScenes
@@ -541,102 +549,52 @@
 		LabelKnobs {AUTOMATION P}, auto_lane+1
 	endif
 	a_ch = automation_chs[sel_autom_pad]
-	a_pad = automation_pads[sel_autom_pad]
-	pad_slot=(a_ch * 16) + a_pad 
-	SetKnobValue 0, TranslateScale a_ch, -1, 15, 0, 127
-	SetKnobValue 1, TranslateScale a_pad, -1, 15, 0, 127
-	if a_ch>=0 and a_pad>=0
-		val=(GetNoteState curr_chan, inst_ccs[pad_slot])
-		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
-	else
-		SetKnobValue 2, 0		
-	endif
-	SetKnobValue 3, TranslateScale record_autom_on, 0, 1, 0, 127 
+	a_lbl = automation_labels[sel_autom_pad]
+	a_cc = automation_ccs[sel_autom_pad]
+	a_col = automation_cols[sel_autom_pad]
+	SetKnobValue 0, TranslateScale a_ch, 0, 15, 0, 127
+	SetKnobValue 1, TranslateScale a_lbl, 0, 48, 0, 127
+	SetKnobValue 2, TranslateScale a_cc, 0, 127, 0, 127
+	SetKnobValue 3, TranslateScale a_col, 0, 6, 0, 127
 	Call @LabelAutomationPads
 @End
 
 @KnobChangeSet4
 	//# AUTOMATION PARAMS
 	if LastKnob = 0
-    a_ch = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 15
-		automation_chs[sel_autom_pad] = a_ch
-		if a_ch>=0 and a_pad>=0
-			pad_to_label=sel_autom_pad
-			pad_slot=(a_ch * 16) + a_pad
-			Call @LabelAutomPad
-		endif
+    automation_chs[sel_autom_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+		LabelKnob 0, {ch }, automation_chs[sel_autom_pad]+1
   endif
   if LastKnob = 1
-    a_pad = Round TranslateScale (GetKnobValue 1), 0, 127, -1, 15
-		automation_pads[sel_autom_pad] = a_pad
-		if a_ch>=0 and a_pad>=0
-			pad_to_label=sel_autom_pad
-			pad_slot=(a_ch * 16) + a_pad
-			Call @LabelAutomPad
-		endif
-  endif
+    automation_labels[sel_autom_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 48
+		LabelKnob 1, {Label }, automation_labels[sel_autom_pad]
+	endif
   if LastKnob = 2
-		if a_ch>=0 and a_pad>=0
-	    pad_slot=(automation_chs[sel_autom_pad]* 16) + automation_pads[sel_autom_pad] 
-			val = Round TranslateScale (GetKnobValue 2), 0, 127, inst_mins[pad_slot], inst_maxs[pad_slot]
-			SetNoteState curr_chan, inst_ccs[pad_slot], val
-			SendMIDICC chan_midi_chs[automation_chs[sel_autom_pad]], inst_ccs[pad_slot], val
-		endif
+		automation_ccs[sel_autom_pad] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
+		LabelKnob 2, {cc# }, automation_ccs[sel_autom_pad]
 	endif
   if LastKnob = 3
-		rec = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
-		if rec <> record_autom_on
-			record_autom_on = rec	
-			if record_autom_on
-				LabelPads {AUTOM : [ Press play. Turn knobs. Automation will record until end of scene ]}
-				Log {On beat get midi value send for midi kontrol param and save it to automation. Only while in automation mode}
-			else
-			  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS ] }
-			endif
-		endif
+		automation_cols[sel_autom_pad] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 6
+		LabelKnob 3, {Color }, automation_cols[sel_autom_pad]
+		LatchPad sel_autom_pad, NO 
 	endif
-	Call @LabelAutomationPads
+	pad_to_label=sel_autom_pad
+	pad_slot=sel_autom_pad
+	Call @LabelAutomPad	
 @End
 
 @LabelAutomationPads
 	for i = 0 to 15
-		a_ch = automation_chs[i] //automation slot channel
-		a_pad = automation_pads[i] //automation pad 0-15 setup
-		if a_ch>=0 and a_pad>=0 //# initialised with value -1 so no labelling until assigned
-			pad_to_label=i 
-			pad_slot=(a_ch * 16) + a_pad
-			Call @LabelAutomPad
-		else 
-			ColorPad i, col_unused
-			LabelPad i, { }
-		endif
-		if record_autom_on
-			ColorPad i, col_warn
-		endif
+		LabelPad i, { }
+		ColorPad i, 0
+		pad_to_label=i
+		pad_slot=i
+		Call @LabelAutomPad
 	endfor
-	a_ch=automation_chs[sel_autom_pad]
-	a_pad=automation_pads[sel_autom_pad]
-	pad_slot=(a_ch * 16) + a_pad
-	if a_ch<0
-		LabelKnob 0, {Ch --}
-	else
-		LabelKnob 0, {Ch }, automation_chs[sel_autom_pad]+1
-	endif
-	if a_pad<0
-		LabelKnob 1, {Label --}
-	else
-		LabelKnob 1, {Label }, automation_pads[sel_autom_pad]+1
-	endif
-	if a_ch>=0 and a_pad>=0
-		LabelKnob 2, {Value }, (GetNoteState curr_chan, inst_ccs[pad_slot])
-	else
-		LabelKnob 2, {Value -- }
-	endif
-	if record_autom_on
-		LabelKnob 3, {REC ON}
-	else
-	 	LabelKnob 3, {REC OFF}
-	endif
+	LabelKnob 0, {ch }, automation_chs[sel_autom_pad]+1
+	LabelKnob 1, {Label }, automation_labels[sel_autom_pad]
+	LabelKnob 2, {cc# }, automation_ccs[sel_autom_pad]
+	LabelKnob 3, {Color }, automation_cols[sel_autom_pad]
 @End
 
 @SetupKnobset5
@@ -687,7 +645,9 @@
 	if LastKnob = 20
 	  auto_ramp = Round TranslateScale (GetKnobValue 20), 0, 127, 0, 15
 	  LabelKnob 20, {Ramp }, auto_ramp
-		endif
+		Log {Auto adv bar?: }, auto_adv_bar
+		Call @ApplyAutoRamp
+	endif
 	if LastKnob = 9
 	  auto_lane =  Round TranslateScale (GetKnobValue 9), 0, 127, 0, 15
 		Call @LabelAutomationKnobs
@@ -710,6 +670,26 @@
 		break_point = Round TranslateScale (GetKnobValue LastKnob), 0, 127, 0, 127
 		Call @UpdateAutomationPoint
 	endif
+@End
+
+@ApplyAutoRamp
+	data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure)
+	log {data slot }, data_slot, { other: }, song_bar, { }, scene_durs[auto_scene], { }, auto_adv_bar, { }  
+	for r = 1 to 10 //create some dummy ramps
+		v=(r*10)
+		auto_ramps[r*16] = [v,v,v,v, v,v,v,v, v,v,v,v, v,v,v,v]
+	endfor
+	for i = 0 to 7
+		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i
+		break_point= auto_ramps[(auto_ramp*16)+i]
+		Call @UpdateAutomationPoint
+	endfor
+	for i = 11 to 18
+		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i - 3
+		break_point= auto_ramps[(auto_ramp*16)+i]
+		Call @UpdateAutomationPoint
+	endfor
+	Call @LabelAutomationKnobs
 @End
 
 @SetupKnobset6
@@ -1003,13 +983,15 @@
 		Call @GetAutoValueAtDataSlot
 		SetKnobValue i, TranslateScale break_point, -1, 127, 0, 127
 	endfor
+	ch=automation_chs[auto_lane]
+	cc=automation_ccs[auto_lane]
 	LabelKnob 8, {Min}, auto_ramp_min 
 	LabelKnob 19, {Max}, auto_ramp_max 
 	LabelKnob 9, {Lane }, auto_lane+1
 	LabelKnob 10, {Scene }, auto_scene+1
 	LabelKnob 20, {Ramp}, auto_ramp
 	LabelKnob 21, {Bar }, song_bar + auto_adv_bar - scene_durs[auto_scene] + 1 
-	LabelKnobs {AUTOMATION: Lane: }, auto_lane+1, {   Scene }, auto_scene+1, { Bars: }, song_bar-scene_durs[auto_scene]+1, { to }, song_bar
+	LabelKnobs {[ch},ch, { cc}, cc, {] AUTOMATION: Lane: }, auto_lane+1, {   Scene }, auto_scene+1, { Bars: }, song_bar-scene_durs[auto_scene]+1, { to }, song_bar
 @End
 
 @GetAutoValueAtDataSlot
@@ -1090,57 +1072,160 @@
 	//# Change this to be based on current_scene_beat or something
   auto_data_slot = HostBar*HostBeatsPerMeasure + HostBeat
 	if auto_data_ch0[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[0], automation_cc_vals[0], auto_data_ch0[auto_data_slot]
+		SendMIDICC automation_chs[0], automation_ccs[0], auto_data_ch0[auto_data_slot]
 	endif
 	if auto_data_ch1[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[1], automation_cc_vals[1], auto_data_ch1[auto_data_slot]
+		SendMIDICC automation_chs[1], automation_ccs[1], auto_data_ch1[auto_data_slot]
 	endif
 	if auto_data_ch2[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[2], automation_cc_vals[2], auto_data_ch2[auto_data_slot]
+		SendMIDICC automation_chs[2], automation_ccs[2], auto_data_ch2[auto_data_slot]
 	endif
 	if auto_data_ch3[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[3], automation_cc_vals[3], auto_data_ch3[auto_data_slot]
+		SendMIDICC automation_chs[3], automation_ccs[3], auto_data_ch3[auto_data_slot]
 	endif
 	if auto_data_ch4[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[4], automation_cc_vals[4], auto_data_ch4[auto_data_slot]
+		SendMIDICC automation_chs[4], automation_ccs[4], auto_data_ch4[auto_data_slot]
 	endif
 	if auto_data_ch5[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[5], automation_cc_vals[5], auto_data_ch5[auto_data_slot]
+		SendMIDICC automation_chs[5], automation_ccs[5], auto_data_ch5[auto_data_slot]
 	endif
 	if auto_data_ch6[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[6], automation_cc_vals[6], auto_data_ch6[auto_data_slot]
+		SendMIDICC automation_chs[6], automation_ccs[6], auto_data_ch6[auto_data_slot]
 	endif
 	if auto_data_ch7[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[7], automation_cc_vals[7], auto_data_ch7[auto_data_slot]
+		SendMIDICC automation_chs[7], automation_ccs[7], auto_data_ch7[auto_data_slot]
 	endif
 	if auto_data_ch8[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[8], automation_cc_vals[8], auto_data_ch8[auto_data_slot]
+		SendMIDICC automation_chs[8], automation_ccs[8], auto_data_ch8[auto_data_slot]
 	endif
 	if auto_data_ch9[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[9], automation_cc_vals[9], auto_data_ch9[auto_data_slot]
+		SendMIDICC automation_chs[9], automation_ccs[9], auto_data_ch9[auto_data_slot]
 	endif
 	if auto_data_ch10[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[10], automation_cc_vals[10], auto_data_ch10[auto_data_slot]
+		SendMIDICC automation_chs[10], automation_ccs[10], auto_data_ch10[auto_data_slot]
 	endif
 	if auto_data_ch11[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[11], automation_cc_vals[11], auto_data_ch11[auto_data_slot]
+		SendMIDICC automation_chs[11], automation_ccs[11], auto_data_ch11[auto_data_slot]
 	endif
 	if auto_data_ch12[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[12], automation_cc_vals[12], auto_data_ch13[auto_data_slot]
+		SendMIDICC automation_chs[12], automation_ccs[12], auto_data_ch13[auto_data_slot]
 	endif
 	if auto_data_ch13[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[13], automation_cc_vals[13], auto_data_ch13[auto_data_slot]
+		SendMIDICC automation_chs[13], automation_ccs[13], auto_data_ch13[auto_data_slot]
 	endif
 	if auto_data_ch14[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[14], automation_cc_vals[14], auto_data_ch14[auto_data_slot]
+		SendMIDICC automation_chs[14], automation_ccs[14], auto_data_ch14[auto_data_slot]
 	endif
 	if auto_data_ch15[auto_data_slot] >= 0
-		SendMIDICC automation_cc_chs[15], automation_cc_vals[15], auto_data_ch15[auto_data_slot]
+		SendMIDICC automation_chs[15], automation_ccs[15], auto_data_ch15[auto_data_slot]
 	endif
 @End
-
+ 
 @LabelAutomPad
 	Log {Label pad}
-	LabelPad pad_to_label, { - }
-	ColorPad pad_to_label, 0
-@End
+	ColorPad pad_to_label, automation_cols[pad_slot]
+	label_num = automation_labels[pad_slot] // any pad any label except cc in protected range
+	ch=automation_chs[pad_slot]+1
+	cc=automation_ccs[pad_slot]
+	if (label_num=0) 
+		LabelPad pad_to_label, {        }, { __________ }, { ch},ch, { cc}, cc //NOT ASSIGNED
+	elseif (label_num=1)
+		LabelPad pad_to_label, {VOL}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=2)
+		LabelPad pad_to_label, {DRY/WET}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=3)
+		LabelPad pad_to_label, {SEND A DLY}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=4)
+		LabelPad pad_to_label, {SEND B RVB}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=5)
+		LabelPad pad_to_label, {HPF}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=6)
+		LabelPad pad_to_label, {LPF}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=7)
+		LabelPad pad_to_label, {F.CUTOFF}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=8)
+		LabelPad pad_to_label, {F.RESON}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=9)
+		LabelPad pad_to_label, {FX1 DW}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=10)
+		LabelPad pad_to_label, {FX1 AMT}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=11)
+		LabelPad pad_to_label, {FX2 DW}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=12)
+		LabelPad pad_to_label, {FX2 AMT}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=13)
+		LabelPad pad_to_label, {NOISE}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=14)
+		LabelPad pad_to_label, {PITCH}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=15)
+		LabelPad pad_to_label, {OCTAVE}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=16)
+		LabelPad pad_to_label, {OSC A VOL}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=17)
+		LabelPad pad_to_label, {OSC B VOL}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=18)
+		LabelPad pad_to_label, {ATTACK}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=19)
+		LabelPad pad_to_label, {DECAY}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=20)
+		LabelPad pad_to_label, {SUSTAIN}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=21)
+		LabelPad pad_to_label, {RELEASE}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=22)
+		LabelPad pad_to_label, {ENV AMT}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=23)
+		LabelPad pad_to_label, {MORPH}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=24)
+		LabelPad pad_to_label, {RIBBON}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=25)
+		LabelPad pad_to_label, {MOD WHEEL}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=26)
+		LabelPad pad_to_label, {MOD AMT}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=27)
+		LabelPad pad_to_label, {TONE}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=28)
+		LabelPad pad_to_label, {LFO1 AMT}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=29)
+		LabelPad pad_to_label, {LFO1 RATE}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=30)
+		LabelPad pad_to_label, {LFO2 AMT}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=31)
+		LabelPad pad_to_label, {LFO2 RATE}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=32)
+		LabelPad pad_to_label, {DELAY}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=33)
+		LabelPad pad_to_label, {REVEB}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=34)
+		LabelPad pad_to_label, {CHORUS}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=35)
+		LabelPad pad_to_label, {PHASER}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=36)
+		LabelPad pad_to_label, {SATURATE}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=37)
+		LabelPad pad_to_label, {DISTORT}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=38)
+		LabelPad pad_to_label, {FEEDBACK}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=39)
+		LabelPad pad_to_label, {SIZE}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=40)
+		LabelPad pad_to_label, {TIME}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=41)
+		LabelPad pad_to_label, {BRIGHTNESS}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=42)
+		LabelPad pad_to_label, {WIDTH}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=43)
+		LabelPad pad_to_label, {ARP DUR.}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=44)
+		LabelPad pad_to_label, {ARP TIME}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=45)
+		LabelPad pad_to_label, {SPEED}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=46)
+		LabelPad pad_to_label, {SHAPE}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=47)
+		LabelPad pad_to_label, {DRIVE}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=48)
+		LabelPad pad_to_label, {BEAT DIV.}, { __________ }, { ch},ch, { cc}, cc
+	else
+	  LabelPad pad_to_label, { ??? }, { __________ }, { ch},ch, { cc#}, cc
+	endif
+	@End
