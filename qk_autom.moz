@@ -19,6 +19,7 @@
 		in_mode_select = TRUE //# Toggle for changing modes mode
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		print_preset=TRUE
+		Call @GetAutoRamps
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupSettingsLayout
 	endif
@@ -82,7 +83,12 @@
 	
 	FillArray automation_chs,-1,16 //# knobs used to store and locate the param to automate
 	FillArray automation_pads,-1,16 //# knobs used to store and locate the param to automate
-
+	
+	automation_labels = [3,4,6,6,6,25,25,25,25, 25,25,25,25,9,38,24]
+	automation_chs    = [12,12,12,12,12,4,5,6,7,8,9,10,11,3,14,14]
+	automation_ccs    = [34,35,53,69,85,1,1,1,1,1,1,1,1,117,50,92]
+	automation_cols   = [2,2,2,3,4,3,3,3,3,4,4,4,4,2,5,5]
+	
 	//MACRO SECTION
 	sel_macro=0 //# currently selected for editing
 	macro_chans=[] //4 macros each with 4 assignable slots from the 16 channels and their 16 params
@@ -612,7 +618,7 @@
 	SetKnobValue 19, auto_ramp_max
 	SetKnobValue 9, TranslateScale auto_lane, 0, 15, 0, 127
 	SetKnobValue 10, TranslateScale auto_scene, 0, 7, 0, 127
-	SetKnobValue 20, TranslateScale auto_ramp, 0, 15, 0, 127
+	SetKnobValue 20, TranslateScale auto_ramp, 0, 23, 0, 127
 	SetKnobValue 21, TranslateScale auto_adv_bar, 0, auto_adv_max, 0, 127
 	//# Set KnobValues for automation slots
 	for i = 0 to 7
@@ -636,16 +642,20 @@
 	endif
 	if LastKnob = 8
 	  auto_ramp_min = Round TranslateScale (GetKnobValue 8), 0, 127, 0, 127
-	  LabelKnob 8, {Min }, auto_ramp_min 
+	  LabelKnob 8, {RMin }, auto_ramp_min 
   endif
 	if LastKnob = 19
 	  auto_ramp_max = Round TranslateScale (GetKnobValue 19), 0, 127, 0, 127
-	  LabelKnob 19, {Max }, auto_ramp_max
+	  LabelKnob 19, {RMax }, auto_ramp_max
 	endif
 	if LastKnob = 20
-	  auto_ramp = Round TranslateScale (GetKnobValue 20), 0, 127, 0, 15
+	  auto_ramp = Round TranslateScale (GetKnobValue 20), 0, 127, 0, 23
 	  LabelKnob 20, {Ramp }, auto_ramp
-		Log {Auto adv bar?: }, auto_adv_bar
+		if auto_ramp=23
+			for i = 0 to 15
+		    auto_ramps[(23*16)+i] = Random 0,127//RND
+			endfor
+		endif
 		Call @ApplyAutoRamp
 	endif
 	if LastKnob = 9
@@ -674,19 +684,16 @@
 
 @ApplyAutoRamp
 	data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure)
-	log {data slot }, data_slot, { other: }, song_bar, { }, scene_durs[auto_scene], { }, auto_adv_bar, { }  
-	for r = 1 to 10 //create some dummy ramps
-		v=(r*10)
-		auto_ramps[r*16] = [v,v,v,v, v,v,v,v, v,v,v,v, v,v,v,v]
-	endfor
 	for i = 0 to 7
 		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i
-		break_point= auto_ramps[(auto_ramp*16)+i]
+		ramp_val = auto_ramps[(auto_ramp*16)+i]
+		break_point = Clip (Round ((ramp_val / 127 * (auto_ramp_max-auto_ramp_min)) + auto_ramp_min)), 0, 127
 		Call @UpdateAutomationPoint
 	endfor
 	for i = 11 to 18
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i - 3
-		break_point= auto_ramps[(auto_ramp*16)+i]
+		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + (i-3)
+		ramp_val = auto_ramps[(auto_ramp*16)+(i-3)]
+		break_point = Clip (Round ((ramp_val / 127 * (auto_ramp_max-auto_ramp_min)) + auto_ramp_min)), 0, 127
 		Call @UpdateAutomationPoint
 	endfor
 	Call @LabelAutomationKnobs
@@ -985,13 +992,61 @@
 	endfor
 	ch=automation_chs[auto_lane]
 	cc=automation_ccs[auto_lane]
-	LabelKnob 8, {Min}, auto_ramp_min 
-	LabelKnob 19, {Max}, auto_ramp_max 
+	LabelKnob 8, {RMin}, auto_ramp_min 
+	LabelKnob 19, {RMax}, auto_ramp_max 
 	LabelKnob 9, {Lane }, auto_lane+1
 	LabelKnob 10, {Scene }, auto_scene+1
-	LabelKnob 20, {Ramp}, auto_ramp
-	LabelKnob 21, {Bar }, song_bar + auto_adv_bar - scene_durs[auto_scene] + 1 
-	LabelKnobs {[ch},ch, { cc}, cc, {] AUTOMATION: Lane: }, auto_lane+1, {   Scene }, auto_scene+1, { Bars: }, song_bar-scene_durs[auto_scene]+1, { to }, song_bar
+	LabelKnob 21, {Begin B}, song_bar + auto_adv_bar - scene_durs[auto_scene] + 1 
+	LabelKnobs {[ch},ch, { cc}, cc, {] AUTOMATION}, auto_lane+1, {   Scene }, auto_scene+1, { Bars: }, song_bar-scene_durs[auto_scene]+1, { to }, song_bar
+	if auto_ramp=0
+		LabelKnob 20, {LOW}
+	elseif (auto_ramp=1)
+		LabelKnob 20, {MID} //
+	elseif (auto_ramp=2)
+		LabelKnob 20, {HIGH} //
+	elseif (auto_ramp=3)
+		LabelKnob 20, {OFF-ON} //
+	elseif (auto_ramp=4)
+		LabelKnob 20, {ON-OFF} //
+	elseif (auto_ramp=5)
+		LabelKnob 20, {UP-DN} //
+	elseif (auto_ramp=6)
+		LabelKnob 20, {DN-UP} //
+	elseif (auto_ramp=7)
+		LabelKnob 20, {UUUU} //
+	elseif (auto_ramp=8)
+		LabelKnob 20, {DDDD} //
+	elseif (auto_ramp=9)
+		LabelKnob 20, {UP in 1} //
+	elseif (auto_ramp=10)
+		LabelKnob 20, {DN in 1} //
+	elseif (auto_ramp=11)
+		LabelKnob 20, {Up in 2a} //
+	elseif (auto_ramp=12)
+		LabelKnob 20, {Up in 2b} //
+	elseif (auto_ramp=13)
+		LabelKnob 20, {DN in 2a} //
+	elseif (auto_ramp=14)
+		LabelKnob 20, {DN in 2b} //
+	elseif (auto_ramp=15)
+		LabelKnob 20, {UP in 4a} //
+	elseif (auto_ramp=16)
+		LabelKnob 20, {UP in 4b} //
+	elseif (auto_ramp=17)
+		LabelKnob 20, {UP in 4c} //
+	elseif (auto_ramp=18)
+		LabelKnob 20, {UP in 4d} //
+	elseif (auto_ramp=19)
+		LabelKnob 20, {DN in 4a} //
+	elseif (auto_ramp=20)
+		LabelKnob 20, {DN in 4b} //
+	elseif (auto_ramp=21)
+		LabelKnob 20, {DN in 4c} //
+	elseif (auto_ramp=22)
+		LabelKnob 20, {DN in 4d} //
+	elseif (auto_ramp=23)
+		LabelKnob 20, {RND} //	
+	endif
 @End
 
 @GetAutoValueAtDataSlot
@@ -1122,7 +1177,6 @@
 @End
  
 @LabelAutomPad
-	Log {Label pad}
 	ColorPad pad_to_label, automation_cols[pad_slot]
 	label_num = automation_labels[pad_slot] // any pad any label except cc in protected range
 	ch=automation_chs[pad_slot]+1
@@ -1228,4 +1282,34 @@
 	else
 	  LabelPad pad_to_label, { ??? }, { __________ }, { ch},ch, { cc#}, cc
 	endif
-	@End
+@End
+
+@GetAutoRamps
+	auto_ramps[0*16] =  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] //LOW
+	auto_ramps[1*16] =  [64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64] //MID
+	auto_ramps[2*16] =  [127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127] //HIGH
+	auto_ramps[3*16] =  [0, 127, 0, 127, 0, 127, 0, 127, 0, 127, 0, 127, 0, 127, 0, 127] //OFF-ON
+	auto_ramps[4*16] =  [127, 0, 127, 0, 127, 0, 127, 0, 127, 0, 127, 0, 127, 0, 127, 0] //ON-OFF
+	auto_ramps[5*16] =  [0, 16, 32, 48, 64, 80, 96, 112, 127, 109, 91, 73, 55, 37, 19, 1] //UP-DN
+	auto_ramps[6*16] =  [127, 111, 95, 79, 63, 47, 31, 15, 0, 18, 36, 54, 72, 90, 108, 126] //DN-UP
+	auto_ramps[7*16] =  [0, 42, 84, 127, 0, 42, 84, 127, 0, 42, 84, 127, 0, 42, 84, 127] //UUUU
+	auto_ramps[8*16] =  [127, 84, 42, 0, 127, 84, 42, 0, 127, 84, 42, 0, 127, 84, 42, 0] //DDDD
+	auto_ramps[9*16] =  [0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120] //UPin1
+	auto_ramps[10*16] = [127, 119, 111, 103, 95, 87, 79, 71, 63, 55, 47, 39, 31, 23, 15, 7] //DNin1
+	auto_ramps[11*16] = [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60] //UPin2a
+	auto_ramps[12*16] = [64, 68, 72, 76, 80, 84, 88, 92, 96, 100, 104, 108, 112, 116, 120, 124] //UPin2b
+	auto_ramps[13*16] = [127, 123, 119, 115, 111, 107, 103, 99, 95, 91, 87, 83, 79, 75, 71, 67] //DNin2a
+	auto_ramps[14*16] = [63, 59, 55, 51, 47, 43, 39, 35, 31, 27, 23, 19, 15, 11, 7, 3] //DNin2b
+	auto_ramps[15*16] = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30] // UPin4a
+	auto_ramps[16*16] = [32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62] //UPin4b
+	auto_ramps[17*16] = [64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94] // UPin4c
+	auto_ramps[18*16] = [96, 98, 100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126] //UPin4d
+	auto_ramps[19*16] = [127, 125, 123, 121, 119, 117, 115, 113, 111, 109, 107, 105, 103, 101, 99, 97] //DNin4a
+	auto_ramps[20*16] = [95, 93, 91, 89, 87, 85, 83, 81, 79, 77, 75, 73, 71, 69, 67, 65] //DNin4b
+	auto_ramps[21*16] = [63, 61, 59, 57, 55, 53, 51, 49, 47, 45, 43, 41, 39, 37, 35, 33] //DNin4c
+	auto_ramps[22*16] = [31, 29, 27, 25, 23, 21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1] //DNin4d
+	for i = 0 to 15
+    auto_ramps[(23*16)+i] = Random 0,127//RND
+	endfor
+@End
+		
