@@ -84,10 +84,10 @@
 	FillArray automation_chs,-1,16 //# knobs used to store and locate the param to automate
 	FillArray automation_pads,-1,16 //# knobs used to store and locate the param to automate
 	
-	automation_labels = [3,4,6,6,6,25,25,25,25, 25,25,25,25,9,38,24]
-	automation_chs    = [12,12,12,12,12,4,5,6,7,8,9,10,11,3,14,14]
-	automation_ccs    = [34,35,53,69,85,1,1,1,1,1,1,1,1,117,50,92]
-	automation_cols   = [2,2,2,3,4,3,3,3,3,4,4,4,4,2,5,5]
+	automation_labels = [3,4,6,6,6,9,38,24, 25,25,25,25, 25,25,25,25]
+	automation_chs    = [13,13,12,12,12,3,14,14, 4,5,6,7, 8,9,10,11]
+	automation_ccs    = [50,92,53,69,85,117,50,92, 1,1,1,1,1,1,1,1]
+	automation_cols   = [1,2,2,3,4,2,5,5, 3,3,3,3,4,4,4,4]
 	
 	//MACRO SECTION
 	sel_macro=0 //# currently selected for editing
@@ -157,6 +157,7 @@
 		Call @HandleSceneChange
 	endif
 	Call @LogCurrentInfo
+	Call @SendAutomationData
 @End
 
 @OnNewBar
@@ -423,10 +424,10 @@
 		current_scene = current_scene + 1 //# Going to next
   endif
   scene_beat_count = 0
-  Log {----- SCENE CHANGE -----}, {S}, current_scene+1
-	if mode=0
+  if mode=0
 		Call @SetupLayoutScenes
 	endif
+	Log {----- SCENE CHANGE -----}, {S}, current_scene+1, { -- PLAYBACK BAR: --}
 @End
 
 @LogCurrentInfo
@@ -614,20 +615,20 @@
 	if scene_durs[auto_scene] <=4 //allows for scrolling through the scene to see automation. view holds 4 bars
 		auto_adv_max = 0
 	endif
-	SetKnobValue 8, auto_ramp_min
-	SetKnobValue 19, auto_ramp_max
-	SetKnobValue 9, TranslateScale auto_lane, 0, 15, 0, 127
-	SetKnobValue 10, TranslateScale auto_scene, 0, 7, 0, 127
-	SetKnobValue 20, TranslateScale auto_ramp, 0, 23, 0, 127
-	SetKnobValue 21, TranslateScale auto_adv_bar, 0, auto_adv_max, 0, 127
+	SetKnobValue 0, TranslateScale auto_scene, 0, 7, 0, 127 //scene to automate
+	SetKnobValue 1, TranslateScale auto_ramp, 0, 23, 0, 127 //apply a ramp 
+	SetKnobValue 2, TranslateScale auto_adv_bar, 0, auto_adv_max, 0, 127 //mv fwd back in current scene
+	SetKnobValue 11, TranslateScale auto_lane, 0, 15, 0, 127 //param /16 to be automated
+	SetKnobValue 12, auto_ramp_min
+	SetKnobValue 13, auto_ramp_max
 	//# Set KnobValues for automation slots
-	for i = 0 to 7
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i
+	for i = 3 to 10
+		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + (i-3)
 		Call @GetAutoValueAtDataSlot
 		SetKnobValue i, TranslateScale break_point, -1, 127, 0, 127
 	endfor
-	for i = 11 to 18
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i - 3
+	for i = 14 to 21
+		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + (i-6)
 		Call @GetAutoValueAtDataSlot
 		SetKnobValue i, TranslateScale break_point, -1, 127, 0, 127
 	endfor	
@@ -640,17 +641,16 @@
 	if scene_durs[auto_scene] <=4
 		auto_adv_max = 0
 	endif
-	if LastKnob = 8
-	  auto_ramp_min = Round TranslateScale (GetKnobValue 8), 0, 127, 0, 127
-	  LabelKnob 8, {RMin }, auto_ramp_min 
+	if LastKnob = 12
+	  auto_ramp_min = Round TranslateScale (GetKnobValue 12), 0, 127, 0, 127
+	  LabelKnob 12, {RMin }, auto_ramp_min 
   endif
-	if LastKnob = 19
-	  auto_ramp_max = Round TranslateScale (GetKnobValue 19), 0, 127, 0, 127
-	  LabelKnob 19, {RMax }, auto_ramp_max
+	if LastKnob = 13
+	  auto_ramp_max = Round TranslateScale (GetKnobValue 13), 0, 127, 0, 127
+	  LabelKnob 13, {RMax }, auto_ramp_max
 	endif
-	if LastKnob = 20
-	  auto_ramp = Round TranslateScale (GetKnobValue 20), 0, 127, 0, 23
-	  LabelKnob 20, {Ramp }, auto_ramp
+	if LastKnob = 1
+	  auto_ramp = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 23
 		if auto_ramp=23
 			for i = 0 to 15
 		    auto_ramps[(23*16)+i] = Random 0,127//RND
@@ -658,23 +658,23 @@
 		endif
 		Call @ApplyAutoRamp
 	endif
-	if LastKnob = 9
-	  auto_lane =  Round TranslateScale (GetKnobValue 9), 0, 127, 0, 15
+	if LastKnob = 11
+	  auto_lane =  Round TranslateScale (GetKnobValue 11), 0, 127, 0, 15
 		Call @LabelAutomationKnobs
 	endif
-	if LastKnob = 10
-	  auto_scene =  Round TranslateScale (GetKnobValue 10), 0, 127, 0, 7
+	if LastKnob = 0
+	  auto_scene =  Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
 		Call @LabelAutomationKnobs
 	endif
-	if LastKnob = 21
-	  auto_adv_bar =  Round TranslateScale (GetKnobValue 21), 0, 127, 0, auto_adv_max
+	if LastKnob = 2
+	  auto_adv_bar =  Round TranslateScale (GetKnobValue 2), 0, 127, 0, auto_adv_max
 		Call @LabelAutomationKnobs
 	endif
-	if (LastKnob>=0 and LastKnob<=7) or (LastKnob>=11 and LastKnob<=19)
+	if (LastKnob>=3 and LastKnob<=10) or (LastKnob>=14)
 		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure)
-		knob_slot=LastKnob
-		if LastKnob>=11
-			knob_slot=LastKnob-3
+		knob_slot=LastKnob-3
+		if LastKnob>=14
+			knob_slot=LastKnob-6
 		endif
 		data_slot = data_slot+knob_slot
 		break_point = Round TranslateScale (GetKnobValue LastKnob), 0, 127, 0, 127
@@ -684,15 +684,9 @@
 
 @ApplyAutoRamp
 	data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure)
-	for i = 0 to 7
+	for i = 0 to 15
 		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i
 		ramp_val = auto_ramps[(auto_ramp*16)+i]
-		break_point = Clip (Round ((ramp_val / 127 * (auto_ramp_max-auto_ramp_min)) + auto_ramp_min)), 0, 127
-		Call @UpdateAutomationPoint
-	endfor
-	for i = 11 to 18
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + (i-3)
-		ramp_val = auto_ramps[(auto_ramp*16)+(i-3)]
 		break_point = Clip (Round ((ramp_val / 127 * (auto_ramp_max-auto_ramp_min)) + auto_ramp_min)), 0, 127
 		Call @UpdateAutomationPoint
 	endfor
@@ -976,76 +970,76 @@
 	for i = 0 to auto_scene
 	  song_bar=song_bar+scene_durs[i]
 	endfor
-	for i = 0 to 7
-	  curr_bar = (Div ((song_bar* HostBeatsPerMeasure) + i), HostBeatsPerMeasure) - scene_durs[auto_scene] + auto_adv_bar
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i
-		LabelKnob i, curr_bar+1, {:}, (((song_bar* HostBeatsPerMeasure) + i) % HostBeatsPerMeasure)+1
+	for i = 3 to 10
+	  curr_bar = (Div ((song_bar* HostBeatsPerMeasure) + i-3), HostBeatsPerMeasure) - scene_durs[auto_scene] + auto_adv_bar
+		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i-3
+		LabelKnob i, curr_bar+1, {:}, (((song_bar* HostBeatsPerMeasure) + i-3) % HostBeatsPerMeasure)+1
 		Call @GetAutoValueAtDataSlot
 		SetKnobValue i, TranslateScale break_point, -1, 127, 0, 127
 	endfor
-	for i = 11 to 18
-	  curr_bar = (Div ((song_bar* HostBeatsPerMeasure) + i-3) , HostBeatsPerMeasure) - scene_durs[auto_scene] + auto_adv_bar
-	  LabelKnob i, curr_bar+1, {:}, (((song_bar* HostBeatsPerMeasure) + i-3) % HostBeatsPerMeasure)+1
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i - 3
+	for i = 14 to 21
+	  curr_bar = (Div ((song_bar* HostBeatsPerMeasure) + i-6) , HostBeatsPerMeasure) - scene_durs[auto_scene] + auto_adv_bar
+	  LabelKnob i, curr_bar+1, {:}, (((song_bar* HostBeatsPerMeasure) + i-6) % HostBeatsPerMeasure)+1
+		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i-6
 		Call @GetAutoValueAtDataSlot
 		SetKnobValue i, TranslateScale break_point, -1, 127, 0, 127
 	endfor
 	ch=automation_chs[auto_lane]
 	cc=automation_ccs[auto_lane]
-	LabelKnob 8, {RMin}, auto_ramp_min 
-	LabelKnob 19, {RMax}, auto_ramp_max 
-	LabelKnob 9, {Lane }, auto_lane+1
-	LabelKnob 10, {Scene }, auto_scene+1
-	LabelKnob 21, {Begin B}, song_bar + auto_adv_bar - scene_durs[auto_scene] + 1 
-	LabelKnobs {[ch},ch, { cc}, cc, {] AUTOMATION}, auto_lane+1, {   Scene }, auto_scene+1, { Bars: }, song_bar-scene_durs[auto_scene]+1, { to }, song_bar
+	LabelKnob 11, {Lane }, auto_lane+1
+	LabelKnob 12, {RMin}, auto_ramp_min 
+	LabelKnob 13, {RMax}, auto_ramp_max 
+	LabelKnob 0, {Scene }, auto_scene+1
+	LabelKnob 2, {Begin B}, song_bar + auto_adv_bar - scene_durs[auto_scene] + 1 
+	LabelKnobs {[ch},ch+1, { cc}, cc, {] AUTOMATION}, auto_lane+1, {   Scene }, auto_scene+1, { Bars: }, song_bar-scene_durs[auto_scene]+1, { to }, song_bar
 	if auto_ramp=0
-		LabelKnob 20, {LOW}
+		LabelKnob 1, {LOW}
 	elseif (auto_ramp=1)
-		LabelKnob 20, {MID} //
+		LabelKnob 1, {MID} //
 	elseif (auto_ramp=2)
-		LabelKnob 20, {HIGH} //
+		LabelKnob 1, {HIGH} //
 	elseif (auto_ramp=3)
-		LabelKnob 20, {OFF-ON} //
+		LabelKnob 1, {OFF-ON} //
 	elseif (auto_ramp=4)
-		LabelKnob 20, {ON-OFF} //
+		LabelKnob 1, {ON-OFF} //
 	elseif (auto_ramp=5)
-		LabelKnob 20, {UP-DN} //
+		LabelKnob 1, {UP-DN} //
 	elseif (auto_ramp=6)
-		LabelKnob 20, {DN-UP} //
+		LabelKnob 1, {DN-UP} //
 	elseif (auto_ramp=7)
-		LabelKnob 20, {UUUU} //
+		LabelKnob 1, {UUUU} //
 	elseif (auto_ramp=8)
-		LabelKnob 20, {DDDD} //
+		LabelKnob 1, {DDDD} //
 	elseif (auto_ramp=9)
-		LabelKnob 20, {UP in 1} //
+		LabelKnob 1, {UP in 1} //
 	elseif (auto_ramp=10)
-		LabelKnob 20, {DN in 1} //
+		LabelKnob 1, {DN in 1} //
 	elseif (auto_ramp=11)
-		LabelKnob 20, {Up in 2a} //
+		LabelKnob 1, {Up in 2a} //
 	elseif (auto_ramp=12)
-		LabelKnob 20, {Up in 2b} //
+		LabelKnob 1, {Up in 2b} //
 	elseif (auto_ramp=13)
-		LabelKnob 20, {DN in 2a} //
+		LabelKnob 1, {DN in 2a} //
 	elseif (auto_ramp=14)
-		LabelKnob 20, {DN in 2b} //
+		LabelKnob 1, {DN in 2b} //
 	elseif (auto_ramp=15)
-		LabelKnob 20, {UP in 4a} //
+		LabelKnob 1, {UP in 4a} //
 	elseif (auto_ramp=16)
-		LabelKnob 20, {UP in 4b} //
+		LabelKnob 1, {UP in 4b} //
 	elseif (auto_ramp=17)
-		LabelKnob 20, {UP in 4c} //
+		LabelKnob 1, {UP in 4c} //
 	elseif (auto_ramp=18)
-		LabelKnob 20, {UP in 4d} //
+		LabelKnob 1, {UP in 4d} //
 	elseif (auto_ramp=19)
-		LabelKnob 20, {DN in 4a} //
+		LabelKnob 1, {DN in 4a} //
 	elseif (auto_ramp=20)
-		LabelKnob 20, {DN in 4b} //
+		LabelKnob 1, {DN in 4b} //
 	elseif (auto_ramp=21)
-		LabelKnob 20, {DN in 4c} //
+		LabelKnob 1, {DN in 4c} //
 	elseif (auto_ramp=22)
-		LabelKnob 20, {DN in 4d} //
+		LabelKnob 1, {DN in 4d} //
 	elseif (auto_ramp=23)
-		LabelKnob 20, {RND} //	
+		LabelKnob 1, {RND} //	
 	endif
 @End
 
@@ -1125,9 +1119,10 @@
 
 @SendAutomationData
 	//# Change this to be based on current_scene_beat or something
-  auto_data_slot = HostBar*HostBeatsPerMeasure + HostBeat
-	if auto_data_ch0[auto_data_slot] >= 0
+	auto_data_slot = (current_scene*128) + scene_beat_count
+  if auto_data_ch0[auto_data_slot] >= 0
 		SendMIDICC automation_chs[0], automation_ccs[0], auto_data_ch0[auto_data_slot]
+		Log {Scene: }, current_scene+1, { BeatCount: }, scene_beat_count, { ch:}, automation_chs[0]+1, { cc:}, automation_ccs[0], { SendVal: }, auto_data_ch0[auto_data_slot] 
 	endif
 	if auto_data_ch1[auto_data_slot] >= 0
 		SendMIDICC automation_chs[1], automation_ccs[1], auto_data_ch1[auto_data_slot]
@@ -1312,4 +1307,3 @@
     auto_ramps[(23*16)+i] = Random 0,127//RND
 	endfor
 @End
-		
