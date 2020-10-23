@@ -222,10 +222,12 @@
 		endif
 	
 	elseif MIDIByte2>=101 and MIDIByte2<=108 //SCENE CHANGE CH16
-		last_pad = MIDIByte2-101
-		Call @PadDownScenesMode
-		Log {-- HANDLE: SCENE CHANGE REQUEST TO SCENE }, MIDIByte2-100, { --}
-	
+		if MIDIByte3>0
+			last_pad = MIDIByte2-101
+			mode=0
+			Call @PadDownScenesMode
+			Log {-- HANDLE: SCENE CHANGE REQUEST TO SCENE }, MIDIByte2-100, { --}
+		endif
 	elseif MIDIByte2>=109 and MIDIByte2<=112 //TRANSPORT on CH16 - Aum, RWD, STOP, PLAY
 			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
 	else
@@ -494,7 +496,7 @@
 @End
 
 @PadDownScenesMode
-	if mode=0 and (last_pad >= 0 and last_pad <= 7) //SCENES MODE
+	if last_pad >= 0 and last_pad <= 7 //SCENES MODE
 		Log { SCENE CHANGE REQUESTED }
 		scene_change_requested = last_pad
 		SendMIDICC 15, cc_scene_select, last_pad //the scene to change to
