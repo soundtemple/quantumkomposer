@@ -4,7 +4,7 @@
 	ShowLayout 2
 	shift_a=0
 	shift_b=0
-	rhs_keymode=0
+	rhs_as_kntrl_kntrl=TRUE //RHS keys Kntrl kntrl OR sel channels
 	curr_chan=4
 	curr_mgen=0
 	btn_ccs=[82,83,84,85,109,99]
@@ -47,6 +47,14 @@
 	Call @LabelAllPads
 @End
 
+@OnPadDown
+  if LastPad=2
+		rhs_as_kntrl_kntrl = not rhs_as_kntrl_kntrl 
+		Call @LabelAllPads
+	endif
+@End
+
+
 @OnMidiCC
 	if MIDIChannel=0 and MIDIByte2=1 //modwheel
 		SendMIDIThruOnCh curr_chan //active channel selected for notes
@@ -60,9 +68,8 @@
 	elseif MIDIChannel=0 and MIDIByte2=89
 		shift_b=MIDIByte3 //use keys to select ch and mgen guis
 		Call @LabelAllPads
-	elseif MIDIChannel=0 and MIDIByte2=102 //arrow key left - keymode CH_SELECT
-		rhs_keymode=0
-		Call @LabelAllPads
+	elseif MIDIChannel=0 and MIDIByte2=102 //arrow key left - FREE
+		//FREE
 	elseif MIDIChannel=0 and MIDIByte2=103 //arrow key top - to KNTRL
 		if MIDIByte3>0
 			SendMIDICC 15, 18, 127
@@ -71,11 +78,10 @@
 		if MIDIByte3>0
 			SendMIDINoteOn 15, 16, 127
 		endif
-	elseif MIDIChannel=0 and MIDIByte2=105 //arrow key right - keymode KNTRL_KNTRL
-		rhs_keymode=1
-		Call @LabelAllPads
+	elseif MIDIChannel=0 and MIDIByte2=105 //arrow key right - FREE
+		//FREE
 	elseif MIDIChannel=2 and (MIDIByte2>=24 and MIDIByte2<=29) //6 song btns used as shifted modes
-		if MIDIByte3 > 0 //goto mutes, solos, arms, aum, autom, atomsq
+		if MIDIByte3 > 0 //goto mutes, solos, arms, atoms1, aum, FREE
 			SendMIDICC 15, btn_ccs[MIDIByte2-24], MIDIByte3
 		endif
 	else
@@ -94,7 +100,11 @@
 @OnMidiNote
 	if shift_a and shift_b
 		Log {SHIFT A & B ACTIVE}
-	elseif shift_a //KEYS OUT MIDI CH
+	elseif shift_a and MIDIChannel=15 and notes_ch_select[MIDIByte2]<=15 and MIDIByte3>0 //KEYS OUT MIDI CH + switch to instr.
+		if notes_ch_select[MIDIByte2] = curr_chan //sel chan pad twice - toggle instr gui
+			SendMIDICC 16, 124, 127
+		endif
+		SendMIDICC MIDIChannel, notes_ch_select[MIDIByte2]+24, 127
 		curr_chan = notes_ch_select[MIDIByte2]
 		Call @LabelAllPads
 		if curr_chan<=3
@@ -102,18 +112,16 @@
 		else
 		  CopyArray lhs_notes_a, lhs_notes, 16
 		endif
-	elseif shift_b and MIDIByte2>=16 and MIDIByte2<=25 and MIDIChannel=15
-		if MIDIByte3>0
-			Log {SHIFT B ACTIVE. MGEN TIME!} //switch MGEN GUI
-			if MIDIByte2 = curr_mgen+16 //sel chan pad twice - toggle instr gui
-				SendMIDICC 16, MIDIByte2+75, 127
-				Log {TOGGLING MGEN GUI}, MIDIByte2 
-			endif
-			SendMIDICC MIDIChannel, 90, MIDIByte2-16 //goto mgen kntrl and select mgen device #
-			Log {sending the midi cc90 val}, MIDIByte2-16
-			curr_mgen=MIDIByte2-16
-			Call @LabelAllPads
+	elseif shift_b and MIDIByte2>=16 and MIDIByte2<=25 and MIDIChannel=15 and MIDIByte3>0
+		Log {SHIFT B ACTIVE. MGEN TIME!} //switch MGEN GUI
+		if MIDIByte2 = curr_mgen+16 //sel chan pad twice - toggle instr gui
+			SendMIDICC 16, MIDIByte2+75, 127
+			Log {TOGGLING MGEN GUI}, MIDIByte2 
 		endif
+		SendMIDICC MIDIChannel, 90, MIDIByte2-16 //goto mgen kntrl and select mgen device #
+		Log {sending the midi cc90 val}, MIDIByte2-16
+		curr_mgen=MIDIByte2-16
+		Call @LabelAllPads
 	elseif MIDIByte2>=16 and MIDIByte2<=31 // LHS Special Notes Mode
 		if MIDICommand=0x90
 			Log {sending note on}
@@ -124,7 +132,7 @@
 		endif
 	elseif MIDIByte2>=31 // LHS Notes Mode regular
 		SendMIDIThruOnCh curr_chan
-	elseif rhs_keymode=0 and MIDIByte2<=15 and MIDIChannel=15 //rhs keys ch sel mode
+	elseif (not rhs_as_kntrl_kntrl) and MIDIByte2<=15 and MIDIChannel=15 and not (shift_a or shift_b) //rhs keys ch sel mode
 		if MIDIByte3>0
 			if MIDIByte2 = curr_chan //sel chan pad twice - toggle instr gui
 				SendMIDICC 16, 124, 127
@@ -138,7 +146,7 @@
 			  CopyArray lhs_notes_a, lhs_notes, 16
 			endif
 		endif
-	elseif rhs_keymode=1 and MIDIByte2<=15 and MIDIChannel=15 //rhs keys kntrl kntrl mode
+	elseif rhs_as_kntrl_kntrl and MIDIByte2<=15 and MIDIChannel=15 and not (shift_a or shift_b) //rhs keys kntrl kntrl mode
 		SendMIDIThru
 	endif
 @End
@@ -161,13 +169,14 @@
 	else
 	  LabelPad 1, {___SHIFT___},{ OFF }
 	endif
-	if rhs_keymode=0
+	if not rhs_as_kntrl_kntrl
 		LabelPad 2, {___RKEYS__},{ CH SEL}
-	elseif rhs_keymode=1
+	else 
 		LabelPad 2, {___RKEYS__},{ KNTRL}
 	endif
 	LabelPad 3,  {___BTNSA__ }, {M - S - A}
-	LabelPad 4,  {___BTNSB__ }, {SQ-AUM-AUT}
+	LabelPad 4,  {___BTNSB__ }, {SQ-AUM-???}
+	LabelPad 5,  {___ARROW__ }, {K-?-KShft-?}
 	LabelPad 8,  {___MIXA___ }, knob_vals[0]
 	LabelPad 9,  {___MIXB___ }, knob_vals[1]
 	LabelPad 10, {___MIXC___ }, knob_vals[2]
