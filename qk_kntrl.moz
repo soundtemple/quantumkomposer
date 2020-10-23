@@ -408,6 +408,9 @@
 		elseif last_pad=5
 			SendMIDICC chan_midi_chs[curr_chan], 125, 127 // show / hide EQ
 		elseif last_pad=6
+			SendMIDICC chan_midi_chs[curr_chan], 126, 127 // show / hide FX1
+			SendMIDICC chan_midi_chs[curr_chan], 127, 127 // show / hide FX1
+		elseif last_pad=7
 			if reset_whole_layout //user hit same pad again. switch knobset
 				edit_chan=curr_chan
 				Call @BuildLayoutPages
@@ -422,7 +425,7 @@
 				LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
 				reset_whole_layout=TRUE
 			endif
-		elseif last_pad=7
+		elseif last_pad=15
 			if chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=16 //mixbus1-4 or returns 
 				// these layouts dont have standard mixer so cant reset
 			else
@@ -450,8 +453,6 @@
 		elseif last_pad=14
 			layouts_locked = NOT layouts_locked
 			Call @SetupSettingsLayout	
-		elseif last_pad=15
-			//not in use
 		elseif last_pad>=13
 			if print_preset and NOT HostRunning
 				Call @PrintPreset
@@ -827,20 +828,19 @@
 	LabelPad 3, { ___ALL___ }, {CHANNELS}
 	LabelPad 4, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[INSTR]}
 	LabelPad 5, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[EQ]}
-	ColorPad 6,1
-	ColorPad 7,1
-	LabelPad 6, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {*RESET ALL*}
+	LabelPad 6, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[FX]}
+	LabelPad 7, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {*RESET ALL*}
 	if chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=16 //mixbus1-4 or returns
-		LabelPad 7,{ }
+		LabelPad 15,{ }
 	else
-		LabelPad 7,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {*RESET MXR*} 
+		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {*RESET MXR*} 
 	endif
 	LabelPad 8, { __MIXER__ }, {VOL PAN} //channels Vol, Gain, Pan, Mid/Side
 	LabelPad 9, { __MIXER__ }, {SEND FILT.} //HPF LPF SEND A SEND B
 	LabelPad 10,{ __MIXER__ }, {EQ}
 	LabelPad 11,{ __MIXER__ }, {FX}
 	LabelPad 12,{ __MIXER__ }, {MUTE SOLO} //mute solo
-	settings_cols = [4,4,0,4, 0,0,0,0, 2,2,2,2, 2,0,0,0]
+	settings_cols = [4,4,0,4, 3,3,3,1, 2,2,2,2, 2,0,0,1]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
@@ -851,9 +851,6 @@
 	else
 	  LabelPad 14, { ___INST___ }, { LAYOUTS }
 	endif
-	LabelPad 15, { }
-	ColorPad 6,1
-	ColorPad 7,1
 	if edit_mode_active
 		LabelPad 2, {<= EDIT =>}
 			for i = 1 to 3
@@ -1365,10 +1362,10 @@
 		LabelKnob 3, {SHELF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=3
 		LabelPads {KNTRL : [ FX ] }
-		LabelKnob 0, {D/W1 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
+		LabelKnob 0, {D/W }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
 		LabelKnob 1, {AMT1 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {D/W2 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {AMT2 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
+		LabelKnob 2, {AMT2 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
+		LabelKnob 3, {AMT3 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
 	elseif mixer_mode=4
 		LabelPads {KNTRL : [ MUTE SOLO ARM ]}
 		if mute_solo_arm=0
@@ -1931,8 +1928,8 @@
 		def_labels[16*1] = [28,29,30,31,126,125,124,0,49,53,50,47,-1,-1,-1,-1]
 		def_colors[16*1] = [2,3,3,5,0,0,0,4,4,6,6,3,0,0,0,0]
 		def_vals[16*1]   = [0,53,110,30,0,15,0,90,64,35,22,16,0,0,0,0]
-		def_ccs[16*1]    = [46,47,48,49,126,125,124,53,54,55,56,57,58,59,60,61]
-		def_labels[16*2] = [77,78,-1,-1,-1,126,24,79,28,29,74,75,-1,80,12,1]
+		def_ccs[16*1]    = [46,47,48,49,127,125,124,53,54,55,56,57,58,59,60,61]
+		def_labels[16*2] = [77,78,-1,-1,-1,127,24,79,28,29,74,75,-1,80,12,1]
 		def_colors[16*2] = [2,2,0,0,0,0,6,6,3,3,3,3,0,2,3,4]
 		def_vals[16*2]   = [3,16,0,0,0,0,127,127,18,19,38,17,0,0,127,90]
 		def_ccs[16*2]    = [62,63,64,65,66,126,68,69,70,71,72,73,74,75,76,77]
@@ -2122,13 +2119,13 @@
 	elseif (label_num=11)
 		LabelPad pad_to_label, {EQ SHELF} //MIXER
 	elseif (label_num=12)
-		LabelPad pad_to_label, {FX1 DW} //MIXER
+		LabelPad pad_to_label, {FX D/W} //MIXER
 	elseif (label_num=13)
-		LabelPad pad_to_label, {FX1 AMT} //MIXER
+		LabelPad pad_to_label, {FX AMT1} //MIXER
 	elseif (label_num=14)
-		LabelPad pad_to_label, {FX2 DW} //MIXER
+		LabelPad pad_to_label, {FX AMT2} //MIXER
 	elseif (label_num=15)
-		LabelPad pad_to_label, {FX2 AMT} //MIXER
+		LabelPad pad_to_label, {FX AMT3} //MIXER
 	elseif (label_num=16)
 		LabelPad pad_to_label, {OSC SHAPE} //OSC
 	elseif (label_num=17)
