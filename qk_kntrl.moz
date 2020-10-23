@@ -72,7 +72,7 @@
 	// 16 MidiGENs --> (channels 17-24) label,color, ccs1-4, plugin_btn, midi_ch=1
 	
 	//CHANNELS
-	layouts_locked=FALSE
+	layouts_locked=TRUE
 	chan_lsb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
 	chan_msb=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] //# specific to pgm change msg
 	chan_pgm=[]
@@ -124,7 +124,7 @@
 	allow_edit_mgen_ccs=FALSE
 	last_mgen_pad=0 //# return to last pad used MG-kntrl mode
 	mgen_vals=[]
-	mgen_labels =  [2,3,12,0,0,16,17,1,15,14,1,15,0,0,0,0]
+	mgen_labels =  [2,3,12,0,15,16,17,1,0,14,1,15,0,0,0,0]
 	mgen_colors =  [2,2,5,0,0,4,3,6,0,6,5,5,0,0,0,0]
 	mgen_guis = [91,92,93,94,95,96,97,98,99,0,0,0,0,0,0,0]
 	for i = 0 to 8
@@ -685,7 +685,7 @@
 	// Midi Gen plugins kontrol
 	if last_pad=12
 		SendMIDICC 15, mgen_guis[last_mgen_pad], 127
-	elseif last_pad>=9 and last_pad<=12
+	elseif last_pad>=8 and last_pad<=12
 		//empty pads
 	elseif last_pad>=13 and last_pad<=15
 		Call @HandleTransportRequest
@@ -1926,11 +1926,11 @@
 		LabelKnob 3, {Hillman}
 		def_labels[16*0] = [0,23,26,-1,0,23,26,125,0,23,26,-1,0,23,26,124]
 		def_colors[16*0] = [3,3,3,0,2,2,2,0,6,6,6,0,1,1,1,0]
-		def_vals[16*0]   = [90,64,1,0,89,64,48,15,90,64,65,0,90,64,112,127]
+		def_vals[16*0]   = [90,64,1,0,89,64,48,15,90,64,65,0,90,64,112,0]
 		def_ccs[16*0]    = [30,31,32,33,34,35,36,125,38,39,40,41,42,43,44,124]
 		def_labels[16*1] = [28,29,30,31,126,125,124,0,49,53,50,47,-1,-1,-1,-1]
 		def_colors[16*1] = [2,3,3,5,0,0,0,4,4,6,6,3,0,0,0,0]
-		def_vals[16*1]   = [0,53,110,30,0,15,127,90,64,35,22,16,0,0,0,0]
+		def_vals[16*1]   = [0,53,110,30,0,15,0,90,64,35,22,16,0,0,0,0]
 		def_ccs[16*1]    = [46,47,48,49,126,125,124,53,54,55,56,57,58,59,60,61]
 		def_labels[16*2] = [77,78,-1,-1,-1,126,24,79,28,29,74,75,-1,80,12,1]
 		def_colors[16*2] = [2,2,0,0,0,0,6,6,3,3,3,3,0,2,3,4]
