@@ -55,11 +55,6 @@
   copy_paste_status=0 //# Copy paste 0=off; 1=Copied; 2=Paste
   return_to_mode=0 //# Copy paste on completion
 	rnd_scene_chg=FALSE //# will select rnd scene on (auto) change not user change
-	// Commmunications from KNTRL
-	cc_scene_select=100
-	cc_scene_duration=101 //+ scene_num0-7 ie 101-108
-	cc_rtn_to_song_mode=22
-	cc_swing=23
 @End
 
 @SetupSequences
@@ -812,18 +807,18 @@
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
+	if (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15)
 		//# handle scene duration change
-		scene_durs[MIDIByte2-cc_scene_duration] = MIDIByte3
+		scene_durs[MIDIByte2-101] = MIDIByte3
 		Call @SetupLayout
-	elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
+	elseif (MIDIByte2=100) and (MIDIChannel=15)
 		//# handle scene change requested (ie: PadDown Scene change)
 		scene_change_requested = MIDIByte3
 		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
 		Call @SetupLayout
-	elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
+	elseif (HostRunning and MIDIByte2=22 and MIDIByte3>0)
   	//# handle return to song mode requested
   	return_to_song_mode_requested = TRUE
   	scene_change_requested = current_scene
@@ -832,8 +827,8 @@
   	mode = 0
   	ColorPad current_scene, 3
     ColorPad 8, 3
-	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
-		in_mode_select = FALSE
+	elseif (MIDIByte2=22 and MIDIByte3>0 and not HostRunning)
+		in_mode_select = FALSE //Return to song mode
   	songmode = 0
   	mode = 0
   	Call @SetupLayout
@@ -841,7 +836,35 @@
 		current_pattn=0
 		ColorPad current_scene, 3
     ColorPad current_pattn+8, 3
-  elseif (MIDIByte2=cc_swing) //# Global swing
+  elseif (MIDIByte2=89) //copy paste scene
+		in_mode_select = FALSE // return to scenes mode first
+  	mode = 0
+		if MIDIByte3<=7 //handle copy scene
+			copied_scene = MIDIByte3
+			LabelPads {Scene }, MIDIByte3+1, { copied. Ready to paste}
+		elseif MIDIByte3>=8 and MIDIByte3<=15 //handle scene paste
+			LabelPads {Copied scene }, copied_scene+1, { to scene }, (MIDIByte3-8)+1
+			scene_durs[MIDIByte3-8] = scene_durs[copied_scene] 
+			//# CopyArray source, dest, cells 
+			CopyArray pattn_durs[copied_scene * 8], pattn_durs[(MIDIByte3-8) * 8], 8
+			CopyArray pattn_octs[copied_scene * 8], pattn_octs[(MIDIByte3-8) * 8], 8
+			//# Also copy sequence information
+			copy_slot=(copied_scene*128)
+			paste_slot=((MIDIByte3-8)*128)
+			steps_to_copy=(16*8)
+			for i = 0 to 3
+				copy_seq_ch=i
+				Call @CopySequencePad
+				paste_seq_ch=i
+				Call @PasteSequencePad
+			endfor
+			euc_copy_slot=(copied_scene*128) //# Also copy euclidean info 4types, 4chs, 8patts
+			euc_paste_slot=((MIDIByte3-8)*128)			
+			CopyArray euc_vals[euc_copy_slot], euc_vals[euc_paste_slot], (4*4*8)
+			copied_scene = -1 //# reset
+			Call @SetupLayout
+		endif
+	elseif (MIDIByte2=23) //# Global swing
   	swng=MIDIByte3
   	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
   	Call @SetupLayout

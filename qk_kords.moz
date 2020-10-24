@@ -88,11 +88,6 @@
 	c3rd_intervals = [2, 3, 4, 5] //# sus2, min, maj, sus4
 	c5th_intervals = [6, 7, 8] //# dim (b5), P5, aug (#5)
 	c7th_intervals = [-1, 8, 9, 10, 11] //# min6 (b6), maj6, min7 (b7), maj7	
-	
-	//CC Messages from KNTRL
-	cc_scene_select=100
-	cc_scene_duration=101 //+ scene_num0-7 ie 101-108
-	cc_rtn_to_song_mode=22
 @End
 
 @SetupChordsScenes
@@ -582,18 +577,18 @@
 	// Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
 	if not MIDIChannel=15
 		Exit
-	elseif (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
+	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15)
 		//# handle scene duration change
-		scene_bank[((MIDIByte2-cc_scene_duration) * sc_size)] = MIDIByte3 
+		scene_bank[((MIDIByte2-101) * sc_size)] = MIDIByte3 
 		Call @SetupLayout
-	elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
+	elseif (MIDIByte2=100) and (MIDIChannel=15)
 		//# handle scene change requested (ie: PadDown Scene change)
 		scene_change_requested = MIDIByte3
 		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
 		Call @SetupLayout
-	elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and MIDIChannel=15)
+	elseif (HostRunning and MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15)
   	//# handle return to song mode requested
   	return_to_song_mode_requested = TRUE
   	scene_change_requested = current_scene
@@ -603,7 +598,7 @@
   	Call @SetupLayout
   	ColorPad current_scene, 3
     ColorPad 8, 3	
-	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and MIDIChannel=15 and not HostRunning)
+	elseif (MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15 and not HostRunning)
 		in_mode_select = FALSE //# return to song 
   	songmode = 0
   	mode = 0
@@ -611,6 +606,21 @@
   	Call @SetupLayout
 		ColorPad current_scene, 3
     ColorPad current_chord+8, 3
+	elseif (MIDIByte2=89) //copy paste scene
+		in_mode_select = FALSE // return to scenes mode first
+  	mode = 0
+		if MIDIByte3<=7 //handle copy scene
+			copied_scene = MIDIByte3
+			LabelPads {Scene }, MIDIByte3+1, { copied. Ready to paste}
+		elseif MIDIByte3>=8 and MIDIByte3<=15 //handle scene paste
+			LabelPads {Copied Scene }, copied_scene+1, { to Scene }, (MIDIByte3-8)+1
+			CopyArray scene_bank[copied_scene * sc_size], scene_bank[(MIDIByte3-8) * sc_size], 10
+			CopyArray chord_bank[copied_scene * 100], chord_bank[(MIDIByte3-8) * 100], 100
+			songmode = 1
+			mode=0
+			copied_scene = -1 //# reset
+			Call @SetupLayout
+		endif
 	endif
 @End
 

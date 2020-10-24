@@ -30,6 +30,7 @@
 		print_preset=TRUE
 		send_cc_back_to_knobs = TRUE
 		midi_controller=[15,14,15,16,17] //midi controller channel then 4 ccs
+		scene_copied=FALSE
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
@@ -319,13 +320,14 @@
 
 @OnShiftDown2
 	Log {MODE: }, mode
-	//# xosd
+	scene_copied=FALSE
 	if in_mode_select //# Exit SHIFT MODE
 		in_mode_select = FALSE	
 		reset_mxr=FALSE
 		reset_whole_layout=FALSE
 		if mode=0 //SCENCES
 			Call @SetupLayoutScenes
+			Call @Setupknobset0
 		elseif mode=1
 			Call @SetupLayoutChannels
 		elseif mode=2
@@ -525,6 +527,17 @@
 		for i = 0 to 7
 			SendMIDICC 15, cc_scene_duration+i, scene_durs[i]
 		endfor
+	elseif mode=0 and last_pad=11
+		if scene_copied //handle paste scene
+			LabelPads {Copied scene }, copied_scene+1, { contents to scene }, edit_scene+1, { for all QK midi generators}
+			SendMIDICC 15, 89, edit_scene+8
+			scene_durs[edit_scene] = scene_durs[copied_scene]
+		else
+			copied_scene=edit_scene
+			SendMIDICC 15, 89, copied_scene
+		endif
+		scene_copied = not scene_copied
+	  Call @SetupLayoutScenes
 	endif
 @End
 
@@ -1563,6 +1576,14 @@
 		LatchPad locked_to_scene, YES
 	endif
 	LabelPad 10, {UPDATE ALL SCENES}
+	if scene_copied
+		ColorPad 11, 3
+		LabelPad 11, {PASTE TO SCENE }, edit_scene+1
+		LabelPads {Use knob to select scene to paste contents across all QK midi generators}
+	else
+		ColorPad 11, 0
+		LabelPad 11, {COPY SCENE }, edit_scene+1
+	endif
 	ColorPad 13, col_unused
 	ColorPad 14, col_unused
 	ColorPad 15, col_unused
