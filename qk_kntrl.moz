@@ -1702,14 +1702,17 @@
 		def_ccs[16*2]    = [62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77]
 	elseif chan_layouts[edit_chan]=2
 		LabelKnob 3, {Bus A-D} //MIX BUSSES ABCD
-		for i = 0 to 3
-			clr=i+1
-			def_labels[16*i] = [0,2,1,3,4,5,6,7,61,13,-1,60,64,65,66,125]
-			def_colors[16*i] = [clr,clr,clr,clr,6,6,3,3,5,5,0,0,0,0,0,0]
-			def_vals[16*i]   = [90,64,64,64,0,0,0,127,0,0,0,0,0,0,0,0]
-		endfor
 		for p = 0 to 15
 			def_ccs[(16*i)+p] = 30 + (16*i) + p
+		endfor
+		mixbusfx_gui=[126,126,127,127]
+		for i = 0 to 3
+			clr=i+1
+			def_labels[16*i] = [0,2,1,3,4,5,6,7, 61,13,61,12,64,65,66,125]
+			def_colors[16*i] = [clr,clr,clr,clr,6,6,3,3, 3,3,4,4,0,0,0,0]
+			def_vals[16*i]   = [90,64,64,64,0,0,0,127, 0,0,0,0,0,0,0,0]
+			def_ccs[(16*i)+10] = mixbusfx_gui[i] 
+			def_ccs[(16*i)+11] = 117+i //FX cc used for D/W on each FX on mixbus a-d 	
 		endfor
 	elseif chan_layouts[edit_chan]=3
 		LabelKnob 3, {Ruismkr}
@@ -1913,17 +1916,17 @@
 		def_labels[16*0] = [0,2,1,3,6,10,7,10,8,9,10,11,64,65,66,125]
 		def_colors[16*0] = [2,2,2,2,3,3,1,1,4,4,4,6,0,0,0,0]
 		def_vals[16*0]   = [90,64,64,64,0,64,127,64,64,57,64,64,0,0,0,-1]
-		def_labels[16*1] = [27,7,43,86,51,-1,61,13,48,6,44,-1,124,77,1,18]
-		def_colors[16*1] = [2,2,2,4,4,0,6,6,2,2,2,0,0,3,3,3]
-		def_vals[16*1]   = [127,127,91,44,0,30,0,0,19,32,14,0,-1,127,127,127]
-		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,124,59,60,61]
+		def_labels[16*1] = [86,44,43,22,44,43,61,13,7,25,6,25,44,43,51,126]
+		def_colors[16*1] = [3,3,3,2,2,2,6,6,4,4,4,4,4,4,0,0]
+		def_vals[16*1]   = [42,0,64,69,0,64,0,0,127,64,26,64,0,64,23,0]
+		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,126]
 		def_labels[16*2] = [0,2,1,3,6,10,7,10,8,9,10,11,64,65,66,125]
 		def_colors[16*2] = [2,2,2,2,3,3,1,1,4,4,4,6,0,0,0,0]
 		def_vals[16*2]   = [90,64,64,64,0,64,127,64,64,57,64,64,0,0,0,-1]
-		def_labels[16*3] = [18,42,52,46,9,9,61,13,1,68,86,51,10,1,37,124]
-		def_colors[16*3] = [4,4,4,4,4,4,6,6,0,4,4,4,4,0,3,4]
+		def_labels[16*3] = [18,42,52,46,9,9,61,13,1,68,86,51,10,1,37,127]
+		def_colors[16*3] = [4,4,4,4,4,4,6,6,0,4,4,4,4,0,3,0]
 		def_vals[16*3]   = [127,64,62,17,64,64,0,0,104,64,63,54,58,106,0,0]
-		def_ccs[16*3]    = [78,79,80,81, 82,83,84,85, 86,87,88,89, 90,91,92,124]
+		def_ccs[16*3]    = [78,79,80,81, 82,83,84,85, 86,87,88,89, 90,91,92,127]
 	elseif chan_layouts[edit_chan]=17
 		LabelKnob 3, {Master}
 		def_labels[16*0] = [0,2,1,-1,125,126,127,124,13,13,13,12,64,65,66,60]
@@ -2369,8 +2372,12 @@
 		LabelPad pad_to_label, {[INSTR]} //OPEN GUI
 	elseif (label_num=125)
 		LabelPad pad_to_label, {[EQ]} //OPEN GUI
+	elseif (label_num=126) and chan_layouts[curr_chan]=16
+		LabelPad pad_to_label, {[RTN-DLY]} //OPEN GUI
 	elseif (label_num=126)
-		LabelPad pad_to_label, {[FX]} //OPEN GUI
+		LabelPad pad_to_label, {[FX1]} //OPEN GUI
+	elseif (label_num=127) and chan_layouts[curr_chan]=16
+		LabelPad pad_to_label, {[RTN-RVB]} //OPEN GUI
 	elseif (label_num=127)
 		LabelPad pad_to_label, {[FX2]} //OPEN GUI
 	elseif (label_num=-1)
