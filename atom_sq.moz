@@ -12,38 +12,6 @@
 	lhs_notes=[36,40,43,47, 48,52,55,59, 60,64,67,71, 72,76,79,83] //notes used
 	lhs_notes_a=[36,40,43,47, 48,52,55,59, 60,64,67,71, 72,76,79,83] //chordds thru kords
 	lhs_notes_b=[49,51,54,56, 58,61,63,66, 60,61,62,63, 64,65,66,67] //rmkr and chromo 
-	notes_ch_select[74]=15
-	notes_ch_select[72]=14
-	notes_ch_select[71]=13
-	notes_ch_select[69]=12
-	notes_ch_select[67]=11
-	notes_ch_select[65]=10
-	notes_ch_select[64]=9
-	notes_ch_select[62]=8
-	notes_ch_select[60]=7
-	notes_ch_select[59]=6
-	notes_ch_select[57]=5
-	notes_ch_select[55]=4
-	notes_ch_select[53]=3
-	notes_ch_select[52]=2
-	notes_ch_select[50]=1
-	notes_ch_select[48]=0
-	notes_ch_select[23]=7
-	notes_ch_select[22]=6
-	notes_ch_select[21]=5
-	notes_ch_select[20]=4
-	notes_ch_select[19]=3
-	notes_ch_select[18]=2
-	notes_ch_select[17]=1
-	notes_ch_select[16]=0
-	notes_ch_select[15]=15
-	notes_ch_select[14]=14
-	notes_ch_select[13]=13
-	notes_ch_select[12]=12
-	notes_ch_select[11]=11
-	notes_ch_select[10]=10
-	notes_ch_select[9]=9
-	notes_ch_select[8]=8
 	Call @LabelAllPads
 @End
 
@@ -57,16 +25,16 @@
 
 @OnMidiCC
 	if MIDIChannel=0 and MIDIByte2=1 //modwheel
-		SendMIDIThruOnCh curr_chan //active channel selected for notes
+		SendMIDIThruOnCh 15 // converts to active channel in kntrl
 	elseif MIDIChannel=0 and MIDIByte2=85 and MIDIByte3>0
 	  SendMIDICC 15, 111, 127 //Transport STOP
 	elseif MIDIChannel=0 and MIDIByte2=86 and MIDIByte3>0
 		SendMIDICC 15, 112, 127 //Transport PLAY
 	elseif MIDIChannel=0 and MIDIByte2=87
-		shift_a=MIDIByte3 //use keys to select midi channel 
+		shift_a=MIDIByte3 //use keys to select midi channel and switch to channel and show instr gui 
 		Call @LabelAllPads 
 	elseif MIDIChannel=0 and MIDIByte2=89
-		shift_b=MIDIByte3 //use keys to select ch and mgen guis
+		shift_b=MIDIByte3 //use keys to select mgen guis 1-8
 		Call @LabelAllPads
 	elseif MIDIChannel=0 and MIDIByte2=102 //arrow key left - FREE
 		//FREE
@@ -100,27 +68,27 @@
 @OnMidiNote
 	if shift_a and shift_b
 		Log {SHIFT A & B ACTIVE}
-	elseif shift_a and MIDIChannel=15 and notes_ch_select[MIDIByte2]<=15 and MIDIByte3>0 //KEYS OUT MIDI CH + switch to instr.
-		if notes_ch_select[MIDIByte2] = curr_chan //sel chan pad twice - toggle instr gui
-			SendMIDICC 16, 124, 127
+	elseif shift_a and MIDIChannel=15 and MIDIByte2<=15 and MIDIByte3>0 //KEYS OUT MIDI CH + switch to instr.
+		if MIDIByte2 = curr_chan //sel chan pad twice - toggle instr gui
+			SendMIDICC 15, 124, 127
 		endif
-		SendMIDICC MIDIChannel, notes_ch_select[MIDIByte2]+24, 127
-		curr_chan = notes_ch_select[MIDIByte2]
+		SendMIDICC MIDIChannel, MIDIByte2+24, 127
+		curr_chan = MIDIByte2
 		Call @LabelAllPads
 		if curr_chan<=3
 			CopyArray lhs_notes_b, lhs_notes, 16
 		else
 		  CopyArray lhs_notes_a, lhs_notes, 16
 		endif
-	elseif shift_b and MIDIByte2>=16 and MIDIByte2<=25 and MIDIChannel=15 and MIDIByte3>0
+	elseif shift_b and MIDIByte2<=7 and MIDIChannel=15 and MIDIByte3>0
 		Log {SHIFT B ACTIVE. MGEN TIME!} //switch MGEN GUI
-		if MIDIByte2 = curr_mgen+16 //sel chan pad twice - toggle instr gui
-			SendMIDICC 16, MIDIByte2+75, 127
+		if MIDIByte2 = curr_mgen //sel chan pad twice - toggle instr gui
+			SendMIDICC 16, MIDIByte2+91, 127
 			Log {TOGGLING MGEN GUI}, MIDIByte2 
 		endif
-		SendMIDICC MIDIChannel, 90, MIDIByte2-16 //goto mgen kntrl and select mgen device #
-		Log {sending the midi cc90 val}, MIDIByte2-16
-		curr_mgen=MIDIByte2-16
+		SendMIDICC MIDIChannel, 90, MIDIByte2 //goto mgen kntrl and select mgen device #
+		Log {sending the midi cc90 val}, MIDIByte2
+		curr_mgen=MIDIByte2
 		Call @LabelAllPads
 	elseif MIDIByte2>=16 and MIDIByte2<=31 // LHS Special Notes Mode
 		if MIDICommand=0x90
