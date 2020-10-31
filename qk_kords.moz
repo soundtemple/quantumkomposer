@@ -118,7 +118,7 @@
   //# Create empty chord and scene arrays
   for s = 0 to 7 
 	  //# Create 8 scene arrays in scene_bank
-	  scene_bank[s*sc_size] = [0,6,1,2,2,2,2,1,8,8,9,-1]
+	  scene_bank[s*sc_size] = [0,6,1,1,1,1,1,1,7,7,6,-1]
 		for c = 0 to 7
 			//# Create 8 chord arrays for each scene
 			chord_bank[(s*100) + (c*10)] = [-1, -1, -1, -1, 0, 0, -1,0]
@@ -127,7 +127,7 @@
 	
   //# indexing them by scene size (sc_size). Sample scenes
   //# eg scene2 ... scene_bank[sc_size * sc#(0-7)] = [2,6,0,0,0,0,0,1,1,1,1]
-  scene_bank[0] = [1,6,1,2,2,2,2,1,8,8,9,-1]
+  scene_bank[0] = [1,6,1,1,1,1,1,1,7,7,6,-1]
 	//# Example chords: increment in 10's in each scene, new scenes on the 100
   chord_bank[0] = [60, 64, 67, 71, 4, 0, 48] //# Scene1 Chord 1
   //# eg: chord_bank[10] = [67, 71, 74, 77, 8, 0, -1] //# Scene1 Chord 2
@@ -577,7 +577,7 @@
 	// Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
 	if not MIDIChannel=15
 		Exit
-	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15)
+	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
 		//# handle scene duration change
 		scene_bank[((MIDIByte2-101) * sc_size)] = MIDIByte3 
 		Call @SetupLayout
@@ -603,6 +603,7 @@
   	songmode = 0
   	mode = 0
 		current_scene=0
+		current_chord=0
   	Call @SetupLayout
 		ColorPad current_scene, 3
     ColorPad current_chord+8, 3
@@ -2335,7 +2336,7 @@
 	//# Default chord bank settings. Copy to preset to override
 	//# scene setup. map txpose based on circle of 5ths. 
 	//# scn_preset must always be setting for preset (self)
-	scene_bank[current_scene * sc_size] = [8,6,scn_preset,0,0,0,0,0,0,0,0,-1]
+	scene_bank[current_scene * sc_size] = [8,6,scn_preset,1,1,1,1,1,7,7,6,-1]
 	
 	//# chord settings
 	//# psd is scale degrees for each chord in the progression
@@ -2349,7 +2350,7 @@
 	//# prog_invs are applied at NoteOut. No effect on how notes stored here
 				
 	if scn_preset = 1
-  	scene_bank[current_scene * sc_size] = [0,6,scn_preset,0,0,0,0,0,0,0,0,-1]
+  	scene_bank[current_scene * sc_size] = [0,6,scn_preset,1,1,1,1,1,7,7,6,-1]
 	  chord_bank[(current_scene * 100) + 0]  = [-1,-1,-1,-1,0,0,-1]
 	  chord_bank[(current_scene * 100) + 10] = [-1,-1,-1,-1,0,0,-1]
 	  chord_bank[(current_scene * 100) + 20] = [-1,-1,-1,-1,0,0,-1]
@@ -2361,7 +2362,7 @@
 	 LabelPads {An empty scene. Press shift to select a +CHORDS mode}
 	 Call @SetupLayout
 	elseif scn_preset = 2
-		scene_bank[current_scene * sc_size] = [4,6,scn_preset,0,0,0,0,0,0,0,0,-1]
+		scene_bank[current_scene * sc_size] = [4,6,scn_preset,1,1,1,1,1,7,7,6,-1]
 		psn = [0, 60, 62, 64, 65, 67, 69, 71, 72]
 		psd = [1,3,5,-1, 5,7,2,-1, 6,1,3,-1, 4,6,1,-1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
 		prog_durs = [4,4,4,4,0,0,0,0]
@@ -2405,7 +2406,7 @@
 		Call @HandleChordBankPresetUpdate
   	LabelPads {B LOCRIAN diatonic chord set}
   elseif scn_preset = 10
-	  scene_bank[current_scene * sc_size] = [4,6,10,0,0,0,0,0,0,0,0,-1]
+	  scene_bank[current_scene * sc_size] = [4,6,10,1,1,1,1,1,7,7,6,-1]
 	  chord_bank[(current_scene * 100) + 0] = [9,12,16,-1,4,0,69]
 	  chord_bank[(current_scene * 100) + 10] = [11,14,17,-1,4,0,71]
 	  chord_bank[(current_scene * 100) + 20] = [0,4,7,-1,4,3,72]
@@ -2417,7 +2418,7 @@
 	  LabelPads {Minor triadic harmony (from Natural & Harmonic minor diatonic chords)} 
  	  Call @SetupLayout
 	elseif scn_preset = 11
-	  scene_bank[current_scene * sc_size] = [4,6,10,0,0,0,0,0,0,0,0,-1]
+	  scene_bank[current_scene * sc_size] = [4,6,10,1,1,1,1,1,7,7,6,-1]
 	  chord_bank[(current_scene * 100) + 0] = [9,12,16,19,4,0,69]
 	  chord_bank[(current_scene * 100) + 10] = [11,14,17,21,4,0,71]
 	  chord_bank[(current_scene * 100) + 20] = [0,4,7,11,4,4,72]
@@ -2429,7 +2430,7 @@
 	  LabelPads {Diatonic 7th chords Minor (Hybrid)} 
 	  Call @SetupLayout
   elseif scn_preset = 12
-    scene_bank[current_scene * sc_size] = [4,6,13,0,0,0,0,0,0,0,0,-1]
+    scene_bank[current_scene * sc_size] = [4,6,13,1,1,1,1,1,7,7,6,-1]
     chord_bank[(current_scene * 100) + 0] = [0,4,7,-1,4,0,0]
     chord_bank[(current_scene * 100) + 10] = [0,4,7,-1,4,-1,0]
     chord_bank[(current_scene * 100) + 20] = [0,4,7,-1,4,1,0]
@@ -2441,7 +2442,7 @@
  		LabelPads {Noodling the tonic - MAJOR} 
  		Call @SetupLayout
   elseif scn_preset = 13
-    scene_bank[current_scene * sc_size] = [4,6,13,0,0,0,0,0,0,0,0,-1]
+    scene_bank[current_scene * sc_size] = [4,6,13,1,1,1,1,1,7,7,6,-1]
     chord_bank[(current_scene * 100) + 0] = [9,12,16,-1,4,0,9]
     chord_bank[(current_scene * 100) + 10] = [9,12,16,-1,4,-1,9]
     chord_bank[(current_scene * 100) + 20] = [9,12,16,-1,4,1,9]

@@ -807,7 +807,7 @@
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15)
+	if (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
 		//# handle scene duration change
 		scene_durs[MIDIByte2-101] = MIDIByte3
 		Call @SetupLayout
@@ -831,9 +831,9 @@
 		in_mode_select = FALSE //Return to song mode
   	songmode = 0
   	mode = 0
-  	Call @SetupLayout
 		current_scene=0
 		current_pattn=0
+		Call @SetupLayout
 		ColorPad current_scene, 3
     ColorPad current_pattn+8, 3
   elseif (MIDIByte2=89) //copy paste scene
@@ -1985,7 +1985,7 @@ endif
   knob_set = 7
   LabelPads {MUTATION: Evolving Velocity, CC, & Step mutation - all scenes }
   LabelKnobs {MUTATION AMOUNT} 
-  SetKnobValue 0, TranslateScale seq_ch, 0, 2, 0, 127
+  SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
   SetKnobValue 1, TranslateScale step_mutation[seq_ch], 0, 100, 0, 127
   SetKnobValue 2, TranslateScale velo_mutation[seq_ch], 0, 64, 0, 127
  	SetKnobValue 3, TranslateScale cc_mutation[seq_ch], 0, 127, 0, 127

@@ -191,7 +191,7 @@
 		SetNoteState 12, mixbusvol_ccs[MIDIByte2-76], MIDIByte3
 	
 	elseif MIDIByte2=80 or MIDIByte2=81 //returns A&B feedback and Ribbon/Size
-		rtn_fx_ccs=[50, 92]
+		rtn_fx_ccs=[60, 92] //DLY FB and RVB Ribbon
 		SendMIDICC 13, rtn_fx_ccs[MIDIByte2-80], MIDIByte3
 		SetNoteState 13, rtn_fx_ccs[MIDIByte2-80], MIDIByte3
 		
@@ -222,13 +222,11 @@
 			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
 		endif
 	
-	elseif MIDIByte2>=101 and MIDIByte2<=108 //SCENE CHANGE CH16
-		if MIDIByte3>0
-			last_pad = MIDIByte2-101
-			mode=0
-			Call @PadDownScenesMode
-			Log {-- HANDLE: SCENE CHANGE REQUEST TO SCENE }, MIDIByte2-100, { --}
-		endif
+	elseif (MIDIByte2=100) and (MIDIChannel=15) //SCENE CHANGE CH16
+		last_pad = MIDIByte3
+		mode=0
+		Call @PadDownScenesMode
+		Log {-- HANDLE: SCENE CHANGE REQUEST TO SCENE }, MIDIByte2-100, { --}
 	elseif MIDIByte2>=109 and MIDIByte2<=112 //TRANSPORT on CH16 - Aum, RWD, STOP, PLAY
 			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
 	else
@@ -513,10 +511,14 @@
 		Call @SetupLayoutScenes
 	elseif mode=0 and last_pad>=13 and last_pad<=15
 		Call @HandleTransportRequest
-	elseif mode=0 and last_pad=9
+	elseif mode=0 and last_pad=9 // return to song mode
 		SendMIDICC 15, cc_rtn_to_song_mode, 127
 		return_to_song_mode_requested = TRUE
   	scene_change_requested = current_scene
+		if NOT HostRunning
+			scene_change_requested = 0
+			Call @HandleSceneChange
+		endif
   	songmode = 0
   	ColorPad 0, col_pending
     ColorPad 8, col_pending
@@ -1255,13 +1257,13 @@
 	pad_to_label=edit_pad 
 	chan_to_label=curr_chan
 	if last_knob = 0 // MIN
-		inst_mins[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
+		inst_mins[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 		val = (GetNoteState curr_chan, inst_ccs[pad_slot])
 		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
 		SetNoteState curr_chan, inst_ccs[pad_slot], Clip val, inst_mins[pad_slot], inst_maxs[pad_slot]
 	endif
 	if last_knob = 1 // MAX
-		inst_maxs[pad_slot] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127 //MAX VALUE
+		inst_maxs[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127 //MAX VALUE
 		val = (GetNoteState curr_chan, inst_ccs[pad_slot])
 		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
 		SetNoteState curr_chan, inst_ccs[pad_slot], Clip val, inst_mins[pad_slot], inst_maxs[pad_slot]

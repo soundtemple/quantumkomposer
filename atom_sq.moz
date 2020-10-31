@@ -52,8 +52,12 @@
 		if MIDIByte3 > 0 //goto mutes, solos, arms, atoms1, aum, FREE
 			SendMIDICC 15, btn_ccs[MIDIByte2-24], MIDIByte3
 		endif
+	elseif MIDIChannel=15 and (MIDIByte2>=101 and MIDIByte2<=108)  //btns A-H Set using editor
+	  if MIDIByte3>0
+			SendMIDICC 15, 100, MIDIByte2-101
+		endif
 	else
-	  SendMIDIThru //btns A-H and encoders thru. Set using editor
+	  SendMIDIThru 
 		if MIDIByte2>=76 and MIDIByte2<=81
 			knob_vals[MIDIByte2-76]=MIDIByte3
 			Call @LabelAllPads
