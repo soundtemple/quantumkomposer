@@ -12,6 +12,8 @@
 	  ppqn = 4 
 	  scene_change_requested = -1 //# on pad down has next scene number
 	  chord_change_requested = -1 //# on pad down has next chord number
+		chord_beat_count = -1
+		scene_beat_count = -1
 	  scene_change_chord_reset = TRUE //# Goto chord 0 when user changes scene
 	  in_mode_select = FALSE //# Toggle for changing modes mode
 	  number_of_modes = 16 //# Change in operational mode 
@@ -227,11 +229,11 @@
 @End
 
 @OnNewBar
-	Log {--- new bar ---}
+	//Log {--- new bar ---}
 @End 
 
 @OnNewBeat
-	Log {-- new beat --}
+	//Log {-- new beat --}
 	//# increment beat counts xonb
 	scene_beat_count = scene_beat_count + 1
 	chord_beat_count = chord_beat_count + 1
@@ -335,7 +337,7 @@
   elseif scene_changed
 		//# reset chord to 0 on scene change if songmode < 2
 		if (songmode <= 1)
-			Log {Scene changed reset chord to 0}
+			//Log {Scene changed reset chord to 0}
 			current_chord = 0
 		endif
 		scene_changed = FALSE
@@ -441,6 +443,7 @@
   	if NOT HostRunning and (LastPad >= 8)
 			for i = 5 to 8
 				ch = midi_channels_used[i]
+				trigger_note_oct_adj = 0 //pad down trigger uses default octave
 	  		Call @SendOutChordNotes
 			endfor
   	endif
@@ -732,6 +735,8 @@
 		for i = 5 to 8 // gated chord notes turned on an off by incoming note
 			if MIDIChannel = midi_channels_used[i]
 				ch = MIDIChannel
+				trigger_note_octave = Div MIDINote, 12 //note in influences octave out
+				trigger_note_oct_adj = (trigger_note_octave - 4) * 12  //notes 48-59 no change
 				Call @SendOutChordNotes
 				Exit
 			endif
@@ -772,15 +777,15 @@
 		Call @HandleInversionSetting //# re-define chord notes to inverted order
 	endif
 	
-	//# Handle scene transpose
+	//# Handle scene transpose and trigger note octave adj
 	txpose_index = scene_bank[(current_scene * sc_size) + sc_txp_slot]
 	txpose_amt = txpose_array[txpose_index] //# scene txpose amount
-	chord_root = chord_root + txpose_amt
-	chord_3rd = chord_3rd + txpose_amt
-	chord_5th = chord_5th + txpose_amt
-	chord_7th	= chord_7th + txpose_amt
+	chord_root = chord_root + txpose_amt + trigger_note_oct_adj
+	chord_3rd = chord_3rd + txpose_amt + trigger_note_oct_adj
+	chord_5th = chord_5th + txpose_amt + trigger_note_oct_adj
+	chord_7th	= chord_7th + txpose_amt + trigger_note_oct_adj
 	if chord_bass >= 0 //# -1 is off so dont txpose
-		chord_bass = chord_bass + txpose_amt
+		chord_bass = chord_bass + txpose_amt + trigger_note_oct_adj
 	endif
 	
 	//# Get per scene Midi Out channel On/Off settings (ch=8-11 => slots 7-10)
@@ -796,7 +801,7 @@
 			if chord_scale[ch_degree] > 0
 				SendMIDINoteOn ch, chord_scale[ch_degree], velocity
 				SetNoteState ch, i, chord_scale[ch_degree]
-				Log {Chord Note sent curr_chord}, current_chord, { note: }, chord_scale[ch_degree]
+				// Log {Chord Note sent curr_chord}, current_chord, { note: }, chord_scale[ch_degree]
 			endif
 		endif
 	endfor	
