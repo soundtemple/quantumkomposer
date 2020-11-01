@@ -56,7 +56,7 @@
 @End
 
 @SetupSequences
-  midi_out_chs=[1,1,1,1]
+  midi_out_chs=[0,0,0,0]
   cc_vals=[32,48,65,81]
   scene_durs = [1,0,0,0,0,0,0,0]
   scene_swing = [0,0,0,0,0,0,0,0]
@@ -381,6 +381,7 @@
 			cc_val = Clip (cc_val+cc_mutate_val), 0, 127
 		endif
 		SendMIDICC midi_out_chs[ch], cc_vals[ch], cc_val
+		Log {Sending midi cc: }, midi_out_chs[ch], {-}, cc_vals[ch], {-}, cc_val
 	endif
 	if step_type=1 //# turn on new note
 		if velo_mutation[ch]>=1 //# mutate velo_val
@@ -804,7 +805,9 @@
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
+	if MIDIChannel=midi_out_chs[0] or MIDIChannel=midi_out_chs[1] or MIDIChannel=midi_out_chs[2] or MIDIChannel=midi_out_chs[3]
+		SendMIDIThru // Messages from KNTRL get routed thru
+	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
 		//# handle scene duration change
 		scene_durs[MIDIByte2-101] = MIDIByte3
 		Call @SetupLayout
@@ -815,7 +818,7 @@
   		Call @HandleSceneChange 
   	endif
 		Call @SetupLayout
-	elseif (HostRunning and MIDIByte2=22 and MIDIByte3>0)
+	elseif (HostRunning and MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15)
   	//# handle return to song mode requested
   	return_to_song_mode_requested = TRUE
   	scene_change_requested = current_scene
@@ -824,7 +827,7 @@
   	mode = 0
   	ColorPad current_scene, 3
     ColorPad 8, 3
-	elseif (MIDIByte2=22 and MIDIByte3>0 and not HostRunning)
+	elseif (MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15 and not HostRunning)
 		in_mode_select = FALSE
   	songmode = 0
   	mode = 0
@@ -833,7 +836,7 @@
   	Call @SetupLayout
 		ColorPad current_scene, 3
     ColorPad current_pattn+8, 3
-  elseif (MIDIByte2=89) //copy paste scene
+  elseif (MIDIByte2=89 and MIDIChannel=15) //copy paste scene
 		in_mode_select = FALSE // return to scenes mode first
   	mode = 0
 		if MIDIByte3<=7 //handle copy scene
@@ -861,7 +864,7 @@
 			copied_scene = -1 //# reset
 			Call @SetupLayout
 		endif
-	elseif (MIDIByte2=23) //# Global swing
+	elseif (MIDIByte2=23 and MIDIChannel=15) //# Global swing
   	swng=MIDIByte3
   	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
   	Call @SetupLayout
@@ -1259,7 +1262,7 @@
   LabelKnob 1, {CH2: }, midi_out_chs[1]+1
   LabelKnob 2, {CH3: }, midi_out_chs[2]+1
   LabelKnob 3, {CH4: }, midi_out_chs[3]+1	
-  LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+  LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]         [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 @End
 
 
@@ -2478,7 +2481,7 @@ if note_set_type=0
 			Call @LabelSet3
 		endif
 		if NOT HostRunning
-			LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]     [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+			LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 		endif
 		if NOT HostRunning
 			LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]   [}, cc_vals[2],{-}, cc_vals[3],{]}
