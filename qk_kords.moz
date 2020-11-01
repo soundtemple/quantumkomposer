@@ -571,15 +571,15 @@
 @End
 
 @OnAuParameter
-  Log {Last AU param: }, LastAUParameter
+  //Log {Last AU param: }, LastAUParameter
 @End
 
 
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
-	// Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if not MIDIChannel=15
-		Exit
+	//Log {sending midi thru: }, MIDIChannel, {-}, MIDIByte2, {-}, MIDIByte3
+	if MIDIChannel>=5 and MIDIChannel<=12 // MELO and HARM channels
+		SendMIDIThru //send cc automation from NOTES thru to instruments and KNTRL CC info
 	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
 		//# handle scene duration change
 		scene_bank[((MIDIByte2-101) * sc_size)] = MIDIByte3 
@@ -610,7 +610,7 @@
   	Call @SetupLayout
 		ColorPad current_scene, 3
     ColorPad current_chord+8, 3
-	elseif (MIDIByte2=89) //copy paste scene
+	elseif (MIDIByte2=89 and MIDIChannel=15) //copy paste scene
 		in_mode_select = FALSE // return to scenes mode first
   	mode = 0
 		if MIDIByte3<=7 //handle copy scene
