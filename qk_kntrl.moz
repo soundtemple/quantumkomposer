@@ -6,7 +6,7 @@
 	SetShortName {KNTRL} 
 	ShowLayout 2
 	LabelPads {[ KNTRL ]}
-	if unassigned scene_durs //# duration in first scene
+	if unassigned scene_durs // duration in first scene
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 		edit_mode_active=FALSE
@@ -34,6 +34,7 @@
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
+		Log {On load successful}
 	endif
 @End
 
@@ -88,7 +89,7 @@
 	FillArray chan_arm, FALSE, 16
 	
 	//INSTRUMENTS (16) (16x4pages) label, color, value, cc#, mix, max 
-	ResetNoteStates -1 // Channel values perc CC. 16channels, 16mixer params. 16FX/Instr params each with unique CC
+	inst_state=[] // the stored val for each instr slot 4pages 16pad slots
 	inst_curr_page=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
 	inst_labels=[]
 	inst_color=[]
@@ -105,6 +106,7 @@
 	lbl_num_drum_ch=63
 	// MIXER - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO, [instr],[eq],[fx1],[fx2]
+	mixer_state=[] //the main container for mixer cc values
 	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 113,114,115,116, 117,118,119,120, 121,122,123, 124,125,126,127]
 	chan_mx_def_vals = [90,64,64,64, 0,0,0,127, 64,64,0,64, 0,0,0,0, 0,0,0] //def values for mixer params
 	protected_cc_to_label=[-1,35,36,37,38,39, 1,0,2,3, 4,5,6,7] 
@@ -113,8 +115,12 @@
 	mute_solo_arm=0 //remember pad state 0-2
 	for ch = 0 to 15 //set up mixer on all channels with default vals on def cc's
 		for i = 0 to 18
-			SetNoteState ch, chan_mx_ccs[i], chan_mx_def_vals[i] //store vals in the curr_chan not the midi chan
+			mixer_state[(ch*20) + i] = chan_mx_def_vals[i] //store vals in the curr_chan not the midi chan 
 		endfor
+	endfor
+	mixer_cc_slots=[]
+	for i = 0 to 18
+		mixer_cc_slots[chan_mx_ccs[i]] = i // reverse relation cc value to chan_mx_ccs index
 	endfor
 	//SETUP MIDI MAPPING PARAMS FOR DEFAULT INSTR. CHANNELS
 	for i = 0 to 15
@@ -164,7 +170,7 @@
 		//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF,EQ) 
 		SendMIDIThruOnCh chan_midi_chs[curr_chan]
 		Log {-- THRU TO: MIXER KNTRL CH:}, chan_midi_chs[curr_chan],{ cc}, MIDIByte2, { - }, MIDIByte3
-		SetNoteState curr_chan, MIDIByte2, MIDIByte3
+		mixer_state[(curr_chan*20)+ mixer_cc_slots[MIDIByte2]] = MIDIByte3 
 		
 	elseif MIDIByte2>=14 and MIDIByte2<=17 //KNTRL Knobs on CH16
 		last_knob = MIDIByte2-14 //simulate  LastPad action
@@ -177,7 +183,7 @@
 		endif
 	elseif MIDIByte2=19 or MIDIByte2=20 //Master Volume & Master Gain
 		SendMIDICC 14, MIDIByte2-13, MIDIByte3
-		SetNoteState 14, MIDIByte2-13, MIDIByte3
+		mixer_state[(14*20)+ mixer_cc_slots[MIDIByte2-13]] = MIDIByte3
 		
 	elseif MIDIByte2>=24 and MIDIByte2<=39 // Switch INSTRUMENT channel 0-15
 		in_mode_select=FALSE
@@ -188,12 +194,12 @@
 	elseif MIDIByte2>=76 and MIDIByte2<=79 //mix bus volumes
 		mixbusvol_ccs=[30,46,62,78]
 		SendMIDICC 12, mixbusvol_ccs[MIDIByte2-76], MIDIByte3
-		SetNoteState 12, mixbusvol_ccs[MIDIByte2-76], MIDIByte3
+		mixer_state[(12*20) + mixer_cc_slots[mixbusvol_ccs[MIDIByte2-76]]] = MIDIByte3
 	
 	elseif MIDIByte2=80 or MIDIByte2=81 //returns A&B feedback and Ribbon/Size
 		rtn_fx_ccs=[60, 92] //DLY FB and RVB Ribbon
 		SendMIDICC 13, rtn_fx_ccs[MIDIByte2-80], MIDIByte3
-		SetNoteState 13, rtn_fx_ccs[MIDIByte2-80], MIDIByte3
+		mixer_state[(13*20) + mixer_cc_slots[rtn_fx_ccs[MIDIByte2-80]]] = MIDIByte3
 		
 	elseif MIDIByte2>=82 and MIDIByte2<=84
 	  mode=7 //MIXER MODES
@@ -261,7 +267,7 @@
 		SendMidiCC midi_controller[0], midi_controller[3], Round GetKnobValue 2
 		SendMidiCC midi_controller[0], midi_controller[4], Round GetKnobValue 3
 		for i = 0 to 14 //send selected mixer vals for curr_chan back to midi controller
-			val = GetNoteState curr_chan, curr_chan_ccs_update_controler[i]
+			val = mixer_state[(curr_chan*20)+i]
 			SendMIDICC 15, curr_chan_ccs_update_controler[i], val
 		endfor
 	endif
@@ -432,7 +438,7 @@
 				// reset mixer (special handle for returns and mixbus)
 				if reset_mxr  //user hit same pad again. switch knobset
 					for i = 0 to 18
-						SetNoteState curr_chan, chan_mx_ccs[i], chan_mx_def_vals[i]
+						mixer_state[(curr_chan*20) + i] = chan_mx_def_vals[i]
 						SendMIDICC chan_midi_chs[curr_chan], chan_mx_ccs[i], chan_mx_def_vals[i]
 					endfor
 					Log {RESET MIXER PARAMS TO DEFAULTS AND SENT MIDI}
@@ -589,6 +595,7 @@
 			inst_colors[pad_slot] = 0
 		endif
 		SendMIDICC chan, chan_mx_ccs[16], val
+		mixer_state[(curr_chan*20)+16] = val
 		latch_last_pad=FALSE
 		re_label_pad_on_press=TRUE
 	elseif inst_ccs[pad_slot]=122 //SOLO
@@ -599,6 +606,7 @@
 			inst_colors[pad_slot] = 0
 		endif
 		SendMIDICC chan, chan_mx_ccs[17], val
+		mixer_state[(curr_chan*20)+17] = val
 		latch_last_pad=FALSE
 		re_label_pad_on_press=TRUE
 	elseif inst_ccs[pad_slot]=123 //ARM
@@ -609,6 +617,7 @@
 			inst_colors[pad_slot] = 0
 		endif
 		SendMIDICC chan, chan_mx_ccs[18], val
+		mixer_state[(curr_chan*20)+18] = val
 		latch_last_pad=FALSE
 		re_label_pad_on_press=TRUE
 	elseif lbl=61 or lbl=100 or lbl=101 or lbl=124 or lbl=125 or lbl=126 or lbl=127
@@ -647,7 +656,7 @@
 	elseif inst_labels[pad_slot]=lbl_num_res_mxr //RESET MIXER
 		if last_pad = edit_pad //user hit same pad again. switch knobset
 			for i = 0 to 18
-				SetNoteState curr_chan, chan_mx_ccs[i], chan_mx_def_vals[i]
+				mixer_state[(curr_chan*20) + i] = chan_mx_def_vals[i]
 				SendMIDICC chan_midi_chs[curr_chan], chan_mx_ccs[i], chan_mx_def_vals[i]
 			endfor
 			if layouts_locked
@@ -758,18 +767,21 @@
 				val=0
 			endif
 			SendMIDICC chan, chan_mx_ccs[16], val
+			mixer_state[(curr_chan*20)+16] = val
 		elseif mixer_mode=4 and mute_solo_arm=1
 			chan_solo[curr_chan] = NOT chan_solo[curr_chan]
 			if not chan_solo[curr_chan]
 				val=0
 			endif
 			SendMIDICC chan, chan_mx_ccs[17], val
+			mixer_state[(curr_chan*20)+17] = val
 		elseif mixer_mode=4 and mute_solo_arm=2
 			chan_arm[curr_chan] = NOT chan_arm[curr_chan]
 			if not chan_arm[curr_chan]
 				val=0
 			endif
 			SendMIDICC chan, chan_mx_ccs[18], val
+			mixer_state[(curr_chan*20)+18] = val
 		endif
 		Call @SetupKnobset7
 		Call @SendMidiCCBackToKnobs
@@ -1319,7 +1331,7 @@
 		SetKnobValue 3, 0
 	else
 	for i = 0 to 3
-			val=GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + i]
+			val = mixer_state[(curr_chan*20) + (mixer_mode*4) + i]
 			SetKnobValue i, TranslateScale val, 0, 127, 0, 127	
 		endfor
 	endif
@@ -1336,7 +1348,7 @@
 				val = Round TranslateScale (GetKnobValue i), 0, 127, 0, 127
 				cc = chan_mx_ccs[(mixer_mode*4) + i]
 				midi_chan = chan_midi_chs[curr_chan]
-				SetNoteState curr_chan, cc, val
+				mixer_state[(curr_chan*20) + mixer_cc_slots[cc]] = val //xyz
 				SendMIDICC midi_chan, cc, val
 				if send_cc_back_to_knobs
 					SendMIDICC 15, cc, val //update controller active chan cc
@@ -1357,30 +1369,30 @@
 	endif
 	if mixer_mode=0
 		LabelPads {KNTRL : [ VOL PAN GAIN MID/SIDE ]}
-		LabelKnob 0, {VOL }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {PAN }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {GAIN }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {M/S } , GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {VOL }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
+		LabelKnob 1, {PAN }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
+		LabelKnob 2, {GAIN }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
+		LabelKnob 3, {M/S } , mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
 	elseif mixer_mode=1
 		mixer_mode=1 
 	  LabelPads {KNTRL : [ SENDS FILTER ]}
-		LabelKnob 0, {SENDA }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {SENDB }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {HPF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {LPF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {SENDA }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
+		LabelKnob 1, {SENDB }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
+		LabelKnob 2, {HPF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
+		LabelKnob 3, {LPF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
 	elseif mixer_mode=2
 	  mixer_mode=2 
 		LabelPads {KNTRL : [ EQ ] }
-		LabelKnob 0, {GAIN }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {FREQ }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {RES }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {SHELF }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {GAIN }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
+		LabelKnob 1, {FREQ }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
+		LabelKnob 2, {RES }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
+		LabelKnob 3, {SHELF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
 	elseif mixer_mode=3
 		LabelPads {KNTRL : [ FX ] }
-		LabelKnob 0, {D/W }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 0]
-		LabelKnob 1, {AMT1 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 1]
-		LabelKnob 2, {AMT2 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 2]
-		LabelKnob 3, {AMT3 }, GetNoteState curr_chan, chan_mx_ccs[(mixer_mode*4) + 3]
+		LabelKnob 0, {D/W }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
+		LabelKnob 1, {AMT1 }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
+		LabelKnob 2, {AMT2 }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
+		LabelKnob 3, {AMT3 }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
 	elseif mixer_mode=4
 		LabelPads {KNTRL : [ MUTE SOLO ARM ]}
 		if mute_solo_arm=0
