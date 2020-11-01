@@ -59,7 +59,7 @@
 
 @SetupSequences
   midi_out_chs=[4,5,6,7]
-  cc_vals=[32,48,65,81]
+  cc_vals=[1,1,1,1]
   scene_durs = [1,0,0,0,0,0,0,0]
   scene_swing = [0,0,0,0,0,0,0,0]
   pattn_durs=[4] //# Pattern durations in beats
@@ -1242,7 +1242,7 @@
   LabelKnob 1, {CH2: }, midi_out_chs[1]+1
   LabelKnob 2, {CH3: }, midi_out_chs[2]+1
   LabelKnob 3, {CH4: }, midi_out_chs[3]+1	
-  LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]     [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+  LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 @End
 
 
@@ -1366,7 +1366,7 @@
   LabelKnob 1, {CH2: }, cc_vals[1]
   LabelKnob 2, {CH3: }, cc_vals[2]
   LabelKnob 3, {CH4: }, cc_vals[3]	
-  LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]   [}, cc_vals[2],{-}, cc_vals[3],{]}
+  LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]       [}, cc_vals[2],{-}, cc_vals[3],{]}
 @End
 
 @GetStepVal
@@ -2574,10 +2574,10 @@ endif
 			Call @LabelSet3
 		endif
 		if NOT HostRunning
-			LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]     [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+			LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 		endif
 		if NOT HostRunning
-			LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]   [}, cc_vals[2],{-}, cc_vals[3],{]}
+			LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]       [}, cc_vals[2],{-}, cc_vals[3],{]}
 		endif
 		if mode<=1
 			if LastPad<=7 //# copy scene or chord
