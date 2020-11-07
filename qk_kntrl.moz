@@ -210,6 +210,13 @@
 		Call @SetupKnobset7
 		Call @SendMidiCCBackToKnobs
 		
+	elseif MIDIByte2=88
+	  for ch = 8 to 11
+			for n = 24 to 96
+				SendMIDINoteOff ch, n, 127 //handle stuck notes
+			endfor
+		endfor
+		
 	elseif MIDIByte2=90 and MIDIByte3<=8 // MGEN setup in MG Kntrol		
 			mode=6
 			in_mode_select=FALSE
@@ -228,7 +235,7 @@
 			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
 		endif
 	
-	elseif (MIDIByte2=100) and (MIDIChannel=15) //SCENE CHANGE CH16
+	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7) //SCENE CHANGE CH16
 		last_pad = MIDIByte3
 		mode=0
 		Call @PadDownScenesMode
@@ -294,7 +301,6 @@
 @OnHostStop
   scene_beat_count = 0
   Log {---- Host Stopped ---- }, scene_beat_count, { - }
-	// Call @ModeSetup
 @End 
 
 
@@ -515,6 +521,12 @@
 		endif
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
+	elseif mode=0 and last_pad=12
+		for ch = 8 to 11
+			for n = 24 to 96
+				SendMIDINoteOff ch, n, 127 // handle sometimes stuck notes from KORDS
+			endfor
+		endfor
 	elseif mode=0 and last_pad>=13 and last_pad<=15
 		Call @HandleTransportRequest
 	elseif mode=0 and last_pad=9 // return to song mode
@@ -1593,11 +1605,12 @@
 	if scene_copied
 		ColorPad 11, 3
 		LabelPad 11, {PASTE TO SCENE }, edit_scene+1
-		LabelPads {Use knob to select scene to paste contents across all QK midi generators}
+		LabelPads {Use Scene knob to select scene then hit paste to copy contents across all QK midi generators}
 	else
 		ColorPad 11, 0
 		LabelPad 11, {COPY SCENE }, edit_scene+1
 	endif
+	LabelPad 12, {ALL KORDS NOTES OFF}
 	ColorPad 13, col_unused
 	ColorPad 14, col_unused
 	ColorPad 15, col_unused
