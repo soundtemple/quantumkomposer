@@ -670,8 +670,10 @@
 	//# NOT IN MODE SELECT......
 	elseif (NOT in_mode_select and NOT in_seq_mode)
 		//# handle mode actions if record or reset else do knob scene change
-		Call @OnPadDown_ScenePatternChange
-	 	Call @OnPadDown_KnobSetSelect
+		if not (mode=6 or mode=7)
+			Call @OnPadDown_ScenePatternChange
+	 	endif
+		Call @OnPadDown_KnobSetSelect
 		if (mode = 3) and (LastPad > 7)
 			Call @SetupLayout
 	  	rec_pattn_note_count = 0
@@ -805,9 +807,7 @@
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if MIDIChannel=midi_out_chs[0] or MIDIChannel=midi_out_chs[1] or MIDIChannel=midi_out_chs[2] or MIDIChannel=midi_out_chs[3]
-		SendMIDIThru // Messages from KNTRL get routed thru
-	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
+	if (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
 		//# handle scene duration change
 		scene_durs[MIDIByte2-101] = MIDIByte3
 		Call @SetupLayout
@@ -2477,15 +2477,9 @@ if note_set_type=0
 		endif
 		LabelPad 1, {SCENES/PATTERNS}
 		LabelPad 2, { }
-		if NOT HostRunning
-			Call @LabelSet3
-		endif
-		if NOT HostRunning
-			LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
-		endif
-		if NOT HostRunning
-			LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]   [}, cc_vals[2],{-}, cc_vals[3],{]}
-		endif
+		Call @LabelSet3
+		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+		LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]   [}, cc_vals[2],{-}, cc_vals[3],{]}
 		if mode<=1
 			if LastPad<=7 //# copy scene or chord
 				LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1

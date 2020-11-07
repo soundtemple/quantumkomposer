@@ -419,7 +419,9 @@
 	//# NOT IN MODE SELECT......
 	elseif NOT in_mode_select
 		//# handle mode actions if record or reset else do knob scene change
-		Call @OnPadDown_SceneChordChange
+		if not (mode=15 or mode=6)
+			Call @OnPadDown_SceneChordChange //dont change if deleting or copy/pasting
+		endif	
 	 	Call @OnPadDown_KnobSetSelect
 		if (mode = 3) and (LastPad > 7)
 			Call @SetupLayout
@@ -577,9 +579,9 @@
 
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
-	//Log {sending midi thru: }, MIDIChannel, {-}, MIDIByte2, {-}, MIDIByte3
-	if MIDIChannel>=5 and MIDIChannel<=12 // MELO and HARM channels
-		SendMIDIThru //send cc automation from NOTES thru to instruments and KNTRL CC info
+	Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
+	if MIDIChannel>=4 and MIDIChannel<=11 and MIDIByte2<=4
+		SendMIDIThru // step cc automation from NOTES. Allowed ccs 0-4 only. 
 	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
 		//# handle scene duration change
 		scene_bank[((MIDIByte2-101) * sc_size)] = MIDIByte3 
@@ -2077,15 +2079,9 @@
 			LabelPad 0, {PLAYSONG: Disabled}
 		endif	
 		LabelPad 1, {SCENES}
-		if (NOT HostRunning) or (HostRunning and allow_mode_chg_playbk)
-			LabelPad 2, {+CHORDS: Select}
-		endif		
-		if (NOT HostRunning) or (HostRunning and allow_mode_chg_playbk)
-			LabelPad 3, {+CHORDS: Construct}
-		endif
-		if (NOT HostRunning) or (HostRunning and allow_mode_chg_playbk)  
-			LabelPad 4, {+CHORDS: Record}
-		endif
+		LabelPad 2, {+CHORDS: Select}
+		LabelPad 3, {+CHORDS: Construct}
+		LabelPad 4, {+CHORDS: Record}
 		LabelPad 5,{ }
 		if LastPad<=7 //# copy scene or chord
 			LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
@@ -2095,9 +2091,7 @@
 			copy_mode=1 
 		endif
 		LabelPad 7, { SAVE     }
-		if NOT HostRunning
-			LabelPad 8, { MIDI INPUT  }, {   Key/Scale      }, (NoteName selected_midi_in_root), { }, (ScaleName allowed_scales[selected_midi_in_scale])
-		endif
+		LabelPad 8, { MIDI INPUT  }, {   Key/Scale      }, (NoteName selected_midi_in_root), { }, (ScaleName allowed_scales[selected_midi_in_scale])
 		Call @LabelMelodyChannelsPad //pad8
 		Call @LabelMelodyModesPad		//pad9
 		LabelPad 11,{ }

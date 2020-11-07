@@ -392,6 +392,7 @@
 			//#Log {MUTATTION RANGE: }, -cc_mutation[ch], { to }, cc_mutation[ch], { B4CCVAL }, cc_val, { MUTVAL}, cc_mutate_val, { SUM }, Clip (cc_val+mutate_val), 0, 127
 			cc_val = Clip (cc_val+cc_mutate_val), 0, 127
 		endif
+		Log {Sending midi cc }, midi_out_chs[ch], cc_vals[ch], cc_val 
 		SendMIDICC midi_out_chs[ch], cc_vals[ch], cc_val
 	endif
 	if step_type=1 //# turn on new note
@@ -672,7 +673,9 @@
 	//# NOT IN MODE SELECT......
 	elseif (NOT in_mode_select and NOT in_seq_mode)
 		//# handle mode actions if record or reset else do knob scene change
-		Call @OnPadDown_ScenePatternChange
+		if not (mode=6 or mode=7)	
+			Call @OnPadDown_ScenePatternChange
+		endif
 	 	Call @OnPadDown_KnobSetSelect
 		if (mode = 3) and (LastPad > 7)
 			Call @SetupLayout
@@ -1347,10 +1350,10 @@
   //# CC VALS
   knob_set = 4
   LabelKnobs {CC VALS PER CH} 
-  SetKnobValue 0, TranslateScale cc_vals[0], 0, 127, 0, 127
-  SetKnobValue 1, TranslateScale cc_vals[1], 0, 127, 0, 127
-  SetKnobValue 2, TranslateScale cc_vals[2], 0, 127, 0, 127
-  SetKnobValue 3, TranslateScale cc_vals[3], 0, 127, 0, 127
+  SetKnobValue 0, TranslateScale cc_vals[0], 0, 4, 0, 127
+  SetKnobValue 1, TranslateScale cc_vals[1], 0, 4, 0, 127
+  SetKnobValue 2, TranslateScale cc_vals[2], 0, 4, 0, 127
+  SetKnobValue 3, TranslateScale cc_vals[3], 0, 4, 0, 127
   LabelKnob 0, {CH1: }, cc_vals[0]
   LabelKnob 1, {CH2: }, cc_vals[1]
   LabelKnob 2, {CH3: }, cc_vals[2]
@@ -1360,7 +1363,7 @@
 
 @KnobChangeSet4
   //# CC VALS
-  cc = Round TranslateScale (GetKnobValue LastKnob), 0, 127, 0, 127
+  cc = Round TranslateScale (GetKnobValue LastKnob), 0, 127, 0, 4
   cc_vals[LastKnob] = cc 
 	LabelKnob 0, {CH1: }, cc_vals[0]
   LabelKnob 1, {CH2: }, cc_vals[1]
@@ -2570,15 +2573,9 @@ endif
 		endif
 		LabelPad 1, {SCENES/PATTERNS}
 		LabelPad 2, { }
-		if NOT HostRunning
-			Call @LabelSet3
-		endif
-		if NOT HostRunning
-			LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
-		endif
-		if NOT HostRunning
-			LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]       [}, cc_vals[2],{-}, cc_vals[3],{]}
-		endif
+		Call @LabelSet3
+		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+		LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]       [}, cc_vals[2],{-}, cc_vals[3],{]}
 		if mode<=1
 			if LastPad<=7 //# copy scene or chord
 				LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
