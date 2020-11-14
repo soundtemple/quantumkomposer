@@ -9,7 +9,7 @@
 	if unassigned scene_durs //# duration in first scene
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
-		edit_mode_active=FALSE
+		edit_mode_active=FALSE //in edit mode use 20knob layout to step edit each beat
 		SetMetroPPQN 4
 		ppqn = 4
 		knob_set=0
@@ -19,6 +19,7 @@
 		in_mode_select = TRUE //# Toggle for changing modes mode
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		print_preset=TRUE
+		interpolate_on=FALSE
 		Call @GetAutoRamps
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupSettingsLayout
@@ -268,8 +269,11 @@
 		  LabelPad 6, {MACROS COMING SOON!}
 		elseif LastPad=7
 		  LabelPad 7, {LFO'S COMING  SOON!}
-		elseif LastPad<3 or (LastPad>5 and LastPad<15)
+		elseif LastPad=1
 			Exit //# Not in use
+		elseif LastPad=2
+			interpolate_on = not interpolate_on
+			Call @SetupSettingsLayout	
 		elseif LastPad=3
 			record_autom_on = not record_autom_on 
 			if record_autom_on
@@ -286,17 +290,9 @@
 		elseif LastPad=5
 			mode=2 //AUTOMATION
 			in_mode_select = FALSE
-			if edit_mode_active
-				sel_autom_pad=0
-				Call @LabelAutomationPads
-				Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
-				LatchPad 0, YES
-			else
-				sel_autom_pad=0
-				Call @LabelAutomationPads
-				Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
-				LatchPad 0, YES	
-			endif
+			Call @LabelAutomationPads
+			Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
+			LatchPad sel_autom_pad, YES
 		elseif LastPad=6
 			mode=3 //MACROS
 			in_mode_select = FALSE
@@ -319,6 +315,10 @@
 			in_mode_select = FALSE
 			Call @SetupLayoutLFOS
 			Call @SetupKnobset6 //# LFO's
+		elseif LastPad>=8
+		  // AUTOM SCENE SET TASKS
+			scene_task=LastPad 
+			Call @AutomSceneTasks
 		endif
 	elseif NOT in_mode_select
 		if mode=0  //SCENES MODE
@@ -336,6 +336,116 @@
 
 @OnPadUp
   pad_is_down = FALSE
+@End
+
+@AutomSceneTasks
+	// requires scene_task variable 8-15
+	autom_lane = sel_autom_pad
+	min=auto_ramp_min
+	max=auto_ramp_max
+	mid=Div (auto_ramp_min+auto_ramp_max), 2
+	//get the value to set autom to
+	if scene_task=8 //min
+		val=min
+	elseif scene_task=9 //mid
+		val=mid	
+	elseif scene_task=10 //max
+	  val=max
+	elseif scene_task>=13 // reset tasks
+	  val=-1
+	endif
+	
+	//get num cells and location and then call copy paste
+	auto_data_to_paste = []
+	if scene_task=8 or scene_task=9 or scene_task=10 or scene_task=13
+		auto_data_slot = (edit_scene*128)
+		num_cells_to_copy=128
+		FillArray auto_data_to_paste, val, num_cells_to_copy
+		Call @AutomTaskCopyPaste
+	elseif scene_task=11 // ramp up
+		ramp_length = (scene_durs[edit_scene] * HostBeatsPerMeasure) - 1 //less 1 starting from 0
+		for i = 0 to ramp_length 
+			data_slot = (auto_scene*128) + (auto_adv_bar * HostBeatsPerMeasure) + i
+			ramp_val = (i/ramp_length * 127)
+			break_point = Clip (Round ((ramp_val / 127 * (auto_ramp_max-auto_ramp_min)) + auto_ramp_min)), 0, 127
+			data_slot = (edit_scene*128)+i 
+			log {Breakpoint }, break_point, { at slot }, data_slot
+			Call @UpdateAutomationPoint
+		endfor
+	elseif scene_task=12 // ramp down
+		ramp_length = (scene_durs[edit_scene] * HostBeatsPerMeasure) - 1 //less 1 starting from 0
+		for i = 0 to ramp_length 
+			data_slot = (auto_scene*128) + (auto_adv_bar * HostBeatsPerMeasure) + i
+			ramp_val = 127 - (i/ramp_length * 127)
+			break_point = Clip (Round ((ramp_val / 127 * (auto_ramp_max-auto_ramp_min)) + auto_ramp_min)), 0, 127
+			data_slot = (edit_scene*128)+i 
+			log {Breakpoint }, break_point, { at slot }, data_slot
+			Call @UpdateAutomationPoint
+		endfor
+	elseif scene_task=14 //reset all autom pads this scene
+	  auto_data_slot = (edit_scene*128)
+		num_cells_to_copy = 128
+		FillArray auto_data_to_paste, val, num_cells_to_copy
+		for i = 0 to 15
+			autom_lane=i
+			Call @AutomTaskCopyPaste
+		endfor
+	elseif scene_task=15 //reset all scenes all autom pads
+		auto_data_slot = 0
+		num_cells_to_copy = 1024
+		FillArray auto_data_to_paste, val, num_cells_to_copy
+		for i = 0 to 15
+			autom_lane=i
+			Call @AutomTaskCopyPaste
+		endfor
+	endif
+	ColorPad scene_task, 3
+	LabelPad scene_task, {Done!}
+	SetTimerInterval 1000
+	StartTimer
+@End
+
+@OnTimer
+  Call @SetupSettingsLayout
+	StopTimer
+@End
+
+
+@AutomTaskCopyPaste
+	// requires source data as auto_data_to_paste and num_cells_to_copy and auto_data_slot
+	if autom_lane = 0
+		CopyArray auto_data_to_paste, auto_data_ch0[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 1
+		CopyArray auto_data_to_paste, auto_data_ch1[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 2
+		CopyArray auto_data_to_paste, auto_data_ch2[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 3
+		CopyArray auto_data_to_paste, auto_data_ch3[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 4
+		CopyArray auto_data_to_paste, auto_data_ch4[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 5
+		CopyArray auto_data_to_paste, auto_data_ch5[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 6
+		CopyArray auto_data_to_paste, auto_data_ch6[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 7
+		CopyArray auto_data_to_paste, auto_data_ch7[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 8
+		CopyArray auto_data_to_paste, auto_data_ch8[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 9
+		CopyArray auto_data_to_paste, auto_data_ch9[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 10
+		CopyArray auto_data_to_paste, auto_data_ch10[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 11
+		CopyArray auto_data_to_paste, auto_data_ch11[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 12
+		CopyArray auto_data_to_paste, auto_data_ch12[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 13
+		CopyArray auto_data_to_paste, auto_data_ch13[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 14
+		CopyArray auto_data_to_paste, auto_data_ch14[auto_data_slot], num_cells_to_copy
+	elseif autom_lane = 15
+		CopyArray auto_data_to_paste, auto_data_ch15[auto_data_slot], num_cells_to_copy
+	endif
 @End
 
 
@@ -390,15 +500,16 @@
 	Log {Pad down in AUTOM mode}
 	sel_autom_pad=LastPad
 	if edit_mode_active
+		auto_lane=LastPad 
+		auto_scene=edit_scene
+		Call @SetupLayoutAutom
+		Call @SetupKnobset5 //# AUTOM. Write to params	
+	else
 		Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
 		for i = 0 to 15
 			LatchPad i, no 
 		endfor
 		LatchPad sel_autom_pad, YES
-	else
-		auto_lane=LastPad 
-		Call @SetupLayoutAutom
-		Call @SetupKnobset5 //# AUTOM. Write to params	
 	endif
 @End
 
@@ -447,22 +558,33 @@
 		ColorPad i, col_mode_select
 		LatchPad i, NO
 	endfor
+	ch=automation_chs[sel_autom_pad]+1
+	cc=automation_ccs[sel_autom_pad]
+	scn=edit_scene+1
+	sap=sel_autom_pad+1
+	min=auto_ramp_min
+	max=auto_ramp_max
+	mid=Div (auto_ramp_min+auto_ramp_max), 2
 	LabelPad 0, {SCENES}
 	LabelPad 1, { }
-	LabelPad 2, { }
+	if interpolate_on
+		LabelPad 2, {INTER POLATE COMING SOON}
+	else
+	  LabelPad 2, {INTER POLATE OFF}
+	endif
 	LabelPad 3, {RECORD AUTOM}
 	LabelPad 4, {EDIT}
 	LabelPad 5, {AUTOM}
 	LabelPad 6, { }
 	LabelPad 7, { }
-	LabelPad 8, { } 
-	LabelPad 9, { } 
-	LabelPad 10,{ }
-	LabelPad 11,{ }
-	LabelPad 12,{ }
-	LabelPad 13,{ }	
-	LabelPad 14, { }
-	LabelPad 15, { }
+	LabelPad 8, {S}, scn, { A}, sap, {      CH}, ch, { CC}, cc, { => MIN }, min
+	LabelPad 9, {S}, scn, { A}, sap, {      CH}, ch, { CC}, cc, { => MID }, mid
+	LabelPad 10,{S}, scn, { A}, sap, {      CH}, ch, { CC}, cc, { => MAX }, max
+	LabelPad 11,{S}, scn, { A}, sap, {      CH}, ch, { CC}, cc, { RAMP }, min, {-}, max
+	LabelPad 12,{S}, scn, { A}, sap, {      CH}, ch, { CC}, cc, { RAMP }, max, {-}, min
+	LabelPad 13,{RESET S}, scn, {          AUTOM}, sap
+	LabelPad 14,{RESET S}, scn, {          ALL AUTOMS}
+	LabelPad 15,{RESET ALL SCENES}
 	if edit_mode_active
 		LabelPad 4, {EDIT =>}
 			for i = 4 to 7
@@ -472,11 +594,18 @@
 	if record_autom_on
 		ColorPad 3, 1
 	endif
+	ColorPad 13, 1
+	ColorPad 14, 1
+	ColorPad 15, 1
+	Call @SetupKnobset1
+	knob_set = 1 //settings knobs
 @End
 
 @OnKnobChange
 	if knob_set = 0 
 	  Call @KnobChangeSet0 //# scene settings
+	elseif knob_set = 1
+  	Call @KnobChangeSet1	//# settings knobs
 	elseif knob_set = 4
   	Call @KnobChangeSet4	//# automation params
   elseif knob_set = 5
@@ -493,12 +622,8 @@
 @UpdateCurrentKnobset
 	//# On entering select mode the following need knobsets selected
 	if in_mode_select	//# disable knobs in_mode_select
-		LabelKnobs { }
-		LabelKnob 0, { }
-		LabelKnob 1, { }
-		LabelKnob 2, { }
-		LabelKnob 3, { }
-		knob_set = 99 //# dummy number to disable
+		Call @SetupKnobset1
+		knob_set = 1 //settings knobs
 	else
 		if knob_set = 0 
 		  Call @SetupKnobset0 //# scene settings
@@ -521,7 +646,7 @@
 	knob_set = 0
 	LabelPads {AUTOM : [ SCENES ]}
 	LabelKnobs {SCENE SETUP}
-	LabelKnob 0, {Scene }, edit_scene+1
+	LabelKnob 0, {Edit Scn }, edit_scene+1
 	LabelKnob 1, {Bars }, scene_durs[edit_scene]
 	LabelKnob 2, { }
 	LabelKnob 3, { }
@@ -548,6 +673,37 @@
 	LabelKnob 1, {Bars }, scene_durs[edit_scene]
 	LabelKnob 2, { }
 	LabelKnob 3, { }
+@End
+
+@SetupKnobset1
+	//# Settings knobs
+	knob_set = 1
+	LabelKnob 0, {Edit Scn }, edit_scene+1
+	LabelKnob 1, { }
+	LabelKnob 2, {MIN }, auto_ramp_min 
+	LabelKnob 3, {MAX }, auto_ramp_max
+	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
+	SetKnobValue 2, auto_ramp_min
+	SetKnobValue 3, auto_ramp_max
+@End
+
+@KnobChangeSet1
+	//# settings knobs
+	if LastKnob = 0
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		if val <> edit_scene
+			edit_scene = val
+		endif
+	endif
+	if LastKnob = 2
+	  auto_ramp_min = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
+	  LabelKnob 2, {MIN }, auto_ramp_min 
+  endif
+	if LastKnob = 3
+	  auto_ramp_max = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+	  LabelKnob 3, {MAX }, auto_ramp_max
+	endif
+	Call @SetupSettingsLayout
 @End
 
 @SetupKnobset4
@@ -592,7 +748,6 @@
 		if record_autom_on
 			break_point = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
 			LabelKnob 2, {REC cc# }, break_point
-			// xyz
 			if HostRunning
 				data_slot = (current_scene*128) + scene_beat_count
 				auto_lane=sel_autom_pad
@@ -652,12 +807,12 @@
 	SetKnobValue 13, auto_ramp_max
 	//# Set KnobValues for automation slots
 	for i = 3 to 10
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + (i-3)
+		data_slot = (auto_scene*128) + (auto_adv_bar * HostBeatsPerMeasure) + (i-3)
 		Call @GetAutoValueAtDataSlot
 		SetKnobValue i, TranslateScale break_point, -1, 127, 0, 127
 	endfor
 	for i = 14 to 21
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + (i-6)
+		data_slot = (auto_scene*128) + (auto_adv_bar * HostBeatsPerMeasure) + (i-6)
 		Call @GetAutoValueAtDataSlot
 		SetKnobValue i, TranslateScale break_point, -1, 127, 0, 127
 	endfor	
@@ -693,14 +848,17 @@
 	endif
 	if LastKnob = 0
 	  auto_scene =  Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		edit_scene = auto_scene
+		auto_adv_bar = 0
 		Call @LabelAutomationKnobs
+		SetKnobValue 2, TranslateScale auto_adv_bar, 0, auto_adv_max, 0, 127 //mv fwd back in current scene
 	endif
 	if LastKnob = 2
 	  auto_adv_bar =  Round TranslateScale (GetKnobValue 2), 0, 127, 0, auto_adv_max
 		Call @LabelAutomationKnobs
 	endif
 	if (LastKnob>=3 and LastKnob<=10) or (LastKnob>=14)
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure)
+		data_slot = (auto_scene*128) + (auto_adv_bar * HostBeatsPerMeasure)
 		knob_slot=LastKnob-3
 		if LastKnob>=14
 			knob_slot=LastKnob-6
@@ -712,9 +870,8 @@
 @End
 
 @ApplyAutoRamp
-	data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure)
 	for i = 0 to 15
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i
+		data_slot = (auto_scene*128) + (auto_adv_bar * HostBeatsPerMeasure) + i
 		ramp_val = auto_ramps[(auto_ramp*16)+i]
 		break_point = Clip (Round ((ramp_val / 127 * (auto_ramp_max-auto_ramp_min)) + auto_ramp_min)), 0, 127
 		Call @UpdateAutomationPoint
@@ -1001,7 +1158,7 @@
 	endfor
 	for i = 3 to 10
 	  curr_bar = (Div ((song_bar* HostBeatsPerMeasure) + i-3), HostBeatsPerMeasure) - scene_durs[auto_scene] + auto_adv_bar
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i-3
+		data_slot = (auto_scene*128) + (auto_adv_bar * HostBeatsPerMeasure) + i-3
 		LabelKnob i, curr_bar+1, {:}, (((song_bar* HostBeatsPerMeasure) + i-3) % HostBeatsPerMeasure)+1
 		Call @GetAutoValueAtDataSlot
 		SetKnobValue i, TranslateScale break_point, -1, 127, 0, 127
@@ -1009,7 +1166,7 @@
 	for i = 14 to 21
 	  curr_bar = (Div ((song_bar* HostBeatsPerMeasure) + i-6) , HostBeatsPerMeasure) - scene_durs[auto_scene] + auto_adv_bar
 	  LabelKnob i, curr_bar+1, {:}, (((song_bar* HostBeatsPerMeasure) + i-6) % HostBeatsPerMeasure)+1
-		data_slot = ((song_bar - scene_durs[auto_scene] + auto_adv_bar)*HostBeatsPerMeasure) + i-6
+		data_slot = (auto_scene*128) + (auto_adv_bar * HostBeatsPerMeasure) + i-6
 		Call @GetAutoValueAtDataSlot
 		SetKnobValue i, TranslateScale break_point, -1, 127, 0, 127
 	endfor
@@ -1019,8 +1176,9 @@
 	LabelKnob 12, {RMin}, auto_ramp_min 
 	LabelKnob 13, {RMax}, auto_ramp_max 
 	LabelKnob 0, {Scene }, auto_scene+1
-	LabelKnob 2, {Begin B}, song_bar + auto_adv_bar - scene_durs[auto_scene] + 1 
-	LabelKnobs {[ch},ch+1, { cc}, cc, {] AUTOMATION-}, auto_lane+1, {   Scene }, auto_scene+1, { Bars: }, song_bar-scene_durs[auto_scene]+1, { to }, song_bar
+	begin_bar = song_bar + auto_adv_bar - scene_durs[auto_scene] + 1
+	LabelKnob 2, {Begin B}, begin_bar
+	LabelKnobs {[ch},ch+1, { cc}, cc, {] AUTOM}, auto_lane+1, {   SCN}, auto_scene+1, { Bars: }, auto_adv_bar+1, {-}, auto_adv_bar+4, { of }, scene_durs[auto_scene]
 	if auto_ramp=0
 		LabelKnob 1, {LOW}
 	elseif (auto_ramp=1)
