@@ -1541,7 +1541,7 @@ if seq_type=0
     seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
     Call @GetStepVal
     SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
-	Call @SetupLayout
+		Call @SetupLayout
   endif
   if LastKnob = 1 //# SEQ_TO_EDIT
     seq_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 4
@@ -2847,10 +2847,7 @@ endif
   elseif (mode=8 or mode=6 or mode=7) and sel_pad_type=2
   	LabelPad sel_pad, {==>}
   endif
-  //# Pad labelling for other seq modes
-  if (mode>=9) and (mode<=12) and sel_pad_type=0 and label_style=4
-  	LabelPad sel_pad, { }
-  elseif (mode>=9) and (mode<=12) and sel_pad_type=2  and label_style<=4
+  if (mode>=9) and (mode<=12) and sel_pad_type=2  and label_style<=4
   	LabelPad sel_pad, {==>}
   endif
   //# Hide data for pads outside seq length
