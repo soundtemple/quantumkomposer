@@ -19,7 +19,9 @@
 		in_mode_select = TRUE //# Toggle for changing modes mode
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		print_preset=TRUE
-		interpolate_on=FALSE
+		interpolate_autom=TRUE
+		FillArray interpolation_buffer, -1, 48
+		last_pad_again=FALSE
 		Call @GetAutoRamps
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupSettingsLayout
@@ -86,10 +88,10 @@
 	FillArray automation_chs,-1,16 //# knobs used to store and locate the param to automate
 	FillArray automation_pads,-1,16 //# knobs used to store and locate the param to automate
 	
-	automation_labels = [3,3,3,3,     0,0,38,24, 6,6,6,6, 6,6,6,6]
+	automation_labels = [3,3,3,3,     1,0,38,24, 6,6,6,6, 6,6,6,6]
 	automation_chs    = [13,13,13,13, 0,0,14,14, 4,5,6,7, 8,9,10,11]
-	automation_ccs    = [34,50,66,82, 0,0,60,92, 13,13,13,13, 13,13,13,13]
-	automation_cols   = [2,6,3,4,     0,0,5,5, 3,3,3,3,4,4,4,4]
+	automation_ccs    = [34,50,66,82, 7,0,60,92, 13,13,13,13, 13,13,13,13]
+	automation_cols   = [2,6,3,4,     1,0,5,5, 3,3,3,3,4,4,4,4]
 	
 	//MACRO SECTION
 	sel_macro=0 //# currently selected for editing
@@ -116,6 +118,27 @@
 	SetLFOType 1, {RampDown}
 	SetupLFO 0, 0, 127, YES, 0.5
 	SetupLFO 1, 0, 127, YES, 0.5
+@End
+
+@ResetAutomToStart
+	//Return autom to 0:0
+	SendMIDICC automation_chs[0], automation_ccs[0], Clip auto_data_ch0[0], 0, 127
+	SendMIDICC automation_chs[1], automation_ccs[1], Clip auto_data_ch1[0], 0, 127
+	SendMIDICC automation_chs[2], automation_ccs[2], Clip auto_data_ch2[0], 0, 127
+	SendMIDICC automation_chs[3], automation_ccs[3], Clip auto_data_ch3[0], 0, 127
+	SendMIDICC automation_chs[4], automation_ccs[4], Clip auto_data_ch4[0], 0, 127
+	SendMIDICC automation_chs[5], automation_ccs[5], Clip auto_data_ch5[0], 0, 127
+	SendMIDICC automation_chs[6], automation_ccs[6], Clip auto_data_ch6[0], 0, 127
+	SendMIDICC automation_chs[7], automation_ccs[7], Clip auto_data_ch7[0], 0, 127
+	SendMIDICC automation_chs[8], automation_ccs[8], Clip auto_data_ch8[0], 0, 127
+	SendMIDICC automation_chs[9], automation_ccs[9], Clip auto_data_ch9[0], 0, 127
+	SendMIDICC automation_chs[10], automation_ccs[10], Clip auto_data_ch10[0], 0, 127
+	SendMIDICC automation_chs[11], automation_ccs[11], Clip auto_data_ch11[0], 0, 127
+	SendMIDICC automation_chs[12], automation_ccs[12], Clip auto_data_ch12[0], 0, 127
+	SendMIDICC automation_chs[13], automation_ccs[13], Clip auto_data_ch13[0], 0, 127
+	SendMIDICC automation_chs[14], automation_ccs[14], Clip auto_data_ch14[0], 0, 127
+	SendMIDICC automation_chs[15], automation_ccs[15], Clip auto_data_ch15[0], 0, 127
+	FillArray interpolation_buffer, -1, 48
 @End
 
 
@@ -160,21 +183,23 @@
 		Call @HandleSceneChange
 	endif
 	Call @LogCurrentInfo
-	Call @SendAutomationData
 	Call @StoreRecordAutoData
 @End
 
 @OnMetroPulse
-	//send interpolated autom data inbetween OnNewBeat automation data
-  if HostBeat=2
+	//send interpolated autom data inbetween OnNewBeat (HostBeat=0) automation data
+  cmp_mod=CurrentMetroPulse%4
+	if cmp_mod = 0 //on the beat
+		Call @SendAutomationData
+	elseif interpolate_autom and (cmp_mod>=1 and cmp_mod<=3) and (cmp_mod+1 <= HostBeatsPerMeasure)
 		for i = 0 to 15
-			if interpolation_buffer[i] >= 0
-				SendMidiCC automation_chs[0], automation_ccs[0], interpolation_buffer[i]
+			if interpolation_buffer[(i*3) + (cmp_mod-1)] >= 0
+				SendMidiCC automation_chs[i], automation_ccs[i], interpolation_buffer[(i*3) + (cmp_mod-1)]
+				// Log {Buffer pulse val: }, interpolation_buffer[(i*3) + (cmp_mod-1)], { CMP:}, cmp_mod, { CH:}, i
 			endif
 		endfor
 	endif
 @End
-
 
 @OnNewBar
 @End
@@ -284,9 +309,10 @@
 		elseif LastPad=7
 		  LabelPad 7, {LFO'S COMING  SOON!}
 		elseif LastPad=1
-			Exit //# Not in use
+			Call @ResetAutomToStart
+			LabelPad 1, {AUTOM RESET}
 		elseif LastPad=2
-			interpolate_on = not interpolate_on
+			interpolate_autom = not interpolate_autom
 			Call @SetupSettingsLayout	
 		elseif LastPad=3
 			record_autom_on = not record_autom_on 
@@ -384,7 +410,7 @@
 			ramp_val = (i/ramp_length * 127)
 			break_point = Clip (Round ((ramp_val / 127 * (auto_ramp_max-auto_ramp_min)) + auto_ramp_min)), 0, 127
 			data_slot = (edit_scene*128)+i 
-			log {Breakpoint }, break_point, { at slot }, data_slot
+			// log {Breakpoint }, break_point, { at slot }, data_slot
 			Call @UpdateAutomationPoint
 		endfor
 	elseif scene_task=12 // ramp down
@@ -394,7 +420,7 @@
 			ramp_val = 127 - (i/ramp_length * 127)
 			break_point = Clip (Round ((ramp_val / 127 * (auto_ramp_max-auto_ramp_min)) + auto_ramp_min)), 0, 127
 			data_slot = (edit_scene*128)+i 
-			log {Breakpoint }, break_point, { at slot }, data_slot
+			// log {Breakpoint }, break_point, { at slot }, data_slot
 			Call @UpdateAutomationPoint
 		endfor
 	elseif scene_task=14 //reset all autom pads this scene
@@ -585,11 +611,11 @@
 	max=auto_ramp_max
 	mid=Div (auto_ramp_min+auto_ramp_max), 2
 	LabelPad 0, {SCENES}
-	LabelPad 1, { }
-	if interpolate_on
-		LabelPad 2, {INTER POLATE COMING SOON}
+	LabelPad 1, {RESET AUTOM}
+	if interpolate_autom
+		LabelPad 2, {SMOOTH AUTOM ON}
 	else
-	  LabelPad 2, {INTER POLATE OFF}
+	  LabelPad 2, {SMOOTH AUTOM OFF}
 	endif
 	LabelPad 3, {RECORD AUTOM}
 	LabelPad 4, {EDIT}
@@ -1335,124 +1361,169 @@
 
 @SendAutomationData
 	//# Send automation data and set buffer val for HostBeat2
+	FillArray interpolation_buffer, -1, 48
 	auto_data_slot = (current_scene*128) + scene_beat_count
   next_data_slot = Clip (auto_data_slot+1), 0, 1024
-	bp1=-1 // unless all 4 set to val >=0 we dont send midi cc
-	bp2=-1
-	cc=-1
-	ch=-1
 	if auto_data_ch0[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=0)
 		bp1 = auto_data_ch0[auto_data_slot]
 		bp2 = auto_data_ch0[next_data_slot]
 		ch = automation_chs[0]
 		cc = automation_ccs[0]
+		b_ch=0
+		Call @SetInterpolationBuffer
+		SendMIDICC ch, cc, bp1
 	endif
 	if auto_data_ch1[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=1)
 		bp1 = auto_data_ch1[auto_data_slot]
 		bp2 = auto_data_ch1[next_data_slot]
 		ch = automation_chs[1]
 		cc = automation_ccs[1]
+		b_ch=1
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch2[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=2)
 		bp1 = auto_data_ch2[auto_data_slot]
 		bp2 = auto_data_ch2[next_data_slot]
 		ch = automation_chs[2]
 		cc = automation_ccs[2]
+		b_ch=2
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch3[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=3)
 		bp1 = auto_data_ch3[auto_data_slot]
 		bp2 = auto_data_ch3[next_data_slot]
 		ch = automation_chs[3]
 		cc = automation_ccs[3]
+		b_ch=3
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch4[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=4)
 		bp1 = auto_data_ch4[auto_data_slot]
 		bp2 = auto_data_ch4[next_data_slot]
 		ch = automation_chs[4]
 		cc = automation_ccs[4]
+		b_ch=4
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch5[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=5)
 		bp1 = auto_data_ch5[auto_data_slot]
 		bp2 = auto_data_ch5[next_data_slot]
 		ch = automation_chs[5]
 		cc = automation_ccs[5]
+		b_ch=5
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch6[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=6)
 		bp1 = auto_data_ch6[auto_data_slot]
 		bp2 = auto_data_ch6[next_data_slot]
 		ch = automation_chs[6]
 		cc = automation_ccs[6]
+		b_ch=6
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch7[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=7)
 		bp1 = auto_data_ch7[auto_data_slot]
 		bp2 = auto_data_ch7[next_data_slot]
 		ch = automation_chs[7]
 		cc = automation_ccs[7]
+		b_ch=7
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch8[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=8)
 		bp1 = auto_data_ch8[auto_data_slot]
 		bp2 = auto_data_ch8[next_data_slot]
 		ch = automation_chs[8]
 		cc = automation_ccs[8]
+		b_ch=8
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch9[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=9)
 		bp1 = auto_data_ch9[auto_data_slot]
 		bp2 = auto_data_ch9[next_data_slot]
 		ch = automation_chs[9]
 		cc = automation_ccs[9]
+		b_ch=9
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch10[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=10)
 		bp1 = auto_data_ch10[auto_data_slot]
 		bp2 = auto_data_ch10[next_data_slot]
 		ch = automation_chs[10]
 		cc = automation_ccs[10]
+		b_ch=10
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch11[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=11)
 		bp1 = auto_data_ch11[auto_data_slot]
 		bp2 = auto_data_ch11[next_data_slot]
 		ch = automation_chs[11]
 		cc = automation_ccs[11]
+		b_ch=11
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch12[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=12)
 		bp1 = auto_data_ch12[auto_data_slot]
 		bp2 = auto_data_ch12[next_data_slot]
 		ch = automation_chs[12]
 		cc = automation_ccs[12]
+		b_ch=12
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch13[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=13)
 		bp1 = auto_data_ch13[auto_data_slot]
 		bp2 = auto_data_ch13[next_data_slot]
 		ch = automation_chs[13]
 		cc = automation_ccs[13]
+		b_ch=13
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch14[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=14)
 		bp1 = auto_data_ch14[auto_data_slot]
 		bp2 = auto_data_ch14[next_data_slot]
 		ch = automation_chs[14]
 		cc = automation_ccs[14]
+		b_ch=14
+		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 	if auto_data_ch15[auto_data_slot] >= 0 and not (record_autom_on and sel_autom_pad=15)
 		bp1 = auto_data_ch15[auto_data_slot]
 		bp2 = auto_data_ch15[next_data_slot]
 		ch = automation_chs[15]
 		cc = automation_ccs[15]
-	endif
-	
-	Call @SetInterpolationBuffer
-	if bp1>=0 and ch>=0 and cc>=0 
+		b_ch=15
 		SendMIDICC ch, cc, bp1
+		Call @SetInterpolationBuffer
 	endif
 @End
 
 @SetInterpolationBuffer
 	//store a val to be sent betweeen this beat and the next ie HostBeat2
-	if bp1=-1 or bp2=-1
-		bf_val = -1
-	else
-	  bf_val = Div (bp1 + bp2), 2
+	if interpolate_autom
+		if bp1=-1 or bp2=-1
+			buffer = [-1, -1, -1]
+		else
+			bf1 = Clip (Round (bp1 + ((bp2-bp1) * 0.25))), 0, 127
+			bf2 = Clip (Round (bp1 + ((bp2-bp1) * 0.50))), 0, 127
+			bf3 = Clip (Round (bp1 + ((bp2-bp1) * 0.75))), 0, 127
+			buffer = [bf1, bf2, bf3]
+		endif 
+		CopyArray buffer, interpolation_buffer[(b_ch * 3)], 3
+		//Log {b-ch:}, b_ch, { vals: }, interpolation_buffer[(b_ch * 3)], {-}, interpolation_buffer[(b_ch * 3)+1], {-}, interpolation_buffer[(b_ch * 3)+2]
 	endif
-	interpolation_buffer[0] = bf_val
-	Log {Scene: }, current_scene+1, { BeatCount: }, scene_beat_count, { Buffer val: }, bf_val
 @End
  
 @LabelAutomPad
