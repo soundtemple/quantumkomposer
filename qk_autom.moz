@@ -244,6 +244,18 @@
   	swng=MIDIByte3
   	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
   	Call @SetupLayoutScenes
+	elseif MIDIChannel=15 and MIDIByte2>=1 and MIDIByte2<=16 //AUTOM lanes control
+		// incoming cc control ch15 cc1-16 to control the 16 autom lanes 
+		break_point = MIDIByte3
+		inc_autom_pad = MIDIByte2-1
+		if record_autom_on
+			//here we send the cc and add bp to a buffer which during rec is add to each beat once there is a value
+			rec_auto_buffer[inc_autom_pad] = break_point //stored even when host stopped so can record value on host start
+			SendMIDICC automation_chs[inc_autom_pad], automation_ccs[inc_autom_pad], break_point
+			Log {From Twister sending CH:}, automation_chs[inc_autom_pad], { CC:}, automation_ccs[inc_autom_pad], { VAL:}, break_point
+		else
+			SendMIDICC automation_chs[inc_autom_pad], automation_ccs[inc_autom_pad], break_point
+		endif
 	endif
 @End
 
