@@ -187,8 +187,12 @@
 	// CCs101-108 OUT: scene duration update. IN: SCENE CHANGE REQ	
 	// CCs109-127 THRU: CH Mixer & Transport
 	Log {Lowr: }, lower_mx_ccs_max, { uppr: }, upper_mx_ccs_min
-	if MIDIChannel <> 15
-		Exit
+	if MIDIChannel=14 and MIDIByte2>=1 and MIDIByte2<=16
+		//AUTOM 16 lanes control
+		SendMIDIThruOnCh 15
+	
+	elseif MIDIChannel <> 15
+		Exit //other cc's must be on ch16 (1-16)
 	
 	elseif MIDIByte2<=13 or MIDIByte2>=113 //MIXER CONTROLS  curr_ch (21<>113)
 		//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF,EQ) 
@@ -310,9 +314,11 @@
 			  Call @OnPadUp2
 			endif
 		endif
-	elseif MIDIChannel=0 and MIDINote<=16 //FWD to Drum Computer manual pattern change
-		SendMIDIThru 
-		Log {Sending DC Pattern change note}
+	elseif MIDIChannel=15
+		SendMIDIThruOnCh midi_chans[current_chan]
+	else 	
+		SendMIDIThru // other channels are passed thru for playing instruments 
+		Log {Notes on other channels thru}
 	endif
 @End
 
