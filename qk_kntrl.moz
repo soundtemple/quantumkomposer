@@ -31,6 +31,7 @@
 		send_cc_back_to_knobs = TRUE
 		midi_controller=[15,14,15,16,17] //midi controller channel then 4 ccs
 		scene_copied=FALSE
+		loop_song_mode=FALSE
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
@@ -585,7 +586,10 @@
 				SendMIDINoteOff ch, n, 127 // handle sometimes stuck notes from KORDS
 			endfor
 		endfor
-	elseif mode=0 and last_pad>=13 and last_pad<=15
+	elseif mode=0 and last_pad=13 //toggle loop song / play song n stop
+		loop_song_mode = not loop_song_mode
+		Call @SetupLayoutScenes
+	elseif mode=0 and last_pad>=14 and last_pad<=15
 		Call @HandleTransportRequest
 	elseif mode=0 and last_pad=9 // return to song mode
 		SendMIDICC 15, cc_rtn_to_song_mode, 127
@@ -903,11 +907,17 @@
 		scene_change_requested = -1
   elseif (songmode > 0)
   	current_scene = current_scene
-  elseif (current_scene = 7) //# End of song. Loop back to beginning 
+  elseif (current_scene = 7) //# End of song. Loop back to beginning
     current_scene = 0 
+		if not loop_song_mode
+			SendMIDICC 15, 111, 127
+		endif
   elseif scene_durs[current_scene + 1] <= 0
   	//# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
+		if not loop_song_mode
+			SendMIDICC 15, 111, 127
+		endif
   else
 		current_scene = current_scene + 1 //# Going to next
   endif
@@ -1684,7 +1694,11 @@
 	ColorPad 13, col_unused
 	ColorPad 14, col_unused
 	ColorPad 15, col_unused
-	LabelPad 13, {<<RWD}
+	if loop_song_mode
+		LabelPad 13, {LOOP SONG MODE}
+	else
+	  LabelPad 13, {LOOP SONG OFF}
+	endif
 	LabelPad 14, {[STOP]}
 	LabelPad 15, {PLAY>}
 @End
@@ -2079,7 +2093,7 @@
 		if mode=1 or mode=7// Channels setup
 			chan_pad=i //settings mode label and pad pos. diff
 			Call @LabelChanPad
-		elseif mode=6 // MG mode 
+		elseif mode=6 // MGEN mode 
 			if i<=8
 				mgen_pad=i //settings mode last mgen pad in pad slot 7
 				Call @LabelMGENPad
