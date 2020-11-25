@@ -218,6 +218,9 @@
 		in_mode_select=FALSE
 		last_pad = MIDIByte2-24
 		mode=1
+		if last_pad = curr_chan //user hit goto channel pad twice
+			SendMIDICC chan_midi_chs[curr_chan], 124, 127 //toggle instrument GUI
+		endif
 		Call @PadDownChannelsMode
 		Call @SetupDefMixerCCs //use set a or b RMkr or DrumComputer 
 		
@@ -316,10 +319,20 @@
 			endif
 		endif
 	elseif MIDIChannel=15
-		SendMIDIThruOnCh midi_chans[current_chan]
+		SendMIDIThruOnCh chan_midi_chs[curr_chan]
 	else 	
 		SendMIDIThru // other channels are passed thru for playing instruments 
 		Log {Notes on other channels thru}
+	endif
+@End
+
+@OnMidiInput
+	if MIDICommand=0xD0 or MIDICommand=0xE0 //Aftertouch or pitchbend
+		if MIDIChannel=15
+			SendMIDIThruOnCh chan_midi_chs[curr_chan]
+		else
+		  SendMIDIThru
+		endif
 	endif
 @End
 

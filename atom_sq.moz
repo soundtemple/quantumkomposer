@@ -7,6 +7,7 @@
 	rhs_as_kntrl_kntrl=TRUE //RHS keys Kntrl kntrl OR sel channels
 	curr_chan=4
 	curr_mgen=0
+	keys_as_keyboard_only=TRUE // don use ATOM is controller, just keyboard
 	btn_ccs=[82,83,84,85,109,99]
 	knob_vals = [90,90,90,90, 0,0,64,90]
 	lhs_notes=[36,40,43,47, 48,52,55,59, 60,64,67,71, 72,76,79,83] //notes used. we copy a or b here
@@ -78,7 +79,9 @@
 @End
 
 @OnMidiNote
-	if shift_a and shift_b and MIDIByte2<=15 and MIDIChannel=15 and shift_a and shift_b
+	if keys_as_keyboard_only 
+		SendMIDIThruOnCh 15
+	elseif shift_a and shift_b and MIDIByte2<=15 and MIDIChannel=15 and shift_a and shift_b
 	  SendMIDIThruOnCh 0 // Trigger Drum Computer patterns manually
 		Log {SHIFT A & B ACTIVE: Use KNTRL PADS to trigger Drum Computer Patterns}
 	elseif shift_a and MIDIChannel=15 and MIDIByte2<=15 and MIDIByte3>0 //KEYS OUT MIDI CH + switch to instr.
