@@ -172,16 +172,16 @@
 		// #ms is incoming_midi_scale
 		midi_in_scale_notes[scale_degree] = (selected_midi_in_root + midi_in_scales[scale_loc + scale_degree]) % 12 
 	endfor
-	Log {Passing notes: }, (NoteName midi_in_scale_notes[1]), { }, (NoteName midi_in_scale_notes[3]), { }, (NoteName midi_in_scale_notes[5])
-	Log {Play chord notes with: }, { }, (NoteName midi_in_scale_notes[0]), { }, (NoteName midi_in_scale_notes[2]), { }, (NoteName midi_in_scale_notes[4]), { }, (NoteName midi_in_scale_notes[6])
-	Log {Incoming melody scale: }, RootNoteName, { }, ScaleName
+	//Log {Passing notes: }, (NoteName midi_in_scale_notes[1]), { }, (NoteName midi_in_scale_notes[3]), { }, (NoteName midi_in_scale_notes[5])
+	//Log {Play chord notes with: }, { }, (NoteName midi_in_scale_notes[0]), { }, (NoteName midi_in_scale_notes[2]), { }, (NoteName midi_in_scale_notes[4]), { }, (NoteName midi_in_scale_notes[6])
+	//Log {Incoming melody scale: }, RootNoteName, { }, ScaleName
 @End
 
 @OnHostStart
 	//# Start beat count on same beat as host
 	//# In AUM getting HostBeat to start on 0 seems flaky
 	//# Fixed by BramBos in June2020
-	Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
+	//Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
 	if (HostBeat = 0) and (HostBar = 0)
 		Log {Host beat n bar =0}
 		//# starting playback from beginning		
@@ -207,14 +207,14 @@
 		scene_beat_count = scene_completed_bars + HostBeat
 		chord_beat_count = chord_completed_bars + HostBeat
 	endif
-	Log {---- Host Started ----}
+	//Log {---- Host Started ----}
 	Call @SetupLayout
 @End
 
 @OnHostStop
 	Call @SetupLayout
   Call @ResetBeatCounts
-  Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
+  //Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
   Call @SetupLayout
 @End 
 
@@ -268,7 +268,7 @@
 	elseif (chord_beat_count >= current_chord_duration)
 		Call @HandleChordChange
 	endif
-	Call @LogCurrentInfo
+	// Call @LogCurrentInfo
 @End
 
 @TimeForTurnaround
@@ -284,7 +284,7 @@
 	//# Log scene_beat_count, { === }, (current_scene_duration - HostBeatsPerMeasure)
 	if (songmode <= 1) and (chord6 = 0) and (chord7 = 4) and (current_chord <= 5) and (scene_beat_count = current_scene_duration - HostBeatsPerMeasure)
 		time_for_turnaround = TRUE
-		Log {Its TURN AROUND TIME!!}
+		//Log {Its TURN AROUND TIME!!}
 	endif
 @End
 
@@ -316,7 +316,7 @@
   endif
   
   Call @ResetBeatCounts
-  Log {----- SCENE CHANGE -----}, {S}, current_scene+1
+  //Log {----- SCENE CHANGE -----}, {S}, current_scene+1
   Call @HandleChordChange //# Scene change effect chord change
 @End
 
@@ -359,7 +359,7 @@
   if not in_mode_select
 	  LabelPads {_QK:KORDS  Scene: }, current_scene+1, { Chord: }, current_chord+1
   endif
-  Log {----- CHORD CHANGE -----}, {C}, current_chord+1
+  //Log {----- CHORD CHANGE -----}, {C}, current_chord+1
   Call @SetupLayout
 @End
 
@@ -388,7 +388,7 @@
 			Call @LogCurrentSceneToPresetFormat
 		elseif (LastPad>=2 and LastPad<=4) //# +CHORDS MODES
 			mode = LastPad-1 //# shifting mode to add kontroller slave in menu
-			Log {MODE:}, mode-1
+			//Log {MODE:}, mode-1
 			in_mode_select = FALSE
 		elseif (LastPad>=8 and LastPad<=13)
     	//# midi setup modes - dont exit in_select_mode
@@ -408,7 +408,7 @@
 	    ColorPad 8, 3
 		else
 			mode = LastPad
-			Log {MODE:}, mode
+			//Log {MODE:}, mode
 			in_mode_select = FALSE
 		endif
 		Call @HandleModeChange
@@ -436,10 +436,10 @@
 	    	Call @CopyPaste //# copy paste chord
 	    endif
 		elseif (mode = 15) and (LastPad <= 7) //# reset mode
-    	Log {Reset scene called}
+    	//Log {Reset scene called}
     	Call @ResetScene   
  	 	elseif (mode = 15) and (LastPad >= 7)
-    	Log {Reset chord called}
+    	//Log {Reset chord called}
     	Call @ResetChord
   	endif
   	if NOT HostRunning and (LastPad >= 8)
@@ -484,12 +484,12 @@
 		//# in_select_mode = FALSE its already been exited
 		if copy_mode=0 //# scene
 			copied_scene = current_scene
-			Log {Copied current s}, current_scene+1
+			//Log {Copied current s}, current_scene+1
 			LabelPads {Current scene copied. Select a scene to paste to}
 		elseif copy_mode=1 //# chord
 			copied_scene = current_scene //# just for labelling
 			copied_chord = current_chord
-			Log {Copied current chord }, current_chord+1
+			//Log {Copied current chord }, current_chord+1
 			LabelPads {Current chord copied. Select a scene, then a chord slot to paste to}
 		endif
 	elseif mode = 8
@@ -521,14 +521,14 @@
 	//# handle scene/chord change xopds
   if (LastPad >= 0 and LastPad <= 7)
   	//# Scene change
-  	Log { SCENE CHANGE REQUESTED }
+  	//Log { SCENE CHANGE REQUESTED }
 	  scene_change_requested = LastPad
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
 	elseif (LastPad >= 8 and LastPad <= 15) 	
   	//# User Chord change 
-  	Log { CHORD CHANGE REQUESTED }
+  	//Log { CHORD CHANGE REQUESTED }
   	chord_change_requested = LastPad - 8 //# chrd 0-7
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleChordChange 
@@ -579,7 +579,7 @@
 
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
-	Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
+	// Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
 	if MIDIChannel>=4 and MIDIChannel<=11 and MIDIByte2<=4
 		SendMIDIThru // step cc automation from NOTES. Allowed ccs 0-4 only. 
 	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
@@ -673,7 +673,7 @@
 	endif	
 	
 	//# Update chord pads
-	Log {Chord notes }, chord_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th, { 7th VAL: }, chord_bank[chord_slot + 3], { BASS VAL: }, chord_bank[chord_slot + bass_slot]
+	//Log {Chord notes }, chord_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th, { 7th VAL: }, chord_bank[chord_slot + 3], { BASS VAL: }, chord_bank[chord_slot + bass_slot]
 	chrd_to_label = current_chord+8
 	Call @LabelChordPad
 @End
@@ -702,7 +702,7 @@
 	chord_bank[chord_slot + 2] = chord_5th
 	chord_bank[chord_slot + 3] = chord_7th
 
-	Log {Root: }, (NoteName constructed_root), { 3rd: }, c3rd_intervals[constructed_3rd], { 5th: }, c5th_intervals[constructed_5th], { 7th: }, c7th_intervals[constructed_7th], { Chord notes }, constructed_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th, { 7th: }, chord_bank[chord_slot + 3], { BASS: }, chord_bank[chord_slot + bass_slot]
+	//Log {Root: }, (NoteName constructed_root), { 3rd: }, c3rd_intervals[constructed_3rd], { 5th: }, c5th_intervals[constructed_5th], { 7th: }, c7th_intervals[constructed_7th], { Chord notes }, constructed_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th, { 7th: }, chord_bank[chord_slot + 3], { BASS: }, chord_bank[chord_slot + bass_slot]
 	chrd_to_label = current_chord+8
 	Call @LabelChordPad
 @End
@@ -871,13 +871,13 @@
 		//# Log {Chord is triad. Incoming scale degree is 7th, so no output}
 	elseif(sc_harm_mode = 3) and (chord_bass = -1)
 		outgoing_note_canceled = TRUE //#No bass note for Bass only mode
-		Log {No bass note set for Bass only Harmonization mode}
+		//Log {No bass note set for Bass only Harmonization mode}
 	elseif (NOT incoming_scale_degree) and (sc_harm_mode <> 7 and sc_harm_mode <> 2)
-		Log {NOT A SCALE NOTE AND SCHARMode: }, sc_harm_mode
+		//Log {NOT A SCALE NOTE AND SCHARMode: }, sc_harm_mode
 		outgoing_note_canceled = TRUE //# Not a scale note
 	elseif (NOT incoming_is_chord_note) and (sc_harm_mode <> 1 and sc_harm_mode <> 2 and sc_harm_mode <> 7) 
 		//# Only Round2chord, NonChord, & Thru modes can have passing notes 
-		Log {Not a chord note and mode: }, sc_harm_mode
+		//Log {Not a chord note and mode: }, sc_harm_mode
 		outgoing_note_canceled = TRUE
 	elseif (sc_harm_mode = -1)
 		outgoing_note_canceled = TRUE //# block notes mode
@@ -906,16 +906,16 @@
 		//# Handle single note harmony modes
 		//# Positions based on root inversion, non-re-ordered chord notes
 		if incoming_is_chord_note and sc_harm_mode = 3 //# Bass only
-			Log {CONVERT ALL TO BASS}
+			//Log {CONVERT ALL TO BASS}
 			HAR_NOTE_OUT = chord_bass
 		elseif (incoming_is_chord_note and sc_harm_mode = 4) //# Root only
-			Log {CONVERT ALL TO ROOT}
+			//Log {CONVERT ALL TO ROOT}
 			HAR_NOTE_OUT = chord_root
 		elseif (incoming_is_chord_note and sc_harm_mode = 5) //# 3rd only
-			Log {CONVERT ALL TO 3RD}
+			//Log {CONVERT ALL TO 3RD}
 			HAR_NOTE_OUT = chord_3rd
 		elseif (incoming_is_chord_note and sc_harm_mode = 6) //# 5th only
-			Log {CONVERT ALL TO 5TH}
+			//Log {CONVERT ALL TO 5TH}
 			HAR_NOTE_OUT = chord_5th
 		endif
 				
@@ -991,7 +991,7 @@
 				velocity = velocity_dipped
 			endif
 	    SendMIDINoteOn MIDIChannel, HAR_NOTE_OUT, velocity  
-			Log {Melody note sent CH},MIDIChannel, { - }, HAR_NOTE_OUT, { HBEAT:}, HostBeat, { HBAR:}, HostBar
+			//Log {Melody note sent CH},MIDIChannel, { - }, HAR_NOTE_OUT, { HBEAT:}, HostBeat, { HBAR:}, HostBar
 		endif
 	elseif (sc_harm_mode = 7) 
 		//# ignore scn_txpose and octave adj in thru mode
@@ -1184,21 +1184,21 @@
 @End
 
 @HandleRecordNotes
-	Log {HANDLING RECORD NOTES TO CHORD SLOT}
+	//Log {HANDLING RECORD NOTES TO CHORD SLOT}
 	if (mode = 3) and (rec_chord_note_count <= 3)
   	//# In record mode and chord selected for updating
-    Log {Chord note recieved num: }, rec_chord_note_count
+    //Log {Chord note recieved num: }, rec_chord_note_count
     
     if rec_chord_note_count = 0
 	    //# Recording is happening so reset the current notes
 	    chord_slot = (current_scene * 100) + (current_chord * 10)
 	    for i = 0 to 3
-	    	Log {RESETTING CHORD SLOT }, chord_slot+i
+	    	//Log {RESETTING CHORD SLOT }, chord_slot+i
   	  	chord_bank[chord_slot+i] = -1
     	endfor
     	chord_bank[chord_slot+inv_slot] = 0 //# start new chord with no inv.
     	rec_chord_notes = [-1,-1,-1,-1] //# reset array to empty
-    	Log {Current chord: }, current_chord
+    	//Log {Current chord: }, current_chord
     	chrd_to_label = current_chord+8
     	Call @LabelChordPad //# re-label after notes reset
     endif
@@ -1225,7 +1225,7 @@
   for i = 0 to 3
   	if rec_chord_notes[i] >= 0
 	  	chord_bank[chord_slot + i] = rec_chord_notes[i]
-	  	Log {Chord note }, i, { is }, rec_chord_notes[i], { in chord slot}, chord_slot+i
+	  	//Log {Chord note }, i, { is }, rec_chord_notes[i], { in chord slot}, chord_slot+i
 	  else
 	  	chord_bank[chord_slot + i] = -1
 	  endif
@@ -1243,21 +1243,21 @@
 		chord_bank[(current_scene*100) + (c*10)] = [-1, -1, -1, -1, 0, 0, -1]
 	endfor
   Call @SetupLayout
-  Log {Scene }, LastPad +1, { reset. All chords for scene reset}
+  //Log {Scene }, LastPad +1, { reset. All chords for scene reset}
 @End
 
 @ResetChord
 	chord_slot = (current_scene * 100) + ((LastPad - 8) * 10)
   //# 4 chord notes, duration, inv, bass, pattern_msg 
   chord_bank[chord_slot] = [-1,-1,-1,-1,0,0,-1,-1]
-  Log {Chord }, LastPad +1, { reset}
+  //Log {Chord }, LastPad +1, { reset}
   Call @SetupLayout
 @End
 
 @CopyPaste
 	//# copy paste scenes and chords xcp
 	if LastPad <=7
-		Log {Pasting scene to }, current_scene+1 
+		//Log {Pasting scene to }, current_scene+1 
 		LabelPads {Copied Scene }, copied_scene+1, { to Scene }, LastPad+1
 		CopyArray scene_bank[copied_scene * sc_size], scene_bank[LastPad * sc_size], 10
 		CopyArray chord_bank[copied_scene * 100], chord_bank[LastPad * 100], 100
@@ -1265,7 +1265,7 @@
 		songmode = 1
 		mode=0
 	elseif LastPad >= 8
-		Log {pasting to chord }, LastPad-8
+		//Log {pasting to chord }, LastPad-8
 		LabelPads	{Copied S}, copied_scene+1, { Chord }, copied_chord+1, { to }, {S}, current_scene+1, { Chord }, LastPad-7
 		chord_slot_from = (copied_scene * 100) + (copied_chord * 10)
 		chord_slot_to = (current_scene * 100) + ((LastPad-8) * 10)
@@ -2113,7 +2113,7 @@
 
 @SortList
   //# set list to sort to sort_list and len_list to # items is your list
-  Log {List to sort }, sort_list[0], sort_list[1], sort_list[2], sort_list[3]
+  //Log {List to sort }, sort_list[0], sort_list[1], sort_list[2], sort_list[3]
   changed = 1
   while (changed = 1)
     changed = 0
@@ -2126,7 +2126,7 @@
       endif
     endfor
   endwhile
-  Log {Sorted List: }, sort_list[0], sort_list[1], sort_list[2], sort_list[3]
+  //Log {Sorted List: }, sort_list[0], sort_list[1], sort_list[2], sort_list[3]
 @End
 
 @LabelScenePad
@@ -2260,7 +2260,7 @@
 			if rec_chord_note_count = 0
 				LabelPad current_chord+8, {... waiting}
 			endif
-			Log {REC CHORDS}
+			//Log {REC CHORDS}
 	  endif
 	  if (mode >= 1)
 	  	LatchPad current_scene, YES

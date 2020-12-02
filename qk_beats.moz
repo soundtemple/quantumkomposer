@@ -205,7 +205,7 @@
 	//# Start beat count on same beat as host
 	//# In AUM getting HostBeat to start on 0 seems flaky
 	//# Fixed by BramBos in June2020
-	Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
+	//Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
 	SetMetroSwing scene_swing[current_scene] 
 	if (HostBeat = 0) and (HostBar = 0)
 		//# starting playback from beginning		
@@ -239,7 +239,7 @@
 		in_mid_step=[0,0,0,0]
 		
 	endif
-	Log {---- Host Started ----}
+	//Log {---- Host Started ----}
 	Call @SetupLayout
 @End
 
@@ -253,7 +253,7 @@
 		  playing_notes[i] = -1
 		endif
 	endfor  
-  Log {---- Host Stopped ---- }, scene_beat_count, { - }, pattn_beat_count 
+  //Log {---- Host Stopped ---- }, scene_beat_count, { - }, pattn_beat_count 
   Call @SetupLayout
 @End 
 
@@ -395,13 +395,13 @@
 			cc_val = Clip (cc_val+cc_mutate_val), 0, 127
 		endif
 		SendMIDICC midi_out_chs[ch], cc_vals[ch], cc_val
-		Log {Sending midi cc: }, midi_out_chs[ch], {-}, cc_vals[ch], {-}, cc_val
+		//Log {Sending midi cc: }, midi_out_chs[ch], {-}, cc_vals[ch], {-}, cc_val
 	endif
 	if step_type=1 //# turn on new note
 		if velo_mutation[ch]>=1 //# mutate velo_val
 			mutate_val = Random -velo_mutation[ch], velo_mutation[ch]
 			velo_val = Clip (velo_val+mutate_val), 0, 127
-			Log {Mutate velo amt: }, mutate_val
+			//Log {Mutate velo amt: }, mutate_val
 		endif
 		SendMIDINoteOn midi_out_chs[ch], note_val, velo_val
 		playing_notes[ch]= note_val
@@ -412,11 +412,11 @@
 
 
 @OnNewBar
-	Log {--- new bar ---}
+	//Log {--- new bar ---}
 @End 
 
 @OnNewBeat
-	Log {--- new beat ---}
+	//Log {--- new beat ---}
 	//# increment beat counts xonb
 	scene_beat_count = scene_beat_count + 1
 	pattn_beat_count = pattn_beat_count + 1
@@ -451,7 +451,7 @@
 	elseif (pattn_beat_count >= current_pattn_duration)
 		Call @HandlePatternChange
 	endif
-	Call @LogCurrentInfo
+	// Call @LogCurrentInfo
 @End
 
 @TimeForTurnaround
@@ -499,7 +499,7 @@
   scene_beat_count = 0
 	pattn_beat_count = 0
   SetMetroSwing scene_swing[current_scene]
-  Log {----- SCENE CHANGE -----}, {S}, current_scene+1, { SWING: }, scene_swing[current_scene], {%}
+  //Log {----- SCENE CHANGE -----}, {S}, current_scene+1, { SWING: }, scene_swing[current_scene], {%}
   Call @HandlePatternChange //# Scene change effect pattn change
 @End
 
@@ -545,7 +545,7 @@
   
   //# Label pads
   LabelPads {_QK:BEATS  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
-  Log {----- PATTERN CHANGE -----}, {S}, current_scene+1, { P}, current_pattn+1, { PS}, pattn_slot
+  //Log {----- PATTERN CHANGE -----}, {S}, current_scene+1, { P}, current_pattn+1, { PS}, pattn_slot
   Call @SetupLayout
 @End
 
@@ -653,7 +653,7 @@
 			in_mode_select = FALSE
 		else
 			mode = LastPad
-			Log {MODE:}, mode
+			//Log {MODE:}, mode
 			in_mode_select = FALSE
 		endif
 		//# Handle mode change
@@ -684,13 +684,14 @@
 	//# NOT IN MODE SELECT......
 	elseif (NOT in_mode_select and NOT in_seq_mode)
 		//# handle mode actions if record or reset else do knob scene change
-		if not (mode=6 or mode=7)
+		if not (copy_paste_status=2 or mode=7)
 			Call @OnPadDown_ScenePatternChange
 	 	endif
 		Call @OnPadDown_KnobSetSelect
 		if (mode = 6) //# COPY/PASTE
     	//# only call CP if pad and copy mode correspond
-    	if copy_mode=0 and LastPad<=7
+    	//log {Copy pasta!}
+			if copy_mode=0 and LastPad<=7
 	    	copy_paste_status=2 //# PASTE
     		return_to_mode=0
     		Call @CopyPaste //# copy paste scene
@@ -700,11 +701,11 @@
     		Call @CopyPaste //# copy paste pattn
 	    endif
 		elseif (mode = 7) and (LastPad <= 7) //# reset mode
-    	Log {Reset scene called}
+    	//Log {Reset scene called}
     	reset_type=0
     	Call @ResetScenePatternSequence   
  	 	elseif (mode = 7) and (LastPad >= 7)
-    	Log {Reset pattn called}
+    	//Log {Reset pattn called}
     	reset_type=1
     	Call @ResetScenePatternSequence
   	endif
@@ -736,7 +737,7 @@
   		reset_type=2 //# reset a sequence pad
     	Call @ResetScenePatternSequence
   	else	
-  		Log {STEP SELECTED }, LastPad+1
+  		//Log {STEP SELECTED }, LastPad+1
   	endif
   	sel_step=LastPad
   	Call @SetupLayout
@@ -747,14 +748,14 @@
 	//# handle scene/pattn change xopds
   if (LastPad >= 0 and LastPad <= 7)
   	//# Scene change
-  	Log { SCENE CHANGE REQUESTED }
+  	//Log { SCENE CHANGE REQUESTED }
 	  scene_change_requested = LastPad
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
 	elseif (LastPad >= 8 and LastPad <= 15) 	
   	//# User Pattern change 
-  	Log { CHORD CHANGE REQUESTED }
+  	//Log { CHORD CHANGE REQUESTED }
   	pattn_change_requested = LastPad - 8 //# chrd 0-7
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandlePatternChange 
@@ -815,7 +816,7 @@
 
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
-	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
+	// Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
 	if (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
 		//# handle scene duration change
 		scene_durs[MIDIByte2-101] = MIDIByte3
@@ -943,7 +944,7 @@
 		pattn_octs[current_scene*8] = [0,0,0,0,0,0,0,0]
 		paste_slot=(LastPad*128)
 		steps_to_copy=(16*8)
-		Log {Scene }, LastPad +1, { reset. All pattns for scene reset}
+		//Log {Scene }, LastPad +1, { reset. All pattns for scene reset}
 		
 		//# Also RESET euclidean info 4types, 4chs, 8patts
 		euc_reset_slot=(current_scene*128)			
@@ -955,7 +956,7 @@
   	pattn_octs[pattn_slot] = 0
   	paste_slot=(current_scene*128)+((LastPad-8)*16)
 		steps_to_copy=16
-		Log {Pattern }, LastPad +1, { S}, current_scene+1, { reset}
+		//Log {Pattern }, LastPad +1, { S}, current_scene+1, { reset}
 		
 		//# Also RESET euclidean info 4types, 4chs = 16steps to copy
 		euc_reset_slot=(current_scene*128)+((LastPad-8)*16)
@@ -966,7 +967,7 @@
 		steps_to_copy=1
 		if label_view_mode=4 //#copypaste seq_ch only
 			reset_all_channels=FALSE
-			Log {Step }, LastPad +1, { reset}
+			//Log {Step }, LastPad +1, { reset}
 		endif
  	endif 
 	
@@ -993,7 +994,7 @@
 	//# copy paste scenes. patterns. sequences xcp
 	if LastPad <=7 and not in_seq_mode
 		//# copy pasting a scene
-		Log {Pasting scene to }, current_scene+1 
+		//Log {Pasting scene to }, current_scene+1 
 		LabelPads {Copied scene }, copied_scene+1, { to scene }, LastPad+1
 		scene_durs[LastPad] = scene_durs[copied_scene] 
 		//# CopyArray source, dest, cells 
@@ -1280,12 +1281,12 @@
   knob_set = 3
   LabelPads {Select a noteset type}
   
-SetKnobValue 0, TranslateScale note_set_type, 0, 2, 0, 127
-SetKnobValue 3, 0
-Call @LabelSet3
-
-if note_set_type=0
-	//# Allow note input from a selected scale
+	SetKnobValue 0, TranslateScale note_set_type, 0, 2, 0, 127
+	SetKnobValue 3, 0
+	Call @LabelSet3
+	
+	if note_set_type=0
+		//# Allow note input from a selected scale
 	  SetKnobValue 1, TranslateScale scale_root, 0, 11, 0, 127
   	SetKnobValue 2, 0
   elseif note_set_type=1 
@@ -2037,7 +2038,7 @@ if note_set_type=0
     prev_step = curr_step
   endfor
   CopyArray new_notes, n, 16
-  Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]   
+  //Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]   
 @End
 
 @ApplyEuclideanSteps
@@ -2225,7 +2226,7 @@ if note_set_type=0
 	p_slot = (current_scene*128)+(current_pattn*16)
 	range = sg_hi - sg_lo
 	if range < 0
-		Log {BAD RANGE! Will use 0}
+		//Log {BAD RANGE! Will use 0}
 		range = 0
 	endif    
 	
@@ -2235,7 +2236,7 @@ if note_set_type=0
 	log kiks[160]
 	if sg_type[seq_ch]=1 //# kik pattern
 		CopyArray kiks[loc], p, 16 
-		Log {A KIK Sequence has been generated}
+		//Log {A KIK Sequence has been generated}
 	elseif sg_type[seq_ch]=2 //# snr pattern
 		CopyArray snrs[sg_gen[seq_ch] * 16], p, 16
 	elseif sg_type[seq_ch]=3 //# hat pattern
@@ -2316,7 +2317,6 @@ if note_set_type=0
 
 @SetupKnobset9
   //# ROTATION
-  Log {KNOBSET 9 setup}
   knob_set = 9
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { ROTATE}
   rot_dir=0 //# reset on setup knobs
@@ -2753,7 +2753,7 @@ endif
 @End
 
 @LoadDrumPatterns
-	Log {--- LOADING DRUM PATTERNS ---}
+	//Log {--- LOADING DRUM PATTERNS ---}
 	//# Instant Haus HOUSE patterns 0-15 xgd xlsp
 	//# Instant Haus Breaks patterns 16-31
 	//# Hat1 32 patterns; hat2 32 patterns
@@ -2892,7 +2892,7 @@ endif
 @End
 
 @LoadRampPatterns
-	Log {--- LOADING RAMP PATTERNS ---}
+	//Log {--- LOADING RAMP PATTERNS ---}
 	//# Ramps for Arp, Velo and CC generations xgr
  	//# convert to VELO or CC# = Round (val/16*127)
  	//# convert to NOTE = Round (val/16*12)
