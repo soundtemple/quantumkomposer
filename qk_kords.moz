@@ -419,7 +419,7 @@
 	//# NOT IN MODE SELECT......
 	elseif NOT in_mode_select
 		//# handle mode actions if record or reset else do knob scene change
-		if not (mode=15 or mode=6)
+		if not (mode=15 or copy_mode=2)
 			Call @OnPadDown_SceneChordChange //dont change if deleting or copy/pasting
 		endif	
 	 	Call @OnPadDown_KnobSetSelect
@@ -1417,7 +1417,7 @@
 	else
 		LabelKnob 3, {Bass }, {Off}
 	endif
-	SetKnobValue 0, TranslateScale chrd_duration, 0, 64, 0, 127
+	SetKnobValue 0, TranslateScale chrd_duration, 0, 127, 0, 127
 	SetKnobValue 2, TranslateScale chrd_inversion, -4, 4, 0, 127
 	SetKnobValue 3, TranslateScale chrd_bass, -1, 11, 0, 127
 @End
@@ -1425,7 +1425,7 @@
 //# chord settings
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	if LastKnob = 0
-	  chrd_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 64
+	  chrd_duration = (Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127)+1
 	  if chrd_duration <> chord_bank[chord_slot + dur_slot] 
 		  chord_bank[chord_slot + dur_slot] = chrd_duration
 		  dur_bars = Div chrd_duration, 4
@@ -2147,25 +2147,29 @@
 	//# txpose amount. get value stored on dial use to access array of st amounts
 	txpose_index = scene_bank[(current_scene * sc_size) + sc_txp_slot]
 	sta = txpose_array[txpose_index] //# scene txpose amount
-	cn1 = chord_bank[chord_slot]
-	cn2 = chord_bank[chord_slot + 1]
-	cn3 = chord_bank[chord_slot + 2]
-	cn4 = chord_bank[chord_slot + 3]
+	cn1 = (chord_bank[chord_slot] + 12 + sta) % 12
+	cn2 = (chord_bank[chord_slot + 1] + 12 + sta) % 12
+	cn3 = (chord_bank[chord_slot + 2] + 12 + sta) % 12
+	if chord_bank[chord_slot + 3] >= 0
+		cn4 = (chord_bank[chord_slot + 3] + 12 + sta) % 12
+	else
+		cn4 = chord_bank[chord_slot + 3] // ie -1 no 7th note
+	endif
 	cd = chord_bank[chord_slot + dur_slot]
 	cd_bars = Div cd, 4
 	lc_beats = (cd % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
 	ci = chord_bank[chord_slot + inv_slot]
 	if chord_bank[chord_slot + bass_slot] >= 0
-		cb = chord_bank[chord_slot + bass_slot] + 12 + sta
+		cb = (chord_bank[chord_slot + bass_slot] + 12 + sta) % 12
 	else
 		cb = chord_bank[chord_slot + bass_slot] //# ie -1
 	endif
 	
 	Call @ReorderNoteLabelsForInversion
 	if cn4 >= 0 //# A tetrad witha a note i cn4 
-		LabelPad chrd_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}, { Inv:}, 	ci, {     Root:}, (NoteName cn1), {     Bass:}, (NoteName cb), {      }, (NoteName invo[0]), (NoteName invo[1]+sta), (NoteName invo[2]+sta), (NoteName invo[3]+sta)  
+		LabelPad chrd_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}, { Inv:}, 	ci, {     Root:}, (NoteName cn1), {     Bass:}, (NoteName cb), {      }, (NoteName invo[0]), (NoteName invo[1]), (NoteName invo[2]), (NoteName invo[3])  
 	else
-		LabelPad chrd_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}, { Inv:}, 	ci, {     Root:}, (NoteName cn1), {     Bass:}, (NoteName cb), {      }, (NoteName invo[0]+sta), (NoteName invo[1]+sta), (NoteName invo[2]+sta)
+		LabelPad chrd_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}, { Inv:}, 	ci, {     Root:}, (NoteName cn1), {     Bass:}, (NoteName cb), {      }, (NoteName invo[0]), (NoteName invo[1]), (NoteName invo[2])
 	endif
 @End
 
