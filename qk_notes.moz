@@ -1183,7 +1183,7 @@
   patt_bars = Div patt_dur, 4
   patt_beats = (patt_dur % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
   patt_oct = pattn_octs[pattn_slot]
-  SetKnobValue 2, TranslateScale patt_dur, 0, 64, 0, 127
+  SetKnobValue 2, TranslateScale patt_dur, 0, 127, 0, 127
   SetKnobValue 3, TranslateScale patt_oct, -1, 1, 0, 127
   SetKnobValue 0, 0
   SetKnobValue 1, 0
@@ -1197,7 +1197,7 @@
   //# PATTN SETUP KNOBS xs1
   pattn_slot = (current_scene * 8) + current_pattn
   if LastKnob = 2
-	  pattn_duration = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 64
+	  pattn_duration = (Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127)+1
 	  if pattn_duration <> pattn_durs[pattn_slot] 
 		  pattn_durs[pattn_slot] = pattn_duration
 		  dur_bars = Div pattn_duration, 4
