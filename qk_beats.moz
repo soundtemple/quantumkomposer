@@ -127,9 +127,9 @@
 	sg_gen=[0,0,0,0]
 	//# Mutation / Morph
 	mutable_steps=[1,2,3, 5,6,7, 9,10,11, 13,14,15] //# steps we allow mutation
-	step_mutation = [0,0,0,0] //# on/off mutation per ch
-	velo_mutation = [0,0,0,0] //# +/- range for mutation amt per ch
-	cc_mutation = [0,0,0,0] //# +/- range for mutation amt per ch
+	FillArray step_mutation, 0, 32 //# on/off mutation per ch
+	FillArray velo_mutation, 0, 32 //# +/- range for mutation amt per ch
+	FillArray cc_mutation, 0, 32 //# +/- range for mutation amt per ch
 	mutate_step=[-1,-1,-1,-1] //# THE rnd step which will mutate per channel 
 @End
 
@@ -286,10 +286,10 @@
 				curr_pattn_pulses[ch]=0
 				curr_steps[ch]=0
 				//# generate step to mutate
-				if step_mutation[ch]>0 and step_mutation[ch]<=50
-					mchnce=(Random 0,99) < (step_mutation[ch]*2) 
-				elseif step_mutation[ch]>=51
-					mchnce=(Random 0,99) < (step_mutation[ch]-50)*2
+				if step_mutation[(current_scene*4) + ch]>0 and step_mutation[(current_scene*4) + ch]<=50
+					mchnce=(Random 0,99) < (step_mutation[(current_scene*4) + ch]*2) 
+				elseif step_mutation[(current_scene*4) + ch]>=51
+					mchnce=(Random 0,99) < (step_mutation[(current_scene*4) + ch]-50)*2
 				endif 
 				if mchnce //# chance a mutable step generated
 					mutate_step[ch] = mutable_steps[(Random 0,11)]
@@ -328,11 +328,11 @@
 		step_type = seq3_steps[step_slot]
 	endif
 	
-	if step_mutation[ch]>=1 and (mutate_step[ch] = curr_steps[ch])
+	if step_mutation[(current_scene*4) + ch]>=1 and (mutate_stepmutate_step[ch] = curr_steps[ch])
 		//# mutate this step
 		if step_type=0
 			mutated_step=1 //# turn on steps
-		elseif step_type>0 and step_mutation[ch]>=51 
+		elseif step_type>0 and step_mutation[(current_scene*4) + ch]>=51 
 			mutated_step=0 //# only turn off steps if step_mut>50
 		endif
 		step_type=mutated_step
@@ -389,17 +389,17 @@
 		note_val = note_val + oct_adj
 	endif
 	if cc_val >= 0 //# send cc message FIRST, so note plays at cc val setting
-		if cc_mutation[ch]>=1 //# mutate cc
-			cc_mutate_val = Random -cc_mutation[ch], cc_mutation[ch]
-			//#Log {MUTATTION RANGE: }, -cc_mutation[ch], { to }, cc_mutation[ch], { B4CCVAL }, cc_val, { MUTVAL}, cc_mutate_val, { SUM }, Clip (cc_val+mutate_val), 0, 127
+		if cc_mutation[(current_scene*4) + ch]>=1 //# mutate cc
+			cc_mutate_val = Random -cc_mutation[(current_scene*4) + ch], cc_mutation[(current_scene*4) + ch]
+			//#Log {MUTATTION RANGE: }, -cc_mutation[(current_scene*4) + ch], { to }, cc_mutation[(current_scene*4) + ch], { B4CCVAL }, cc_val, { MUTVAL}, cc_mutate_val, { SUM }, Clip (cc_val+mutate_val), 0, 127
 			cc_val = Clip (cc_val+cc_mutate_val), 0, 127
 		endif
 		SendMIDICC midi_out_chs[ch], cc_vals[ch], cc_val
 		//Log {Sending midi cc: }, midi_out_chs[ch], {-}, cc_vals[ch], {-}, cc_val
 	endif
 	if step_type=1 //# turn on new note
-		if velo_mutation[ch]>=1 //# mutate velo_val
-			mutate_val = Random -velo_mutation[ch], velo_mutation[ch]
+		if velo_mutation[(current_scene*4) + ch]>=1 //# mutate velo_val
+			mutate_val = Random -velo_mutation[(current_scene*4) + ch], velo_mutation[(current_scene*4) + ch] 
 			velo_val = Clip (velo_val+mutate_val), 0, 127
 			//Log {Mutate velo amt: }, mutate_val
 		endif
@@ -2058,24 +2058,24 @@
 @SetupKnobset7
   //# MUTATION xs7
   knob_set = 7
-  LabelPads {MUTATION: Evolving Velocity, CC, & Step mutation - all scenes }
-  LabelKnobs {MUTATION AMOUNT} 
+  LabelPads {MUTATION: Evolving Velocity, CC, & Step mutation - per scene }
+  LabelKnobs {MUTATION AMOUNT S}, current_scene+1 
   
   SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
-  SetKnobValue 1, TranslateScale step_mutation[seq_ch], 0, 100, 0, 127
-  SetKnobValue 2, TranslateScale velo_mutation[seq_ch], 0, 64, 0, 127
-  SetKnobValue 3, TranslateScale cc_mutation[seq_ch], 0, 127, 0, 127
+  SetKnobValue 1, TranslateScale step_mutation[(current_scene*4) + seq_ch], 0, 100, 0, 127
+  SetKnobValue 2, TranslateScale velo_mutation[(current_scene*4) + seq_ch], 0, 64, 0, 127
+  SetKnobValue 3, TranslateScale cc_mutation[(current_scene*4) + seq_ch], 0, 127, 0, 127
 	
   LabelKnob 0, {CH: }, seq_ch+1
-  if step_mutation[seq_ch]>0 and step_mutation[seq_ch]<51 
-	  LabelKnob 1, {+STP}, step_mutation[seq_ch]*2, {%} 
-	elseif step_mutation[seq_ch]>=51 
-		LabelKnob 1, {+-STP}, (step_mutation[seq_ch]-50)*2, {%}
+  if step_mutation[(current_scene*4) + seq_ch]>0 and step_mutation[(current_scene*4) + seq_ch]<51 
+	  LabelKnob 1, {+STP}, step_mutation[(current_scene*4) + seq_ch]*2, {%} 
+	elseif step_mutation[(current_scene*4) + seq_ch]>=51 
+		LabelKnob 1, {+-STP}, (step_mutation[(current_scene*4) + seq_ch]-50)*2, {%}
 	else
 		LabelKnob 1, {STEP OFF}
 	endif
-  LabelKnob 2, {VELO }, velo_mutation[seq_ch]
-	LabelKnob 3, {CC }, cc_mutation[seq_ch]
+  LabelKnob 2, {VEL +/-}, velo_mutation[(current_scene*4) + seq_ch]
+	LabelKnob 3, {CC +/-}, cc_mutation[(current_scene*4) + seq_ch]
 @End
 
 @KnobChangeSet7
@@ -2085,31 +2085,31 @@
     if new_seq_ch <> seq_ch
 		seq_ch=new_seq_ch
 		Call @LabelAllSequencePads
-		SetKnobValue 1, TranslateScale step_mutation[seq_ch], 0, 100, 0, 127
-		SetKnobValue 2, TranslateScale velo_mutation[seq_ch], 0, 64, 0, 127
-		SetKnobValue 3, TranslateScale cc_mutation[seq_ch], 0, 127, 0, 127
+		SetKnobValue 1, TranslateScale step_mutation[(current_scene*4) + seq_ch], 0, 100, 0, 127
+		SetKnobValue 2, TranslateScale velo_mutation[(current_scene*4) + seq_ch], 0, 64, 0, 127
+		SetKnobValue 3, TranslateScale cc_mutation[(current_scene*4) + seq_ch], 0, 127, 0, 127
     endif
   endif
   if LastKnob = 1
-  	step_mutation[seq_ch] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 100
+  	step_mutation[(current_scene*4) + seq_ch] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 100
 	endif
   if LastKnob = 2
-    velo_mutation[seq_ch] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 64
+    velo_mutation[(current_scene*4) + seq_ch] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 64
   endif
   if LastKnob = 3
-    cc_mutation[seq_ch] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+    cc_mutation[(current_scene*4) + seq_ch] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
   endif
   
   LabelKnob 0, {CH: }, seq_ch+1
-  if step_mutation[seq_ch]>0 and step_mutation[seq_ch]<51 
-	  LabelKnob 1, {+STP}, step_mutation[seq_ch]*2, {%} 
-	elseif step_mutation[seq_ch]>=51 
-		LabelKnob 1, {+-STP}, (step_mutation[seq_ch]-50)*2, {%}
+  if step_mutation[(current_scene*4) + seq_ch]>0 and step_mutation[(current_scene*4) + seq_ch]<51 
+	  LabelKnob 1, {+STP}, step_mutation[(current_scene*4) + seq_ch]*2, {%} 
+	elseif step_mutation[(current_scene*4) + seq_ch]>=51 
+		LabelKnob 1, {+-STP}, (step_mutation[(current_scene*4) + seq_ch]-50)*2, {%}
 	else
 		LabelKnob 1, {STEP OFF}
 	endif
-  LabelKnob 2, {VELO }, velo_mutation[seq_ch]
-	LabelKnob 3, {CC }, cc_mutation[seq_ch]
+  LabelKnob 2, {VEL +/-}, velo_mutation[(current_scene*4) + seq_ch]
+	LabelKnob 3, {CC +/-}, cc_mutation[(current_scene*4) + seq_ch]
 @End
 
 @SetupKnobset8
@@ -2659,7 +2659,7 @@
 	elseif sel_pad_type=2
 		padColor=4
 	endif
-	if (step_mutation[seq_ch]>=1) and (mutate_step[seq_ch]=sel_pad) 
+	if (step_mutation[(current_scene*4) + seq_ch]>=1) and (mutate_step[seq_ch]=sel_pad) 
 			padColor=6 //# highlight mutating step
 	endif
 	if (mode=7) and (sel_pad_type>0) //# delete reset pads mode
