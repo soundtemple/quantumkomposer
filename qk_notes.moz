@@ -19,6 +19,7 @@
 	  in_seq_mode = FALSE //# editing pattern steps mode
 	  allow_mode_chg_playbk = TRUE //# Mode change during playback
 	  return_to_song_mode_requested = FALSE //# used for switching on new bar 
+		notes_instance_as_melo = TRUE
 	  use_turn_around = TRUE //# last pattn as turn around on last bar of scene
 	  //# used for LED feedback
 	  send_cc_back_to_knobs = FALSE 
@@ -153,8 +154,8 @@
 	sel_scale = 0 // # an index to some scale types
 	curr_scale=[] //# current scale array
 	
-	//# Common scale degrees spread over 12 index slots for east
-	num_common_scales=15
+	//# Common scale degrees spread over 12 index slots for ease
+	num_common_scales=13
 	common_scales[0]     = [0,1,2,3,4,5,6,7, 8, 9,10,11] //#	Chromatic
 	common_scales[1*12]  = [0,0,2,4,4,5,7,7, 9, 9,11,11] //#	Major
 	common_scales[2*12]  = [0,0,2,3,3,5,7,7, 8, 8,10,10] //#	NatMin
@@ -165,14 +166,12 @@
 	common_scales[7*12]  = [0,0,2,4,4,6,6,7, 9, 9,11,11] //#	Lydian
 	common_scales[8*12]  = [0,0,2,4,4,5,7,7, 9, 9,10,10] //#	Mixolydian
 	common_scales[9*12]  = [0,1,3,3,3,5,6,6, 8, 8,10,10] //#	Locrian
-	common_scales[10*12] = [0,0,0,4,4,4,7,7, 7,11,11,11] //#	MG Major
-	common_scales[11*12] = [0,0,0,3,3,3,7,7, 7,10,10,10] //#	MG Minor
-	common_scales[12*12] = [0,0,2,4,4,4,7,7, 9, 9, 9, 9] //#	Major Pent
-	common_scales[13*12] = [0,0,3,3,3,5,7,7,10,10,10,10] //#	Minor Pent
-	common_scales[14*12] = [0,0,3,3,3,5,6,7,10,10,10,10] //#	Blues
+	common_scales[10*12] = [0,0,2,4,4,4,7,7, 9, 9, 9, 9] //#	Major Pent
+	common_scales[11*12] = [0,0,3,3,3,5,7,7,10,10,10,10] //#	Minor Pent
+	common_scales[12*12] = [0,0,3,3,3,5,6,7,10,10,10,10] //#	Blues
 	
 	//# Melody generation scale degrees
-	starting_indexes = [0,2,4,6] //# for Root, 3rd, 5th 7th
+	starting_indexes = [0,0,0,0] //# ie Root
 	mel_gen_scales[0]     = [0,2,4,5,7,9,11] //#	Chromatic use major
 	mel_gen_scales[1*12]  = [0,2,4,5,7,9,11] //#	Major
 	mel_gen_scales[2*12]  = [0,2,3,5,7,8,10] //#	NatMin
@@ -183,11 +182,9 @@
 	mel_gen_scales[7*12]  = [0,2,4,6,7,9,11] //#	Lydian
 	mel_gen_scales[8*12]  = [0,2,4,5,7,9,10] //#	Mixolydian
 	mel_gen_scales[9*12]  = [0,1,3,5,6,8,10] //#	Locrian
-	mel_gen_scales[10*12] = [0,0,4,4,7,7,11] //#	MG Major
-	mel_gen_scales[11*12] = [0,0,3,3,7,7,10] //#	MG Minor
-	mel_gen_scales[12*12] = [0,0,2,4,7,7, 9] //#	Major Pent
-	mel_gen_scales[13*12] = [0,0,3,5,7,7,10] //#	Minor Pent
-	mel_gen_scales[14*12] = [0,0,3,5,7,6,10] //#	Blues
+	mel_gen_scales[10*12] = [0,0,2,4,7,7, 9] //#	Major Pent
+	mel_gen_scales[11*12] = [0,0,3,5,7,7,10] //#	Minor Pent
+	mel_gen_scales[12*12] = [0,0,3,5,7,6,10] //#	Blues
 	index_last_note_p = 0 //# Calc note variable for recalling last note to be played
 	
 	Call @GetMidiINPUTScale //# set up init scale for midi input	
@@ -549,7 +546,7 @@
 	if in_mode_select and (LastPad <= (number_of_modes - 1))
 		if (HostRunning and (LastPad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
-		elseif LastPad=14 or LastPad=2
+		elseif LastPad=14
 			Exit //# Not in use
 		elseif (HostRunning and (LastPad>=3 and LastPad<=5))
 			Exit //# Not allowed in playback
@@ -557,6 +554,16 @@
 			Exit //# COPY PASTE not allowed
 		elseif (LastPad=7) and not (mode<=1 or mode>=8)
 			Exit //# DELETE not allowed
+		elseif (LastPad=2)
+		  notes_instance_as_melo = NOT notes_instance_as_melo
+			if notes_instance_as_melo
+				LabelPad 2, {=>KORDS }, { as MELODY}
+				midi_out_chs=[4,5,6,7]
+			else
+				LabelPad 2, {=>KORDS }, { as HARMONY}
+				midi_out_chs=[8,9,10,11]
+			endif
+			LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 		elseif (LastPad>=3 and LastPad<=5) or (LastPad=13 or LastPad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
     	LabelPad 6, { } //# CopyPaste not allowed
@@ -1322,15 +1329,11 @@
   	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Mixolydian}
   elseif sel_scale=9
   	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Locrian}
-  elseif sel_scale=10
-  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { _QK:Major}
-  elseif sel_scale=11
-  	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { _QK:Minor}
-  elseif sel_scale=12
+	elseif sel_scale=10
   	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Major Pent}
-  elseif sel_scale=13
+  elseif sel_scale=11
   	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Minor Pent}
-  elseif sel_scale=14
+  elseif sel_scale=12
   	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Blues}
   endif
   if knob_set=3
@@ -1391,20 +1394,15 @@ if seq_type=0
   elseif seq_type=1
   	//# oct val 0 to 6
   	seq_type_min=0
-  	if note_set_type=0
-	  	seq_type_max=6
-	  	if seq_ch=0
-		  	step_val=seq0_octs[step_slot]
-		  elseif seq_ch=1
-		  	step_val=seq1_octs[step_slot]
-		  elseif seq_ch=2
-		  	step_val=seq2_octs[step_slot]
-		  elseif seq_ch=3
-		  	step_val=seq3_octs[step_slot]
-		  endif
-	  elseif note_set_type>0
-	  	seq_type_max=0
-	  	step_val=0
+  	seq_type_max=6
+		if seq_ch=0
+	  	step_val=seq0_octs[step_slot]
+	  elseif seq_ch=1
+	  	step_val=seq1_octs[step_slot]
+	  elseif seq_ch=2
+	  	step_val=seq2_octs[step_slot]
+	  elseif seq_ch=3
+	  	step_val=seq3_octs[step_slot]
 	  endif
   elseif seq_type=2
   	//# velo val 0-127
@@ -1464,17 +1462,15 @@ if seq_type=0
 	  endif
   elseif seq_type=1
   	//# oct val 1 to 5
-  	if note_set_type=0
-	  	if seq_ch=0
-		  	seq0_octs[step_slot]=step_val
-		  elseif seq_ch=1
-		  	seq1_octs[step_slot]=step_val
-		  elseif seq_ch=2
-		  	seq2_octs[step_slot]=step_val
-		  elseif seq_ch=3
-		  	seq3_octs[step_slot]=step_val
-		  endif
-		endif
+  	if seq_ch=0
+	  	seq0_octs[step_slot]=step_val
+	  elseif seq_ch=1
+	  	seq1_octs[step_slot]=step_val
+	  elseif seq_ch=2
+	  	seq2_octs[step_slot]=step_val
+	  elseif seq_ch=3
+	  	seq3_octs[step_slot]=step_val
+	  endif
   elseif seq_type=2
   	//# velo val 0-127
   	if seq_ch=0
@@ -1779,11 +1775,7 @@ if seq_type=0
 	if (step_val=-1) and (seq_type=3)
 	  LabelKnob 2, {Ignore}
 	elseif (seq_type=0)
-		if note_set_type=0
-			LabelKnob 2, NoteName curr_scale[step_val]
-		elseif note_set_type>=1
-			LabelKnob 2, (NoteName curr_scale[step_val], YES), { (}, curr_scale[step_val],{)}
-		endif
+		LabelKnob 2, NoteName curr_scale[step_val]
 	elseif seq_type=1
 		LabelKnob 2, step_val
 	elseif seq_type=4
@@ -2572,7 +2564,11 @@ if seq_type=0
 			LabelPad 0, {PLAYSONG: Disabled}
 		endif
 		LabelPad 1, {SCENES/PATTERNS}
-		LabelPad 2, { }
+		if notes_instance_as_melo
+			LabelPad 2, {=>KORDS }, { as MELODY}
+		else
+		  LabelPad 2, {=>KORDS }, { as HARMONY}
+		endif
 		Call @LabelSet3
 		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 		LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]       [}, cc_vals[2],{-}, cc_vals[3],{]}
@@ -2790,21 +2786,14 @@ if seq_type=0
 	pattn_length = (16 - euc_vals[euc_slot+2])
 	//# Pad labeling notes, velo, cc etc
   x=15
-  if note_set_type=0
-  	o0=seq0_octs[step_slot]+1
-  	o1=seq1_octs[step_slot]+1
-  	o2=seq2_octs[step_slot]+1
-  	o3=seq3_octs[step_slot]+1
-  	n0=curr_scale[seq0_notes[step_slot]] + (12 * o0) 
-	  n1=curr_scale[seq1_notes[step_slot]] + (12 * o1)
-	  n2=curr_scale[seq2_notes[step_slot]] + (12 * o2)
-	  n3=curr_scale[seq3_notes[step_slot]] + (12 * o3)
-  elseif note_set_type>=1
-  	n0=curr_scale[seq0_notes[step_slot]]
-	  n1=curr_scale[seq1_notes[step_slot]]
-	  n2=curr_scale[seq2_notes[step_slot]]
-	  n3=curr_scale[seq3_notes[step_slot]]
-	endif
+	o0=seq0_octs[step_slot]+1
+	o1=seq1_octs[step_slot]+1
+	o2=seq2_octs[step_slot]+1
+	o3=seq3_octs[step_slot]+1
+	n0=curr_scale[seq0_notes[step_slot]] + (12 * o0) 
+  n1=curr_scale[seq1_notes[step_slot]] + (12 * o1)
+  n2=curr_scale[seq2_notes[step_slot]] + (12 * o2)
+  n3=curr_scale[seq3_notes[step_slot]] + (12 * o3)
 	n=[n0,n1,n2,n3]
   v0=seq0_velos[step_slot]
   v1=seq1_velos[step_slot]
