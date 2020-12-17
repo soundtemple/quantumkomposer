@@ -24,6 +24,8 @@
 	  send_cc_back_to_knobs = FALSE 
 	  midi_controller=[15,14,15,16,17] //midi controller channel then 4 ccs
 		mchnce=100
+		pattn_beat_count = 0
+		scene_beat_count = 0
     Call @InitKnobVariables //# All knob settings on load
 	  Call @SetupSequences
 	  Call @LoadDrumPatterns
@@ -328,7 +330,7 @@
 		step_type = seq3_steps[step_slot]
 	endif
 	
-	if step_mutation[(current_scene*4) + ch]>=1 and (mutate_stepmutate_step[ch] = curr_steps[ch])
+	if step_mutation[(current_scene*4) + ch]>=1 and (mutate_step[ch] = curr_steps[ch])
 		//# mutate this step
 		if step_type=0
 			mutated_step=1 //# turn on steps
