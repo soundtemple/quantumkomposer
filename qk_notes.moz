@@ -25,6 +25,8 @@
 	  send_cc_back_to_knobs = FALSE 
 	  midi_controller=[15,14,15,16,17] //midi controller channel then 4 ccs
 		mchnce=100
+		pattn_beat_count = 0
+		scene_beat_count = 0
     Call @InitKnobVariables //# All knob settings on load
 	  Call @SetupSequences
 	  Call @LoadArpPatterns
@@ -339,50 +341,32 @@
 	endif 
 	
 	if ch=0 
-		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
-			note_val=curr_scale[seq0_notes[step_slot]]
-		else //# ScaleDegree stored. Convert to note
-			oct_num = seq0_octs[step_slot]
-			scale_degree = seq0_notes[step_slot]
-			note_val = (oct_num*12) + (curr_scale[scale_degree]) 
-		endif
+		oct_num = seq0_octs[step_slot]
+		scale_degree = seq0_notes[step_slot]
+		note_val = (oct_num*12) + (curr_scale[scale_degree])
 		velo_val = seq0_velos[step_slot]
 		cc_val = seq0_ccs[step_slot]
 	elseif ch=1
-		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
-			note_val=curr_scale[seq1_notes[step_slot]]
-		else //# ScaleDegree stored. Convert to note
-			oct_num = seq1_octs[step_slot]
-			scale_degree = seq1_notes[step_slot]
-			note_val = (oct_num*12) + (curr_scale[scale_degree]) 
-		endif
+		oct_num = seq1_octs[step_slot]
+		scale_degree = seq1_notes[step_slot]
+		note_val = (oct_num*12) + (curr_scale[scale_degree]) 
 		velo_val = seq1_velos[step_slot]
 		cc_val = seq1_ccs[step_slot]
 	elseif ch=2
-		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
-			note_val=curr_scale[seq2_notes[step_slot]]
-		else //# ScaleDegree stored. Convert to note
-			oct_num = seq2_octs[step_slot]
-			scale_degree = seq2_notes[step_slot]
-			note_val = (oct_num*12) + (curr_scale[scale_degree]) 
-		endif
+		oct_num = seq2_octs[step_slot]
+		scale_degree = seq2_notes[step_slot]
+		note_val = (oct_num*12) + (curr_scale[scale_degree]) 
 		velo_val = seq2_velos[step_slot]
 		cc_val = seq2_ccs[step_slot]
 	elseif ch=3
-		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
-			note_val=curr_scale[seq3_notes[step_slot]]
-		else //# ScaleDegree stored. Convert to note
-			oct_num = seq3_octs[step_slot]
-			scale_degree = seq3_notes[step_slot]
-			note_val = (oct_num*12) + (curr_scale[scale_degree]) 
-		endif
+		oct_num = seq3_octs[step_slot]
+		scale_degree = seq3_notes[step_slot]
+		note_val = (oct_num*12) + (curr_scale[scale_degree]) 
 		velo_val = seq3_velos[step_slot]
 		cc_val = seq3_ccs[step_slot]
 	endif
 	oct_adj=12 //# handles octave 3 is from note 48 not from 36
-	if note_set_type=0
-		note_val = note_val + oct_adj
-	endif
+	note_val = note_val + oct_adj
 	if cc_val >= 0 //# send cc message FIRST
 		if cc_mutation[(current_scene*4) + ch]>=1 //# mutate cc
 			cc_mutate_val = Random -cc_mutation[(current_scene*4) + ch], cc_mutation[(current_scene*4) + ch]
