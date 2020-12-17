@@ -183,7 +183,6 @@
 	//# Fixed by BramBos in June2020
 	//Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
 	if (HostBeat = 0) and (HostBar = 0)
-		Log {Host beat n bar =0}
 		//# starting playback from beginning		
 		chord_beat_count = -1
 		scene_beat_count = -1
