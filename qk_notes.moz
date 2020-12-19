@@ -173,7 +173,7 @@
 	common_scales[12*12] = [0,0,3,3,3,5,6,7,10,10,10,10] //#	Blues
 	
 	//# Melody generation scale degrees
-	starting_indexes = [0,0,0,0] //# ie Root
+	starting_indexes = [0,2,4,6] //# ie Root
 	mel_gen_scales[0]     = [0,2,4,5,7,9,11] //#	Chromatic use major
 	mel_gen_scales[1*12]  = [0,2,4,5,7,9,11] //#	Major
 	mel_gen_scales[2*12]  = [0,2,3,5,7,8,10] //#	NatMin
@@ -2099,24 +2099,29 @@ if seq_type=0
 
 @LabelSeqGenKnobs
 	LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { SEQ GEN}
-	LabelPads {SEQUENCE GENERATION CH}, seq_ch+1, {: Hi & Lo for CC & VELO only.}
+	LabelPads {SEQUENCE GENERATION CH}, seq_ch+1
 	if sg_type[seq_ch]=0
 		LabelKnob 1, {SET RANGE}
 		label_style=4
  	elseif sg_type[seq_ch]=1
  		LabelKnob 1, {RYTM}
- 		label_style=4
+ 		LabelPads {RHYTHM GENERATION} 
+		label_style=4
 	elseif sg_type[seq_ch]=2
 		LabelKnob 1, {MELO}
+		LabelPads {MELODY GENERATION [influenced by rhythm, so add rhythm first!!]} 
 		label_style=1
 	elseif sg_type[seq_ch]=3
  		LabelKnob 1, {ARP}
+		LabelPads {ARPEGIATOR GENERATION}
  		label_style=1
 	elseif sg_type[seq_ch]=4
  		LabelKnob 1, {VELO}
+		LabelPads {VELOCITY RAMP GENERATION [use min / max]} 
  		label_style=2
  	elseif sg_type[seq_ch]=5
  		LabelKnob 1, {CC}
+		LabelPads {CC RAMP GENERATION [use min / max]} 
  		label_style=3
  	endif
  	LabelKnob 0, {CH: }, seq_ch+1
@@ -2137,7 +2142,7 @@ if seq_type=0
 @End
 
 @GenerateSequence
-	//# generate a sequence for a seq_ch xgs
+	//# generate a sequence for a seq_ch 
 	p_slot = (current_scene*128)+(current_pattn*16)
 	range = sg_hi - sg_lo
 	if range < 0
