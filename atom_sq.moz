@@ -31,6 +31,8 @@
 @OnMidiCC
 	if MIDIChannel=0 and MIDIByte2=1 //modwheel
 		SendMIDIThruOnCh 15 // converts to active channel in kntrl
+	elseif MIDIChannel=15 and (MIDIByte2>=35 and MIDIByte2<=38)
+	  SendMIDICC 15, MIDIByte2+70, MIDIByte3 // KNTRL knobs (ATOM SQ PRESET 1, KNOB PAGE 2)
 	elseif shift_a and MIDIChannel=0 and MIDIByte2=85 and MIDIByte3>0
 	  SendMIDICC 15, 88, 127 //Transport shift_a & STOP ==> Send ALLLL midi off notes
 	elseif MIDIChannel=0 and MIDIByte2=85 and MIDIByte3>0
