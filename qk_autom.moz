@@ -216,7 +216,7 @@
 		//# its time to increment scene
 		Call @HandleSceneChange
 	endif
-	//Call @LogCurrentInfo
+	Call @LogCurrentInfo
 	Call @StoreRecordAutoData
 @End
 
@@ -249,7 +249,7 @@
 		endif
 	elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
 		//# handle scene change requested (ie: PadDown Scene change)
-		scene_change_requested = MIDIByte3
+		// scene_change_requested = MIDIByte3 no scn chg just continue
 		locked_to_scene=MIDIByte3
 		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
@@ -631,8 +631,8 @@
 
 @LogCurrentInfo
 	current_scene_duration = scene_durs[current_scene]
-	Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
-	LabelPads {AUTOM : [ Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1, { ]}
+	// Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
+	LabelPads {[ AUTOM ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure) 
 @End
 
 @SetupSettingsLayout
@@ -1587,13 +1587,13 @@
 	if (label_num=0) 
 		LabelPad pad_to_label, {        }, { __________ }, { ch},ch, { cc}, cc //NOT ASSIGNED
 	elseif (label_num=1)
-		LabelPad pad_to_label, {VOL}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {VOLUME}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=2)
 		LabelPad pad_to_label, {DRY/WET}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=3)
-		LabelPad pad_to_label, {SEND A DLY}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {SEND DLY}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=4)
-		LabelPad pad_to_label, {SEND B RVB}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {SEND RVB}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=5)
 		LabelPad pad_to_label, {HPF}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=6)
@@ -1613,13 +1613,13 @@
 	elseif (label_num=13)
 		LabelPad pad_to_label, {NOISE}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=14)
-		LabelPad pad_to_label, {PITCH}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {SHIMMER}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=15)
-		LabelPad pad_to_label, {OCTAVE}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {LPFX}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=16)
-		LabelPad pad_to_label, {OSC A VOL}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {HPFX}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=17)
-		LabelPad pad_to_label, {OSC B VOL}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {RESNTOR}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=18)
 		LabelPad pad_to_label, {ATTACK}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=19)
@@ -1651,37 +1651,37 @@
 	elseif (label_num=32)
 		LabelPad pad_to_label, {DELAY}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=33)
-		LabelPad pad_to_label, {REVEB}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {REVERB}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=34)
 		LabelPad pad_to_label, {CHORUS}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=35)
 		LabelPad pad_to_label, {PHASER}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=36)
-		LabelPad pad_to_label, {SATURATE}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {BASS TONE}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=37)
-		LabelPad pad_to_label, {DISTORT}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {ARP TONE}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=38)
-		LabelPad pad_to_label, {FEEDBACK}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {LEAD TONE}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=39)
-		LabelPad pad_to_label, {SIZE}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {PADS TONE}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=40)
-		LabelPad pad_to_label, {TIME}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {PLUCK TONE}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=41)
-		LabelPad pad_to_label, {BRIGHTNESS}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {BASS2 TONE}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=42)
-		LabelPad pad_to_label, {WIDTH}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {DRUM BUSFX}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=43)
-		LabelPad pad_to_label, {ARP DUR.}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {BASS BUSFX}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=44)
-		LabelPad pad_to_label, {ARP TIME}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {SYNTH BUSFX}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=45)
-		LabelPad pad_to_label, {SPEED}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {BUSD FX}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=46)
-		LabelPad pad_to_label, {SHAPE}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {DISTORT}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=47)
 		LabelPad pad_to_label, {DRIVE}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=48)
-		LabelPad pad_to_label, {BEAT DIV.}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {GRAIN}, { __________ }, { ch},ch, { cc}, cc
 	else
 	  LabelPad pad_to_label, { ??? }, { __________ }, { ch},ch, { cc#}, cc
 	endif
