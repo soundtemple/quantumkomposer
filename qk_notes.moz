@@ -815,7 +815,7 @@
 	elseif (HostRunning and MIDIByte2=22 and MIDIByte3>0)
   	//# handle return to song mode requested
   	return_to_song_mode_requested = TRUE
-  	scene_change_requested = current_scene
+  	//scene_change_requested = current_scene no scene change - just continue
   	in_mode_select = FALSE
   	songmode = 0
   	mode = 0
