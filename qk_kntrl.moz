@@ -139,8 +139,8 @@
 	allow_edit_mgen_ccs=FALSE
 	last_mgen_pad=0 //# return to last pad used MG-kntrl mode
 	mgen_vals=[]
-	mgen_labels =  [2,12,11,10,0,16,17,1,15,14,1,15,0,0,0,0]
-	mgen_colors =  [2,2,2,4,0,4,3,6,0,6,5,5,0,0,0,0]
+	mgen_labels =  [2,11,12,10,0,16,17,1,15,14,1,15,0,0,0,0]
+	mgen_colors =  [2,4,4,5,0,4,3,6,0,6,5,5,0,0,0,0]
 	mgen_guis = [91,92,93,94,95,96,97,98,99,0,0,0,0,0,0,0]
 	for i = 0 to 8
 		mgen_guis[i] = i+91  ////fixed cc's for showing MG GUI 92-99 (8 instances)
@@ -223,8 +223,24 @@
 		endif
 		Call @PadDownChannelsMode
 		Call @SetupDefMixerCCs //use set a or b RMkr or DrumComputer 
+	
+	elseif (MIDIByte2=26 or MIDIByte2=27)  //101-108 used for IN but dont send out on CH16 thats scn duration
+		//Toggle return track FX GUI
+		if MIDIByte3>0
+			SendMIDICC 13, MIDIByte2+100, 127
+		endif
+	
+	elseif MIDIByte2=25
+		if MIDIByte3>0
+			SendMIDICC 16, 25, 127 //Toggle KNTRL gui 
+		endif
 		
-	elseif MIDIByte2>=25 and MIDIByte2<=35
+	elseif MIDIByte2=28
+		if MIDIByte3>0
+			SendMIDICC 14, 124, 127 //Toggle master comp/lim gui ie goto master channel
+		endif
+		
+	elseif MIDIByte2>=29 and MIDIByte2<=35
 	  // Log {Free not it use}
 		
 	elseif MIDIByte2>=36 and MIDIByte2<=39 //KNTRL Knobs on CH16
@@ -263,7 +279,7 @@
 		endif
 	
 	elseif MIDIByte2=88
-	  for ch = 8 to 11
+	  for ch = 4 to 11
 			for n = 24 to 96
 				SendMIDINoteOff ch, n, 127 //handle stuck notes
 			endfor
@@ -293,17 +309,6 @@
 		mode=0
 		Call @PadDownScenesMode
 		//Log {-- HANDLE: SCENE CHANGE REQUEST TO SCENE }, MIDIByte2-100, { --}
-	
-	elseif (MIDIByte2=101 or MIDIByte2=102)  //101-108 used for IN but dont send out on CH16 thats scn duration
-		//Toggle return track FX GUI
-		if MIDIByte3>0
-			SendMIDICC 13, MIDIByte2+25, 127
-		endif
-	
-	elseif MIDIByte2=103
-		if MIDIByte3>0
-			SendMIDICC 14, 124, 127 //Toggle master comp/lim gui
-		endif
 		
 	elseif MIDIByte2>=109 and MIDIByte2<=112 //TRANSPORT on CH16 - Aum, RWD, STOP, PLAY
 		SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
@@ -375,11 +380,19 @@
 		scene_completed_bars = scene_beat_count % HostBeatsPerMeasure
 		scene_beat_count = scene_completed_bars + HostBeat
 	endif
+	if mode=0 or mode=1 or mode=6
+		ColorPad 15, 3
+	endif
 	//Log {---- Host Started ----}
 @End
 
 @OnHostStop
   scene_beat_count = 0
+	if mode=0 or mode=1
+		Call @SetupLayoutScenes
+	elseif mode=6
+	  Call @SetupLayoutChannels
+	endif
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }
 @End 
 
@@ -616,9 +629,12 @@
 	elseif mode=0 and last_pad=9 // return to song mode
 		SendMIDICC 15, cc_rtn_to_song_mode, 127
 		return_to_song_mode_requested = TRUE
-  	scene_change_requested = current_scene
+  	// scene_change_requested = current_scene
 		if NOT HostRunning
-			scene_change_requested = 0
+			scene_change_requested = current_scene
+			if HostBar = 0
+				scene_change_requested = 0
+			endif
 			Call @HandleSceneChange
 		endif
   	songmode = 0
@@ -909,8 +925,10 @@
 		SendMIDICC 15,110,127 //RWD
 	elseif last_pad=14 
 		SendMIDICC 15,111,127 //STOP
+		ColorPad 15, 0
 	elseif last_pad=15
 		SendMIDICC 15,112,127 //PLAY
+		ColorPad 15, 3
 	endif
 @End
 
@@ -954,7 +972,7 @@
 @LogCurrentInfo
 	current_scene_duration = scene_durs[current_scene]
 	// Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
-	LabelPads {KNTRL : Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}
+	LabelPads {[ KNTRL ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure) 
 @End
 
 @SetupSettingsLayout
@@ -1083,7 +1101,8 @@
 	LabelKnobs {SCENE SETUP}
 	LabelKnob 0, {Scene }, edit_scene+1
 	LabelKnob 1, {Bars }, scene_durs[edit_scene]
-	LabelKnob 2, {Preset }, scene_preset+1
+	//LabelKnob 2, {Preset }, scene_preset+1
+	LabelKnob 2, { }
 	LabelKnob 3, {G-Swing }, global_swing
 	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
 	SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
@@ -1106,12 +1125,13 @@
 		SendMIDICC 15, cc_scene_duration+edit_scene, scene_durs[edit_scene] 
 	endif
 	if last_knob = 2
-		val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
-		if val <> scene_preset
-			scene_preset = val
-			CopyArray scene_presets[scene_preset*8], scene_durs, 8
-			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
-		endif
+		//Scene Preset selection disabled - too many accidental unwanted changes for minimal benefit
+		//val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 7
+		//if val <> scene_preset
+			//scene_preset = val
+			//CopyArray scene_presets[scene_preset*8], scene_durs, 8
+			//SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
+		//endif
 	endif
 	if last_knob = 3
 		val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
@@ -1124,7 +1144,8 @@
 	Call @SetupLayoutScenes
 	LabelKnob 0, {Scene }, edit_scene+1
 	LabelKnob 1, {Bars }, scene_durs[edit_scene]
-	LabelKnob 2, {Preset }, scene_preset+1
+	//LabelKnob 2, {Preset }, scene_preset+1
+	LabelKnob 2, { }
 	LabelKnob 3, {G-Swing }, global_swing
 @End
 
@@ -1716,6 +1737,9 @@
 	ColorPad 13, col_unused
 	ColorPad 14, col_unused
 	ColorPad 15, col_unused
+	if HostRunning
+		ColorPad 15, 3
+	endif
 	if loop_song_mode
 		LabelPad 13, {LOOP SONG MODE}
 	else
@@ -2150,6 +2174,9 @@
 			elseif i=15
 			  LabelPad i, {PLAY>}
 				ColorPad i, 0
+				if HostRunning
+					ColorPad i, 3
+				endif
 			endif
 		else //instrument page layout
 			pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + i
