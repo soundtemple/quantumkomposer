@@ -32,7 +32,7 @@
 @InitKnobVariables
 	//# Any knobset knob should have a setting here
 	current_scene = 0 // #0-7 Pads 0-7
-	scene_durs=[4,8,0,0,0,0,0,0]
+	scene_durs=[0,0,0,0,0,0,0,0]
 	scene_names=[0,1,2,3,4,5,6,7]
 	scene_presets=[]
 	//# Color Scheme
@@ -42,7 +42,7 @@
 	col_pending = 3
 	loop_col = 6
 	col_warn = 1
-	col_mode_select = 5 //# Mode selection buttons
+	col_mode_select = 4 //# Mode selection buttons
 	col_unused = 0
 	col_mode_edit = 6 //# Mode selection buttons in edit mode
 	cc_rtn_to_song_mode=9
@@ -61,7 +61,6 @@
 	auto_scene=0 //# scene being automated
 	auto_ramp=0 //# apply a ramp set of automation values to a set of bars
 	auto_adv_bar=0 //# scroll through scene to see automation
-	scene_durs = [4,8,8,16,8,16,8,4]
 	sel_autom_pad=0 //# selected automation pad for editing
 	record_autom_on=FALSE //# record automation from the automation edit page
 	FillArray rec_auto_buffer, -1, 16 // rec buffer. vals get added here and update points on beat if>=0
@@ -121,9 +120,8 @@
 	SetupLFO 1, 0, 127, YES, 0.5
 @End
 
-@ResetAutomToStart
-	//Return autom to beginning of current scene
-	reset_position = edit_scene*128
+@ResetAutomToPosition
+	//Return autom to reset_position eg: edit_scene * 128 would be beginning of edit_scene
 	//Log {edit scene: }, edit_scene, { reset pos: }, reset_position, { cc: }, automation_ccs[0], { Clip: }, (Clip auto_data_ch0[reset_position], 0, 127)
 	if automation_labels[0] > 0
 		SendMIDICC automation_chs[0], automation_ccs[0], (Clip auto_data_ch0[reset_position], 0, 127)
@@ -249,18 +247,18 @@
 		endif
 	elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
 		//# handle scene change requested (ie: PadDown Scene change)
-		// scene_change_requested = MIDIByte3 no scn chg just continue
+		scene_change_requested = MIDIByte3
 		locked_to_scene=MIDIByte3
 		if NOT HostRunning //# immediate change else newbeat/bar handles
-  		Call @HandleSceneChange 
+  		Call @HandleSceneChange
+			edit_scene=MIDIByte3
   	endif
-		if mode=0
-			Call @SetupLayoutScenes
-		endif
+		in_mode_select = FALSE
+		Call @SetupLayoutScenes
 	elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
   	//# handle return to song mode requested
   	return_to_song_mode_requested = TRUE
-  	scene_change_requested = current_scene
+  	// scene_change_requested = current_scene no scn chg just continue
   	in_mode_select = FALSE
   	songmode = 0
   	mode = 0
@@ -278,6 +276,31 @@
   	swng=MIDIByte3
   	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
   	Call @SetupLayoutScenes
+	elseif (MIDIByte2=89 and MIDIChannel=15) //copy paste scene
+		if MIDIByte3<=7 //handle copy scene
+			copied_scene = MIDIByte3
+			LabelPads {Scene }, MIDIByte3+1, { copied. Ready to paste}
+		elseif MIDIByte3>=8 and MIDIByte3<=15 //handle scene paste
+			paste_to_scene = MIDIByte3-8
+			LabelPads {Copied scene }, copied_scene+1, { to scene }, paste_to_scene+1
+			CopyArray auto_data_ch0[copied_scene*128], auto_data_ch0[paste_to_scene*128], 128 
+			CopyArray auto_data_ch1[copied_scene*128], auto_data_ch1[paste_to_scene*128], 128
+			CopyArray auto_data_ch2[copied_scene*128], auto_data_ch2[paste_to_scene*128], 128
+			CopyArray auto_data_ch3[copied_scene*128], auto_data_ch3[paste_to_scene*128], 128
+			CopyArray auto_data_ch4[copied_scene*128], auto_data_ch4[paste_to_scene*128], 128
+			CopyArray auto_data_ch5[copied_scene*128], auto_data_ch5[paste_to_scene*128], 128
+			CopyArray auto_data_ch6[copied_scene*128], auto_data_ch6[paste_to_scene*128], 128
+			CopyArray auto_data_ch7[copied_scene*128], auto_data_ch7[paste_to_scene*128], 128
+			CopyArray auto_data_ch8[copied_scene*128], auto_data_ch8[paste_to_scene*128], 128
+			CopyArray auto_data_ch9[copied_scene*128], auto_data_ch9[paste_to_scene*128], 128
+			CopyArray auto_data_ch10[copied_scene*128], auto_data_ch10[paste_to_scene*128], 128
+			CopyArray auto_data_ch11[copied_scene*128], auto_data_ch11[paste_to_scene*128], 128
+			CopyArray auto_data_ch12[copied_scene*128], auto_data_ch12[paste_to_scene*128], 128
+			CopyArray auto_data_ch13[copied_scene*128], auto_data_ch13[paste_to_scene*128], 128
+			CopyArray auto_data_ch14[copied_scene*128], auto_data_ch14[paste_to_scene*128], 128
+			CopyArray auto_data_ch15[copied_scene*128], auto_data_ch15[paste_to_scene*128], 128
+			scene_durs[paste_to_scene] = scene_durs[copied_scene]
+		endif
 	elseif MIDIChannel=15 and MIDIByte2>=1 and MIDIByte2<=16 //AUTOM lanes control
 		// incoming cc control ch15 cc1-16 to control the 16 autom lanes 
 		break_point = MIDIByte3
@@ -340,63 +363,39 @@
 			mode=0 //SCENES
 			Call @SetupKnobset0
 			Call @SetupLayoutScenes
-		elseif LastPad=7
-			send_automation_data_enabled = not send_automation_data_enabled
-		  if send_automation_data_enabled
-				LabelPad 7, {AUTOM ENABLED}
-				ColorPad 7, 3
-			else
-			  LabelPad 7, {AUTOM DISABLED}
-				ColorPad 7, 1
-			endif
 		elseif LastPad=1
-			Call @ResetAutomToStart
+			reset_position = edit_scene*128
+			Call @ResetAutomToPosition
 			LabelPad 1, {AUTOM RESET TO START S}, edit_scene+1
 		elseif LastPad=2
-			interpolate_autom = not interpolate_autom
-			Call @SetupSettingsLayout	
+			last_beat_in_scene = (scene_durs[edit_scene] * 4) - 1
+			reset_position = (edit_scene*128) + last_beat_in_scene
+			Call @ResetAutomToPosition
+			LabelPad 2, {AUTOM RESET TO END S}, edit_scene+1
 		elseif LastPad=3
 			record_autom_on = not record_autom_on 
 			FillArray rec_auto_buffer, -1, 16 //empty record auto buffer
-			if record_autom_on
-				LabelPads {AUTOM : [ In record mode turn cc knob during playback. Automation will record into scene beat ]}
-				Log {On beat get midi value send for midi kontrol param and save it to automation. Only while in automation mode}
-				ColorPad 3, 1
-			else
-			  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS ] }
-				ColorPad 3, 5
-			endif
-		elseif LastPad=4 // TOGGLE EDIT MODE
-			edit_mode_active = NOT edit_mode_active
 			Call @SetupSettingsLayout
-		elseif LastPad=5
+		elseif LastPad=4 // SETUP AUTOM LANES
+			edit_mode_active = FALSE
 			mode=2 //AUTOMATION
 			in_mode_select = FALSE
 			Call @LabelAutomationPads
 			Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
+			LatchPad sel_autom_pad, YES	
+		elseif LastPad=5
+			edit_mode_active = TRUE
+			mode=2 //AUTOMATION
+			in_mode_select = FALSE
+			Call @LabelAutomationPads
+			Call @SetupKnobset4 //# AUTOM and thru to editing
 			LatchPad sel_autom_pad, YES
 		elseif LastPad=6
-			mode=3 //MACROS
-			in_mode_select = FALSE
-			LabelPads {AUTOM : [ MACROS ]}
-			ShowLayout 2
-			for i = 0 to 15
-				LatchPad i, NO 
-				pad_to_label=i 
-				pad_slot=(macro_chans[i] * 16) + macro_params[i] 
-				Call @LabelAutomPad
-			endfor
-			LatchPad sel_macro, YES 
-			if edit_mode_active
-				Call @SetupKnobset11
-			else
-				Call @SetupKnobset12
-			endif
+			interpolate_autom = not interpolate_autom
+			Call @SetupSettingsLayout	
 		elseif LastPad=7
-			mode=4 // LFO's
-			in_mode_select = FALSE
-			Call @SetupLayoutLFOS
-			Call @SetupKnobset6 //# LFO's
+			send_automation_data_enabled = not send_automation_data_enabled
+		  Call @SetupSettingsLayout
 		elseif LastPad>=8
 		  // AUTOM SCENE SET TASKS
 			scene_task=LastPad 
@@ -468,18 +467,22 @@
 	  auto_data_slot = (edit_scene*128)
 		num_cells_to_copy = 128
 		FillArray auto_data_to_paste, val, num_cells_to_copy
+		previous_auto_lane = auto_lane
 		for i = 0 to 15
 			auto_lane=i
 			Call @AutomTaskCopyPaste
 		endfor
+		auto_lane = previous_auto_lane
 	elseif scene_task=15 //reset all scenes all autom pads
 		auto_data_slot = 0
 		num_cells_to_copy = 1024
 		FillArray auto_data_to_paste, val, num_cells_to_copy
+		previous_auto_lane = auto_lane
 		for i = 0 to 15
 			auto_lane=i
 			Call @AutomTaskCopyPaste
 		endfor
+		auto_lane = previous_auto_lane
 	endif
 	ColorPad scene_task, 3
 	LabelPad scene_task, {Done!}
@@ -640,8 +643,9 @@
 	in_mode_select = TRUE
 	ShowLayout 2
 	LabelPads {AUTOM : [ SETTINGS ]}
+	autom_settings_pad_cols = [4,4,4,0,4,4,0,0,  2,2,2,2,2,1,1,1]
 	for i = 0 to 15
-		ColorPad i, col_mode_select
+		ColorPad i, autom_settings_pad_cols[i]
 		LatchPad i, NO
 	endfor
 	ch=automation_chs[sel_autom_pad]+1
@@ -653,21 +657,31 @@
 	mid=Div (auto_ramp_min+auto_ramp_max), 2
 	LabelPad 0, {SCENES}
 	LabelPad 1, {SET AUTOM TO START S}, edit_scene+1
-	if interpolate_autom
-		LabelPad 2, {SMOOTH AUTOM ON}
+	LabelPad 2, {SET AUTOM TO END S}, edit_scene+1
+	if record_autom_on
+		LabelPads {AUTOM : [ In record mode turn cc knob during playback. Automation will record into scene beat ]}
+		ColorPad 3, 1
+		LabelPad 3, {RECORDING AUTOM}
 	else
-	  LabelPad 2, {SMOOTH AUTOM OFF}
+	  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS ] }
+		ColorPad 3, 0
+		LabelPad 3, {RECORD AUTOM OFF}
 	endif
-	LabelPad 3, {RECORD AUTOM}
-	LabelPad 4, {EDIT}
-	LabelPad 5, {AUTOM}
-	LabelPad 6, { }
+	LabelPad 4, {AUTOM SETUP}
+	LabelPad 5, {AUTOM EDITOR}
+	if interpolate_autom
+		LabelPad 6, {SMOOTH AUTOM ON}
+		ColorPad 6, 3
+	else
+	  LabelPad 6, {SMOOTH AUTOM OFF}
+		ColorPad 6, 0
+	endif
 	if send_automation_data_enabled
 		LabelPad 7, {AUTOM ENABLED}
 		ColorPad 7, 3
 	else
 	  LabelPad 7, {AUTOM DISABLED}
-		ColorPad 7, 1
+		ColorPad 7, 0
 	endif
 	LabelPad 8, {S}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MIN }, min
 	LabelPad 9, {S}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MID }, mid
@@ -677,15 +691,6 @@
 	LabelPad 13,{DELETE S}, scn, {          AUTOM}, sap
 	LabelPad 14,{DELETE S}, scn, {          ALL AUTOMS}
 	LabelPad 15,{DELETE ALL SCENES}
-	if edit_mode_active
-		LabelPad 4, {EDIT =>}
-			for i = 4 to 5
-				ColorPad i, col_mode_edit
-		endfor
-	endif
-	if record_autom_on
-		ColorPad 3, 1
-	endif
 	ColorPad 13, 1
 	ColorPad 14, 1
 	ColorPad 15, 1
@@ -1160,6 +1165,7 @@
 @SetupLayoutScenes
 	//#xsl setup layout for Scenes mode
 	ShowLayout 2
+	LabelKnobs {Setup Scenes}
 	if mode=0 or mode=1
 		//# Setup scene pads
 		for i = 0 to 7
