@@ -3,10 +3,10 @@
 //# Handles messages to all connected instances for:
 //# Synchronised scene change... and other stuff 
 @OnLoad
-	SetShortName {KNTRL} 
 	ShowLayout 2
 	LabelPads {[ KNTRL ]}
 	if unassigned scene_durs // duration in first scene
+		SetShortName {KNTRL} 
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 		edit_mode_active=FALSE
@@ -105,20 +105,15 @@
 	lbl_num_res_inst=60
 	lbl_num_ch_num=62
 	lbl_num_drum_ch=63
-	// MIXER - Vol,Pan,Gain,M/S, SendA,SendB,LPF,HPF, EQFeq,Res,Gain,Shelf, Mute,Solo,Arm, ??
+	// MIXER - Vol,Pan,Gain,M/S, SendsA-D, EQ LO,EQ HI, LPF,HPF,  Mute,Solo,Arm, [instr],[eq],[fx1],[fx2]
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO, [instr],[eq],[fx1],[fx2]
 	mixer_state=[] //the main container for mixer cc values
-	chan_mx_ccs_a = [7,8,6,9, 10,11,12,13, 113,114,115,116, 117,118,119,120, 121,122,123, 124,125,126,127]
-	chan_mx_ccs_b = [7,8,6,9, 10,11,12,13, 14,15,16,17,     18,19,20,21,     121,122,123, 124,125,126,127]
-	chan_mx_def_vals = [90,64,64,64, 0,0,0,127, 64,64,0,64, 0,0,0,0, 0,0,0] //def values for mixer params
-	//We have two options for the eq and fx cc's to move them so midi implementation of RMkr and DrumComp work 
-	protected_cc_to_label_a=[-1,35,36,37,38,39, 1,0,2,3, 4,5,6,7] 
-	protected_cc_to_label_a[113]=[8,9,10,11, 12,13,14,15, 64,65,66, 124,125,126,127]
-	protected_cc_to_label_b=[-1,35,36,37,38,39, 1,0,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15] 
-	protected_cc_to_label_b[121]=[64,65,66, 124,125,126,127]	
-	curr_chan_ccs_update_controler_a = [6,7,8,9,10,11,12,13,117,118,119,120,121,122,123] //send ccs back to controller
-	curr_chan_ccs_update_controler_b = [6,7,8,9,10,11,12,13,18,19,20,21,121,122,123] //send ccs back to controller
-	Call @SetupDefMixerCCs
+	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 113,114,115,116, 117,118,119,120, 121,122,123, 124,125,126,127]
+	chan_mx_def_vals = [90,64,64,64, 0,0,0,0, 64,64,0,127, 0,0,0,0, 0,0,0] //def values for mixer params
+	protected_cc_to_label=[-1,35,36,37,38,-1, 1,0,2,3, 4,5,6,7] 
+	protected_cc_to_label[113]=[8,9,10,11, 12,13,14,15, 64,65,66, 124,125,126,127]
+	//send ccs back to controller
+	curr_chan_ccs_update_controler = [6,7,8,9, 10,11,12,13, 113,114,115,116, 117,118,119,120, 121,122,123]
 	
 	mute_solo_arm=0 //remember pad state 0-2
 	for ch = 0 to 15 //set up mixer on all channels with default vals on def cc's
@@ -128,7 +123,7 @@
 	endfor
 	mixer_cc_slots=[]
 	for i = 0 to 23 //Midi CC in from controller just coming on set a cc's
-		mixer_cc_slots[chan_mx_ccs_a[i]] = i // reverse relation cc value to chan_mx_ccs index for midicc in only
+		mixer_cc_slots[chan_mx_ccs[i]] = i // reverse relation cc value to chan_mx_ccs index for midicc in only
 	endfor
 	//SETUP MIDI MAPPING PARAMS FOR DEFAULT INSTR. CHANNELS
 	for i = 0 to 15
@@ -160,22 +155,6 @@
 	rmkr_instrs[7*8] = [72,81,75,78, 87,90,93,84] //ch8 perc2
 @End
 
-@SetupDefMixerCCs
-	if chan_layouts[curr_chan] = 4 //DrumComputer only atm (layout number) 
-		CopyArray chan_mx_ccs_b, chan_mx_ccs, 24
-		CopyArray protected_cc_to_label_b, protected_cc_to_label, 127
-		CopyArray curr_chan_ccs_update_controler_b, curr_chan_ccs_update_controler, 15
-		lower_mx_ccs_max=21 
-		upper_mx_ccs_min=121 
-	else
-		CopyArray chan_mx_ccs_a, chan_mx_ccs, 24
-		CopyArray protected_cc_to_label_a, protected_cc_to_label, 127
-		CopyArray curr_chan_ccs_update_controler_a, curr_chan_ccs_update_controler, 15
-		lower_mx_ccs_max=13 
-		upper_mx_ccs_min=113 
-	endif
-@End
-
 @OnMidiCC //KNTRL midi implementation. Receive only CH16 - output to active channel
   // Commands (hex#) NoteOn=0x90;NoteOff=0x80;CC=0xB0;ProgramChange=0xC0;Aftertouch=0xD0;Pitchbend=0xE0
 	// CCs0-13 THRU: CH Mixer
@@ -194,20 +173,14 @@
 	
 	elseif MIDIChannel <> 15
 		Exit //other cc's must be on ch16 (1-16)
+		
+	elseif MIDIByte2=0 or MIDIByte2=5 //TRANSPORT on CH16 - Aum: STOP, PLAY
+		SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
 	
 	elseif MIDIByte2<=13 or MIDIByte2>=113 //MIXER CONTROLS  curr_ch (21<>113)
 		//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF,EQ) 
-		if chan_layouts[curr_chan]=4 and MIDIByte2>=6 //Set b layouts DrumComputer		
-			cc_index = mixer_cc_slots[MIDIByte2] //0-5 go thru as not mixer cc's they are modwheel etca
-			ch = chan_midi_chs[curr_chan]
-			cc = chan_mx_ccs_b[cc_index]
-			//Log {in drum comp index:},  cc_index, { cc: }, cc			
-			SendMIDICC ch, cc, MIDIByte3
-			//Log {-- THRU TO DC: MIXER KNTRL CH:}, ch, { cc}, cc, { - }, MIDIByte3
-		else
-			SendMIDIThruOnCh chan_midi_chs[curr_chan]
-			//Log {-- THRU TO: MIXER KNTRL CH:}, chan_midi_chs[curr_chan],{ cc}, MIDIByte2, { - }, MIDIByte3
-		endif
+		SendMIDIThruOnCh chan_midi_chs[curr_chan]
+		//Log {-- THRU TO: MIXER KNTRL CH:}, chan_midi_chs[curr_chan],{ cc}, MIDIByte2, { - }, MIDIByte3
 		mixer_state[(curr_chan*20) + mixer_cc_slots[MIDIByte2]] = MIDIByte3 // for a and b cc sets
 
 	elseif MIDIByte2=86 or MIDIByte2=87 //Master Volume & Master Gain
@@ -222,8 +195,7 @@
 			SendMIDICC chan_midi_chs[curr_chan], 124, 127 //toggle instrument GUI
 		endif
 		Call @PadDownChannelsMode
-		Call @SetupDefMixerCCs //use set a or b RMkr or DrumComputer 
-	
+		
 	elseif (MIDIByte2=26 or MIDIByte2=27)  //101-108 used for IN but dont send out on CH16 thats scn duration
 		//Toggle return track FX GUI
 		if MIDIByte3>0
@@ -232,7 +204,7 @@
 	
 	elseif MIDIByte2=25
 		if MIDIByte3>0
-			SendMIDICC 16, 25, 127 //Toggle KNTRL gui 
+			SendMIDICC 15, 25, 127 //Toggle KNTRL gui 
 		endif
 		
 	elseif MIDIByte2=28
@@ -262,7 +234,6 @@
 	  mode=7 //MIXER MODES
 		in_mode_select = FALSE
 		mute_solo_arm=MIDIByte2-82
-		Call @SetupDefMixerCCs //use set a or b RMkr or DrumComputer
 		Call @SetupLayoutChannels
 		mixer_mode=4
 		Call @SetupKnobset7
@@ -310,8 +281,6 @@
 		Call @PadDownScenesMode
 		//Log {-- HANDLE: SCENE CHANGE REQUEST TO SCENE }, MIDIByte2-100, { --}
 		
-	elseif MIDIByte2>=109 and MIDIByte2<=112 //TRANSPORT on CH16 - Aum, RWD, STOP, PLAY
-		SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
 	else
 	  SendMIDIThru
 	endif
@@ -514,22 +483,8 @@
 			SendMIDICC chan_midi_chs[curr_chan], 125, 127 // show / hide EQ
 		elseif last_pad=6
 			SendMIDICC chan_midi_chs[curr_chan], 126, 127 // show / hide FX1
-			SendMIDICC chan_midi_chs[curr_chan], 127, 127 // show / hide FX1
 		elseif last_pad=7
-			if reset_whole_layout //user hit same pad again. switch knobset
-				edit_chan=curr_chan
-				Call @BuildLayoutPages
-				page_slot = (64*curr_chan)
-				for i = 0 to 63
-					SendMIDICC chan_midi_chs[curr_chan], inst_ccs[page_slot+i], inst_state[page_slot+i]
-				endfor
-				reset_whole_layout=FALSE
-				Call @SetupSettingsLayout
-				//Log {Reset whole layout}
-			else
-				LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
-				reset_whole_layout=TRUE
-			endif
+			SendMIDICC chan_midi_chs[curr_chan], 127, 127 // show / hide FX2
 		elseif last_pad=15
 			if chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=16 //mixbus1-4 or returns 
 				// these layouts dont have standard mixer so cant reset
@@ -551,7 +506,6 @@
 		elseif last_pad>=8 and last_pad<=12 // MIXER MODES
 		  mode=7 //MIXER MODES
 			in_mode_select = FALSE
-			Call @SetupDefMixerCCs //use set a or b RMkr or DrumComputer
 			Call @SetupLayoutChannels
 			mixer_mode=last_pad-8
 			Call @SetupKnobset7
@@ -676,7 +630,6 @@
 	elseif chan_labels[LastPad]>0 and chan_labels[LastPad]<23 //ch16 rsvd KNTRL
 		mode=5 //goto INSTRUMENT MODE
 		curr_chan = last_pad  
-		Call @SetupDefMixerCCs //use set a or b RMkr or DrumComputer
 		edit_pad=0
 		Call @SetupLayoutChannels
 		use_instr_knobset_a = TRUE
@@ -686,7 +639,6 @@
 			Call @Setupknobset2 //setup INSTRUMENT KNOBS
 		endif
 		LatchPad 0, YES
-		Call @SetupDefMixerCCs
 	endif
 	Call @SendMidiCCBackToKnobs
 @End
@@ -868,7 +820,6 @@
 	  curr_chan=last_pad
 		chan = chan_midi_chs[curr_chan]
 		layout=chan_layouts[curr_chan]
-		Call @SetupDefMixerCCs
 	endif
 	if layout=2 or layout=16 or layout=17 //MixBus, Return or Master
 		mode=5 //goto INSTRUMENT MODE  
@@ -921,13 +872,11 @@
 
 @HandleTransportRequest
 	//# Transport buttons handling
-	if last_pad=13
-		SendMIDICC 15,110,127 //RWD
-	elseif last_pad=14 
-		SendMIDICC 15,111,127 //STOP
+	if last_pad=14 
+		SendMIDICC 15,0,127 //STOP
 		ColorPad 15, 0
 	elseif last_pad=15
-		SendMIDICC 15,112,127 //PLAY
+		SendMIDICC 15,5,127 //PLAY
 		ColorPad 15, 3
 	endif
 @End
@@ -950,13 +899,13 @@
   elseif (current_scene = 7) //# End of song. Loop back to beginning
     current_scene = 0 
 		if not loop_song_mode
-			SendMIDICC 15, 111, 127
+			SendMIDICC 15, 0, 127
 		endif
   elseif scene_durs[current_scene + 1] <= 0
   	//# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
 		if not loop_song_mode
-			SendMIDICC 15, 111, 127
+			SendMIDICC 15, 0, 127
 		endif
   else
 		current_scene = current_scene + 1 //# Going to next
@@ -986,19 +935,19 @@
 	LabelPad 3, { ___ALL___ }, {CHANNELS}
 	LabelPad 4, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[INSTR]}
 	LabelPad 5, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[EQ]}
-	LabelPad 6, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[FX]}
-	LabelPad 7, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {*RESET ALL*}
+	LabelPad 6, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[FX1]}
+	LabelPad 7, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[FX2]}
 	if chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=16 //mixbus1-4 or returns
 		LabelPad 15,{ }
 	else
 		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {*RESET MXR*} 
 	endif
 	LabelPad 8, { __MIXER__ }, {VOL PAN} //channels Vol, Gain, Pan, Mid/Side
-	LabelPad 9, { __MIXER__ }, {SEND FILT.} //HPF LPF SEND A SEND B
+	LabelPad 9, { __MIXER__ }, {SENDS} //HPF LPF SEND A SEND B
 	LabelPad 10,{ __MIXER__ }, {EQ}
 	LabelPad 11,{ __MIXER__ }, {FX}
 	LabelPad 12,{ __MIXER__ }, {MUTE SOLO} //mute solo
-	settings_cols = [4,4,0,4, 3,3,3,1, 2,2,2,2, 2,0,0,1]
+	settings_cols = [4,4,0,4, 3,3,3,3, 2,2,2,2, 2,0,0,1]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
@@ -1510,24 +1459,24 @@
 		LabelKnob 3, {M/S } , mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
 	elseif mixer_mode=1
 		mixer_mode=1 
-	  LabelPads {KNTRL : [ SENDS FILTER ]}
+	  LabelPads {KNTRL : [ SENDS ]}
 		LabelKnob 0, {SENDA }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
 		LabelKnob 1, {SENDB }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
-		LabelKnob 2, {HPF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
-		LabelKnob 3, {LPF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
+		LabelKnob 2, {SENDC }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
+		LabelKnob 3, {SENDD }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
 	elseif mixer_mode=2
 	  mixer_mode=2 
 		LabelPads {KNTRL : [ EQ ] }
-		LabelKnob 0, {GAIN }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
-		LabelKnob 1, {FREQ }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
-		LabelKnob 2, {RES }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
-		LabelKnob 3, {SHELF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
+		LabelKnob 0, {LO EQ }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
+		LabelKnob 1, {HI EQ }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
+		LabelKnob 2, {HPF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
+		LabelKnob 3, {LPF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
 	elseif mixer_mode=3
 		LabelPads {KNTRL : [ FX ] }
-		LabelKnob 0, {D/W }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
+		LabelKnob 0, {D/W1 }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
 		LabelKnob 1, {AMT1 }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
-		LabelKnob 2, {AMT2 }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
-		LabelKnob 3, {AMT3 }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
+		LabelKnob 2, {D/W2 }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
+		LabelKnob 3, {AMT2 }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
 	elseif mixer_mode=4
 		LabelPads {KNTRL : [ MUTE SOLO ARM ]}
 		if mute_solo_arm=0
@@ -1837,39 +1786,36 @@
 		def_maxs[16*i]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 	endfor
 	//Create a mixer layout on page 4 for all channels as a default. can be overwritten
-	def_labels[16*3] = [0,2,1,3,4,5,6,7,12,13,14,15,64,65,66,59]
-	def_colors[16*3] = [2,2,2,2,6,6,3,3,4,4,4,4,0,0,0,0]
-	def_vals[16*3]   = [90,64,64,64,0,0,0,127,0,0,0,0,0,0,0,0]
-	def_ccs[16*3]    = [7,8,6,9,10,11,12,13,117,118,119,120,121,122,123,93]
+	def_labels[16*3] = [0,2,1,3,4,5,6,7,85,12,14,10,11,64,65,66]
+	def_colors[16*3] = [2,2,2,2,6,6,6,6,4,4,4,3,3,0,0,0]
+	def_vals[16*3]   = [90,64,64,64,0,0,0,0, 0,0,0,0, 127,0,0,0]
+	def_ccs[16*3]    = [7,8,6,9, 10,11,12,13, 96,117,119,16,  17,121,122,123]
 	if chan_layouts[edit_chan]=0 
 		LabelKnob 3, {Layout:Free}
 	elseif chan_layouts[edit_chan]=1 
 		LabelKnob 3, {Combo}
-		def_labels[16*0] = [19,16,18,17,23,124,35,36,20,16,21,17,23,-1,37,38]
-		def_colors[16*0] = [3,3,3,3,3,0,4,4,3,3,3,3,3,0,4,4]
-		def_vals[16*0]   = [0,0,0,64,64,0,0,0,0,0,0,0,64,0,0,0]
-		def_ccs[16*0]    = [30,31,32,33,34,124,1,2,38,39,40,41,42,41,3,4]
-		def_labels[16*1] = [24,25,26,32,27,27,57,58,24,25,26,32,28,29,30,31]
-		def_colors[16*1] = [3,3,3,6,2,2,0,0,3,3,3,6,4,4,4,4]
-		def_vals[16*1]   = [0,0,0,65,0,0,0,0,0,0,0,64,0,40,40,10]
-		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,1]		
-		def_labels[16*2] = [28,29,30,31,46,47,49,50,45,43,44,45,43,44,48,0]
-		def_colors[16*2] = [4,4,4,4,2,2,2,2,5,5,5,6,6,6,2,4]
-		def_vals[16*2]   = [0,20,20,10,0,0,0,0,0,0,0,0,0,0,0,100]
-		def_ccs[16*2]    = [62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77]
+		def_labels[16*0] = [85,85,85,85,85,85,85,85,  35,46,47,49,48,57,58,0]
+		def_colors[16*0] = [4,4,4,4,4,4,4,4, 4,3,3,3,3,0,0,4]
+		def_vals[16*0]   = [0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,90]
+		def_ccs[8] = 1
+		def_labels[16*1] = [19,20,21,76,28,29,30,31,45,43,44,45,43,44,39,0]
+		def_colors[16*1] = [4,4,4,4,3,3,3,3,5,5,5,6,6,6,4,4]
+		def_vals[16*1]   = [90,90,90,90,0,20,20,10,0,0,0,0,0,0,0,100]
+		def_labels[16*2] = [24,25,26,32,27,27,-1,-1,24,25,26,32,28,29,30,31]
+		def_colors[16*2] = [3,3,5,6,2,2,0,0,3,3,5,6,4,4,4,4]
+		def_vals[16*2]   = [0,0,0,65,0,40,40,10,0,0,0,64,0,0,0,0]
 	elseif chan_layouts[edit_chan]=2
 		LabelKnob 3, {Bus A-D} //MIX BUSSES ABCD
-		mixbusfx_gui=[40,56,126,127]
+		mixbusfx_gui=[124,125,126,127]
 		for i = 0 to 3
 			for p = 0 to 15
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
-			clr=i+1
-			def_labels[16*i] = [0,2,1,3,4,5,6,7,100,101,61,12,64,65,66,125]
-			def_colors[16*i] = [clr,clr,clr,clr,6,6,3,3, 3,3,4,4,0,0,0,0]
-			def_vals[16*i]   = [90,64,64,64,0,0,0,127, 0,0,0,0,0,0,0,0]
-			def_ccs[(16*i)+10] = mixbusfx_gui[i] 
-			def_ccs[(16*i)+11] = 117+i //FX cc used for D/W on each FX on mixbus a-d 	
+			clr=i+1 
+			def_labels[16*i] = [0,2,1,125,     4,5,6,7,   85,85,10,11, 100,64,65,66]
+			def_colors[16*i] = [clr,clr,clr,0, clr,clr,clr,clr,   clr,clr,3,3,     4,0,0,0]
+			def_vals[16*i]   = [90,64,64,0,    0,0,0,127, 0,0,0,0,  127,0,0,0]
+			def_ccs[(16*i)+10] = mixbusfx_gui[i] 	
 		endfor
 	elseif chan_layouts[edit_chan]=3
 		LabelKnob 3, {Ruismkr}
@@ -1890,10 +1836,7 @@
 		def_maxs[16*2]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 	elseif chan_layouts[edit_chan]=4
 		LabelKnob 3, {Drum Comp}
-		for i = 0 to 3 //Drum computer uses different range due to annoying autom remix cc table
-			for p = 0 to 15
-				def_ccs[(16*i)+p] = 22 + (16*i) + p
-			endfor
+		for i = 0 to 3 
 			def_labels[16*i] =  [0,22,29,104,10,81,79,105, 0,22,29,104,10,81,79,105]
 			def_vals[16*i]   = [64,64,64,64,64,64,127,0, 64,64,64,64,64,64,127,0]
 			def_mins[16*i]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -2071,38 +2014,30 @@
 		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,2,3,4,5,124,92,93]
 	elseif chan_layouts[edit_chan]=16
 		LabelKnob 3, {Returns}
-		def_labels[16*0] = [0,2,1,3,6,10,7,10,8,9,10,11,64,65,66,125]
-		def_colors[16*0] = [2,2,2,2,3,3,1,1,4,4,4,6,0,0,0,0]
-		def_vals[16*0]   = [90,64,64,64,0,64,127,64,64,57,64,64,0,0,0,-1]
-		def_labels[16*1] = [86,44,43,22,44,43,61,13,7,25,6,25,44,43,51,126]
-		def_colors[16*1] = [3,3,3,2,2,2,6,6,4,4,4,4,4,4,0,0]
-		def_vals[16*1]   = [42,0,64,69,0,64,0,0,127,64,26,64,0,64,23,0]
-		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,126]
-		def_labels[16*2] = [0,2,1,3,6,10,7,10,8,9,10,11,64,65,66,125]
-		def_colors[16*2] = [2,2,2,2,3,3,1,1,4,4,4,6,0,0,0,0]
-		def_vals[16*2]   = [90,64,64,64,0,64,127,64,64,57,64,64,0,0,0,-1]
-		def_labels[16*3] = [18,42,52,46,9,9,61,13,1,68,86,51,10,1,37,127]
-		def_colors[16*3] = [4,4,4,4,4,4,6,6,0,4,4,4,4,0,3,0]
-		def_vals[16*3]   = [127,64,62,17,64,64,0,0,104,64,63,54,58,106,0,0]
-		def_ccs[16*3]    = [78,79,80,81, 82,83,84,85, 86,87,88,89, 90,91,92,127]
+		mixbusfx_gui=[124,125,126,127]
+		for i = 0 to 3
+			for p = 0 to 15
+				def_ccs[(16*i)+p] = 30 + (16*i) + p
+			endfor
+			clr=i+1 
+			def_labels[16*i] = [0,2,1,125,     10,11,126,127,  85,85,85,85,       100,64,65,66]
+			def_colors[16*i] = [clr,clr,clr,0, 3,3,4,4,        clr,clr,clr,clr,   4,0,0,0]
+			def_vals[16*i]   = [90,64,64,0,    0,127,0,0,      0,0,0,0,         0,0,0,0]
+			def_ccs[(16*i)+10] = mixbusfx_gui[i] 	
+		endfor
 	elseif chan_layouts[edit_chan]=17
 		LabelKnob 3, {Master}
-		def_labels[16*0] = [0,2,1,-1,125,126,127,124,1,53,12,1,64,65,66,60]
-		def_colors[16*0] = [2,2,2,0,0,0,5,0,5,5,5,5,0,0,0,0]
+		def_labels[16*0] = [0,2,1,-1,125,101,100,124,-1,-1,-1,-1,64,65,66,-1]
+		def_colors[16*0] = [2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_vals[16*0]   = [90,64,64,64,15,0,-1,-1,22,1,0,22,0,0,0,0]
 		def_ccs[16*0]    = [7,8,6,9,125,126,127,124,117,118,119,120,121,122,123,93]
-		def_mins[16*0]   = [0,0,0,0,0,0,0,0,16,0,0,12,0,0,0,0]
-		def_maxs[16*0]   = [127,127,127,127,127,127,127,127,64,61,127,64,127,127,127,127]
-		def_labels[16*1] = [8,9,10,6,8,9,10,7,8,9,10,25,8,9,10,25]
+		def_labels[16*1] = [8,9,10,10,8,9,10,11,8,9,10,25,8,9,10,25]
 		def_colors[16*1] = [4,4,4,3,6,6,6,3,1,1,1,3,5,5,5,3]
-		def_vals[16*1]   = [64,39,64,0,64,55,64,127,64,73,64,64,64,98,64,64]
-		def_ccs[16*1]    = [46,47,48,12,113,114,115,13,54,55,56,57,58,59,60,61]
-		def_labels[16*2] = [126,71,72,73,12,77,79,1,124,28,31,99,1,56,-1,-1]
-		def_colors[16*2] = [0,1,3,6,0,4,4,4,0,4,4,4,4,4,0,0]
-		def_vals[16*2]   = [0,86,76,53,28,105,26,70,56,1,7,0,65,127,0,0]
-		def_ccs[16*2]    = [126,63,64,65,66,67,68,69,124,71,72,73,74,75,76,77]
-		def_labels[16*3] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
-		def_colors[16*3] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_labels[16*2] = [101,71,72,73,-1,77,79,1, 100,28,31,99, -1, 54,1,56]
+		def_colors[16*2] = [0,1,3,6,0,4,4,4, 0,4,4,4, 0,4,4,4]
+		def_labels[16*3] = [124,28,31,99,1,56,-1,-1,  -1,-1,-1,-1,-1,-1,-1,-1]
+		def_colors[16*3] = [0,4,4,4,4,4,0,0, 0,0,0,0,0,0,0,0]
+		
 	elseif chan_layouts[edit_chan]=18
 		LabelKnob 3, {Hillman}
 		def_labels[16*0] = [0,23,26,-1,0,23,26,125,0,23,26,-1,0,23,26,124]
@@ -2145,7 +2080,7 @@
 	for ch = 0 to 63
 		inst_state[pad_slot+ch] = def_vals[ch]
 	endfor
-@End
+	@End
 
 @SetupLayoutChannels
 	ShowLayout 2
@@ -2290,7 +2225,7 @@
 		note_labels=[9,11,0,2]
 		LabelPad pad_to_label, {VOL MIX }, (NoteName(note_labels[inst_curr_page[curr_chan]]))  //MIXER
 	elseif (label_num=0) and chan_layouts[edit_chan]=16 //RETURNS 
-		note_labels=[9,9,11,11]
+		note_labels=[9,11,12,14]
 		LabelPad pad_to_label, {VOL RTN }, (NoteName(note_labels[inst_curr_page[curr_chan]])) //MIXER
 	elseif (label_num=0)
 		LabelPad pad_to_label, {VOL} //MIXER
@@ -2307,25 +2242,25 @@
 	elseif (label_num=5)
 		LabelPad pad_to_label, {SEND B} //MIXER
 	elseif (label_num=6)
-		LabelPad pad_to_label, {HPF} //MIXER
+		LabelPad pad_to_label, {SEND C} //MIXER
 	elseif (label_num=7)
-		LabelPad pad_to_label, {LPF} //MIXER
+		LabelPad pad_to_label, {SEND D} //MIXER
 	elseif (label_num=8)
-		LabelPad pad_to_label, {EQ GAIN} //MIXER
+		LabelPad pad_to_label, {EQ LO} //MIXER
 	elseif (label_num=9)
-		LabelPad pad_to_label, {FREQ} //MIXER
+		LabelPad pad_to_label, {EQ HI} //MIXER
 	elseif (label_num=10)
-		LabelPad pad_to_label, {RESON.} //MIXER
+		LabelPad pad_to_label, {HPF} //MIXER
 	elseif (label_num=11)
-		LabelPad pad_to_label, {EQ SHELF} //MIXER
+		LabelPad pad_to_label, {LPF} //MIXER
 	elseif (label_num=12)
-		LabelPad pad_to_label, {FX D/W} //MIXER
+		LabelPad pad_to_label, {FX1 D/W} //MIXER
 	elseif (label_num=13)
-		LabelPad pad_to_label, {FX AMT1} //MIXER
+		LabelPad pad_to_label, {FX1 AMT} //MIXER
 	elseif (label_num=14)
-		LabelPad pad_to_label, {FX AMT2} //MIXER
+		LabelPad pad_to_label, {FX2 D/W} //MIXER
 	elseif (label_num=15)
-		LabelPad pad_to_label, {FX AMT3} //MIXER
+		LabelPad pad_to_label, {FX2 AMT} //MIXER
 	elseif (label_num=16)
 		LabelPad pad_to_label, {OSC SHAPE} //OSC
 	elseif (label_num=17)
@@ -2453,11 +2388,11 @@
 	elseif (label_num=63)
 		LabelPad pad_to_label, {DRUM#}, inst_state[pad_slot] //OTHER
 	elseif (label_num=64)
-		LabelPad pad_to_label, {MUTE} //OTHER
+		LabelPad pad_to_label, {[MUTE]} //OTHER
 	elseif (label_num=65)
-		LabelPad pad_to_label, {SOLO} //OTHER
+		LabelPad pad_to_label, {[SOLO]} //OTHER
 	elseif (label_num=66)
-		LabelPad pad_to_label, {ARM} //OTHER
+		LabelPad pad_to_label, {[ARM]} //OTHER
 	elseif (label_num=67)
 		LabelPad pad_to_label, {SPEED} //CUSTOM
 	elseif (label_num=68)
@@ -2541,7 +2476,7 @@
 	elseif (label_num=100)
 		LabelPad pad_to_label, {[CMPRSR]} //CUSTOM
 	elseif (label_num=101)
-		LabelPad pad_to_label, {[LIMTER]} //CUSTOM
+		LabelPad pad_to_label, {[ENHANCER]} //CUSTOM
 	elseif (label_num=102)
 		LabelPad pad_to_label, {ROOM} //CUSTOM
 	elseif (label_num=103)
@@ -2569,17 +2504,13 @@
 	elseif (label_num=124) and (chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=16) 
 		LabelPad pad_to_label, {[EFFECT]} //OPEN GUI
 	elseif (label_num=124) and chan_layouts[curr_chan]=17
-		LabelPad pad_to_label, {[COMP/LIM]} //OPEN GUI
+		LabelPad pad_to_label, {[LIMITER]} //OPEN GUI
 	elseif (label_num=124)
 		LabelPad pad_to_label, {[INSTR]} //OPEN GUI
 	elseif (label_num=125)
 		LabelPad pad_to_label, {[EQ]} //OPEN GUI
-	elseif (label_num=126) and chan_layouts[curr_chan]=16
-		LabelPad pad_to_label, {[RTN-DLY]} //OPEN GUI
 	elseif (label_num=126)
 		LabelPad pad_to_label, {[FX1]} //OPEN GUI
-	elseif (label_num=127) and chan_layouts[curr_chan]=16
-		LabelPad pad_to_label, {[RTN-RVB]} //OPEN GUI
 	elseif (label_num=127)
 		LabelPad pad_to_label, {[FX2]} //OPEN GUI
 	elseif (label_num=-1)
