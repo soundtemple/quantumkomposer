@@ -1,11 +1,11 @@
 //# QUANTUM KONTROLLER SUITE
 //# KORDS APP
-@OnLoad
-  SetShortName {KORDS} 
+@OnLoad 
   ShowLayout 2
   LabelPads {_QK:KORDS}
   if unassigned scene_bank //# duration in first scene
-	  ResetNoteStates FALSE // #reset the locker with the value FALSE!
+	  SetShortName {KORDS}
+		ResetNoteStates FALSE // #reset the locker with the value FALSE!
 	  mode = 0 //# See @HandleModeChange for modes
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 	  SetMetroPPQN 4

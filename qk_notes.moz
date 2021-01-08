@@ -1,11 +1,11 @@
 //# QUANTUM KONTROLLER SUITE
 //# NOTES APP
 @OnLoad
-  SetShortName {NOTES}
-  ShowLayout 2
+	ShowLayout 2
   LabelPads {_QK:NOTES}
   if unassigned scene_durs
-	  ResetNoteStates FALSE // #reset the locker with the value FALSE!
+	  SetShortName {NOTES}
+		ResetNoteStates FALSE // #reset the locker with the value FALSE!
 	  mode = 0 //# modes of operation
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:PatternLocked
 	  SetMetroPPQN 4
@@ -136,7 +136,7 @@
 	mg_gen=0
 	sg_type=[0,0,0,0]
 	sg_sel_beat=4
-	sg_lo=0
+	sg_lo=64
 	sg_hi=127
 	sg_gen=[0,0,0,0]
 	//# Mutation / Morph
