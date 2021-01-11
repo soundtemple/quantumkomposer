@@ -97,6 +97,7 @@
 	inst_ccs=[] //# midi cc num sent chs 0-15 
 	inst_mins=[] //# range parameter for the val attribute
 	inst_maxs=[] //# range parameter for the val attribute
+	inst_def_vals=[] //default vals for an instrument 64 slots
 	FillArray inst_maxs, 127, 1024 //# default the max cc range to 127
 	// label number vars. Update these if @LabelInstr changes	
 	lbl_num_pgm_dec=57
@@ -108,12 +109,12 @@
 	// MIXER - Vol,Pan,Gain,M/S, SendsA-D, EQ LO,EQ HI, LPF,HPF,  Mute,Solo,Arm, [instr],[eq],[fx1],[fx2]
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO, [instr],[eq],[fx1],[fx2]
 	mixer_state=[] //the main container for mixer cc values
-	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 113,114,115,116, 117,118,119,120, 121,122,123, 124,125,126,127]
+	chan_mx_ccs = [7,8,6,9, 10,11,12,13, 14,15,16,17, 117,118,119,120, 121,122,123, 124,125,126,127]
 	chan_mx_def_vals = [90,64,64,64, 0,0,0,0, 64,64,0,127, 0,0,0,0, 0,0,0] //def values for mixer params
 	protected_cc_to_label=[-1,35,36,37,38,-1, 1,0,2,3, 4,5,6,7] 
 	protected_cc_to_label[113]=[8,9,10,11, 12,13,14,15, 64,65,66, 124,125,126,127]
 	//send ccs back to controller
-	curr_chan_ccs_update_controler = [6,7,8,9, 10,11,12,13, 113,114,115,116, 117,118,119,120, 121,122,123]
+	curr_chan_ccs_update_controler = [6,7,8,9, 10,11,12,13, 14,15,16,17, 117,118,119,120, 121,122,123]
 	
 	mute_solo_arm=0 //remember pad state 0-2
 	for ch = 0 to 15 //set up mixer on all channels with default vals on def cc's
@@ -487,7 +488,20 @@
 			SendMIDICC chan_midi_chs[curr_chan], 127, 127 // show / hide FX2
 		elseif last_pad=15
 			if chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=16 //mixbus1-4 or returns 
-				// these layouts dont have standard mixer so cant reset
+				// reset all values to default params for busses 1-4 or all sends 1-4
+				pad_slot = (64*curr_chan)
+				if reset_mxr  //user hit same pad again. switch knobset
+					edit_chan=curr_chan
+					Call @BuildLayoutPages
+					for i = 0 to 63
+						SendMIDICC chan_midi_chs[curr_chan], inst_ccs[(64*curr_chan)+i], inst_def_vals[i]
+					endfor
+					reset_mxr=FALSE
+					Call @SetupSettingsLayout
+				else 
+					LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
+					reset_mxr=TRUE
+				endif	
 			else
 				// reset mixer (special handle for returns and mixbus)
 				if reset_mxr  //user hit same pad again. switch knobset
@@ -937,10 +951,12 @@
 	LabelPad 5, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[EQ]}
 	LabelPad 6, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[FX1]}
 	LabelPad 7, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[FX2]}
-	if chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=16 //mixbus1-4 or returns
-		LabelPad 15,{ }
+	if chan_layouts[curr_chan]=2 //mixbus1-4
+		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {RESET MBx4}
+	elseif chan_layouts[curr_chan]=16 //returns
+		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {RESET RTNS}
 	else
-		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {*RESET MXR*} 
+		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {RESET MXR} 
 	endif
 	LabelPad 8, { __MIXER__ }, {VOL PAN} //channels Vol, Gain, Pan, Mid/Side
 	LabelPad 9, { __MIXER__ }, {SENDS} //HPF LPF SEND A SEND B
@@ -1375,7 +1391,7 @@
 					//Log {Drum ch: }, drum_ch, { Instrument#: }, val, { cc#: }, inst_ccs[pad_slot]
 				endif
 				SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot], val 
-				Log chan_midi_chs[curr_chan], { }, inst_ccs[pad_slot], { }, val
+				//Log chan_midi_chs[curr_chan], { }, inst_ccs[pad_slot], { }, val
 				inst_state[pad_slot] = val
 			endif
 			if inst_labels[pad_slot]=lbl_num_drum_ch or inst_labels[pad_slot]=lbl_num_ch_num
@@ -1785,13 +1801,10 @@
 		def_mins[16*i]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs[16*i]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 	endfor
-	//Create a mixer layout on page 4 for all channels as a default. can be overwritten
-	def_labels[16*3] = [0,2,1,3,4,5,6,7,85,12,14,10,11,64,65,66]
-	def_colors[16*3] = [2,2,2,2,6,6,6,6,4,4,4,3,3,0,0,0]
-	def_vals[16*3]   = [90,64,64,64,0,0,0,0, 0,0,0,0, 127,0,0,0]
-	def_ccs[16*3]    = [7,8,6,9, 10,11,12,13, 96,117,119,16,  17,121,122,123]
+	
 	if chan_layouts[edit_chan]=0 
 		LabelKnob 3, {Layout:Free}
+		Call @CreateMixerPage4
 	elseif chan_layouts[edit_chan]=1 
 		LabelKnob 3, {Combo}
 		def_labels[16*0] = [85,85,85,85,85,85,85,85,  35,46,47,49,48,57,58,0]
@@ -1804,19 +1817,22 @@
 		def_labels[16*2] = [24,25,26,32,27,27,-1,-1,24,25,26,32,28,29,30,31]
 		def_colors[16*2] = [3,3,5,6,2,2,0,0,3,3,5,6,4,4,4,4]
 		def_vals[16*2]   = [0,0,0,65,0,40,40,10,0,0,0,64,0,0,0,0]
+		Call @CreateMixerPage4
 	elseif chan_layouts[edit_chan]=2
 		LabelKnob 3, {Bus A-D} //MIX BUSSES ABCD
-		mixbusfx_gui=[124,125,126,127]
+		mixbuseq_gui=[124,125,126,127]
+		mixbusfx=[117,118,119,120]
 		for i = 0 to 3
 			for p = 0 to 15
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
 			clr=i+1 
-			def_labels[16*i] = [0,2,1,125,     4,5,6,7,   85,85,10,11, 100,64,65,66]
-			def_colors[16*i] = [clr,clr,clr,0, clr,clr,clr,clr,   clr,clr,3,3,     4,0,0,0]
-			def_vals[16*i]   = [90,64,64,0,    0,0,0,127, 0,0,0,0,  127,0,0,0]
-			def_ccs[(16*i)+10] = mixbusfx_gui[i] 	
-		endfor
+			def_labels[16*i] = [0,1,3,125,     4,5,6,7,   85,85,10,11, 61,64,65,66]
+			def_colors[16*i] = [clr,clr,clr,0, clr,clr,clr,clr,   clr,clr,3,3,     2,0,0,0]
+			def_vals[16*i]   = [90,64,64,0,    0,0,0,0, 0,0,0,127,  0,0,0,0]
+			def_ccs[(16*i)+3] = mixbuseq_gui[i]
+			def_ccs[(16*i)+8] = mixbusfx[i]
+		endfor	
 	elseif chan_layouts[edit_chan]=3
 		LabelKnob 3, {Ruismkr}
 		def_labels[16*0] = [62,-1,53,51,-1,124,47,0,22,29,42,27,48,46,2,0]
@@ -1834,10 +1850,11 @@
 		def_vals[16*2]   = [64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64]
 		def_ccs[16*2]    = [33,41,49,57,66,74,82,90,30,38,46,54,62,71,79,87]
 		def_maxs[16*2]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		Call @CreateMixerPage4
 	elseif chan_layouts[edit_chan]=4
 		LabelKnob 3, {Drum Comp}
 		for i = 0 to 3 
-			def_labels[16*i] =  [0,22,29,104,10,81,79,105, 0,22,29,104,10,81,79,105]
+			def_labels[16*i] =  [0,22,29,104,81,79,24,105, 0,22,29,104,81,79,24,105]
 			def_vals[16*i]   = [64,64,64,64,64,64,127,0, 64,64,64,64,64,64,127,0]
 			def_mins[16*i]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			def_maxs[16*i]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
@@ -1858,6 +1875,7 @@
 		def_vals[16*0]   = [64,127,0,127, 64,127,0,127, 64,127,0,127, 64,127,0,127]
 		def_vals[16*1]   = [64,127,0,127, 64,127,0,127, 64,127,0,127, 64,127,0,127]
 		def_vals[16*2]   = [127,127,127,127, 127,127,127,127, 0,0,0,0, 0,64,0,0]
+		Call @CreateMixerPage4
 	elseif chan_layouts[edit_chan]=6
 		LabelKnob 3, {Ting}
 		def_vals[16*0]   = [64,90,20,64, 64,90,20,64, 64,90,20,64, 64,90,20,64]
@@ -2001,10 +2019,10 @@
 		def_labels[16*0] = [28,29,30,31,28,29,30,31,  19,17,20,74,76,22,21,7]			
 		def_colors[16*0] = [4,4,4,4,3,3,3,3,  6,6,5,5,3,3,4,4]			
 		def_vals[16*0]   = [0,0,127,20,0,0,127,20,  127,0,0,0,0,0,127]
-		def_labels[16*1] = [6,24,32,25,27,-1,43,46,10,22,51,40,-1,-1,0,70]
+		def_labels[16*1] = [10,24,32,25,27,-1,43,46, 114,22,51,40,-1,-1,0,70]
 		def_colors[16*1] = [4,3,3,3,3,0,2,2,1,1,1,1,0,0,0,0]
 		def_vals[16*1]   = [0,127,0,0,0,-1,90,0,0,64,100,0,-1,-1,90,20]
-		def_labels[16*2] = [46,86,86,51,7,6,18,24,49,68,53,96,-1,-1,-1,-1]
+		def_labels[16*2] = [46,86,86,51,11,10,18,24,49,68,53,96,-1,-1,-1,-1]
 		def_colors[16*2] = [1,1,1,1,1,1,1,1,2,2,2,2,0,0,0,0]
 		def_vals[16*2]   = [0,0,20,40,64,20,64,64,0,64,30,10,-1,-1,0,0]
 		def_ccs[16*2]    = [62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77]
@@ -2037,7 +2055,6 @@
 		def_colors[16*2] = [0,1,3,6,0,4,4,4, 0,4,4,4, 0,4,4,4]
 		def_labels[16*3] = [124,28,31,99,1,56,-1,-1,  -1,-1,-1,-1,-1,-1,-1,-1]
 		def_colors[16*3] = [0,4,4,4,4,4,0,0, 0,0,0,0,0,0,0,0]
-		
 	elseif chan_layouts[edit_chan]=18
 		LabelKnob 3, {Hillman}
 		def_labels[16*0] = [0,23,26,-1,0,23,26,125,0,23,26,-1,0,23,26,124]
@@ -2053,6 +2070,7 @@
 		def_vals[16*2]   = [3,16,0,0,0,0,127,127,18,19,38,17,0,0,127,90]
 		def_ccs[16*2]    = [62,63,64,65,66,126,68,69,70,71,72,73,74,75,76,77]
 		def_maxs[16*2]   = [5,32,1,127,127,127,127,127,127,127,127,127,127,1,127,127]
+		Call @CreateMixerPage4
 	elseif chan_layouts[edit_chan]=19
 		LabelKnob 3, {Zeeon}
 		def_labels[16*0] = [89,16,17,74,19,76,20,21,  89,16,17,74,-1,-1,18,0]			
@@ -2077,10 +2095,19 @@
 	CopyArray def_ccs, inst_ccs[pad_slot], 64
 	CopyArray def_mins, inst_mins[pad_slot], 64
 	CopyArray def_maxs, inst_maxs[pad_slot], 64
+	CopyArray def_vals, inst_def_vals, 64
 	for ch = 0 to 63
 		inst_state[pad_slot+ch] = def_vals[ch]
 	endfor
-	@End
+@End
+
+@CreateMixerPage4
+	//Create a mixer layout on page 4 for all channels as a default. can be overwritten
+	def_labels[16*3] = [0,2,1,3,4,5,6,7,85,12,14,10,11,64,65,66]
+	def_colors[16*3] = [2,2,2,2,6,6,6,6,4,4,4,3,3,0,0,0]
+	def_vals[16*3]   = [90,64,64,64,0,0,0,0, 0,0,0,0, 127,0,0,0]
+	def_ccs[16*3]    = [7,8,6,9, 10,11,12,13, 96,117,119,16,  17,121,122,123]
+@End
 
 @SetupLayoutChannels
 	ShowLayout 2
@@ -2283,8 +2310,6 @@
 		LabelPad pad_to_label, {GLBL PITCH} //OSC
 	elseif (label_num=23)
 		LabelPad pad_to_label, {OCTAVE} //OSC
-	elseif (label_num=24) and chan_layouts[curr_chan]=4
-		LabelPad pad_to_label, {PKF} //FILTER
 	elseif (label_num=24)
 		LabelPad pad_to_label, {F.CUTOFF} //FILTER
 	elseif (label_num=25)
@@ -2501,6 +2526,8 @@
 		LabelPad pad_to_label, {CURVE} //CUSTOM	
 	elseif (label_num=113)
 		LabelPad pad_to_label, {S&H RATE} //CUSTOM	
+	elseif (label_num=114)
+		LabelPad pad_to_label, {RESON.} //CUSTOM	
 	elseif (label_num=124) and (chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=16) 
 		LabelPad pad_to_label, {[EFFECT]} //OPEN GUI
 	elseif (label_num=124) and chan_layouts[curr_chan]=17
