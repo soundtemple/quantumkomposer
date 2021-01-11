@@ -19,7 +19,7 @@
 	  in_seq_mode = FALSE //# editing pattern steps mode
 	  allow_mode_chg_playbk = TRUE //# Mode change during playback
 	  return_to_song_mode_requested = FALSE //# used for switching on new bar 
-		notes_instance_as_melo = TRUE
+		notes_instance_type = 0
 	  use_turn_around = TRUE //# last pattn as turn around on last bar of scene
 	  //# used for LED feedback
 	  send_cc_back_to_knobs = FALSE 
@@ -539,13 +539,34 @@
 		elseif (LastPad=7) and not (mode<=1 or mode>=8)
 			Exit //# DELETE not allowed
 		elseif (LastPad=2)
-		  notes_instance_as_melo = NOT notes_instance_as_melo
-			if notes_instance_as_melo
-				LabelPad 2, {=>KORDS }, { as MELODY}
+		  notes_instance_type = notes_instance_type + 1
+			if notes_instance_type = 6
+				notes_instance_type=0
+			endif
+			if notes_instance_type=1
+				LabelPad 2, {QK:NOTES }, {>MELODY}
 				midi_out_chs=[4,5,6,7]
-			else
-				LabelPad 2, {=>KORDS }, { as HARMONY}
+				SetShortName {MELODY}
+			elseif notes_instance_type=2
+				LabelPad 2, {QK:NOTES }, {>HARMONY}
 				midi_out_chs=[8,9,10,11]
+				SetShortName {HARMNY}
+			elseif notes_instance_type=3
+				LabelPad 2, {QK:NOTES }, {>PERCS}
+				midi_out_chs=[1,1,1,1]
+				SetShortName {PERCS}
+			elseif notes_instance_type=4
+				LabelPad 2, {QK:NOTES }, {>LOOPS}
+				midi_out_chs=[2,2,2,2]
+				SetShortName {LOOPS}
+			elseif notes_instance_type=5
+				LabelPad 2, {QK:NOTES }, {>FX}
+				midi_out_chs=[3,3,3,3]
+				SetShortName {FX}
+			elseif notes_instance_type=0
+				LabelPad 2, {QK:NOTES }, {>NOTES}
+				midi_out_chs=[0,1,2,3]
+				SetShortName {NOTES}
 			endif
 			LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 		elseif (LastPad>=3 and LastPad<=5) or (LastPad=13 or LastPad=15)
@@ -2553,10 +2574,18 @@ if seq_type=0
 			LabelPad 0, {PLAYSONG: Disabled}
 		endif
 		LabelPad 1, {SCENES/PATTERNS}
-		if notes_instance_as_melo
-			LabelPad 2, {=>KORDS }, { as MELODY}
-		else
-		  LabelPad 2, {=>KORDS }, { as HARMONY}
+		if notes_instance_type=1
+			LabelPad 2, {QK:NOTES }, {>MELODY}
+		elseif notes_instance_type=2
+			LabelPad 2, {QK:NOTES }, {>HARMONY}
+		elseif notes_instance_type=3
+			LabelPad 2, {QK:NOTES }, {>PERCS}
+		elseif notes_instance_type=4
+			LabelPad 2, {QK:NOTES }, {>LOOPS}
+		elseif notes_instance_type=5
+			LabelPad 2, {QK:NOTES }, {>FX}
+		elseif notes_instance_type=0
+			LabelPad 2, {QK:NOTES }, {>NOTES}
 		endif
 		Call @LabelSet3
 		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
