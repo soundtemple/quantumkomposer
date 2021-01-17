@@ -5,8 +5,8 @@
 @OnLoad
 	ShowLayout 2
 	LabelPads {[ KNTRL ]}
-	if unassigned scene_durs // duration in first scene
-		SetShortName {KNTRL} 
+	SetShortName {KNTRL}
+	if unassigned scene_durs // duration in first scene 
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 		edit_mode_active=FALSE
@@ -178,7 +178,7 @@
 	elseif MIDIByte2=0 or MIDIByte2=5 //TRANSPORT on CH16 - Aum: STOP, PLAY
 		SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
 	
-	elseif MIDIByte2<=13 or MIDIByte2>=113 //MIXER CONTROLS  curr_ch (21<>113)
+	elseif MIDIByte2<=17 or MIDIByte2>=113 //MIXER CONTROLS  curr_ch (21<>113)
 		//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF,EQ) 
 		SendMIDIThruOnCh chan_midi_chs[curr_chan]
 		//Log {-- THRU TO: MIXER KNTRL CH:}, chan_midi_chs[curr_chan],{ cc}, MIDIByte2, { - }, MIDIByte3
@@ -584,8 +584,8 @@
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
 	elseif mode=0 and last_pad=12
-		for ch = 8 to 11
-			for n = 24 to 96
+		for ch = 4 to 11
+			for n = 0 to 127
 				SendMIDINoteOff ch, n, 127 // handle sometimes stuck notes from KORDS
 			endfor
 		endfor
@@ -1990,9 +1990,9 @@
 		def_colors[16*1] = [6,6,6,6,5,5,5,5,2,2,2,0,0,0,0,4]
 		def_vals[16*1]   = [0,48,127,33,0,45,127,34,127,127,127,0,0,91,64,90]
 		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,124,58,59,60,61]
-		def_labels[16*2] = [24,25,27,-1,28,29,30,31,24,25,27,-1,28,29,30,31]
+		def_labels[16*2] = [24,25,27,40,28,29,30,31,24,25,27,40,28,29,30,31]
 		def_colors[16*2] = [3,3,3,0,4,4,4,4,3,3,3,0,4,4,4,4]
-		def_vals[16*2]   = [30,0,0,127,0,40,127,10, 30,0,0,127,0,40,127,10]
+		def_vals[16*2]   = [0,0,0,127,0,40,127,10,30,0,0,127,0,40,127,10]
 		def_labels[16*3] = [48,49,46,51,77,47,86,52,35,85,85,85,-1,125,57,58]
 		def_colors[16*3] = [1,1,2,2,2,1,1,1,4,4,4,4,0,0,0,0]
 		def_vals[16*3]   = [0,25,0,20,64,0,64,20,0,0,0,0,0,0,0,0]
