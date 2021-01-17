@@ -3,8 +3,8 @@
 @OnLoad
 	ShowLayout 2
   LabelPads {_QK:BEATS}
+	SetShortName {BEATS}
   if unassigned scene_durs
-	  SetShortName {BEATS}
 		ResetNoteStates FALSE // #reset the locker with the value FALSE!
 	  mode = 0 //# modes of operation
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:PatternLocked

@@ -3,8 +3,8 @@
 @OnLoad
 	ShowLayout 2
   LabelPads {_QK:NOTES}
+	SetShortName {NOTES}
   if unassigned scene_durs
-	  SetShortName {NOTES}
 		ResetNoteStates FALSE // #reset the locker with the value FALSE!
 	  mode = 0 //# modes of operation
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:PatternLocked
@@ -34,9 +34,22 @@
 	  Call @SetupScales
 		Call @SetupKnobset0
   	Call @SetupLayout
-	endif 
+	endif
+	if notes_instance_type=1
+		SetShortName {MELODY}
+	elseif notes_instance_type=2
+		SetShortName {HARMNY}
+	elseif notes_instance_type=3
+		SetShortName {PERCS}
+	elseif notes_instance_type=4
+		SetShortName {LOOPS}
+	elseif notes_instance_type=5
+		SetShortName {FX}
+	elseif notes_instance_type=0
+		SetShortName {NOTES}
+	endif
  @End
-
+ 
 @InitKnobVariables
 	//# Any knobset knob should have a setting here
 	scn_duration = 0 
