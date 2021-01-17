@@ -27,6 +27,7 @@
 	  midi_channel_conflict = FALSE //# allowing midi OUT channel conflicts
 	  send_cc_back_to_knobs = FALSE 
 	  midi_controller=[15,14,15,16,17] //midi controller channel then 4 ccs
+		copy_mode=-1
 	  Call @TransposeCalcArrays
 	  Call @InitKnobVariables //# All knob settings on start
 	  Call @SetupChordsScenes
@@ -123,7 +124,7 @@
 	  scene_bank[s*sc_size] = [0,6,1,1,1,1,1,1,7,7,6,-1]
 		for c = 0 to 7
 			//# Create 8 chord arrays for each scene
-			chord_bank[(s*100) + (c*10)] = [-1, -1, -1, -1, 0, 0, -1,0]
+			chord_bank[(s*100) + (c*10)] = [-1, -1, -1, -1, 0, 0, -1, 0]
 		endfor
 	endfor
 	
@@ -591,7 +592,11 @@
 		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
-		Call @SetupLayout
+		if in_mode_select
+			Call @SetupSettingsLayout
+		else
+			Call @SetupLayout
+		endif
 	elseif (HostRunning and MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15)
   	//# handle return to song mode requested
   	return_to_song_mode_requested = TRUE
@@ -599,7 +604,11 @@
   	in_mode_select = FALSE
   	songmode = 0
   	mode = 0
-  	Call @SetupLayout
+  	if in_mode_select
+			Call @SetupSettingsLayout
+		else
+			Call @SetupLayout
+		endif
   	ColorPad current_scene, 3
     ColorPad 8, 3	
 	elseif (MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15 and not HostRunning)
@@ -608,7 +617,11 @@
   	mode = 0
 		current_scene=0
 		current_chord=0
-  	Call @SetupLayout
+  	if in_mode_select
+			Call @SetupSettingsLayout
+		else
+			Call @SetupLayout
+		endif
 		ColorPad current_scene, 3
     ColorPad current_chord+8, 3
 	elseif (MIDIByte2=89 and MIDIChannel=15) //copy paste scene
@@ -619,12 +632,16 @@
 			LabelPads {Scene }, MIDIByte3+1, { copied. Ready to paste}
 		elseif MIDIByte3>=8 and MIDIByte3<=15 //handle scene paste
 			LabelPads {Copied Scene }, copied_scene+1, { to Scene }, (MIDIByte3-8)+1
-			CopyArray scene_bank[copied_scene * sc_size], scene_bank[(MIDIByte3-8) * sc_size], 10
+			CopyArray scene_bank[copied_scene * sc_size], scene_bank[(MIDIByte3-8) * sc_size], sc_size
 			CopyArray chord_bank[copied_scene * 100], chord_bank[(MIDIByte3-8) * 100], 100
 			songmode = 1
 			mode=0
 			copied_scene = -1 //# reset
-			Call @SetupLayout
+			if in_mode_select
+				Call @SetupSettingsLayout
+			else
+				Call @SetupLayout
+			endif
 		endif
 	endif
 @End
@@ -1258,7 +1275,7 @@
 	if LastPad <=7
 		//Log {Pasting scene to }, current_scene+1 
 		LabelPads {Copied Scene }, copied_scene+1, { to Scene }, LastPad+1
-		CopyArray scene_bank[copied_scene * sc_size], scene_bank[LastPad * sc_size], 10
+		CopyArray scene_bank[copied_scene * sc_size], scene_bank[LastPad * sc_size], sc_size
 		CopyArray chord_bank[copied_scene * 100], chord_bank[LastPad * 100], 100
 		//# Exit copy paste
 		songmode = 1
@@ -2060,7 +2077,16 @@
 		endif		
 		Call @SetupLayout
 	else
-		// #Mode selection for Knobs n Pads
+		Call @SetupSettingsLayout
+	endif
+	
+@End
+
+@OnShiftUp
+@End
+
+@SetupSettingsLayout
+// #Mode selection for Knobs n Pads
 		in_mode_select = TRUE
 		LabelPads {_QK:KORDS SETTINGS:   (shift to exit)}
 		for i = 0 to (number_of_modes - 1)
@@ -2103,11 +2129,7 @@
 		else
 			LatchPad mode, YES
 		endif
-	endif
 	Call @UpdateCurrentKnobset
-@End
-
-@OnShiftUp
 @End
 
 @SortList
@@ -2366,11 +2388,15 @@
 	elseif scn_preset = 2
 		scene_bank[current_scene * sc_size] = [4,6,scn_preset,1,1,1,1,1,7,7,6,-1]
 		psn = [0, 60, 62, 64, 65, 67, 69, 71, 72]
-		psd = [1,3,5,-1, 5,7,2,-1, 6,1,3,-1, 4,6,1,-1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+		psd = [1,3,5,-1, 5,7,2,-1, 6,1,3,-1, 4,6,1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1]
 		prog_durs = [4,4,4,4,0,0,0,0]
 		prog_bass = [1,5,6,4,0,0,0,0]
 		prog_invs = [0,-1,-1,-1,0,0,0,0]
 		Call @HandleChordBankPresetUpdate
+		chord_bank[(current_scene * 100) + 40] = [-1,-1,-1,-1,0,0,-1] //overwrite with empty
+	  chord_bank[(current_scene * 100) + 50] = [-1,-1,-1,-1,0,0,-1]
+	  chord_bank[(current_scene * 100) + 60] = [-1,-1,-1,-1,0,0,-1]
+	  chord_bank[(current_scene * 100) + 70] = [-1,-1,-1,-1,0,0,-1]
   	LabelPads {Classic I-V-vi-IV progression in C Major}
 	elseif scn_preset = 3
 		psn = [0, 60, 62, 64, 65, 67, 69, 71, 72]
