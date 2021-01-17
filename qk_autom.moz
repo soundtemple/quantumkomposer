@@ -15,6 +15,7 @@
 		knob_set=0
 		edit_scene=0
 		locked_to_scene=0
+		current_scene=0
 		scene_change_requested = -1 //# on pad down has next scene number
 		in_mode_select = TRUE //# Toggle for changing modes mode
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
@@ -26,6 +27,8 @@
 		Call @GetAutoRamps
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupSettingsLayout
+		knob_set=1
+		Call @SetupKnobset1
 	endif
 @End
 
@@ -221,15 +224,17 @@
 @OnMetroPulse
 	//send interpolated autom data inbetween OnNewBeat (HostBeat=0) automation data
   cmp_mod=CurrentMetroPulse%4
-	if cmp_mod = 0 //on the beat
-		Call @SendAutomationData
-	elseif interpolate_autom and (cmp_mod>=1 and cmp_mod<=3) and (cmp_mod+1 <= HostBeatsPerMeasure)
-		for i = 0 to 15
-			if interpolation_buffer[(i*3) + (cmp_mod-1)] >= 0
-				SendMidiCC automation_chs[i], automation_ccs[i], interpolation_buffer[(i*3) + (cmp_mod-1)]
-				// Log {Buffer pulse val: }, interpolation_buffer[(i*3) + (cmp_mod-1)], { CMP:}, cmp_mod, { CH:}, i
-			endif
-		endfor
+	if send_automation_data_enabled
+		if cmp_mod = 0 //on the beat
+			Call @SendAutomationData
+		elseif interpolate_autom and (cmp_mod>=1 and cmp_mod<=3) and (cmp_mod+1 <= HostBeatsPerMeasure)
+			for i = 0 to 15
+				if interpolation_buffer[(i*3) + (cmp_mod-1)] >= 0
+					SendMidiCC automation_chs[i], automation_ccs[i], interpolation_buffer[(i*3) + (cmp_mod-1)]
+					// Log {Buffer pulse val: }, interpolation_buffer[(i*3) + (cmp_mod-1)], { CMP:}, cmp_mod, { CH:}, i
+				endif
+			endfor
+		endif
 	endif
 @End
 
@@ -254,6 +259,7 @@
 			edit_scene=MIDIByte3
   	endif
 		in_mode_select = FALSE
+		mode=0
 		Call @SetupLayoutScenes
 	elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
   	//# handle return to song mode requested
@@ -346,6 +352,8 @@
 		Call @UpdateCurrentKnobset		
 	else //not in mode select
 		Call @SetupSettingsLayout
+		knob_set=1
+		Call @SetupKnobset1
 		Call @UpdateCurrentKnobset
 		LabelPads {AUTOM : [ SETTINGS ]}
 	endif
@@ -694,7 +702,6 @@
 	ColorPad 13, 1
 	ColorPad 14, 1
 	ColorPad 15, 1
-	Call @SetupKnobset1
 	knob_set = 1 //settings knobs
 @End
 
@@ -743,7 +750,7 @@
 	knob_set = 0
 	LabelPads {AUTOM : [ SCENES ]}
 	LabelKnobs {SCENE SETUP}
-	LabelKnob 0, {Edit Scn }, edit_scene+1
+	LabelKnob 0, {Edit scn }, edit_scene+1
 	LabelKnob 1, {Bars }, scene_durs[edit_scene]
 	LabelKnob 2, { }
 	LabelKnob 3, { }
@@ -758,6 +765,8 @@
 		if val <> edit_scene
 			edit_scene = val
 			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
+			LabelKnob 0, {Edit scn }, edit_scene+1
+			LabelKnob 1, {Bars }, scene_durs[edit_scene]
 		endif
 	endif
 	if LastKnob = 1
@@ -766,8 +775,6 @@
 	endif
 	scn_to_label = current_scene
 	Call @SetupLayoutScenes
-	LabelKnob 0, {Scene }, edit_scene+1
-	LabelKnob 1, {Bars }, scene_durs[edit_scene]
 	LabelKnob 2, { }
 	LabelKnob 3, { }
 @End
@@ -775,7 +782,7 @@
 @SetupKnobset1
 	//# Settings knobs
 	knob_set = 1
-	LabelKnob 0, {Edit Scn }, edit_scene+1
+	LabelKnob 0, {Edit scn }, edit_scene+1
 	LabelKnob 1, { }
 	LabelKnob 2, {MIN }, auto_ramp_min 
 	LabelKnob 3, {MAX }, auto_ramp_max
@@ -791,6 +798,8 @@
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
 		if val <> edit_scene
 			edit_scene = val
+			LabelKnob 0, {Edit scn }, edit_scene+1
+			LabelKnob 1, {Bars }, scene_durs[edit_scene]
 		endif
 	endif
 	if LastKnob = 2
@@ -1164,7 +1173,6 @@
 
 @SetupLayoutScenes
 	//#xsl setup layout for Scenes mode
-	ShowLayout 2
 	LabelKnobs {Setup Scenes}
 	if mode=0 or mode=1
 		//# Setup scene pads
@@ -1188,11 +1196,6 @@
 			LatchPad i, NO
 	    ColorPad i, col_unused
 			LabelPad i, { }
-		endfor
-	elseif mode=2
-		for i = 0 to 15
-	  	ColorPad i, 2
-			LabelPad i, {mode??}
 		endfor
 	endif
 	if (songmode = 0)
