@@ -27,6 +27,7 @@
 	  midi_channel_conflict = FALSE //# allowing midi OUT channel conflicts
 	  send_cc_back_to_knobs = FALSE 
 	  midi_controller=[15,14,15,16,17] //midi controller channel then 4 ccs
+		txpose_w_circle_fifths=FALSE
 		copy_mode=-1
 	  Call @TransposeCalcArrays
 	  Call @InitKnobVariables //# All knob settings on start
@@ -804,7 +805,9 @@
 	chord_root = chord_root + txpose_amt + trigger_note_oct_adj
 	chord_3rd = chord_3rd + txpose_amt + trigger_note_oct_adj
 	chord_5th = chord_5th + txpose_amt + trigger_note_oct_adj
-	chord_7th	= chord_7th + txpose_amt + trigger_note_oct_adj
+	if chord_7th <> -1 //dont transpose the 7th if it's not ON
+		chord_7th	= chord_7th + txpose_amt + trigger_note_oct_adj
+	endif
 	if chord_bass >= 0 //# -1 is off so dont txpose
 		chord_bass = chord_bass + txpose_amt + trigger_note_oct_adj
 	endif
@@ -1367,15 +1370,15 @@
 	LabelKnob 0, {Duration}
 	LabelKnob 1, {Transpose}
 	LabelKnob 2, {Preset }, scn_preset
-	if rnd_scene_chg = 0
-		LabelKnob 3, {RndScOFF} 
+	if txpose_w_circle_fifths
+		LabelKnob 3, {TXP CoF} 
 	else
-		LabelKnob 3, {RndScON}
+		LabelKnob 3, {TXP ST}
 	endif
 	SetKnobValue 0, TranslateScale scn_duration, 0, 32, 0, 127
 	SetKnobValue 1, TranslateScale scn_txpose, 0, 12, 0, 127
 	SetKnobValue 2, TranslateScale scn_preset, 1, num_sc_presets, 0, 127
-	SetKnobValue 3, TranslateScale rnd_scene_chg, 0, 1, 0, 127 
+	SetKnobValue 3, TranslateScale txpose_w_circle_fifths, 0, 1, 0, 127 
 @End
 @KnobChangeSet0
 	//# scene settings
@@ -1400,11 +1403,12 @@
   	Call @ChangeScenePreset
   endif
   if LastKnob = 3
-	  rnd_scene_chg = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
-		if rnd_scene_chg = 0
-				LabelKnob 3, {RndScOFF} 
-			else
-				LabelKnob 3, {RndScON}
+	  txpose_val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
+		if txpose_val <> txpose_w_circle_fifths
+			txpose_w_circle_fifths = txpose_val
+			Call @TransposeCalcArrays
+			Call @SetupLayout
+			Call @SetupKnobset0
 		endif
   endif
   scn_to_label = current_scene
@@ -2166,7 +2170,11 @@
 	if sc_txpm < 0
 		sc_txpm = sc_txpm + 12
 	endif
-	LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}, {    }, (NoteName sc_txp), {/}, (NoteName sc_txpm), {m(}, txpose_array[scene_bank[(scn_to_label * sc_size) + sc_txp_slot]], {st) }, {  P}, sc_preset
+	if txpose_w_circle_fifths
+		LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}, {    }, (NoteName sc_txp), {/}, (NoteName sc_txpm), {m(}, txpose_array[scene_bank[(scn_to_label * sc_size) + sc_txp_slot]], {st) }
+	else
+		LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}, {    Txpose: }, txpose_array[scene_bank[(scn_to_label * sc_size) + sc_txp_slot]], {st }
+	endif
 @End
 
 @LabelChordPad
@@ -2312,41 +2320,45 @@
 @End
 	
 @TransposeCalcArrays
-  //# Creates an array to transpose using the circle of 5ths 
-  //# but keeping to one octave
-  FillArray txpose_array, 99, 13
-  FillArray txpose_labels, 99, 13 
-  txpose_index = 0
-  for i = 6 to 11
-    key = (i * 7) % 12
-    txpose_val = key
-    if key > Abs (key - 12)
-      txpose_val = key - 12 
-    endif
-    //# Log {APos: }, i, { Key: }, (NoteName key), { TXPOSE: }, txpose_val, { Semitones: }, key, { -VE: }, key -12
-    txpose_array[txpose_index] = txpose_val
-    label = txpose_array[txpose_index]
-    if txpose_array[txpose_index] < 0
-      label = txpose_array[txpose_index] + 12
-    endif
-    txpose_labels[txpose_index] = label
-    txpose_index = txpose_index + 1 
-  endfor  
-  for i = 0 to 6
-    key = (i * 7) % 12
-    txpose_val = key
-    if key > Abs (key - 12)
-      txpose_val = key - 12 
-    endif
-    //# Log {BPos: }, i, { Key: }, (NoteName key), { TXPOSE: }, txpose_val, { Semitones: }, key, { -VE: }, key -12 
-    txpose_array[txpose_index] = txpose_val
-    label = txpose_array[txpose_index]
-    if txpose_array[txpose_index] < 0
-      label = txpose_array[txpose_index] + 12
-    endif
-    txpose_labels[txpose_index] = label
-    txpose_index = txpose_index + 1
-  endfor
+	if txpose_w_circle_fifths
+	  //# Creates an array to transpose using the circle of 5ths 
+	  //# but keeping to one octave
+	  FillArray txpose_array, 99, 13
+	  FillArray txpose_labels, 99, 13 
+	  txpose_index = 0
+	  for i = 6 to 11
+	    key = (i * 7) % 12
+	    txpose_val = key
+	    if key > Abs (key - 12)
+	      txpose_val = key - 12 
+	    endif
+	    // Log {APos: }, i, { Key: }, (NoteName key), { TXPOSE: }, txpose_val, { Semitones: }, key, { -VE: }, key -12
+	    txpose_array[txpose_index] = txpose_val
+	    label = txpose_array[txpose_index]
+	    if txpose_array[txpose_index] < 0
+	      label = txpose_array[txpose_index] + 12
+	    endif
+	    txpose_labels[txpose_index] = label
+	    txpose_index = txpose_index + 1 
+	  endfor  
+	  for i = 0 to 6
+	    key = (i * 7) % 12
+	    txpose_val = key
+	    if key > Abs (key - 12)
+	      txpose_val = key - 12 
+	    endif
+	    // Log {BPos: }, i, { Key: }, (NoteName key), { TXPOSE: }, txpose_val, { Semitones: }, key, { -VE: }, key -12 
+	    txpose_array[txpose_index] = txpose_val
+	    label = txpose_array[txpose_index]
+	    if txpose_array[txpose_index] < 0
+	      label = txpose_array[txpose_index] + 12
+	    endif
+	    txpose_labels[txpose_index] = label
+	    txpose_index = txpose_index + 1
+	  endfor
+	else
+		txpose_array = [-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6]
+	endif
 @End
 
 @ChangeScenePreset
