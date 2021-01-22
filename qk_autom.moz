@@ -65,7 +65,12 @@
 	auto_ramp=0 //# apply a ramp set of automation values to a set of bars
 	auto_adv_bar=0 //# scroll through scene to see automation
 	sel_autom_pad=0 //# selected automation pad for editing
-	record_autom_on=FALSE //# record automation from the automation edit page
+	autom_setup_mode=0 //0=setup ; 1=control_autom ; 2=record_autom
+	record_autom_on=FALSE //# record automation 
+	control_autom_on=FALSE // control the autom parameters 
+	FillArray autom_control_vals, 0, 16
+	FillArray min_vals_rec_cont, 0, 16
+	FillArray max_vals_rec_cont, 127, 16
 	FillArray rec_auto_buffer, -1, 16 // rec buffer. vals get added here and update points on beat if>=0
 	FillArray auto_data_ch0, -1, 1024
 	FillArray auto_data_ch1, -1, 1024
@@ -307,16 +312,6 @@
 			CopyArray auto_data_ch15[copied_scene*128], auto_data_ch15[paste_to_scene*128], 128
 			scene_durs[paste_to_scene] = scene_durs[copied_scene]
 		endif
-	elseif MIDIChannel=15 and MIDIByte2>=1 and MIDIByte2<=16 //AUTOM lanes control
-		// incoming cc control ch15 cc1-16 to control the 16 autom lanes 
-		break_point = MIDIByte3
-		inc_autom_pad = MIDIByte2-1
-		SendMIDICC automation_chs[inc_autom_pad], automation_ccs[inc_autom_pad], break_point
-		//Log {From Twister CH:}, automation_chs[inc_autom_pad], { CC:}, automation_ccs[inc_autom_pad], { VAL:}, break_point		
-		if record_autom_on
-			//here we send the cc and add bp to a buffer which during rec is add to each beat once there is a value
-			rec_auto_buffer[inc_autom_pad] = break_point //stored even when host stopped so can record value on host start	
-		endif
 	endif
 @End
 
@@ -381,7 +376,20 @@
 			Call @ResetAutomToPosition
 			LabelPad 2, {AUTOM RESET TO END S}, edit_scene+1
 		elseif LastPad=3
-			record_autom_on = not record_autom_on 
+			autom_setup_mode = autom_setup_mode+1
+			if autom_setup_mode>2
+				autom_setup_mode=0
+			endif
+			if autom_setup_mode=0
+				record_autom_on=FALSE
+				control_autom_on=FALSE
+			elseif autom_setup_mode=1
+				record_autom_on=FALSE
+				control_autom_on=TRUE
+			else
+				record_autom_on=TRUE
+				control_autom_on=FALSE
+			endif
 			FillArray rec_auto_buffer, -1, 16 //empty record auto buffer
 			Call @SetupSettingsLayout
 		elseif LastPad=4 // SETUP AUTOM LANES
@@ -667,15 +675,24 @@
 	LabelPad 1, {SET AUTOM TO START S}, edit_scene+1
 	LabelPad 2, {SET AUTOM TO END S}, edit_scene+1
 	if record_autom_on
-		LabelPads {AUTOM : [ In record mode turn cc knob during playback. Automation will record into scene beat ]}
+		LabelPads {AUTOM : [ Record autom parameters during playback. Use rec knob in setup ]}
 		ColorPad 3, 1
-		LabelPad 3, {RECORDING AUTOM}
+		LabelPad 3, {MODE=> RECORD}
+		LabelPad 4, {AUTOM RECORD}
+		ColorPad 4, 1
+	elseif control_autom_on
+	  LabelPads {AUTOM : [ Control autom parameters ]}
+		ColorPad 3, 3
+		LabelPad 3, {MODE=> CONTROL}
+		LabelPad 4, {AUTOM CONTROL}
+		ColorPad 4, 3
 	else
-	  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS ] }
-		ColorPad 3, 0
-		LabelPad 3, {RECORD AUTOM OFF}
-	endif
-	LabelPad 4, {AUTOM SETUP}
+	  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS. Use con knob in setup ] }
+		ColorPad 3, 6
+		LabelPad 3, {MODE=> SETUP}
+		LabelPad 4, {AUTOM SETUP}
+		ColorPad 4, 6
+	endif 
 	LabelPad 5, {AUTOM EDITOR}
 	if interpolate_autom
 		LabelPad 6, {SMOOTH AUTOM ON}
@@ -821,20 +838,31 @@
 	a_cc = automation_ccs[sel_autom_pad]
 	a_col = automation_cols[sel_autom_pad]
 	rec_val = rec_auto_buffer[sel_autom_pad]
+	con_val = autom_control_vals[sel_autom_pad]
 	if edit_mode_active and not record_autom_on
 		LabelPads {AUTOM : [ AUTOMATION SETUP ]}
 		LabelKnobs {AUTOM SETUP P}, auto_lane+1
 	elseif record_autom_on
-	  LabelPads {AUTOM : [ AUTOMATION RECORD CH:},a_ch, { CC#}, a_cc, { ]}
+	  LabelPads {AUTOM : [ AUTOMATION RECORD CH:},a_ch+1, { CC#}, a_cc, { ]}
 		LabelKnobs {AUTOM RECORD P}, auto_lane+1
+	elseif control_autom_on
+	  LabelPads {AUTOM : [ AUTOMATION CONTROL CH:},a_ch+1, { CC#}, a_cc, { ]}
+		LabelKnobs {AUTOM CONTROL P}, auto_lane+1
 	else 
 		LabelPads {AUTOM : [ AUTOMATION PARAMTERS ]}
 		LabelKnobs {AUTOMATION P}, auto_lane+1
 	endif
-	SetKnobValue 0, TranslateScale a_ch, 0, 15, 0, 127
-	SetKnobValue 1, TranslateScale a_lbl, 0, 48, 0, 127
+	if record_autom_on or control_autom_on
+		SetKnobValue 0, TranslateScale min_vals_rec_cont[sel_autom_pad], 0, 127, 0, 127
+		SetKnobValue 1, TranslateScale max_vals_rec_cont[sel_autom_pad], 0, 127, 0, 127
+	else
+	  SetKnobValue 0, TranslateScale a_ch, 0, 15, 0, 127
+		SetKnobValue 1, TranslateScale a_lbl, 0, 48, 0, 127
+	endif
 	if record_autom_on
-		SetKnobValue 2, TranslateScale rec_val, 0, 127, 0, 127
+		SetKnobValue 2, TranslateScale rec_val, min_vals_rec_cont[sel_autom_pad], max_vals_rec_cont[sel_autom_pad], 0, 127
+	elseif control_autom_on
+		SetKnobValue 2, TranslateScale con_val, min_vals_rec_cont[sel_autom_pad], max_vals_rec_cont[sel_autom_pad], 0, 127
 	else
 	  SetKnobValue 2, TranslateScale a_cc, 0, 127, 0, 127
 	endif
@@ -844,22 +872,48 @@
 
 @KnobChangeSet4
 	//# AUTOMATION PARAMS
-	if LastKnob = 0
-    automation_chs[sel_autom_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
-		LabelKnob 0, {ch }, automation_chs[sel_autom_pad]+1
-  endif
-  if LastKnob = 1
-    automation_labels[sel_autom_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 48
-		LabelKnob 1, {Label }, automation_labels[sel_autom_pad]
+	if record_autom_on
+		val_to_set = rec_auto_buffer[sel_autom_pad]
+	elseif control_autom_on
+	  val_to_set = autom_control_vals[sel_autom_pad]
+	endif 
+	if record_autom_on or control_autom_on
+		if LastKnob = 0
+	    min_vals_rec_cont[sel_autom_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
+			LabelKnob 0, {MIN }, min_vals_rec_cont[sel_autom_pad]
+			SetKnobValue 2, TranslateScale val_to_set, min_vals_rec_cont[sel_autom_pad], max_vals_rec_cont[sel_autom_pad], 0, 127
+			Call @LabelAutomationPads
+	  endif
+	  if LastKnob = 1
+	    max_vals_rec_cont[sel_autom_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
+			LabelKnob 1, {MAX }, max_vals_rec_cont[sel_autom_pad]
+			SetKnobValue 2, TranslateScale val_to_set, min_vals_rec_cont[sel_autom_pad], max_vals_rec_cont[sel_autom_pad], 0, 127
+			Call @LabelAutomationPads
+		endif
+	else
+		if LastKnob = 0
+	    automation_chs[sel_autom_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+			LabelKnob 0, {ch }, automation_chs[sel_autom_pad]+1
+	  endif
+	  if LastKnob = 1
+	    automation_labels[sel_autom_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 48
+			LabelKnob 1, {Label }, automation_labels[sel_autom_pad]
+		endif
 	endif
   if LastKnob = 2
 		if record_autom_on
-			break_point = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
-			LabelKnob 2, {REC cc# }, break_point
+			break_point = Round TranslateScale (GetKnobValue 2), 0, 127, min_vals_rec_cont[sel_autom_pad], max_vals_rec_cont[sel_autom_pad]
+			LabelKnob 2, {REC#}, break_point
 			//here we send the cc and add bp to a buffer which during rec is add to each beat once there is a value
 			rec_auto_buffer[sel_autom_pad] = break_point //stored even when host stopped so can record value on host start
 			SendMIDICC automation_chs[sel_autom_pad], automation_ccs[sel_autom_pad], break_point
-			Log {Sending CH:}, automation_chs[sel_autom_pad], { CC:}, automation_ccs[sel_autom_pad], { VAL:}, break_point
+			//Log {Recording CH:}, automation_chs[sel_autom_pad]+1, { CC:}, automation_ccs[sel_autom_pad], { VAL:}, break_point
+		elseif control_autom_on
+		  val = Round TranslateScale (GetKnobValue 2), 0, 127, min_vals_rec_cont[sel_autom_pad], max_vals_rec_cont[sel_autom_pad]
+			LabelKnob 2, {CON#}, val
+			SendMIDICC automation_chs[sel_autom_pad], automation_ccs[sel_autom_pad], val
+			//Log {Sending CH:}, automation_chs[sel_autom_pad]+1, { CC:}, automation_ccs[sel_autom_pad], { VAL:}, val
+			autom_control_vals[sel_autom_pad] = val //store it for when user returns to controlling this param
 		else
 		  automation_ccs[sel_autom_pad] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
 			LabelKnob 2, {cc# }, automation_ccs[sel_autom_pad]
@@ -883,10 +937,17 @@
 		pad_slot=i
 		Call @LabelAutomPad
 	endfor
-	LabelKnob 0, {Ch }, automation_chs[sel_autom_pad]+1
-	LabelKnob 1, {Label }, automation_labels[sel_autom_pad]
+	if record_autom_on or control_autom_on
+		LabelKnob 0, {MIN }, min_vals_rec_cont[sel_autom_pad]
+		LabelKnob 1, {MAX }, max_vals_rec_cont[sel_autom_pad]
+	else
+		LabelKnob 0, {Ch }, automation_chs[sel_autom_pad]+1
+		LabelKnob 1, {Label }, automation_labels[sel_autom_pad]
+	endif
 	if record_autom_on
-		LabelKnob 2, {REC }, rec_auto_buffer[sel_autom_pad]
+		LabelKnob 2, {REC# }, rec_auto_buffer[sel_autom_pad]
+	elseif control_autom_on
+	  LabelKnob 2, {CON# }, autom_control_vals[sel_autom_pad]
 	else
 	  LabelKnob 2, {cc# }, automation_ccs[sel_autom_pad]
 	endif
