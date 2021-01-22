@@ -168,11 +168,7 @@
 	// CCs101-108 OUT: scene duration update. IN: SCENE CHANGE REQ	
 	// CCs109-127 THRU: CH Mixer & Transport
 	//Log {Lowr: }, lower_mx_ccs_max, { uppr: }, upper_mx_ccs_min
-	if MIDIChannel=14 and MIDIByte2>=1 and MIDIByte2<=16
-		//AUTOM 16 lanes control
-		SendMIDIThruOnCh 15
-	
-	elseif MIDIChannel <> 15
+	if MIDIChannel <> 15
 		Exit //other cc's must be on ch16 (1-16)
 		
 	elseif MIDIByte2=0 or MIDIByte2=5 //TRANSPORT on CH16 - Aum: STOP, PLAY
@@ -2070,7 +2066,7 @@
 		def_colors[16*1] = [2,3,3,5,0,0,0,4,4,6,6,3,0,0,0,0]
 		def_vals[16*1]   = [0,53,110,30,0,15,0,90,64,35,22,16,0,0,0,0]
 		def_ccs[16*1]    = [46,47,48,49,127,125,124,53,54,55,56,57,58,59,60,61]
-		def_labels[16*2] = [77,78,-1,-1,-1,127,24,79,28,29,74,75,-1,80,12,1]
+		def_labels[16*2] = [77,78,-1,-1,-1,126,24,79,28,29,76,75,-1,80,12,1]
 		def_colors[16*2] = [2,2,0,0,0,0,6,6,3,3,3,3,0,2,3,4]
 		def_vals[16*2]   = [3,16,0,0,0,0,127,127,18,19,38,17,0,0,127,90]
 		def_ccs[16*2]    = [62,63,64,65,66,126,68,69,70,71,72,73,74,75,76,77]
