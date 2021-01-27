@@ -826,10 +826,10 @@
 @SendMidiCCBackToKnobs
 	//# Update controller knob vals with midi cc
 	//# Log {Updating Twister... }, Round GetKnobValue 0
-	SendMidiCC 0, midi_controller[1], Round GetKnobValue 0
-	SendMidiCC 0, midi_controller[2], Round GetKnobValue 1
-	SendMidiCC 0, midi_controller[3], Round GetKnobValue 2
-	SendMidiCC 0, midi_controller[4], Round GetKnobValue 3
+	SendMidiCC midi_controller[0], midi_controller[1], Round GetKnobValue 0
+	SendMidiCC midi_controller[0], midi_controller[2], Round GetKnobValue 1
+	SendMidiCC midi_controller[0], midi_controller[3], Round GetKnobValue 2
+	SendMidiCC midi_controller[0], midi_controller[4], Round GetKnobValue 3
 @End
 
 @OnMidiCC
