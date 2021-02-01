@@ -2,7 +2,7 @@
 //# NOTES APP
 @OnLoad
 	ShowLayout 2
-  LabelPads {_QK:NOTES}
+  LabelPads {[ QK:NOTES ]}
 	SetShortName {NOTES}
   if unassigned scene_durs
 		ResetNoteStates FALSE // #reset the locker with the value FALSE!

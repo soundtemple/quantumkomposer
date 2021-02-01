@@ -5,7 +5,7 @@
 @OnLoad
 	SetShortName {AUTOM} 
 	ShowLayout 2
-	LabelPads {[ AUTOM ]}
+	LabelPads {[ QK:AUTOM ]}
 	if unassigned scene_durs //# duration in first scene
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked

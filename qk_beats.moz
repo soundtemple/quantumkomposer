@@ -2,7 +2,7 @@
 //# BEATS APP
 @OnLoad
 	ShowLayout 2
-  LabelPads {_QK:BEATS}
+  LabelPads {[ QK:BEATS ]}
 	SetShortName {BEATS}
   if unassigned scene_durs
 		ResetNoteStates FALSE // #reset the locker with the value FALSE!
