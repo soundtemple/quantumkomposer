@@ -67,6 +67,7 @@
 	cc_scene_duration=101 //+ scene_num0-7 ie 101-108
 	cc_rtn_to_song_mode=22
 	cc_swing=23
+	send_cc21_for_spa=FALSE // chg SPA pattern when KNTRL changes scene
 	
 	//MIDI KONTROL DATA STRUCTURE
 	// 16 channels --> layout, midi_ch, label,color,lsb,msb
@@ -173,6 +174,7 @@
 		
 	elseif MIDIByte2=0 or MIDIByte2=5 //TRANSPORT on CH16 - Aum: STOP, PLAY
 		SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
+		SendMIDICC 15, current_scene+109, 127 //update drambo pattern
 	
 	elseif MIDIByte2<=17 or MIDIByte2>=113 //MIXER CONTROLS  curr_ch (21<>113)
 		//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF,EQ) 
@@ -272,11 +274,15 @@
 			LatchPad last_mgen_pad, YES
 		endif
 		
-	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7) //SCENE CHANGE CH16
+	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7) //SCENE CHANGE CH16 CC100 only vals0-7
 		last_pad = MIDIByte3
 		mode=0
 		Call @PadDownScenesMode
-		//Log {-- HANDLE: SCENE CHANGE REQUEST TO SCENE }, MIDIByte2-100, { --}
+		
+	elseif (MIDIByte2>=109) and (MIDIByte2<=116) and (MIDIByte3=127) //SCENE CHANGE CH16 CC109-116 val127
+		last_pad = MIDIByte2-109
+		mode=0
+		Call @PadDownScenesMode
 		
 	else
 	  SendMIDIThru
@@ -359,12 +365,14 @@
 	elseif mode=6
 	  Call @SetupLayoutChannels
 	endif
+	SendMIDICC 15, cc_scene_select, current_scene
+	SendMIDICC 15, 109+current_scene, 127 //ensure drambo pattern is correct on re-start
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }
 @End 
 
 
 @OnNewBeat
-	//# increment beat counts xonb
+	//# increment beat counts
 	scene_beat_count = scene_beat_count + 1
 	//# Handle Scene and Chord changes
 	current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
@@ -375,8 +383,10 @@
 		Call @HandleSceneChange
 	elseif (scene_beat_count >= current_scene_duration)
 		//# its time to increment scene
+		Log {Time to increment scene }, scene_change_requested
 		Call @HandleSceneChange
 	endif
+	Log {Logging current info}, scene_change_requested
 	Call @LogCurrentInfo
 @End
 
@@ -570,7 +580,7 @@
 	if last_pad >= 0 and last_pad <= 7 //SCENES MODE
 		//Log { SCENE CHANGE REQUESTED }
 		scene_change_requested = last_pad
-		SendMIDICC 15, cc_scene_select, last_pad //the scene to change to
+		SendMIDICC 15, cc_scene_select, last_pad //scn change request cc100, val scn to chg to
 		songmode=1 //# Lock to selected scene
 		edit_scene=last_pad
 		locked_to_scene=last_pad
@@ -593,7 +603,7 @@
 	elseif mode=0 and last_pad=9 // return to song mode
 		SendMIDICC 15, cc_rtn_to_song_mode, 127
 		return_to_song_mode_requested = TRUE
-  	// scene_change_requested = current_scene
+  	scene_change_requested = current_scene
 		if NOT HostRunning
 			scene_change_requested = current_scene
 			if HostBar = 0
@@ -885,6 +895,8 @@
 	if last_pad=14 
 		SendMIDICC 15,0,127 //STOP
 		ColorPad 15, 0
+		SendMIDICC 15, 109+current_scene, 127 //go to scene on stop Drambo
+		SendMIDICC 15, cc_scene_select, current_scene //go to scene on stop
 	elseif last_pad=15
 		SendMIDICC 15,5,127 //PLAY
 		ColorPad 15, 3
@@ -892,7 +904,7 @@
 @End
 
 @HandleSceneChange
-	//# Work out which scene is next xhsc
+	//# Work out which scene is next
 	scene_changed = TRUE
   if scene_change_requested > -1
   	current_scene = scene_change_requested
@@ -905,24 +917,32 @@
   	return_to_song_mode_requested = FALSE
 		scene_change_requested = -1
   elseif (songmode > 0)
+		Log {Song mode = 0 - lock current scene}
   	current_scene = current_scene
   elseif (current_scene = 7) //# End of song. Loop back to beginning
     current_scene = 0 
 		if not loop_song_mode
 			SendMIDICC 15, 0, 127
+			SendMIDICC 15, 109, 127 // Pattern change for Drambo
 		endif
   elseif scene_durs[current_scene + 1] <= 0
   	//# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
 		if not loop_song_mode
 			SendMIDICC 15, 0, 127
+			SendMIDICC 15, 109, 127 // Pattern change for Drambo
 		endif
   else
 		current_scene = current_scene + 1 //# Going to next
+		Log {GOING TO NEXT Scene:}, current_scene+1
   endif
-	SendMIDICC 16, 21, current_scene // Pattern change for StepPolyArpUnit
+	if send_cc21_for_spa
+		SendMIDICC 15, 21, current_scene // Pattern change for StepPolyArpUnit
+	endif
+	SendMIDICC 15, cc_scene_select, current_scene // Scene change message to QK devices
+	SendMIDICC 15, current_scene+109, 127 // Pattern change for Drambo
   scene_beat_count = 0
-  //Log {----- SCENE CHANGE -----}, {S}, current_scene+1
+  Log {----- SCENE CHANGE -----}, {S}, current_scene+1
 	if mode=0
 		Call @SetupLayoutScenes
 	endif
@@ -930,7 +950,7 @@
 
 @LogCurrentInfo
 	current_scene_duration = scene_durs[current_scene]
-	// Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
+	Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
 	LabelPads {[ KNTRL ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure) 
 @End
 
@@ -1643,7 +1663,7 @@
 @End
 
 @SetupLayoutScenes
-	//#xsl setup layout for Scenes mode
+	//setup layout for Scenes mode
 	ShowLayout 2
 	if mode=0 or mode=1
 		//# Setup scene pads
