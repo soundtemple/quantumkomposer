@@ -146,7 +146,7 @@
 	//# Common scales
 	common_scales[0]     = [0,1,2,3,4,5,6,7, 8, 9,10,11] //#	Chromatic
 	//# Fixed notesets (always 8 notes long)
-	num_fixed_notesets=6 //including 0
+	num_fixed_notesets=8 //including 0
 	fixed_notesets[0]    = [49,51,54,56,58,61, 63, 66] //# [RuisDEF]
 	fixed_notesets[1*30] = [36,38,39,42,45,46, 48, 50] //# [RuisGM]
 	fixed_notesets[2*30] = [24,30,36,42,48,54,60,66] //# [DC Note]
@@ -154,6 +154,8 @@
 	fixed_notesets[4*30] = [60,62,64,65,67,69, 71, 72] //# [Patt'ng.2]
 	fixed_notesets[5*30] = [36,38,39,42,43,46, 47, 50] //# [EG Pulse]
 	fixed_notesets[6*30] = [48,49,50,51,52,53,54,55, 56,57,58,59,60,61,62,63] //# [Digistix]
+	fixed_notesets[7*30] = [24,25,26,27,28,29,30,31,32] //Drambo Drums 
+	fixed_notesets[8*30] = [48,49,50,51,52,53,54,55,56,57,58,59, 60,61,62,63,64,65,66,67,68,69,70,71] //Drambo Percs
 	//# Single noteset (always 4 notes long, 1 for each channel)
 	s_noteset=[49,54,58,61]
 	Call @GetMidiINPUTScale //# set up init scale for midi input	
@@ -177,6 +179,7 @@
 		FillArray seq2_octs, 3, 1024
 		FillArray seq3_octs, 4, 1024
 	elseif note_set_type=1 //# fixed note sets
+		midi_out_chs=[0,0,0,0]
 		scale_slot = sel_scale*30
 		notes_in_set=8
 		FillArray seq0_notes, 0, 1024
@@ -197,6 +200,22 @@
 			FillArray seq2_notes, 2, 1024
 			FillArray seq3_notes, 4, 1024
 		endif
+		if sel_scale=7 // Drambo Drums
+			notes_in_set=9
+			midi_out_chs=[0,1,1,1]
+			FillArray seq0_notes, 0, 1024
+			FillArray seq1_notes, 2, 1024
+			FillArray seq2_notes, 5, 1024
+			FillArray seq3_notes, 7, 1024
+		endif
+		if sel_scale=8 // Drambo Percs
+			notes_in_set=24
+			midi_out_chs=[1,1,1,1]
+			FillArray seq0_notes, 0, 1024
+			FillArray seq1_notes, 5, 1024
+			FillArray seq2_notes, 12, 1024
+			FillArray seq3_notes, 17, 1024
+		endif
 		CopyArray fixed_notesets[scale_slot], curr_scale, notes_in_set
 		noteset_len=notes_in_set
 		
@@ -210,16 +229,12 @@
 	endif
 @End
 		
-
 @OnHostStart
 	//# Start beat count on same beat as host
 	//# In AUM getting HostBeat to start on 0 seems flaky
 	//# Fixed by BramBos in June2020
-	//Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
 	SetMetroSwing scene_swing[current_scene] 
 	if (HostBeat = 0) and (HostBar = 0)
-		//# starting playback from beginning		
-		
 		//# SEQUENCE MODE RESETS...
 		curr_pattn_pulses=[0,0,0,0] //# reset metroPulse count for each seq.
 		curr_steps=[0,0,0,0]
@@ -243,13 +258,10 @@
 		scene_beat_count = scene_completed_bars + HostBeat
 		pattn_beat_count = pattn_completed_bars + HostBeat
 		
-		//# TODO:- take into account song position!!!
 		curr_pattn_pulses=[0,0,0,0] //# reset metroPulse count for each seq.
 		curr_steps=[0,0,0,0]
 		in_mid_step=[0,0,0,0]
-		
 	endif
-	//Log {---- Host Started ----}
 	Call @SetupLayout
 @End
 
@@ -274,7 +286,6 @@
 		curr_rate = pulses_per_note[euc_vals[euc_slot + e_rate_pos]]
 		curr_seq_len = 16 - (euc_vals[euc_slot + e_len_pos])
 		in_mid_step[ch] = (curr_pattn_pulses[ch]) % curr_rate
-		
 		if not in_mid_step[ch]
 			Call @PlayCurrentNotes
 			//# Highlight current step if in seq_mode
@@ -282,14 +293,11 @@
 				FlashPad curr_steps[seq_ch]
 			endif	
 		endif	
-		
 		//# if ch=0 //# Log some info....
 			//#Log {EUCSLOT:}, euc_slot, { curr_rate:16/}, curr_rate, { curr_seq_len:}, curr_seq_len, { curr_step:}, curr_steps[ch], { mid_step:}, in_mid_step[ch], { CMP:}, CurrentMetroPulse+1, { CPP:},curr_pattn_pulses[ch]+1
 		//# endif
-		
 		//# increment the pattern pulse
 		curr_pattn_pulses[ch] = curr_pattn_pulses[ch] + 1
-		
 		if in_mid_step[ch] = curr_rate-1 //# last pulse b4
 			//# increment pattern or reset
 			if curr_steps[ch] >= curr_seq_len-1
@@ -1370,6 +1378,7 @@
 	if note_set_type=0
   	LabelPad 3, {NOTESET       }, (NoteName scale_root), { Chromatic}
   elseif note_set_type=1
+		SetShortName {DRUMS}
   	if sel_scale=0
 	  	LabelPad 3, {NOTESET   [RuisDEF]}
   	elseif sel_scale=1
@@ -1384,7 +1393,13 @@
 	  	LabelPad 3, {NOTESET   [EG Pulse]}
 	  elseif sel_scale=6
 	  	LabelPad 3, {NOTESET   [Digistix]}
+		elseif sel_scale=7
+	  	LabelPad 3, {NOTESET   [Drambo D]}
+		elseif sel_scale=8
+	  	LabelPad 3, {NOTESET   [Drambo P]}
+			SetShortName {PERCS}
 		endif
+		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]         [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
   elseif note_set_type=2
   	LabelPad 3, {  KIT NOTES  [}, s_noteset[0], {-}, s_noteset[1], {]    [}, s_noteset[2], {-}, s_noteset[3], {]}   
   endif
