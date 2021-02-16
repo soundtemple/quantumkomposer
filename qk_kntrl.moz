@@ -1824,10 +1824,9 @@
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
 			clr=i+1 
-			def_labels[16*i] = [0,1,3,125,     4,5,6,7,   85,85,10,11, 61,64,65,66]
-			def_colors[16*i] = [clr,clr,clr,0, 0,0,0,0,   clr,clr,3,3,     2,0,0,0]
-			def_colors[(16*i)+4+i] = clr //sends all no color except 1 dedicated for that channel
-			def_vals[16*i]   = [90,64,64,0,    0,0,0,0, 0,0,20,127,  0,0,0,0]
+			def_labels[16*i] = [0,1,3,125,     4,5,61,94,   85,85,10,11, 61,64,65,66]
+			def_colors[16*i] = [clr,clr,clr,0, clr,clr,5,5,   clr,clr,3,3,     2,0,0,0]
+			def_vals[16*i]   = [90,64,64,0,    0,0,0,64, 0,0,20,127,  0,0,0,0]
 			def_ccs[(16*i)+3] = mixbuseq_gui[i]
 			def_ccs[(16*i)+8] = mixbusfx[i]
 		endfor	
@@ -2038,8 +2037,8 @@
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
 			clr=i+1 
-			def_labels[16*i] = [0,1,3,125,     10,11,72,73,  85,85,126,127,       -1,64,65,66]
-			def_colors[16*i] = [clr,clr,clr,0, 3,3,clr,clr,        clr,clr,4,4,   0,0,0,0]
+			def_labels[16*i] = [0,1,3,125,     10,11,72,73,  85,85,85,126,       127,64,65,66]
+			def_colors[16*i] = [clr,clr,clr,0, 3,3,clr,clr,        clr,clr,clr,4,   4,0,0,0]
 			def_vals[16*i]   = [90,64,64,0,    20,127,64,64,      0,0,0,0,         0,0,0,0]
 			def_ccs[(16*i)+10] = mixbusfx_gui[i] 	
 		endfor
@@ -2273,13 +2272,13 @@
 	elseif (label_num=3)
 		LabelPad pad_to_label, {MID/SIDE} //MIXER
 	elseif (label_num=4)
-		LabelPad pad_to_label, {SEND A} //MIXER
+		LabelPad pad_to_label, {SEND 1} //MIXER
 	elseif (label_num=5)
-		LabelPad pad_to_label, {SEND B} //MIXER
+		LabelPad pad_to_label, {SEND 2} //MIXER
 	elseif (label_num=6)
-		LabelPad pad_to_label, {SEND C} //MIXER
+		LabelPad pad_to_label, {SEND 3} //MIXER
 	elseif (label_num=7)
-		LabelPad pad_to_label, {SEND D} //MIXER
+		LabelPad pad_to_label, {SEND 4} //MIXER
 	elseif (label_num=8)
 		LabelPad pad_to_label, {EQ LO} //MIXER
 	elseif (label_num=9)
@@ -2477,7 +2476,7 @@
 	elseif (label_num=84)
 		LabelPad pad_to_label, {ARP SWING} //CUSTOM
 	elseif (label_num=85)
-		LabelPad pad_to_label, {MACRO }, (pad_to_label%16)+1 //CUSTOM
+		LabelPad pad_to_label, {MACRO }, (pad_to_label%8)+1 //CUSTOM
 	elseif (label_num=86)
 		LabelPad pad_to_label, {TIME} //CUSTOM
 	elseif (label_num=87)
@@ -2495,7 +2494,7 @@
 	elseif (label_num=93)
 		LabelPad pad_to_label, {DIV.} //CUSTOM
 	elseif (label_num=94)
-		LabelPad pad_to_label, {INT'VAL} //CUSTOM
+		LabelPad pad_to_label, {SC MIX} //CUSTOM
 	elseif (label_num=95)
 		LabelPad pad_to_label, {DETUNE} //CUSTOM
 	elseif (label_num=96)
