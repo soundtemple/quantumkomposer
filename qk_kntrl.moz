@@ -14,7 +14,7 @@
 		edit_pad=0 //selected pad in a channel for editing
 		use_instr_knobset_a=TRUE //used to toggle between two kntrl knobsets. Edit mode cant access
 		use_mgen_knobset_a=TRUE
-		in_drambo_mode=TRUE //changes some onMidiCC behaviour
+		drambo_layout_active=FALSE //layouts 5 & 6 at present. Update padDownChannels mode if layouts change
 		SetMetroPPQN 4
 		ppqn = 4
 		edit_scene=0
@@ -115,6 +115,8 @@
 	chan_mx_def_vals = [90,64,64,64, 0,0,0,0, 64,64,0,127, 0,0,0,0, 0,0,0] //def values for mixer params
 	protected_cc_to_label=[-1,35,36,37,38,-1, 1,0,2,3, 4,5,6,7] 
 	protected_cc_to_label[113]=[8,9,10,11, 12,13,14,15, 64,65,66, 124,125,126,127]
+	lower_mx_ccs_max=14
+	upper_mx_ccs_min=113
 	//send ccs back to controller
 	curr_chan_ccs_update_controler = [7,8,6,9, 10,11,12,13, 14,15,16,17, 117,118,119,120, 121,122,123]
 	
@@ -187,7 +189,8 @@
 		in_mode_select=FALSE
 		last_pad = MIDIByte3
 		mode=1
-		if (last_pad=curr_chan) or in_drambo_mode //user hit goto channel pad twice
+		if (last_pad=curr_chan) or drambo_layout_active  
+			//user hit goto channel pad twice or Drambo layout so select pad 
 			curr_chan = last_pad
 			SendMIDICC chan_midi_chs[curr_chan], 124, 127 //toggle instrument GUI
 		endif
@@ -533,6 +536,11 @@
 
 @OnPadUp2
   pad_is_down = FALSE
+	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + last_pad 
+	if inst_labels[pad_slot] = 123 //send note pad released
+		SendMIDINoteOff chan_midi_chs[curr_chan], inst_state[pad_slot], 127
+		Log {send note off }, (NoteName inst_state[pad_slot], YES)
+	endif
 @End
 
 @ModeSetup
@@ -644,6 +652,11 @@
 		LatchPad 0, YES
 	endif
 	Call @SendMidiCCBackToKnobs
+	if chan_layouts[last_pad]=5 or chan_layouts[last_pad]=6
+		drambo_layout_active = TRUE
+	else
+	  drambo_layout_active = FALSE
+	endif
 @End
 
 @PadDownInstrMode
@@ -690,7 +703,7 @@
 		latch_last_pad=FALSE
 		re_label_pad_on_press=TRUE
 	elseif lbl=64 or lbl=65 or lbl=66 //mute solo arm but not std mixer is return or mixbus
-		rtnbuscols[64]=[6,4,1] //xyz
+		rtnbuscols[64]=[6,4,1]
 		if inst_state[pad_slot]=127
 			val=0
 			inst_colors[pad_slot] = 0
@@ -713,6 +726,9 @@
 		endif
 		inst_state[pad_slot] = val
 		SendMIDICC chan, inst_ccs[pad_slot], val
+	elseif lbl=123 //send note
+	  SendMIDINoteOn chan, inst_state[pad_slot], 100
+		Log {send note on }, (NoteName inst_state[pad_slot], YES)
 	elseif inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc // PGM CHG MSG
 		use_instr_knobset_a = TRUE
 		curr_pgm = chan_pgm[curr_chan]
@@ -823,6 +839,9 @@
 	  curr_chan=last_pad
 		chan = chan_midi_chs[curr_chan]
 		layout=chan_layouts[curr_chan]
+		if mixer_mode>=0 and mixer_mode<=3 and drambo_layout_active 
+			SendMIDICC chan, 124, 127 //goto drambo instrument selected for mixer control
+		endif
 	endif
 	if layout=2 or layout=16 or layout=17 //MixBus, Return or Master
 		mode=5 //goto INSTRUMENT MODE  
@@ -1207,23 +1226,7 @@
 	  LabelKnob 2, {Value }, inst_state[pad_slot]
 	endif	
 	if use_instr_knobset_a // Label : Color : Value : CC#
-		if inst_labels[pad_slot] = -1
-			LabelKnob 0, {Unused}
-		elseif inst_labels[pad_slot] >=0 and inst_labels[pad_slot] <= 15
-			LabelKnob 0, {Mixer}
-		elseif inst_labels[pad_slot] >=16 and inst_labels[pad_slot] <= 23
-			LabelKnob 0, {Osc}
-		elseif inst_labels[pad_slot] >=24 and inst_labels[pad_slot] <= 27
-			LabelKnob 0, {Filter}
-		elseif inst_labels[pad_slot] >=28 and inst_labels[pad_slot] <= 34
-			LabelKnob 0, {Env}
-		elseif inst_labels[pad_slot] >=35 and inst_labels[pad_slot] <= 45
-			LabelKnob 0, {Mod}
-		elseif inst_labels[pad_slot] >=46 and inst_labels[pad_slot] <= 53
-			LabelKnob 0, {FX}
-		elseif inst_labels[pad_slot] >=54
-			LabelKnob 0, {Other}
-		endif
+		LabelKnob 0, {Lbl# }, inst_labels[pad_slot]
 		LabelKnob 1, {Color }, inst_colors[pad_slot]
 		LabelKnob 3, {Page }, inst_curr_page[curr_chan]+1
 	else // LSB CC# : MSB MIN : Value : MAX
@@ -1250,7 +1253,7 @@
 		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
 	endif	
 	if use_instr_knobset_a // Label : Color : Value : CC#
-		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 101, 0, 127
+		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 127, 0, 127
 		SetKnobValue 1, TranslateScale inst_colors[pad_slot], 0, 6, 0, 127
 		SetKnobValue 3, TranslateScale inst_curr_page[curr_chan], 0, 3, 0, 127
 	else 
@@ -1274,7 +1277,7 @@
 	chan_to_label=curr_chan
 	if last_knob = 0 // LABEL : LSB / CC#
 		if use_instr_knobset_a
-			new_label_num = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 101
+			new_label_num = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 127
 			if new_label_num <> inst_labels[pad_slot]
 				inst_labels[pad_slot] = new_label_num 
 				Call @LabelInstrPad
@@ -1318,11 +1321,13 @@
 					val = rmkr_instrs[(8*drum_ch) + val] //see array of selectable drum sounds per ch
 					//Log {Drum ch: }, drum_ch, { Instrument#: }, inst, { cc#: }, inst_ccs[pad_slot]
 				endif
-				SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot], val 
 				inst_state[pad_slot] = val
+				if not inst_labels[pad_slot]=123 // Send Note not cc - handled in PadDown/Up 
+					SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot], val 
+				endif
 			endif
-			if inst_labels[pad_slot]=lbl_num_drum_ch or inst_labels[pad_slot]=lbl_num_ch_num
-				Call @LabelInstrPad // drum ch# has value in label so update
+			if inst_labels[pad_slot]=lbl_num_drum_ch or inst_labels[pad_slot]=lbl_num_ch_num or inst_labels[pad_slot]=123 
+				Call @LabelInstrPad // Label has value in the label so update the label text
 			endif
 		endif
 	endif
@@ -1380,7 +1385,7 @@
 		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
 		inst_state[pad_slot] = Clip val, inst_mins[pad_slot], inst_maxs[pad_slot]
 	endif
-	if last_knob = 2 // VALUE CC or PGM CHG
+	if last_knob=2 // VALUE CC or PGM CHG
 		if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG
 			chan_pgm[curr_chan] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, chan_pgm_max[curr_chan]
 		else 
@@ -1391,11 +1396,14 @@
 					val = rmkr_instrs[(8*drum_ch) + val] //see array of selectable drum sounds per ch
 					//Log {Drum ch: }, drum_ch, { Instrument#: }, val, { cc#: }, inst_ccs[pad_slot]
 				endif
-				SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot], val 
-				//Log chan_midi_chs[curr_chan], { }, inst_ccs[pad_slot], { }, val
-				inst_state[pad_slot] = val
+				if inst_labels[pad_slot]=123
+					log {Its a note send pad}
+				else
+					SendMIDICC chan_midi_chs[curr_chan], inst_ccs[pad_slot], val 
+					inst_state[pad_slot] = val
+				endif
 			endif
-			if inst_labels[pad_slot]=lbl_num_drum_ch or inst_labels[pad_slot]=lbl_num_ch_num
+			if inst_labels[pad_slot]=lbl_num_drum_ch or inst_labels[pad_slot]=lbl_num_ch_num or inst_labels[pad_slot]=123
 				Call @LabelInstrPad // drum ch# has value in label so update
 			endif
 		endif
@@ -1788,6 +1796,7 @@
 
 @BuildLayoutPages
 	//Setup a default layout page
+	drambo_layout_active=FALSE //default. only for layouts 5 & 6 at present
 	for i = 0 to 3 //wiping layout so we only need to add back in what has changed
 		def_labels[16*i] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 		def_colors[16*i] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -1804,7 +1813,7 @@
 		Call @CreateMixerPage4
 	elseif chan_layouts[edit_chan]=1 
 		LabelKnob 3, {Combo}
-		def_labels[16*0] = [85,85,85,85,85,85,85,85,  35,46,47,49,48,57,58,0]
+		def_labels[16*0] = [123,85,85,85,85,85,85,85,  35,46,47,49,48,57,58,0]
 		def_colors[16*0] = [4,4,4,4,4,4,4,4, 4,3,3,3,3,0,0,4]
 		def_vals[16*0]   = [0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,90]
 		def_ccs[8] = 1
@@ -1858,25 +1867,28 @@
 		endfor
 		def_colors[16*0] =  [1,1,1,1,1,1,1,0, 2,2,2,2,2,2,2,0]
 		def_colors[16*1] =  [2,2,2,2,2,2,2,0, 4,4,4,4,4,4,4,0]
-		def_colors[16*2] =  [3,3,3,3,3,3,3,0, 3,3,3,3,3,3,3,0]
+		def_colors[16*2] =  [3,3,3,3,3,3,3,0, 3,3,3,3,3,3,3,0] 
 		def_colors[16*3] =  [2,2,2,2,2,2,2,0, 2,2,2,2,2,2,2,0]
 	elseif chan_layouts[edit_chan]=5
-		LabelKnob 3, {D'mbo Perc}
+		LabelKnob 3, {D'mbo Perc} //Drambo layout
+		drambo_layout_active=TRUE
 		def_labels[16*0] = [0,2,1,71,72,73,10,11, 88,49,53,46,51,34,47,52]
 		def_colors[16*0] = [2,2,2,3,3,3,4,4, 1,2,2,3,3,3,4,4]
 		def_vals[16*0]   = [127,64,64,64,64,64,0,127,  0,0,64,0,64,32,0,64]
 		def_ccs[16*0]    = [7,8,6,14,9,15,16,17,117,118,40,119,42,43,120,45]
-		def_labels[16*1] = [85,85,85,85,85,85,85,85,106,106,106,106,106,106,106,106]
+		def_labels[16*1] = [64,64,64,64,64,64,64,64,106,106,106,106,106,106,106,106]
 		def_colors[16*1] = [0,0,0,0,0,0,0,0,4,4,4,4,4,4,4,4]
 		def_vals[16*1]   = [0,0,0,0,0,0,0,0,127,127,127,127,127,127,127,127]
-		def_labels[16*2] = [22,107,29,79,22,107,29,79,22,107,29,79,22,107,29,79]
-		def_colors[16*2] = [1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4]
-		def_vals[16*2]   = [64,64,127,0,64,64,127,0,64,64,127,0,64,64,127,0]
-		def_labels[16*3] = [22,107,29,79,22,107,29,79,22,107,29,79,22,107,29,79]
-		def_colors[16*3] = [3,3,3,3,4,4,4,4,5,5,5,5,6,6,6,6]
-		def_vals[16*3]   = [64,64,127,0,64,64,127,0,64,64,127,0,64,64,127,0]
-	elseif chan_layouts[edit_chan]=6
+		def_labels[16*2] = [85,85,85,85,85,85,85,85,123,123,123,123,123,123,123,123]
+		def_colors[16*2] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] 
+		def_vals[16*2]   = [0,0,0,0,0,0,0,0,48,49,50,51,52,53,54,55] 
+		def_labels[16*3] = [85,85,85,85,85,85,85,85,35,36,12,14,-1,-1,-1,-1]
+		def_colors[16*3] = [0,0,0,0,0,0,0,0,4,4,4,4,0,0,0,0]
+		def_vals[16*3]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_ccs[(16*3)+8] = [1,2,117,119] //modwheel , breath, fx1dw, fx2dw
+	elseif chan_layouts[edit_chan]=6 //Drambo layout
 		LabelKnob 3, {D'mbo Syn}
+		drambo_layout_active=TRUE
 		def_labels[16*0] = [0,2,1,71,72,73,10,11, 88,49,53,46,51,34,47,52]
 		def_colors[16*0] = [2,2,2,3,3,3,4,4, 1,2,2,3,3,3,4,4]
 		def_vals[16*0]   = [127,64,64,64,64,64,0,127,  0,0,64,0,64,32,0,64]
@@ -1887,9 +1899,10 @@
 		def_labels[16*2] = [22,89,69,79,22,89,77,79, 22,89,87,54,22,89,77,79]
 		def_colors[16*2] = [4,4,4,4,3,3,3,3, 5,5,5,5,2,2,2,2]
 		def_vals[16*2]   = [64,64,0,0,64,64,0,0,64,64,0,0,64,64,0,0]
-		def_labels[16*3] = [85,85,85,85,85,85,85,85, 85,85,85,85,85,85,85,85]
-		def_colors[16*3] = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
+		def_labels[16*3] = [85,85,85,85,85,85,85,85, 35,36,12,14,64,64,64,64]
+		def_colors[16*3] = [0,0,0,0,0,0,0,0, 4,4,4,4,0,0,0,0]
 		def_vals[16*3]   = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
+		def_ccs[(16*3)+8] = [1,2,117,119] //modwheel , breath, fx1dw, fx2dw
 	elseif chan_layouts[edit_chan]=7
 		LabelKnob 3, {Skaka}
 		def_vals[16*0]   = [64,127,0,0, 64,127,0,0, 64,127,0,0, 64,127,0,0]
@@ -2547,6 +2560,8 @@
 		LabelPad pad_to_label, {[DRAMBO]} //CUSTOM
 	elseif (label_num=120)	
 		LabelPad pad_to_label, {[DR. MAIN]} //CUSTOM
+	elseif (label_num=123) 
+		LabelPad pad_to_label, (NoteName inst_state[pad_slot], TRUE), { (}, inst_state[pad_slot], {)} //Send note
 	elseif (label_num=124) and (chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=16) 
 		LabelPad pad_to_label, {[EFFECT]} //OPEN GUI
 	elseif (label_num=124) and chan_layouts[curr_chan]=17
@@ -2559,7 +2574,7 @@
 		LabelPad pad_to_label, {[FX1]} //OPEN GUI
 	elseif (label_num=127)
 		LabelPad pad_to_label, {[FX2]} //OPEN GUI
-	elseif (label_num=-1)
+	else
 		LabelPad pad_to_label, { }
 	endif
 	//update init vars with variable numbers if this is changed
