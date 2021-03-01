@@ -587,9 +587,8 @@
 		//# handle scene duration change
 		scene_bank[((MIDIByte2-101) * sc_size)] = MIDIByte3 
 		Call @SetupLayout
-	elseif (MIDIByte2=100) and (MIDIChannel=15)
-		//# handle scene change requested (ie: PadDown Scene change)
-		scene_change_requested = MIDIByte3
+	elseif (MIDIByte2>=109) and (MIDIByte2<=116) and (MIDIByte3=127) //SCENE CHANGE CH16 CC109-116 val127
+		scene_change_requested = MIDIByte2-109
 		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
