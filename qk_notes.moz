@@ -58,7 +58,7 @@
 	
 	//# select 0-15 -- display 1-16 so 9 shows as 10
 	seq_ch=0 //# the sequence lane 0-3
-	seq_type=0 //# sequence lane to edit. Step, Note, Velo, CC
+	seq_type=4 //# sequence lane to edit. Step, Note, Velo, CC
 	euc_type=0
 	rot_type=0
 	timer_intervals=[500, 700, 150, 150, 700]
@@ -729,13 +729,12 @@
     	Call @ResetScenePatternSequence
   	endif
   elseif (NOT in_mode_select and in_seq_mode)
-  	if mode=8 and not steps_record_mode//# Step sequence mode
-  		sel_pad=LastPad //# for updating step label info
-  		//Log {Updating sel pad type for pad: }, sel_pad
-  		Call @UpdateSelStepType //# 0=off; 1=on; 2=sustain prev
-  	elseif (mode>=11 and mode<=13)
-  		sel_pad=LastPad //# for updating step label info
-  		//Log {Updating sel pad type for pad: }, sel_pad
+  	sel_pad=LastPad //# for updating step label info
+		if mode=8 and not steps_record_mode//# Step sequence mode
+			Call @UpdateSelStepType //# 0=off; 1=on; 2=sustain prev
+  	elseif (mode=9 and seq_type=4)
+		  Call @UpdateSelStepType //# 0=off; 1=on;
+		elseif (mode>=11 and mode<=13)
   		Call @UpdateSelStepType //# 0=off; 1=on; 2=sustain prev
   	elseif mode=8 and steps_record_mode
   		step_slot=(current_scene*128)+(current_pattn*16)
@@ -840,9 +839,8 @@
 		//# handle scene duration change
 		scene_durs[MIDIByte2-101] = MIDIByte3
 		Call @SetupLayout
-	elseif (MIDIByte2=100) and (MIDIChannel=15)
-		//# handle scene change requested (ie: PadDown Scene change)
-		scene_change_requested = MIDIByte3
+	elseif (MIDIByte2>=109) and (MIDIByte2<=116) and (MIDIByte3=127) //SCENE CHANGE CH16 CC109-116 val127
+		scene_change_requested = MIDIByte2-109
 		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
@@ -2620,8 +2618,8 @@ if seq_type=0
 		if (mode>=8 or mode<=1)
 			LabelPad 7, {DELETE  }
 		endif
-		LabelPad 8, {STEPS}
-		LabelPad 9, {EDIT}	
+		LabelPad 8, {EUC SEQ}
+		LabelPad 9, {STEP EDIT}	
 		LabelPad 10, {MUTATE}
 		LabelPad 11, {SEQ GEN }, seq_ch+1
 		LabelPad 12, {ROTATE}
@@ -2805,7 +2803,7 @@ if seq_type=0
 		padColor = 5
 	endif
 	//# Selected step
-	if (sel_pad=sel_step) and (mode=9)
+	if sel_pad=sel_step and mode=9 and not seq_type=4
 		ColorPad sel_pad, 3
 	else
 	  	ColorPad sel_pad, padColor
