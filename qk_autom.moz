@@ -52,7 +52,6 @@
 	cc_swing=10
 	
 	// Commmunications from KNTRL
-	cc_scene_select=100
 	cc_scene_duration=101 //+ scene_num0-7 ie 101-108
 	cc_rtn_to_song_mode=22
 	cc_swing=23
@@ -255,13 +254,11 @@
 		if mode=0
 			Call @SetupLayoutScenes
 		endif
-	elseif (MIDIByte2=cc_scene_select) and (MIDIChannel=15)
-		//# handle scene change requested (ie: PadDown Scene change)
-		scene_change_requested = MIDIByte3
-		locked_to_scene=MIDIByte3
+	elseif (MIDIByte2>=109) and (MIDIByte2<=116) and (MIDIByte3=127) //SCENE CHANGE CH16 CC109-116 val127
+		scene_change_requested = MIDIByte2-109
 		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange
-			edit_scene=MIDIByte3
+			edit_scene=scene_change_requested	
   	endif
 		in_mode_select = FALSE
 		mode=0
