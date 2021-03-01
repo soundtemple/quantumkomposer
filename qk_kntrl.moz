@@ -165,12 +165,14 @@
 	// CCs0-13 THRU: CH Mixer
 	// CCs14-17 IN: KNTRL KNOBS1-4 for knobset chg without using via AUM MidiControl
 	// CC22 OUT: StepPolyArpUnit change pattern
-	// CC23-27 --- FREE!
+	// CC26-35 --- FREE!
 	// CC38-86 OUT: MG KNTRL KNOBS CC's 1-4 * 12 slots
 	// CC87-98 OUT: MidiGen device (1-16) GUI show/hide 	
-	// CCs99-100 OUT: Change Scene, update all scene durs
+	// CCs99 OUT: update all scene durs
+	// cc100: Scene change using cc100 and midi byte3 vals 0-7. Launchpad cc strip lights up
 	// CCs101-108 OUT: scene duration update. IN: SCENE CHANGE REQ	
-	// CCs109-127 THRU: CH Mixer & Transport
+	// CCs109-116: scene change - this is how kntrl communicates with other QK devices for scene update
+	// ccs117-127: CH Mixer controls
 	//Log {Lowr: }, lower_mx_ccs_max, { uppr: }, upper_mx_ccs_min
 	if MIDIChannel <> 15
 		Exit //other cc's must be on ch16 (1-16)
@@ -200,14 +202,10 @@
 		if MIDIByte3>0
 			SendMIDICC 15, 25, 127 //Toggle KNTRL gui 
 		endif
-		
-	elseif MIDIByte2>=26 and MIDIByte2<=27
-		if MIDIByte3>0
-			SendMIDICC 14, MIDIByte2+12, 127 //Drambo GUI / Drambo Main (in Master template) 
-		endif
-		
-	elseif (MIDIByte2>=28 and MIDIByte2<=35)
-		//not in use
+			
+	elseif (MIDIByte2>=26 and MIDIByte2<=35)
+		//General purpose cc's available for mapping
+		SendMIDICC 15, MIDIByte2, MIDIByte3
 		
 	elseif MIDIByte2>=36 and MIDIByte2<=39 //KNTRL Knobs on CH16
 		last_knob = MIDIByte2-36 //simulate  LastPad action
@@ -351,7 +349,6 @@
 	elseif mode=6
 	  Call @SetupLayoutChannels
 	endif
-	SendMIDICC 15, cc_scene_select, current_scene
 	SendMIDICC 14, 109+current_scene, 127 //ensure drambo pattern is correct on re-start
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }
 @End 
@@ -571,7 +568,7 @@
 	if last_pad >= 0 and last_pad <= 7 //SCENES MODE
 		//Log { SCENE CHANGE REQUESTED }
 		scene_change_requested = last_pad
-		SendMIDICC 15, cc_scene_select, last_pad //scn change request cc100, val scn to chg to
+		SendMIDICC 15, scene_change_requested+109, last_pad //scn change request cc100, val scn to chg to
 		songmode=1 //# Lock to selected scene
 		edit_scene=last_pad
 		locked_to_scene=last_pad
@@ -898,7 +895,7 @@
 		SendMIDICC 15,0,127 //STOP
 		ColorPad 15, 0
 		SendMIDICC 14, 109+current_scene, 127 //go to scene on stop Drambo
-		SendMIDICC 15, cc_scene_select, current_scene //go to scene on stop
+		SendMIDICC 15, 109+current_scene, current_scene //go to scene on stop
 	elseif last_pad=15
 		SendMIDICC 15,5,127 //PLAY
 		ColorPad 15, 3
@@ -924,15 +921,15 @@
   elseif (current_scene = 7) //# End of song. Loop back to beginning
     current_scene = 0 
 		if not loop_song_mode
-			SendMIDICC 15, 0, 127
-			SendMIDICC 14, 109, 127 // Pattern change for Drambo
+			SendMIDICC 15, 109, 127 // Pattern change
+			SendMIDICC 15, 0, 127 // transport stop
 		endif
   elseif scene_durs[current_scene + 1] <= 0
   	//# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
 		if not loop_song_mode
-			SendMIDICC 15, 0, 127
-			SendMIDICC 14, 109, 127 // Pattern change for Drambo
+			SendMIDICC 15, 109, 127 // Pattern change
+			SendMIDICC 15, 0, 127 // transport stop	
 		endif
   else
 		current_scene = current_scene + 1 //# Going to next
@@ -941,8 +938,7 @@
 	if send_cc21_for_spa
 		SendMIDICC 15, 21, current_scene // Pattern change for StepPolyArpUnit
 	endif
-	SendMIDICC 15, cc_scene_select, current_scene // Scene change message to QK devices
-	SendMIDICC 14, current_scene+109, 127 // Pattern change for Drambo
+	SendMIDICC 15, current_scene+109, 127 // Scene change QK devices
   scene_beat_count = 0
   Log {----- SCENE CHANGE -----}, {S}, current_scene+1
 	if mode=0
@@ -1548,7 +1544,7 @@
 	LabelKnob 1, {Color }, mgen_colors[last_mgen_pad]
 	LabelKnob 2, {GUI CC }, mgen_guis[last_mgen_pad]
 	LabelKnob 3, { }
-	SetKnobValue 0, TranslateScale mgen_labels[last_mgen_pad], 0, 18, 0, 127
+	SetKnobValue 0, TranslateScale mgen_labels[last_mgen_pad], 0, 20, 0, 127
 	SetKnobValue 1, TranslateScale mgen_colors[last_mgen_pad], 0, 6, 0, 127
 	SetKnobValue 2, TranslateScale mgen_guis[last_mgen_pad], 0, 127, 0, 127 
 	SetKnobValue 3, 0	
@@ -1557,7 +1553,7 @@
 @KnobChangeSet8
 	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
 	if last_knob=0 and last_mgen_pad<=9
-		mgen_labels[last_mgen_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 18
+		mgen_labels[last_mgen_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 20
 		pad_to_label=last_mgen_pad
 		mgen_pad=last_mgen_pad // settings mode labels pad7 diff loc.
 		Call @LabelMGENPad
@@ -2057,7 +2053,7 @@
 		endfor
 	elseif chan_layouts[edit_chan]=17
 		LabelKnob 3, {Master}
-		def_labels[16*0] = [0,2,1,-1,125,101,100,124,119,120,-1,-1,-1,64,65,66]
+		def_labels[16*0] = [0,2,1,-1,125,101,100,124,-1,-1,-1,-1,-1,64,65,66]
 		def_colors[16*0] = [2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_vals[16*0]   = [90,64,64,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_ccs[16*0]    = [7,8,6,33,125,126,127,124,38,39,40,41,42,121,122,123]
@@ -2262,6 +2258,10 @@
 		LabelPad pad_to_label, {__MGEN__ }, {>HARMONY }	
 	elseif (label_num=18)
 		LabelPad pad_to_label, {__MGEN__ }, {>KORDS }	
+	elseif (label_num=19)
+		LabelPad pad_to_label, {__MGEN__ }, {>LK }	
+	elseif (label_num=20)
+		LabelPad pad_to_label, {__MGEN__ }, {>KB-1 }	
 	endif
 @End
 
