@@ -95,9 +95,9 @@
 	FillArray automation_chs,-1,16 //# knobs used to store and locate the param to automate
 	FillArray automation_pads,-1,16 //# knobs used to store and locate the param to automate
 	
-	automation_labels = [42,43,44,45,42,43,44,45,42,43,44,45,42,43,44,45]
-	automation_chs    = [12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12]
-	automation_ccs    = [82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97]
+	automation_labels = [42,43,44,45,  42,43,44,45,  42,43,44,45,  42,43,44,45]
+	automation_chs    = [12,12,12,12,  12,12,12,12,  12,12,12,12,  12,12,12,12]
+	automation_ccs    = [40,41,117,39, 56,57,118,55, 72,73,119,71, 88,89,120,87]
 	automation_cols   = [2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5]
 	
 	//MACRO SECTION
