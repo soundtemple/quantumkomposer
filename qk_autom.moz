@@ -95,10 +95,10 @@
 	FillArray automation_chs,-1,16 //# knobs used to store and locate the param to automate
 	FillArray automation_pads,-1,16 //# knobs used to store and locate the param to automate
 	
-	automation_labels = [1,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
-	automation_chs    = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
-	automation_ccs    = [7,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
-	automation_cols   = [4,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	automation_labels = [42,43,44,45,42,43,44,45,42,43,44,45,42,43,44,45]
+	automation_chs    = [12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12]
+	automation_ccs    = [82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97]
+	automation_cols   = [2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5]
 	
 	//MACRO SECTION
 	sel_macro=0 //# currently selected for editing
@@ -1737,13 +1737,13 @@
 	elseif (label_num=41)
 		LabelPad pad_to_label, {BASS2 TONE}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=42)
-		LabelPad pad_to_label, {DRUM BUSFX}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {BUS},(Div pad_slot,4)+1, {-HPF}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=43)
-		LabelPad pad_to_label, {BASS BUSFX}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {BUS},(Div pad_slot,4)+1, {-LPF}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=44)
-		LabelPad pad_to_label, {SYNTH BUSFX}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {BUS},(Div pad_slot,4)+1, {-FX1}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=45)
-		LabelPad pad_to_label, {BUSD FX}, { __________ }, { ch},ch, { cc}, cc
+	LabelPad pad_to_label, {BUS},(Div pad_slot,4)+1, {-FX2}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=46)
 		LabelPad pad_to_label, {DISTORT}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=47)
