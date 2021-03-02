@@ -18,12 +18,12 @@
 @End
 
 @InitKnobVariables
-	layout=0 //current layout
+	keyboard=0 //current keyboard 0-15
 	last_note_pad=0 //the last pad hit in a keyboard layout
 	note=60 //the note number to play on pad press after oct_adj and txpose
 	chan=0 // the midi channel to send note on pad press
 	velo=100 // the velocity to send with pad press
-	FillArray pad_label_set, 0, 16 //the layout selector can select any one of the 16 layouts
+	FillArray layouts, 0, 16 //the layout selector can select any one of the 16 layouts
 	FillArray labels, 0, 1024 //index to labels
 	FillArray channels, 0, 1024 //midi channel a note_pad will play on
 	FillArray notes, 60, 1024 //the note number a note_pad will play on
@@ -41,7 +41,7 @@
 	
 	//Which pad label set will the current layout  use
 	//You can store 16 layouts and the layout selector can select any one of 16
-	pad_label_set = [0,0,0,1, 2,3,4,5, 6,6,6,6, 7,8,9,10]
+	layouts = [0,0,0,1, 2,3,4,5, 6,6,6,6, 7,8,9,10]
 	
 	//set default values for layout midi ch override, octave adjustment and transposition
 	ch_overrides = [-1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1]
@@ -119,38 +119,38 @@
 
 @SetLayoutName
 	// Set your layout names here
-	pls=pad_label_set[layout] 
-	if pls[layout]=0
+	pls=layouts[keyboard] 
+	if pls=0
 		LabelPads pls, { - }, {DRUMS & PERCS}
-	elseif pls[layout]=1
+	elseif pls=1
 	  LabelPads pls, { - }, {LAYOUT1}
-	elseif pls[layout]=2
+	elseif pls=2
 		LabelPads pls, { - }, {LAYOUT2}
-	elseif pls[layout]=3
+	elseif pls=3
 		LabelPads pls, { - }, {LAYOUT3}
-	elseif pls[layout]=4
+	elseif pls=4
 		LabelPads pls, { - }, {LAYOUT4}
-	elseif pls[layout]=5
+	elseif pls=5
 		LabelPads pls, { - }, {LAYOUT5}
-	elseif pls[layout]=6
+	elseif pls=6
 		LabelPads pls, { - }, {LAYOUT6}
-	elseif pls[layout]=7
+	elseif pls=7
 		LabelPads pls, { - }, {LAYOUT7}
-	elseif pls[layout]=8
+	elseif pls=8
 		LabelPads pls, { - }, {LAYOUT8}
-	elseif pls[layout]=9
+	elseif pls=9
 		LabelPads pls, { - }, {LAYOUT9}
-	elseif pls[layout]=10
+	elseif pls=10
 		LabelPads pls, { - }, {LAYOUT10}
-	elseif pls[layout]=11
+	elseif pls=11
 		LabelPads pls, { - }, {LAYOUT11}
-	elseif pls[layout]=12
+	elseif pls=12
 		LabelPads pls, { - }, {LAYOUT12}
-	elseif pls[layout]=13
+	elseif pls=13
 		LabelPads pls, { - }, {LAYOUT13}
-	elseif pls[layout]=14
+	elseif pls=14
 		LabelPads pls, { - }, {LAYOUT14}
-	elseif pls[layout]=15
+	elseif pls=15
 		LabelPads pls, { - }, {LAYOUT15}
 	endif
 @End
@@ -162,13 +162,13 @@
 @End
 
 @OnPadDown
-  last_note_pad = (layout*16)+LastPad //access ch, note, label for last pad hit in a layout
-	if ch_overrides[layout]>=0
-		chan = ch_overrides[layout]
+  last_note_pad = (keyboard*16)+LastPad //access ch, note, label for last pad hit in a layout
+	if ch_overrides[keyboard]>=0
+		chan = ch_overrides[keyboard]
 	else
 		chan = channels[last_note_pad]
 	endif
-	note = Clip (notes[last_note_pad] + (oct_adjustments[layout]*12) + txpose_adjustments[layout]), 0, 127
+	note = Clip (notes[last_note_pad] + (oct_adjustments[keyboard]*12) + txpose_adjustments[keyboard]), 0, 127
 	velo = velos[last_note_pad]
 	
 	// SEND THE NOTE and store note data for note off msg
@@ -177,7 +177,7 @@
 	chan_on_store[LastPad] = chan
 	
 	if log_notes
-		Log {Pad: }, LastPad, { Ch: }, chan, { Note: }, (NoteName note, YES), { Velo: }, velo, { Layout: }, layout
+		Log {Pad: }, LastPad, { Ch: }, chan, { Note: }, (NoteName note, YES), { Velo: }, velo, { Keyboard: }, Keyboard, { Layout: }, layouts[keyboard]
 	endif
 	Call @SetupKnobSet
 @End
@@ -204,32 +204,32 @@
 	//# Default Knobs
 	knob_set=0
 	LabelKnobs {SETUP}
-	LabelKnob 0, {Layout }, layout
+	LabelKnob 0, {Keybrd }, keyboard
 	LabelKnob 1, {Velo }, velos[last_note_pad]
-	LabelKnob 2, {Oct }, oct_adjustments[layout]
-	LabelKnob 3, {Txpose }, txpose_adjustments[layout]
-	SetKnobValue 0, TranslateScale layout, 0, 15, 0, 127
+	LabelKnob 2, {Oct }, oct_adjustments[keyboard]
+	LabelKnob 3, {Txpose }, txpose_adjustments[keyboard]
+	SetKnobValue 0, TranslateScale keyboard, 0, 15, 0, 127
 	SetKnobValue 1, TranslateScale velos[last_note_pad], 0, 127, 0, 127
-	SetKnobValue 2, TranslateScale oct_adjustments[layout], -1, 1, 0, 127
-	SetKnobValue 3, TranslateScale txpose_adjustments[layout], -12, 12, 0, 127 
+	SetKnobValue 2, TranslateScale oct_adjustments[keyboard], -1, 1, 0, 127
+	SetKnobValue 3, TranslateScale txpose_adjustments[keyboard], -12, 12, 0, 127 
 @End
 
 @SetupKnobset1
 	//# Shifted knobset
 	knob_set=1
 	LabelKnobs {SETUP2}
-	LabelKnob 0, {Layout }, layout
-	LabelKnob 1, {Velo }, velos[last_note_pad]
-	LabelKnob 2, {Oct }, oct_adjustments[layout]
-	if ch_overrides[layout] = -1
+	LabelKnob 0, {Keybrd }, keyboard
+	LabelKnob 1, {Layout }, layouts[keyboard]
+	LabelKnob 2, {Oct }, oct_adjustments[keyboard]
+	if ch_overrides[keyboard] = -1
 		LabelKnob 3, {GCh OFF}
 	else
-	  LabelKnob 3, {GCh }, ch_overrides[layout]
+	  LabelKnob 3, {GCh }, ch_overrides[keyboard]
 	endif
-	SetKnobValue 0, TranslateScale layout, 0, 15, 0, 127
-	SetKnobValue 1, TranslateScale velos[last_note_pad], 0, 127, 0, 127
-	SetKnobValue 2, TranslateScale oct_adjustments[layout], -1, 1, 0, 127
-	SetKnobValue 3, TranslateScale ch_overrides[layout], -1, 15, 0, 127 
+	SetKnobValue 0, TranslateScale keyboard, 0, 15, 0, 127
+	SetKnobValue 1, TranslateScale layouts[keyboard], 0, 15, 0, 127
+	SetKnobValue 2, TranslateScale oct_adjustments[keyboard], -1, 1, 0, 127
+	SetKnobValue 3, TranslateScale ch_overrides[keyboard], -1, 15, 0, 127 
 @End
 
 @OnKnobChange
@@ -243,8 +243,8 @@
 @HandleKnobChange0
 	if LastKnob=0
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
-		if val <> layout
-			layout = val
+		if val <> keyboard
+			keyboard = val
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
@@ -253,15 +253,15 @@
 		LabelKnob 1, {Velo }, velos[last_note_pad]
 	elseif LastKnob=2
 	  val = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 1
-		if val <> oct_adjustments[layout]
-			oct_adjustments[layout] = val
+		if val <> oct_adjustments[keyboard]
+			oct_adjustments[keyboard] = val
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
 	elseif LastKnob=3
 	  val = Round TranslateScale (GetKnobValue 3), 0, 127, -12, 12
-		if val <> txpose_adjustments[layout]
-			txpose_adjustments[layout] = val
+		if val <> txpose_adjustments[keyboard]
+			txpose_adjustments[keyboard] = val
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
@@ -271,24 +271,29 @@
 @HandleKnobChange1
 	if LastKnob=0
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
-		if val <> layout
-			layout = val
+		if val <> keyboard
+			keyboard = val
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
 	elseif LastKnob=1
-	  velos[last_note_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
+	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
+		if val <> layouts[keyboard]
+			layouts[keyboard] = val
+		endif
+		Call @LabelLayout
+		Call @SetupKnobSet
 	elseif LastKnob=2
 	  val = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 1
-		if val <> oct_adjustments[layout]
-			oct_adjustments[layout] = val
+		if val <> oct_adjustments[keyboard]
+			oct_adjustments[keyboard] = val
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
 	elseif LastKnob=3
 	  val = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 15
-		if val <> ch_overrides[layout]
-			ch_overrides[layout] = val
+		if val <> ch_overrides[keyboard]
+			ch_overrides[keyboard] = val
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
@@ -304,13 +309,13 @@
 @End
 
 @LabelNotePad
-	note_pad_to_label = (layout*16)+pad_to_label //access ch, note, label for last pad hit in a layout
-	if ch_overrides[layout] >= 0
-		chan = ch_overrides[layout]
+	note_pad_to_label = (keyboard*16)+pad_to_label //access ch, note, label for last pad hit in a layout
+	if ch_overrides[keyboard] >= 0
+		chan = ch_overrides[keyboard]
 	else
 		chan = channels[note_pad_to_label]
 	endif
-	note = notes[note_pad_to_label] + (oct_adjustments[layout]*12) + txpose_adjustments[layout]
+	note = notes[note_pad_to_label] + (oct_adjustments[keyboard]*12) + txpose_adjustments[keyboard]
 	label = labels[note_pad_to_label]
 	if label=0
 		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {LABEL0}
