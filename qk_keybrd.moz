@@ -1,0 +1,323 @@
+//# QUANTUM KONTROLLER SUITE
+//# KEYBRD APP
+//# 1 dial to select a layout that triggers notes for each channel in your project
+//# easily trigger every instrument on every track
+
+//# To build your layouts populate the data in @BuildLayouts and @SetLayoutName
+
+@OnLoad
+  ShowLayout 2
+	LabelPads {[ QUANTUM:KEYBOARD ]}
+	SetShortName {QK:KB1}
+	if unassigned layout
+		Call @InitKnobVariables
+		Call @BuildLayouts
+		Call @SetupKnobset
+		Call @LabelLayout
+	endif
+@End
+
+@InitKnobVariables
+	layout=0 //current layout
+	last_note_pad=0 //the last pad hit in a keyboard layout
+	note=60 //the note number to play on pad press after oct_adj and txpose
+	chan=0 // the midi channel to send note on pad press
+	velo=100 // the velocity to send with pad press
+	FillArray pad_label_set, 0, 16 //the layout selector can select any one of the 16 layouts
+	FillArray labels, 0, 1024 //index to labels
+	FillArray channels, 0, 1024 //midi channel a note_pad will play on
+	FillArray notes, 60, 1024 //the note number a note_pad will play on
+ 	FillArray velos, 100, 1024 //the def velocity for a note_pad to play at
+	FillArray ch_overrides, -1, 16 //each layout has a default setting for midi ch override
+	FillArray oct_adjustments, 0, 16 //each layout has a default octave adj.
+	FillArray txpose_adjustments, 0, 16 //each layout has a default transposition
+	log_notes=FALSE //setting to log notes as played
+	use_knobset0=TRUE
+@end
+
+@BuildLayouts
+	//Store your layout info here
+	//Pads from top left to bottom right
+	
+	//Which pad label set will the current layout  use
+	//You can store 16 layouts and the layout selector can select any one of 16
+	pad_label_set = [0,0,0,1, 2,3,4,5, 6,6,6,6, 7,8,9,10]
+	
+	//set default values for layout midi ch override, octave adjustment and transposition
+	ch_overrides = [-1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1]
+	oct_adjustments = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	txpose_adjustments = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	
+	//LABELS (label for note pad)
+	labels[ 0*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[ 1*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[ 2*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[ 3*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[ 4*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[ 5*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[ 6*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[ 7*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[ 8*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[ 9*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[10*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[11*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[12*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[13*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	labels[14*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	
+	//CHANNELS
+	channels[ 0*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+	channels[ 1*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+	channels[ 2*16] = [2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2]
+	channels[ 3*16] = [3,3,3,3,3,3,3,3, 3,3,3,3,3,3,3,3]
+	channels[ 4*16] = [4,4,4,4,4,4,4,4, 4,4,4,4,4,4,4,4]
+	channels[ 5*16] = [5,5,5,5,5,5,5,5, 5,5,5,5,5,5,5,5]
+	channels[ 6*16] = [6,6,6,6,6,6,6,6, 6,6,6,6,6,6,6,6]
+	channels[ 7*16] = [7,7,7,7,7,7,7,7, 7,7,7,7,7,7,7,7]
+	channels[ 8*16] = [8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8]
+	channels[ 9*16] = [8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8]
+	channels[10*16] = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
+	channels[11*16] = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
+	channels[12*16] = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
+	channels[13*16] = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
+	channels[14*16] = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
+	
+	//NOTES
+	notes[ 0*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[ 1*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[ 2*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[ 3*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[ 4*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[ 5*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[ 6*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[ 7*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[ 8*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[ 9*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[10*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[11*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[12*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[13*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+	notes[14*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+
+	//colors
+	colors[ 0*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[ 1*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[ 2*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[ 3*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[ 4*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[ 5*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[ 6*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[ 7*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[ 8*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[ 9*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[10*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[11*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[12*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[13*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	colors[14*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+@End
+
+@SetLayoutName
+	// Set your layout names here
+	pls=pad_label_set[layout] 
+	if pls[layout]=0
+		LabelPads pls, { - }, {DRUMS & PERCS}
+	elseif pls[layout]=1
+	  LabelPads pls, { - }, {LAYOUT1}
+	elseif pls[layout]=2
+		LabelPads pls, { - }, {LAYOUT2}
+	elseif pls[layout]=3
+		LabelPads pls, { - }, {LAYOUT3}
+	elseif pls[layout]=4
+		LabelPads pls, { - }, {LAYOUT4}
+	elseif pls[layout]=5
+		LabelPads pls, { - }, {LAYOUT5}
+	elseif pls[layout]=6
+		LabelPads pls, { - }, {LAYOUT6}
+	elseif pls[layout]=7
+		LabelPads pls, { - }, {LAYOUT7}
+	elseif pls[layout]=8
+		LabelPads pls, { - }, {LAYOUT8}
+	elseif pls[layout]=9
+		LabelPads pls, { - }, {LAYOUT9}
+	elseif pls[layout]=10
+		LabelPads pls, { - }, {LAYOUT10}
+	elseif pls[layout]=11
+		LabelPads pls, { - }, {LAYOUT11}
+	elseif pls[layout]=12
+		LabelPads pls, { - }, {LAYOUT12}
+	elseif pls[layout]=13
+		LabelPads pls, { - }, {LAYOUT13}
+	elseif pls[layout]=14
+		LabelPads pls, { - }, {LAYOUT14}
+	elseif pls[layout]=15
+		LabelPads pls, { - }, {LAYOUT15}
+	endif
+@End
+
+@OnMidiInput
+	if MIDICommand=0xD0 or MIDICommand=0xE0 //Aftertouch or pitchbend pass through
+		SendMIDIThruOnCh channels[last_note_pad]
+	endif
+@End
+
+@OnPadDown
+  last_note_pad = (layout*16)+LastPad //access ch, note, label for last pad hit in a layout
+	if ch_overrides[layout]>=0
+		chan = ch_overrides[layout]
+	else
+		chan = channels[last_note_pad]
+	endif
+	note = Clip (notes[last_note_pad] + (oct_adjustments[layout]*12) + txpose_adjustments[layout]), 0, 127
+	velo = velos[last_note_pad]
+	
+	// SEND THE NOTE and store note data for note off msg
+	SendMIDINoteOn chan, note, velo
+	note_on_store[LastPad] = note
+	chan_on_store[LastPad] = chan
+	
+	if log_notes
+		Log {Pad: }, LastPad, { Ch: }, chan, { Note: }, (NoteName note, YES), { Velo: }, velo, { Layout: }, layout
+	endif
+	Call @SetupKnobSet
+@End
+
+@OnPadUp
+  // SEND NOTE OFF
+	SendMIDINoteOff chan_on_store[LastPad], note_on_store[LastPad], 127
+@End
+
+@OnShiftDown
+  use_knobset0 = not use_knobset0	
+	Call @SetupKnobSet
+@End
+
+@SetupKnobSet
+	if use_knobset0
+		Call @SetupKnobSet0
+	else
+	  Call @SetupKnobSet1
+	endif
+@End
+
+@SetupKnobSet0
+	//# Default Knobs
+	knob_set=0
+	LabelKnobs {SETUP}
+	LabelKnob 0, {Layout }, layout
+	LabelKnob 1, {Velo }, velos[last_note_pad]
+	LabelKnob 2, {Oct }, oct_adjustments[layout]
+	LabelKnob 3, {Txpose }, txpose_adjustments[layout]
+	SetKnobValue 0, TranslateScale layout, 0, 15, 0, 127
+	SetKnobValue 1, TranslateScale velos[last_note_pad], 0, 127, 0, 127
+	SetKnobValue 2, TranslateScale oct_adjustments[layout], -1, 1, 0, 127
+	SetKnobValue 3, TranslateScale txpose_adjustments[layout], -12, 12, 0, 127 
+@End
+
+@SetupKnobset1
+	//# Shifted knobset
+	knob_set=1
+	LabelKnobs {SETUP2}
+	LabelKnob 0, {Layout }, layout
+	LabelKnob 1, {Velo }, velos[last_note_pad]
+	LabelKnob 2, {Oct }, oct_adjustments[layout]
+	if ch_overrides[layout] = -1
+		LabelKnob 3, {GCh OFF}
+	else
+	  LabelKnob 3, {GCh }, ch_overrides[layout]
+	endif
+	SetKnobValue 0, TranslateScale layout, 0, 15, 0, 127
+	SetKnobValue 1, TranslateScale velos[last_note_pad], 0, 127, 0, 127
+	SetKnobValue 2, TranslateScale oct_adjustments[layout], -1, 1, 0, 127
+	SetKnobValue 3, TranslateScale ch_overrides[layout], -1, 15, 0, 127 
+@End
+
+@OnKnobChange
+  if use_knobset0
+		Call @HandleKnobChange0
+	else
+	  Call @HandleKnobChange1
+	endif
+@End
+
+@HandleKnobChange0
+	if LastKnob=0
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+		if val <> layout
+			layout = val
+			Call @LabelLayout
+			Call @SetupKnobSet
+		endif
+	elseif LastKnob=1
+	  velos[last_note_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
+		LabelKnob 1, {Velo }, velos[last_note_pad]
+	elseif LastKnob=2
+	  val = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 1
+		if val <> oct_adjustments[layout]
+			oct_adjustments[layout] = val
+			Call @LabelLayout
+			Call @SetupKnobSet
+		endif
+	elseif LastKnob=3
+	  val = Round TranslateScale (GetKnobValue 3), 0, 127, -12, 12
+		if val <> txpose_adjustments[layout]
+			txpose_adjustments[layout] = val
+			Call @LabelLayout
+			Call @SetupKnobSet
+		endif
+	endif
+@End
+
+@HandleKnobChange1
+	if LastKnob=0
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+		if val <> layout
+			layout = val
+			Call @LabelLayout
+			Call @SetupKnobSet
+		endif
+	elseif LastKnob=1
+	  velos[last_note_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
+	elseif LastKnob=2
+	  val = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 1
+		if val <> oct_adjustments[layout]
+			oct_adjustments[layout] = val
+			Call @LabelLayout
+			Call @SetupKnobSet
+		endif
+	elseif LastKnob=3
+	  val = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 15
+		if val <> ch_overrides[layout]
+			ch_overrides[layout] = val
+			Call @LabelLayout
+			Call @SetupKnobSet
+		endif
+	endif
+@End
+
+@LabelLayout
+	Call @SetLayoutName
+	for i = 0 to 15
+		pad_to_label=i
+		Call @LabelNotePad
+	endfor
+@End
+
+@LabelNotePad
+	note_pad_to_label = (layout*16)+pad_to_label //access ch, note, label for last pad hit in a layout
+	if ch_overrides[layout] >= 0
+		chan = ch_overrides[layout]
+	else
+		chan = channels[note_pad_to_label]
+	endif
+	note = notes[note_pad_to_label] + (oct_adjustments[layout]*12) + txpose_adjustments[layout]
+	label = labels[note_pad_to_label]
+	if label=0
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {LABEL0}
+	elseif label=1
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {LABEL1}
+	else
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {LABELX}
+	endif
+	ColorPad pad_to_label, colors[note_pad_to_label]
+@End
