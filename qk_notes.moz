@@ -200,7 +200,7 @@
 	mel_gen_scales[9*12]  = [0,1,3,5,6,8,10] //#	Locrian
 	mel_gen_scales[10*12] = [0,0,2,4,7,7, 9] //#	Major Pent
 	mel_gen_scales[11*12] = [0,0,3,5,7,7,10] //#	Minor Pent
-	mel_gen_scales[12*12] = [0,0,3,5,7,6,10] //#	Blues
+	mel_gen_scales[12*12] = [0,2,3,4,8,8,10] //#	Blues Major
 	index_last_note_p = 0 //# Calc note variable for recalling last note to be played
 	
 	Call @GetMidiINPUTScale //# set up init scale for midi input	
