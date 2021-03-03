@@ -18,19 +18,21 @@
 @End
 
 @InitKnobVariables
-	keyboard=0 //current keyboard 0-15
+	keyboard=0 //current keyboard
+	number_of_keyboards=16 //if changing search changing_num_keyboards?
 	last_note_pad=0 //the last pad hit in a keyboard layout
 	note=60 //the note number to play on pad press after oct_adj and txpose
 	chan=0 // the midi channel to send note on pad press
 	velo=100 // the velocity to send with pad press
-	FillArray layouts, 0, 16 //the layout selector can select any one of the 16 layouts
+	FillArray layouts, 0, number_of_keyboards //the layout to apply to the keyboard
 	FillArray labels, 0, 1024 //index to labels
 	FillArray channels, 0, 1024 //midi channel a note_pad will play on
 	FillArray notes, 60, 1024 //the note number a note_pad will play on
  	FillArray velos, 100, 1024 //the def velocity for a note_pad to play at
-	FillArray ch_overrides, -1, 16 //each layout has a default setting for midi ch override
-	FillArray oct_adjustments, 0, 16 //each layout has a default octave adj.
-	FillArray txpose_adjustments, 0, 16 //each layout has a default transposition
+	FillArray ch_overrides, -1, number_of_keyboards //each layout has a default setting for midi ch override
+	FillArray oct_adjustments, 0, number_of_keyboards //each layout has a default octave adj.
+	FillArray txpose_adjustments, 0, number_of_keyboards //each layout has a default transposition
+	FillArray random_vel_amts, 0, number_of_keyboards //allowable +/- fluctuation in velocity
 	log_notes=FALSE //setting to log notes as played
 	use_knobset0=TRUE
 @end
@@ -39,86 +41,163 @@
 	//Store your layout info here
 	//Pads from top left to bottom right
 	
-	//Which pad label set will the current layout  use
-	//You can store 16 layouts and the layout selector can select any one of 16
-	layouts = [0,0,0,1, 2,3,4,5, 6,6,6,6, 7,8,9,10]
+	//Keyboard layout to use with each keyboard. array len should equal number_of_keyboards
+	// changing_num_keyboards? add layout numbers
+	layouts = [0,0,0,1, 2,3,4,5, 6,6,6,6, 7,8,9,10, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
 	
-	//set default values for layout midi ch override, octave adjustment and transposition
-	ch_overrides = [-1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1]
-	oct_adjustments = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
-	txpose_adjustments = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	for i = 0 to number_of_keyboards
+		keyboard_to_build = i 
+		Call @BuildKeyboardLayout
+	endfor
 	
-	//LABELS (label for note pad)
-	labels[ 0*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[ 1*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[ 2*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[ 3*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[ 4*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[ 5*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[ 6*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[ 7*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[ 8*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[ 9*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[10*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[11*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[12*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[13*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	labels[14*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	
-	//CHANNELS
-	channels[ 0*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
-	channels[ 1*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
-	channels[ 2*16] = [2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2]
-	channels[ 3*16] = [3,3,3,3,3,3,3,3, 3,3,3,3,3,3,3,3]
-	channels[ 4*16] = [4,4,4,4,4,4,4,4, 4,4,4,4,4,4,4,4]
-	channels[ 5*16] = [5,5,5,5,5,5,5,5, 5,5,5,5,5,5,5,5]
-	channels[ 6*16] = [6,6,6,6,6,6,6,6, 6,6,6,6,6,6,6,6]
-	channels[ 7*16] = [7,7,7,7,7,7,7,7, 7,7,7,7,7,7,7,7]
-	channels[ 8*16] = [8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8]
-	channels[ 9*16] = [8,8,8,8,8,8,8,8, 8,8,8,8,8,8,8,8]
-	channels[10*16] = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
-	channels[11*16] = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
-	channels[12*16] = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
-	channels[13*16] = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
-	channels[14*16] = [0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]
-	
-	//NOTES
-	notes[ 0*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[ 1*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[ 2*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[ 3*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[ 4*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[ 5*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[ 6*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[ 7*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[ 8*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[ 9*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[10*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[11*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[12*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[13*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
-	notes[14*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+@End
 
-	//colors
-	colors[ 0*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[ 1*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[ 2*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[ 3*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[ 4*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[ 5*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[ 6*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[ 7*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[ 8*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[ 9*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[10*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[11*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[12*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[13*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
-	colors[14*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+@BuildKeyboardLayout
+	// Build a keyboard layout
+	// changing_num_keyboards?  then add block(s) here
+	kb2b = keyboard_to_build
+	if kb2b = 0 //name: 
+		ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 1 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 2 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 3 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 4 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 5 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 6 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 7 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 8 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 9 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 10 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 11 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 12 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 13 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 14 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	elseif kb2b = 15 //name:
+	  ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]	
+		channels[kb2b*16] = [0,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,1,2,3, 4,5,6,0, 0,1,2,3, 4,5,6,0 ]
+	else //name: default keyboard
+		ch_overrides[kb2b] = -1 //Global channel for keyboard or -1 for use pad values
+		oct_adjustments[kb2b] = 0 //octave transposition. Can be changed when in use
+		txpose_adjustments[kb2b] = 0 //note transposition. Can be changed when in use
+		labels[kb2b*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]	
+		channels[kb2b*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+	endif	
 @End
 
 @SetLayoutName
 	// Set your layout names here
+	// changing_num_keyboards? add block(s) here
 	pls=layouts[keyboard] 
 	if pls=0
 		LabelPads pls, { - }, {DRUMS & PERCS}
@@ -152,6 +231,8 @@
 		LabelPads pls, { - }, {LAYOUT14}
 	elseif pls=15
 		LabelPads pls, { - }, {LAYOUT15}
+	else
+	  LabelPads pls, { - }, {ANOTHER LAYOUT}
 	endif
 @End
 
@@ -169,7 +250,8 @@
 		chan = channels[last_note_pad]
 	endif
 	note = Clip (notes[last_note_pad] + (oct_adjustments[keyboard]*12) + txpose_adjustments[keyboard]), 0, 127
-	velo = velos[last_note_pad]
+	rnd_vel_amt = Random 0, random_vel_amts[keyboard]
+	velo = Clip (velos[last_note_pad] + rnd_vel_amt), 0, 127
 	
 	// SEND THE NOTE and store note data for note off msg
 	SendMIDINoteOn chan, note, velo
@@ -220,15 +302,15 @@
 	LabelKnobs {SETUP2}
 	LabelKnob 0, {Keybrd }, keyboard
 	LabelKnob 1, {Layout }, layouts[keyboard]
-	LabelKnob 2, {Oct }, oct_adjustments[keyboard]
+	LabelKnob 2, {RndV+/- }, random_vel_amts[keyboard]
 	if ch_overrides[keyboard] = -1
 		LabelKnob 3, {GCh OFF}
 	else
 	  LabelKnob 3, {GCh }, ch_overrides[keyboard]
 	endif
-	SetKnobValue 0, TranslateScale keyboard, 0, 15, 0, 127
+	SetKnobValue 0, TranslateScale keyboard, 0, number_of_keyboards, 0, 127
 	SetKnobValue 1, TranslateScale layouts[keyboard], 0, 15, 0, 127
-	SetKnobValue 2, TranslateScale oct_adjustments[keyboard], -1, 1, 0, 127
+	SetKnobValue 2, TranslateScale random_vel_amts[keyboard], 0, 64, 0, 127
 	SetKnobValue 3, TranslateScale ch_overrides[keyboard], -1, 15, 0, 127 
 @End
 
@@ -242,7 +324,7 @@
 
 @HandleKnobChange0
 	if LastKnob=0
-		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, number_of_keyboards
 		if val <> keyboard
 			keyboard = val
 			Call @LabelLayout
@@ -284,11 +366,10 @@
 		Call @LabelLayout
 		Call @SetupKnobSet
 	elseif LastKnob=2
-	  val = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 1
-		if val <> oct_adjustments[keyboard]
-			oct_adjustments[keyboard] = val
-			Call @LabelLayout
-			Call @SetupKnobSet
+	  val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 64
+		if val <> random_vel_amts[keyboard]
+			random_vel_amts[keyboard] = val
+			LabelKnob 2, {RndV+/- }, random_vel_amts[keyboard]
 		endif
 	elseif LastKnob=3
 	  val = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 15
