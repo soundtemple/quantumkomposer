@@ -290,8 +290,6 @@
 		endif
 	elseif MIDIChannel=15
 		SendMIDIThruOnCh chan_midi_chs[curr_chan]
-	else 	
-		SendMIDIThru // other channels are passed thru for playing instruments 
 		//Log {Notes on other channels thru}
 	endif
 @End
@@ -648,7 +646,8 @@
 		endif
 		LatchPad 0, YES
 	endif
-	Call @SendMidiCCBackToKnobs
+	Call @SendMidiCCBackToKnob
+	SendMIDICC 15, 24, last_pad //communicate selected channel (to KB-1)
 	if chan_layouts[last_pad]=5 or chan_layouts[last_pad]=6
 		drambo_layout_active = TRUE
 	else
