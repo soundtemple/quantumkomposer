@@ -35,6 +35,7 @@
 	FillArray random_vel_amts, 0, number_of_keyboards //allowable +/- fluctuation in velocity
 	log_notes=FALSE //setting to log notes as played
 	use_knobset0=TRUE
+	kntrl_keyboard_selection=[0,0,0,3, 4,5,6,7, 8,8,8,8, 0,0,0,0] //on KNTRL channel change cc24 0-15 
 @end
 
 @BuildLayouts
@@ -59,7 +60,7 @@
 	// Only add what you need to override. See @InitKnobVariables FillArray's for default values
 	kb2b = keyboard_to_build
 	if layouts[kb2b] = 0 //name: 3CH DRUMS & PERCS
-		labels[kb2b*16] = [9,9,9,9,9,9,9,9, 1,2,3,4,5,6,7,8]	
+		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 1,2,3,4,5,6,7,15]	
 		pad_channels[kb2b*16] = [-1,-1,-1,-1,-1,-1,-1,-1, 0,0,1,1,1,1,1,1]
 		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
 		colors[kb2b*16] = [5,5,5,5,5,5,5,5, 1,1,2,2,2,2,2,2]
@@ -77,9 +78,9 @@
 		colors[kb2b*16] = [0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,6]
 		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2]
 	elseif layouts[kb2b] = 4 //name: KORDS:MELODY CHANNEL KEYBOARD
-		labels[kb2b*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]	
+		labels[kb2b*16] = [24,28,25,28,26,28,27,24,24,28,25,28,26,28,27,24]
 		notes[kb2b*16] = [60,62,64,65,67,69,71,72, 48,50,52,53, 55,57,59,60]
-		colors[kb2b*16] = [4,0,0,0, 0,0,0,4, 4,0,0,0, 0,0,0,4]
+		colors[kb2b*16] = [4,0,4,0, 4,0,4,4, 4,0,4,0, 4,0,4,4]
 	elseif layouts[kb2b] = 5 //name: KORDS:HARMONY CHANNELS KEYBOARD
 		labels[kb2b*16] = [20,20,20,20, 21,21,21,21, 22,22,22,22, 23,23,23,23]	
 		notes[kb2b*16] = [36,48,60,72, 36,48,60,72, 36,48,60,72, 36,48,60,72]
@@ -172,8 +173,38 @@
 	endif
 @End
 
+@OnMidiCC
+	if MIDIChannel=15 and MIDIByte2=24 and MIDIByte3<=15
+		// updates the selected keyboard based on the current channel in KNTRL
+		// map KNTRL channels to KB-1 keyboards using kntrl_keyboard_selection array
+		keyboard=kntrl_keyboard_selection[MIDIByte3]
+		keyboard_to_build=keyboard
+		Call @BuildKeyboardLayout
+		Call @LabelLayout
+		Call @SetupKnobSet
+	endif
+@End
+
+@OnMidiNote
+  if MIDIChannel=0 and MIDIByte2>=48 and MIDIByte2<=64
+		last_pad = MIDIByte2-48
+		if MIDICommand=0x90 //noteOn
+			Call @OnPadDown2
+			FlashPad last_pad
+		elseif MIDICommand=0x80 //Note off
+		  Call @OnPadUp2
+		endif
+	endif
+@End
+
 @OnPadDown
-  last_note_pad = (keyboard*16)+LastPad //access ch, note, label for last pad hit in a layout
+  // implemented so we can use incoming midi to trigger onPadDown and onPadUp
+	last_pad = LastPad
+	Call @OnPadDown2
+@End
+
+@OnPadDown2
+  last_note_pad = (keyboard*16)+last_pad //access ch, note, label for last pad hit in a layout
 	if pad_channels[last_note_pad]>=0
 		chan = pad_channels[last_note_pad]
 	else
@@ -185,18 +216,25 @@
 	
 	// SEND THE NOTE and store note data for note off msg
 	SendMIDINoteOn chan, note, velo
-	note_on_store[LastPad] = note
-	chan_on_store[LastPad] = chan
+	note_on_store[last_pad] = note
+	chan_on_store[last_pad] = chan
 	
 	if log_notes
-		Log {Pad: }, LastPad, { Ch: }, chan, { Note: }, (NoteName note, YES), { Velo: }, velo, { Keyboard: }, Keyboard, { Layout: }, layouts[keyboard]
+		Log {Pad: }, last_pad, { Ch: }, chan, { Note: }, (NoteName note, YES), { Velo: }, velo, { Keyboard: }, Keyboard, { Layout: }, layouts[keyboard]
 	endif
 	Call @SetupKnobSet
 @End
 
 @OnPadUp
+	// implemented so we can use incoming midi to trigger onPadDown and onPadUp
+  Call @OnPadUp2
+	last_pad = LastPad
+@End
+
+
+@OnPadUp2
   // SEND NOTE OFF
-	SendMIDINoteOff chan_on_store[LastPad], note_on_store[LastPad], 127
+	SendMIDINoteOff chan_on_store[last_pad], note_on_store[last_pad], 127
 @End
 
 @OnShiftDown
@@ -222,7 +260,7 @@
 	LabelKnob 3, {Txpose }, txpose_adjustments[keyboard]
 	SetKnobValue 0, TranslateScale keyboard, 0, number_of_keyboards-1, 0, 127
 	SetKnobValue 1, TranslateScale velos[last_note_pad], 0, 127, 0, 127
-	SetKnobValue 2, TranslateScale oct_adjustments[keyboard], -1, 1, 0, 127
+	SetKnobValue 2, TranslateScale oct_adjustments[keyboard], -2, 2, 0, 127
 	SetKnobValue 3, TranslateScale txpose_adjustments[keyboard], -12, 12, 0, 127 
 @End
 
@@ -262,7 +300,7 @@
 	  velos[last_note_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
 		LabelKnob 1, {Velo }, velos[last_note_pad]
 	elseif LastKnob=2
-	  val = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 1
+	  val = Round TranslateScale (GetKnobValue 2), 0, 127, -2, 2
 		if val <> oct_adjustments[keyboard]
 			oct_adjustments[keyboard] = val
 			keyboard_to_build=keyboard
@@ -385,7 +423,15 @@
 	elseif label=23
 		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HARM4}
 	elseif label=24
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {NOISE}
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {ROOT}
+	elseif label=25
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {3RD}
+	elseif label=26
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {5TH}
+	elseif label=27
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {7TH}
+	elseif label=28
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {NON CHORD}
 	else
 		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {NOTE PAD}
 	endif
