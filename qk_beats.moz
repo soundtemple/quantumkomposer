@@ -154,9 +154,9 @@
 	fixed_notesets[3*50] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15, 72,73,74,75,76,77,78,79,80,81,82,83] //# [DC Patt++]
 	fixed_notesets[4*50] = [60,62,64,65,67,69, 71, 72] //# [Patt'ng.2]
 	fixed_notesets[5*50] = [36,38,39,42,43,46, 47, 50] //# [EG Pulse]
-	fixed_notesets[6*50] = [48,49,50,51,52,53,54,55, 56,57,58,59,60,61,62,63] //# [Digistix]
-	fixed_notesets[7*50] = [48,49,50,51,52,53,54,55] //Drambo Drums 
-	for i = 0 to 15 // 2x 16 slices from note 60 and from note 84
+	fixed_notesets[6*50] = [48,49,50,51,52,53,54,55, 56,57,58,59,60,61,62,63] // [Digistix]
+	fixed_notesets[7*50] = [36,37,38,39,40,41,42,43, 44,45,46,47,48,49,50,51] // Beathawk 
+	for i = 0 to 15 // 2x 16 slices from note 60 and from note 84 
 		fixed_notesets[(8*50) + i] = 60 + i 
 		fixed_notesets[(8*50) + 16 + i] = 84 + i
 	endfor
@@ -203,20 +203,20 @@
 			FillArray seq2_notes, 2, 1024
 			FillArray seq3_notes, 4, 1024
 		endif
-		if sel_scale=7 // Drambo Drums
-			notes_in_set=8
+		if sel_scale=7 // Beathawk
+			notes_in_set=16
 			midi_out_chs=[0,1,1,1]
 			FillArray seq0_notes, 0, 1024
 			FillArray seq1_notes, 2, 1024
 			FillArray seq2_notes, 4, 1024
 			FillArray seq3_notes, 6, 1024
 		endif
-		if sel_scale=8 // Drambo Percs
+		if sel_scale=8 // 2x16 Slices
 			notes_in_set=32
 			midi_out_chs=[2,2,2,2]
 			FillArray seq0_notes, 0, 1024
-			FillArray seq1_notes, 2, 1024
-			FillArray seq2_notes, 8, 1024
+			FillArray seq1_notes, 8, 1024
+			FillArray seq2_notes, 16, 1024
 			FillArray seq3_notes, 24, 1024
 		endif
 		CopyArray fixed_notesets[scale_slot], curr_scale, notes_in_set
@@ -1375,9 +1375,9 @@
 	  elseif sel_scale=6
 	  	LabelPad 3, {NOTESET   [Digistix]}
 		elseif sel_scale=7
-	  	LabelPad 3, {NOTESET   [Drambo Dr]}
+	  	LabelPad 3, {NOTESET   [Beathawk]}
 		elseif sel_scale=8
-	  	LabelPad 3, {NOTESET   [Drambo Pc]}
+	  	LabelPad 3, {NOTESET   [2x16 Slcs]}
 			SetShortName {PERCS}
 		endif
 		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]         [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
@@ -2657,7 +2657,8 @@
 		padColor = 5
 	endif
 	//# Selected step
-	if (sel_pad=sel_step) and (mode=9) and (not seq_type=4)
+	Log {mode: }, mode, { seq_type: }, seq_type, {sel_pad: }, sel_pad, { sel_step:}, sel_step
+	if (sel_pad=sel_step) and mode=9 and seq_type<4
 		ColorPad sel_pad, 3
 	else
   	ColorPad sel_pad, padColor
