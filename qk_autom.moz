@@ -705,14 +705,14 @@
 	  LabelPad 7, {AUTOM DISABLED}
 		ColorPad 7, 0
 	endif
-	LabelPad 8, {S}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MIN }, min
-	LabelPad 9, {S}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MID }, mid
-	LabelPad 10,{S}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MAX }, max
-	LabelPad 11,{S}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, { RAMP }, min, {-}, max
-	LabelPad 12,{S}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, { RAMP }, max, {-}, min
+	LabelPad 8, {SCN}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MIN }, min
+	LabelPad 9, {SCN}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MID }, mid
+	LabelPad 10,{SCN}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MAX }, max
+	LabelPad 11,{SCN}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, { RAMP }, min, {-}, max
+	LabelPad 12,{SCN}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, { RAMP }, max, {-}, min
 	LabelPad 13,{DELETE S}, scn, {          AUTOM}, sap
 	LabelPad 14,{DELETE S}, scn, {          ALL AUTOMS}
-	LabelPad 15,{DELETE ALL SCENES}
+	LabelPad 15, {DELETE ALL SCENES}
 	ColorPad 13, 1
 	ColorPad 14, 1
 	ColorPad 15, 1
