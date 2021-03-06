@@ -213,7 +213,6 @@
 @End
 
 @OnHostStop
-	Call @SetupLayout
   Call @ResetBeatCounts
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
   Call @SetupLayout
@@ -614,6 +613,7 @@
     ColorPad 8, 3	
 	elseif (MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15 and not HostRunning)
 		in_mode_select = FALSE //# return to song 
+		return_to_song_mode_requested = TRUE
   	songmode = 0
   	mode = 0
 		current_scene=0
