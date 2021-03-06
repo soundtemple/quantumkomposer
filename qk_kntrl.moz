@@ -179,7 +179,6 @@
 		
 	elseif MIDIByte2=0 or MIDIByte2=5 //TRANSPORT on CH16 - Aum: STOP, PLAY
 		SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
-		SendMIDICC 14, current_scene+109, 127 //update drambo pattern
 	
 	elseif MIDIByte2<=17 or MIDIByte2>=113 //MIXER CONTROLS  curr_ch (21<>113)
 		//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF,EQ) 
@@ -953,7 +952,7 @@
 @LogCurrentInfo
 	current_scene_duration = scene_durs[current_scene]
 	Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
-	LabelPads {[ KNTRL ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure) 
+	LabelPads {[ KNTRL ]    Scene}, current_scene+1, {   Bar }, (Div scene_beat_count, HostBeatsPerMeasure)+1,  {.}, HostBeat+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure) 
 @End
 
 @SetupSettingsLayout
