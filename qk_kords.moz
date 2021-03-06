@@ -583,12 +583,9 @@
 	// Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
 	if MIDIChannel>=4 and MIDIChannel<=11 and MIDIByte2<=4
 		SendMIDIThru // step cc automation from NOTES. Allowed ccs 0-4 only. 
-	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
-		//# handle scene duration change
-		scene_bank[((MIDIByte2-101) * sc_size)] = MIDIByte3 
-		Call @SetupLayout
-	elseif (MIDIByte2>=109) and (MIDIByte2<=116) and (MIDIByte3=127) //SCENE CHANGE CH16 CC109-116 val127
-		scene_change_requested = MIDIByte2-109
+	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7)
+		//# handle scene change requested (ie: PadDown Scene change)
+		scene_change_requested = MIDIByte3
 		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
@@ -597,6 +594,10 @@
 		else
 			Call @SetupLayout
 		endif
+	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
+		//# handle scene duration change
+		scene_bank[((MIDIByte2-101) * sc_size)] = MIDIByte3 
+		Call @SetupLayout	
 	elseif (HostRunning and MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15)
   	//# handle return to song mode requested
   	return_to_song_mode_requested = TRUE

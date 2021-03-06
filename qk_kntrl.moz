@@ -566,7 +566,8 @@
 	if last_pad >= 0 and last_pad <= 7 //SCENES MODE
 		//Log { SCENE CHANGE REQUESTED }
 		scene_change_requested = last_pad
-		SendMIDICC 15, scene_change_requested+109, last_pad //scn change request cc100, val scn to chg to
+		//qk devices manage own pattern timing. Others LK, Drambo we use instant change in HandleSceneChange
+		SendMIDICC 15, 100, scene_change_requested //scn change request cc100, val scn to chg to QK devices only
 		songmode=1 //# Lock to selected scene
 		edit_scene=last_pad
 		locked_to_scene=last_pad
@@ -893,8 +894,8 @@
 	if last_pad=14 
 		SendMIDICC 15,0,127 //STOP
 		ColorPad 15, 0
-		SendMIDICC 14, 109+current_scene, 127 //go to scene on stop Drambo
-		SendMIDICC 15, 109+current_scene, current_scene //go to scene on stop
+		SendMIDICC 15, 100, current_scene
+		SendMIDICC 15, 109+current_scene, 127//go to scene on stop
 	elseif last_pad=15
 		SendMIDICC 15,5,127 //PLAY
 		ColorPad 15, 3
@@ -921,6 +922,7 @@
     current_scene = 0 
 		if not loop_song_mode
 			SendMIDICC 15, 109, 127 // Pattern change
+			SendMIDICC 15, 100, current_scene
 			SendMIDICC 15, 0, 127 // transport stop
 		endif
   elseif scene_durs[current_scene + 1] <= 0
@@ -928,6 +930,7 @@
   	current_scene = 0 //# no duration in next scene return to beginning
 		if not loop_song_mode
 			SendMIDICC 15, 109, 127 // Pattern change
+			SendMIDICC 15, 100, current_scene
 			SendMIDICC 15, 0, 127 // transport stop	
 		endif
   else
@@ -937,7 +940,8 @@
 	if send_cc21_for_spa
 		SendMIDICC 15, 21, current_scene // Pattern change for StepPolyArpUnit
 	endif
-	SendMIDICC 15, current_scene+109, 127 // Scene change QK devices
+	SendMIDICC 15, current_scene+109, 127 // Scene change non QK devices
+	SendMIDICC 15, 100, current_scene // scene change QK devices
   scene_beat_count = 0
   Log {----- SCENE CHANGE -----}, {S}, current_scene+1
 	if mode=0
