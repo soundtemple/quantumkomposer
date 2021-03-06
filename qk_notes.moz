@@ -839,8 +839,9 @@
 		//# handle scene duration change
 		scene_durs[MIDIByte2-101] = MIDIByte3
 		Call @SetupLayout
-	elseif (MIDIByte2>=109) and (MIDIByte2<=116) and (MIDIByte3=127) //SCENE CHANGE CH16 CC109-116 val127
-		scene_change_requested = MIDIByte2-109
+	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7)
+		//# handle scene change requested (ie: PadDown Scene change)
+		scene_change_requested = MIDIByte3
 		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
@@ -2803,10 +2804,10 @@ if seq_type=0
 		padColor = 5
 	endif
 	//# Selected step
-	if sel_pad=sel_step and mode=9 and not seq_type=4
+	if (sel_pad=sel_step) and mode=9 and seq_type<4
 		ColorPad sel_pad, 3
 	else
-	  	ColorPad sel_pad, padColor
+  	ColorPad sel_pad, padColor
 	endif
 @End
 
