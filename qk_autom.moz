@@ -9,6 +9,8 @@
 	if unassigned scene_durs //# duration in first scene
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
+		scene_slave_mode=FALSE //instant scene chg on msg from KNTRL as opposed to onPadDown use internal scn clock
+		// ^^^ should be FALSE when used with KNTRL. TRUE when used with SCENEMASTER
 		edit_mode_active=FALSE //in edit mode use 20knob layout to step edit each beat
 		SetMetroPPQN 4
 		ppqn = 4
@@ -254,13 +256,21 @@
 		if mode=0
 			Call @SetupLayoutScenes
 		endif
-	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7)
+	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7) and not scene_slave_mode
 		//# handle scene change requested (ie: PadDown Scene change)
 		scene_change_requested = MIDIByte3
 		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange
 			edit_scene=scene_change_requested	
   	endif
+		in_mode_select = FALSE
+		mode=0
+		Call @SetupLayoutScenes
+	elseif (MIDIByte2>=109) and (MIDIByte2<=116) and (MIDIByte3=127) and scene_slave_mode
+		//Instant scene change
+		scene_change_requested = MIDIByte2-109
+		Call @HandleSceneChange
+		edit_scene=scene_change_requested	
 		in_mode_select = FALSE
 		mode=0
 		Call @SetupLayoutScenes
