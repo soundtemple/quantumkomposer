@@ -2726,11 +2726,11 @@ if seq_type=0
 	if mode = 8
 	  Call @SetupKnobset6 //# SEQUENCE STEPS EDIT
 	  label_style=4
-	  LabelPads {SEQUENCE STEPS: Knobs generate Euclidean steps. Pads toggle state or record steps}
+	  LabelPads {EUCLIDEAN SEQUENCER: Knobs generate pattern steps, length & rate. Pads toggle state or record steps}
 	elseif mode = 9
 		label_style=label_view_mode
 	  Call @SetupKnobset5 //# SEQUENCE EDIT ALL TYPES
-	  LabelPads {SEQUENCE EDIT: Tap pad to select. Use knobs to edit.}
+	  LabelPads {STEP EDIT: Select Note, Oct, Velo, CC, Step. Tap Step. Edit value}
 	elseif mode = 10
 		label_style=label_view_mode
 	  Call @SetupKnobset7 //# MELODY GENERATION

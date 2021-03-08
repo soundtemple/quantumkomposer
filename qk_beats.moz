@@ -8,7 +8,7 @@
 		ResetNoteStates FALSE // #reset the locker with the value FALSE!
 		mode = 0 //# modes of operation
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:PatternLocked
-		SetMetroPPQN 4
+		SetMetroPPQN 4	
 		ppqn = 4 
 		route_notes_thru_to_instruments=TRUE
 		scene_change_requested = -1 //# on pad down has next scene number
@@ -1880,7 +1880,7 @@
 @End
 
 @SetupKnobset6
-  //# EUCLIDIAN SEQUENCE SETUP xes
+  //# EUCLIDIAN SEQUENCE SETUP
   knob_set = 6
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { STEPS} 
   euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
@@ -2589,11 +2589,11 @@
 	if mode = 8
 	  Call @SetupKnobset6 //# SEQUENCE STEPS EDIT
 	  label_style=4
-	  LabelPads {SEQUENCE STEPS: Knobs generate Euclidean steps. Pads toggle state or record steps}
+	  LabelPads {EUCLIDEAN SEQUENCER: Knobs generate pattern steps, length & rate. Pads toggle state or record steps}
 	elseif mode = 9
 		label_style=label_view_mode
 	  Call @SetupKnobset5 //# SEQUENCE EDIT ALL TYPES
-	  LabelPads {SEQUENCE EDIT: Tap pad to select. Use knobs to edit.}
+	  LabelPads {STEP EDIT: Select Note, Oct, Velo, CC, Step. Tap Step. Edit value}
 	elseif mode = 10
 		label_style=label_view_mode
 	  Call @SetupKnobset7 //# MELODY GENERATION
