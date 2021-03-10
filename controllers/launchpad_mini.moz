@@ -13,9 +13,7 @@
 
 @SetupControllerDefaults
 	//map controller to the KNTRL api for midi feedback 
-	controller_midigen_pads = [81,82,83,84,85,86,87,88, 71,72,73,74,75,76,77,78, 13] //16 midigen pads + shift
-	controller_kntrl_pads = [31,32,33,34,35,36,37,38, 21,22,23,24,25,26,27,28, 12] //16 kntrl pads + shift
-	controller_scene_pads = [89,79,69,59,49,39,29,19] //8 scene pads
+	mgen_seq_pads = [81,82,83,84,85,86,87,88, 71,72,73,74,75,76,77,78, 13] //16 midigen pads + shift
 	// controller available colors
 	off = 0
 	grey=117
@@ -88,15 +86,15 @@
 @SetupBackgroundColorsForPads
 	// store color as value at pad (note/cc) value as array index
 	if controller_mode=0
-		controller_cols[91] = [orange,	orange,	orange,	beige, 	beige, 	blue, 	green, 	purple] //cc's
-		controller_cols[81] = [blue, 		off, 		off, 		off, 		blue, 	off, 		off, 		off] //mg seq
-		controller_cols[71] = [blue, 		off, 		off, 		off, 		blue, 	off, 		off, 		off] //mg seq
-		controller_cols[61] = [orange,	orange,	orange,	orange,	pblue, 	pblue,	pblue, 	pblue] //channels
-		controller_cols[51] = [pgreen, 	pgreen, pgreen,	pgreen,	purple,	purple,	purple,	off] //channels
-		controller_cols[41] = [off,			off,		off,		off,		off,		mauve,	pblue,	pink] //mixer
-		controller_cols[31] = [blue,		blue,		beige,	blue,		green,	green,	green,	green]
-		controller_cols[21] = [orange,	orange,	orange,	orange, orange,	beige,	beige,	red]
-		controller_cols[11] = [red, 		green, 	off, 		white,	off,		off,		off,		off]
+		cn_colors[91] = [beige,		beige,	red,		green, 	off, 		off, 		off, 		blue,		off] //drambo, transport, mode
+		cn_colors[81] = [orange, 	orange, orange, off, 		off, 		green,  blue, 	purple,	off] //mgen select
+		cn_colors[71] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
+		cn_colors[61] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
+		cn_colors[51] = [orange,	orange,	orange,	orange,	pblue, 	pblue,	pblue, 	pblue,	off] //channel select
+		cn_colors[41] = [pgreen, 	pgreen, pgreen,	pgreen,	purple,	purple,	purple,	off,		off] //channel select
+		cn_colors[31] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //kntrl pads
+		cn_colors[21] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //kntrl pads
+		cn_colors[11] = [off, 		white, 	white, 	pblue,	pblue,	pblue,	pblue,	pblue,	off] //shifts mixer select
 	elseif controller_mode=1
 		//pass
 	endif
@@ -104,9 +102,9 @@
 	//Send messages to light up these pads with default colors
 	for pad_num = 0 to 127
 		if cn_msg_type_out[pad_num]=0 //note pad
-			SendMIDINoteOn 0, pad_num, controller_cols[i]
+			SendMIDINoteOn 0, pad_num, cn_colors[i]
 		elseif cn_msg_type_out[pad_num]=1 // cc pad
-		  SendMIDICC 0, pad_num, controller_cols[pad]
+		  SendMIDICC 0, pad_num, cn_colors[pad]
 		endif
 	endfor
 @End
@@ -123,8 +121,8 @@
 
 
 @OnMetroPulse
-  SendMIDINoteOn 0, controller_midigen_pads[CurrentMetroPulse], 3
-	SendMIDINoteOn 0, controller_midigen_pads[CurrentMetroPulse], controller_cols[controller_midigen_pads[CurrentMetroPulse]], 100
+  SendMIDINoteOn 0, mgen_seq_pads[CurrentMetroPulse], 3
+	SendMIDINoteOn 0, mgen_seq_pads[CurrentMetroPulse], cn_colors[mgen_seq_pads[CurrentMetroPulse]], 100
 @End
 
 @OnMidiNote
