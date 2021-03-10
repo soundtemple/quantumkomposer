@@ -1,0 +1,161 @@
+@OnLoad
+	ppqn=4
+	if Unassigned controller_type
+		//cn short for controller
+		controller_mode=0 //used for multi mode controller setups
+		controller_ch=0
+		q_kntrl_ch=15
+		Call @SetupControllerDefaults
+		Call @SetupControllerToQKMappings
+		Call @SetupBackgroundColorsForPads
+	endif
+@End
+
+@SetupControllerDefaults
+	//map controller to the KNTRL api for midi feedback 
+	controller_midigen_pads = [81,82,83,84,85,86,87,88, 71,72,73,74,75,76,77,78, 13] //16 midigen pads + shift
+	controller_kntrl_pads = [31,32,33,34,35,36,37,38, 21,22,23,24,25,26,27,28, 12] //16 kntrl pads + shift
+	controller_scene_pads = [89,79,69,59,49,39,29,19] //8 scene pads
+	// controller available colors
+	off = 0
+	grey=117
+	white = 3
+	beige=105
+	red=6
+	pred=4
+	orange=9
+	porange=11
+	green=64
+	bgreen=87
+	pgreen=20
+	blue=45
+	pblue=41
+	purple=49
+	mauve=48
+	pink=54
+	//messages from KNTRL will send a color 0-9 as value MIDIBYTE3. Map to controller colours here:
+	kntrl_2_controller_color_map = [beige, red, orange, green, blue, purple, mauve, pink, white, off] 
+	
+	//host stop / start
+	//channel can be set in @OnHostStart and @OnHostStop
+	stop_pad = 11
+	play_pad = 12
+	
+	//Send any sysex messages to setup controller mode if required
+	sx_lp_layout = [240, 0, 32, 41, 2, 13, 0, 127]
+	SendSysex sx_lp_layout, 8
+@End
+
+@SetupControllerToQKMappings
+	FillArray qk_msgtype_out, -1, 127
+	FillArray qk_msg_num_out, -1, 127
+	FillArray qk_val_out, -1, 127
+	FillArray cn_msg_type_out, -1, 127
+	FillArray cn_msg_num_out, -1, 127
+	FillArray cn_val_out, -1, 127
+
+	qk_msgtype_out[91] = [1,1,1,1, -1,-1,-1,-1, -1] //for each msg from controller we map a msgtype to send out to QK
+	qk_msgtype_out[81] = [1,1,1,1, 1,1,1,1, 1] // 1=cc_msg; 0=note
+	qk_msgtype_out[71] = [0,0,0,0, 0,0,0,0, 1]
+	qk_msgtype_out[61] = [0,0,0,0, 0,0,0,0, 1]
+	qk_msgtype_out[51] = [1,1,1,1, 1,1,1,1, 1]
+	qk_msgtype_out[41] = [1,1,1,1, 1,1,1,-1,1]
+	qk_msgtype_out[31] = [0,0,0,0, 0,0,0,0, 1]
+	qk_msgtype_out[21] = [0,0,0,0, 0,0,0,0, 1]
+	qk_msgtype_out[11] = [1,0,0,1, 1,1,1,1, 1]
+	
+	qk_msgnum_out[91] = [26,27,0,5, -1,-1,-1,-1, -1] //for each msg from controller we map a msgnum to send out to QK
+	qk_msgnum_out[81] = [91,92,93,94, 95,96,97,98, 109] // 1=cc_msg; 0=note
+	qk_msgnum_out[71] = [20,21,22,23, 24,25,26,27, 110]
+	qk_msgnum_out[61] = [28,29,30,31, 32,33,34,35, 111]
+	qk_msgnum_out[51] = [24,24,24,24, 24,24,24,24, 112]
+	qk_msgnum_out[41] = [24,24,24,24, 24,24,24,88, 113]
+	qk_msgnum_out[31] = [0,1,2,3,     4,5,6,7,     114]
+	qk_msgnum_out[21] = [8,9,10,11,   12,13,14,15, 115]
+	qk_msgnum_out[11] = [25,16,36,82, 83,84,85,86, 116]
+	
+	qk_val_out[91] = [127,127,127,127,  -1, -1, -1, -1, -1] //from controller we map a value to send out to QK
+	qk_val_out[81] = [127,127,127,127, 127,127,127,127, 127] // 1=cc_msg; 0=note
+	qk_val_out[71] = [127,127,127,127, 127,127,127,127, 127]
+	qk_val_out[61] = [127,127,127,127, 127,127,127,127, 127]
+	qk_val_out[51] = [0,  1,  2,  3,   4,  5,  6,  7,   127]
+	qk_val_out[41] = [8,  9,  10, 11,  12, 13, 14, 15,  127]
+	qk_val_out[31] = [127,127,127,127, 127,127,127,127, 127]
+	qk_val_out[21] = [127,127,127,127, 127,127,127,127, 127]
+	qk_val_out[11] = [127,127,127,127, 127,127,127,127, 127]
+@End
+
+@SetupBackgroundColorsForPads
+	// store color as value at pad (note/cc) value as array index
+	if controller_mode=0
+		controller_cols[91] = [orange,	orange,	orange,	beige, 	beige, 	blue, 	green, 	purple] //cc's
+		controller_cols[81] = [blue, 		off, 		off, 		off, 		blue, 	off, 		off, 		off] //mg seq
+		controller_cols[71] = [blue, 		off, 		off, 		off, 		blue, 	off, 		off, 		off] //mg seq
+		controller_cols[61] = [orange,	orange,	orange,	orange,	pblue, 	pblue,	pblue, 	pblue] //channels
+		controller_cols[51] = [pgreen, 	pgreen, pgreen,	pgreen,	purple,	purple,	purple,	off] //channels
+		controller_cols[41] = [off,			off,		off,		off,		off,		mauve,	pblue,	pink] //mixer
+		controller_cols[31] = [blue,		blue,		beige,	blue,		green,	green,	green,	green]
+		controller_cols[21] = [orange,	orange,	orange,	orange, orange,	beige,	beige,	red]
+		controller_cols[11] = [red, 		green, 	off, 		white,	off,		off,		off,		off]
+	elseif controller_mode=1
+		//pass
+	endif
+	
+	//Send messages to light up these pads with default colors
+	for pad_num = 0 to 127
+		if cn_msg_type_out[pad_num]=0 //note pad
+			SendMIDINoteOn 0, pad_num, controller_cols[i]
+		elseif cn_msg_type_out[pad_num]=1 // cc pad
+		  SendMIDICC 0, pad_num, controller_cols[pad]
+		endif
+	endfor
+@End
+
+@OnHostStart
+	SendMIDINoteOn 0, stop_pad, pred 
+  SendMIDINoteOn 2, play_pad, bgreen
+@End
+
+@OnHostStop
+	SendMIDINoteOn 0, stop_pad, red
+	SendMIDINoteOn 0, play_pad, green
+@End
+
+
+@OnMetroPulse
+  SendMIDINoteOn 0, controller_midigen_pads[CurrentMetroPulse], 3
+	SendMIDINoteOn 0, controller_midigen_pads[CurrentMetroPulse], controller_cols[controller_midigen_pads[CurrentMetroPulse]], 100
+@End
+
+@OnMidiNote
+	if MIDIChannel=controller_ch //messages coming from controller.. send to QK
+		if qk_msgtype_out[MIDIByte2]=0 and qk_msg_num_out[MIDIByte2]>=0
+			SendMIDINoteOn q_kntrl_ch, qk_msg_num_out[MIDIByte2], qk_val_out[MIDIByte2]
+		elseif qk_msgtype_out[mb2]=1 and qk_msg_num_out[MIDIByte2]>=0
+			SendMIDICC q_kntrl_ch, qk_msg_num_out[MIDIByte2], qk_val_out[MIDIByte2]
+		endif
+	elseif MIDIChannel=q_kntrl_ch //messages coming from QK:KNTRL.. send to Controller
+		if cn_msg_type_out[MIDIByte2]=0 and cn_msg_num_out[MIDIByte2]>=0
+			SendMIDINoteOn controller_ch, cn_msg_num_out[MIDIByte2], cn_val_out[MIDIByte2]
+		elseif cn_msg_type_out[MIDIByte2]=1 and cn_msg_num_out[MIDIByte2]>=0
+		  SendMIDICC controller_ch, cn_msg_num_out[MIDIByte2], cn_val_out[MIDIByte2]
+		endif
+	endif
+@End
+
+@OnMidiCC
+	if MIDIChannel=controller_ch //messages coming from controller.. send to QK
+		if qk_msgtype_out[MIDIByte2]=0 and qk_msg_num_out[MIDIByte2]>=0
+			SendMIDINoteOn q_kntrl_ch, qk_msg_num_out[MIDIByte2], qk_val_out[MIDIByte2]
+		elseif qk_msgtype_out[mb2]=1 and qk_msg_num_out[MIDIByte2]>=0
+			SendMIDICC q_kntrl_ch, qk_msg_num_out[MIDIByte2], qk_val_out[MIDIByte2]
+		endif
+	elseif MIDIChannel=q_kntrl_ch //messages coming from QK:KNTRL.. send to Controller
+		if cn_msg_type_out[MIDIByte2]=0 and cn_msg_num_out[MIDIByte2]>=0
+			SendMIDINoteOn controller_ch, cn_msg_num_out[MIDIByte2], cn_val_out[MIDIByte2]
+		elseif cn_msg_type_out[MIDIByte2]=1 and cn_msg_num_out[MIDIByte2]>=0
+		  SendMIDICC controller_ch, cn_msg_num_out[MIDIByte2], cn_val_out[MIDIByte2]
+		endif
+	endif
+@End
+
