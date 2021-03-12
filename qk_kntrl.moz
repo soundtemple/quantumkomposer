@@ -139,8 +139,8 @@
 	allow_edit_mgen_ccs=FALSE
 	last_mgen_pad=0 //# return to last pad used MG-kntrl mode
 	mgen_vals=[]
-	mgen_labels =  [2,3,12,19,15,16,17,18,11,14,1,15,0,0,0,0]
-	mgen_colors =  [2,2,6,6,0,4,3,5,0,6,5,5,0,0,0,0]
+	mgen_labels =  [2,3,12,15,15,16,17,18,20,14,1,15,0,0,0,0]
+	mgen_colors =  [2,2,2,0,0,4,3,5,6,6,5,5,0,0,0,0]
 	mgen_guis = [91,92,93,94,95,96,97,98,99,0,0,0,0,0,0,0]
 	for i = 0 to 8
 		mgen_guis[i] = i+91  ////fixed cc's for showing MG GUI 92-99 (8 instances)
@@ -180,7 +180,7 @@
 	elseif MIDIByte2=0 or MIDIByte2=5 //TRANSPORT on CH16 - Aum: STOP, PLAY
 		SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
 	
-	elseif MIDIByte2<=17 or MIDIByte2>=113 //MIXER CONTROLS  curr_ch (21<>113)
+	elseif MIDIByte2<=17 or MIDIByte2>=117 //MIXER CONTROLS  curr_ch (21<>113)
 		//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF,EQ) 
 		SendMIDIThruOnCh chan_midi_chs[curr_chan]
 		//Log {-- THRU TO: MIXER KNTRL CH:}, chan_midi_chs[curr_chan],{ cc}, MIDIByte2, { - }, MIDIByte3
@@ -232,8 +232,10 @@
 		mixer_state[(14*20)+ mixer_cc_slots[MIDIByte2-13]] = MIDIByte3
 	
 	elseif MIDIByte2=88
-	  for ch = 4 to 11
-			for n = 24 to 96
+		SendMIDICC 15, 88, 1 // LED FEEDBACK
+		SendMIDICC 15, 88, 10, 500
+		for ch = 0 to 14
+			for n = 0 to 127
 				SendMIDINoteOff ch, n, 127 //handle stuck notes
 			endfor
 		endfor
@@ -273,9 +275,9 @@
 @End
 
 @OnMidiNote //Ony on CH16 the lowest notes can control the pads and shift button
-	if MIDIChannel=15 and MIDINote<=16 //NoteOn or NoteOff KNTRL PADS
+	if MIDIChannel=15 and MIDINote<=16 and MIDIByte3>0 //NoteOn or NoteOff KNTRL PADS
 		// lowest notes on any channel used to trigger KNTRL pads 0-15
-		if MIDINote=16
+		if MIDINote=16 //SHIFT
 			if MIDICommand=0x90 //noteOn	
 				Call @OnShiftDown2
 			endif
@@ -403,7 +405,7 @@
 			Call @SetupLayoutChannels
 		elseif mode=7 //Mixer mode
 			Call @SetupLayoutChannels
-			mixer_mode=last_pad-8
+			mixer_mode=0
 			Call @SetupKnobset7
 		endif
 		Call @UpdateCurrentKnobset
@@ -556,7 +558,7 @@
 	elseif mode=6 // mgen mode
 		Call @PadDownMGMode
 	elseif mode=7 // MIXER modes
-		Call @PadDownMixerMode	
+		Call @PadDownMixerMode
 	endif
 @End
 
@@ -575,7 +577,9 @@
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
 	elseif mode=0 and last_pad=12
-		for ch = 4 to 11
+		SendMIDINoteOn 15, 12, 1 //LED FEEDBACK
+		SendMIDINoteOn 15, 12, 2, 200 //LED FEEDBACK
+		for ch = 0 to 14
 			for n = 0 to 127
 				SendMIDINoteOff ch, n, 127 // handle sometimes stuck notes from KORDS
 			endfor
@@ -645,7 +649,7 @@
 		endif
 		LatchPad 0, YES
 	endif
-	Call @SendMidiCCBackToKnob
+	Call @SendMidiCCBackToKnobs
 	SendMIDICC 15, 24, last_pad //communicate selected channel (to KB-1)
 	if chan_layouts[last_pad]=5 or chan_layouts[last_pad]=6
 		drambo_layout_active = TRUE
@@ -661,7 +665,8 @@
 	latch_last_pad=TRUE
 	re_label_pad_on_press=FALSE
 	for i = 0 to 15
-		LatchPad i, no 
+		LatchPad i, NO 
+		SendMIDINoteOn 15, i, inst_colors[i]
 	endfor
 	lbl=inst_labels[pad_slot]
 	if inst_ccs[pad_slot]=121 //MUTE
@@ -792,6 +797,7 @@
 		Call @Setupknobset2 //setup INSTRUMENT KNOBS
 	endif
 	LatchPad last_pad, latch_last_pad
+	SendMIDINoteOn 15, last_pad, 8 //LED FEEDBACK
 @End
 
 @PadDownMGMode
@@ -823,8 +829,10 @@
 	endif
 	for i = 0 to 15
 		LatchPad i, no 
+		SendMIDINoteOn 15, i,  mgen_colors[i] //LED FEEDBACK
 	endfor
 	LatchPad last_mgen_pad, YES
+	SendMIDINoteOn 15, last_pad, 8 //LED FEEDBACK
 @End
 
 @PadDownMixerMode
@@ -917,7 +925,6 @@
   	return_to_song_mode_requested = FALSE
 		scene_change_requested = -1
   elseif (songmode > 0)
-		Log {Song mode = 0 - lock current scene}
   	current_scene = current_scene
   elseif (current_scene = 7) //# End of song. Loop back to beginning
     current_scene = 0 
@@ -986,6 +993,7 @@
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
+		SendMIDINoteOn 15, i, settings_cols[i] // LED FEEDBACK
 	endfor
 	LabelPad 13, {LOG PRESET} 
 	if layouts_locked
@@ -997,6 +1005,7 @@
 		LabelPad 2, {<= EDIT =>}
 			for i = 1 to 3
 				ColorPad i, col_mode_edit
+				SendMIDINoteOn 15, i, col_mode_edit
 		endfor
 	endif
 @End
@@ -1512,28 +1521,36 @@
 	endif
 	for i = 0 to 15 //Color pads in mute solo arm mode
 		LatchPad i, no
+		SendMIDINoteOn 15, i, chan_colors[i] //LED FEEDBACK
 		if mixer_mode=4 and mute_solo_arm = 0
 			if chan_mute[i]
 				ColorPad i, 6
+				SendMIDINoteOn 15, i, 6 //LED FEEDBACK
 			else
 			  ColorPad i, col_unused
+				SendMIDINoteOn 15, i, 0 //LED FEEDBACK
 			endif
 		elseif mixer_mode=4 and mute_solo_arm = 1
 			if chan_solo[i]
 				ColorPad i, 4
+				SendMIDINoteOn 15, i, 4 //LED FEEDBACK
 			else
 			  ColorPad i, col_unused
+				SendMIDINoteOn 15, i, 0 //LED FEEDBACK
 			endif
 		elseif mixer_mode=4 and mute_solo_arm = 2
 			if chan_arm[i]
 				ColorPad i, 1
+				SendMIDINoteOn 15, i, 1 //LED FEEDBACK
 			else
 			  ColorPad i, col_unused
+				SendMIDINoteOn 15, i, 0 //LED FEEDBACK
 			endif	
 		endif	
 	endfor
 	if mixer_mode <> 4
 		LatchPad curr_chan, YES
+		SendMIDINoteOn 15, curr_chan, 8
 	endif
 @End
 
@@ -1662,20 +1679,24 @@
 				ColorPad i, col_scene
 				scn_to_label = i
 				Call @LabelScenePad
+				SendMIDINoteOn 15, i, col_scene //LED FEEDBACK
 			else
 				ColorPad i, col_unused
 				LabelPad i, { }
+				SendMIDINoteOn 15, i, col_unused //LED FEEDBACK
 			endif
 			LatchPad i, NO
 	  endfor
 		ColorPad current_scene, col_sel_scene
 		if scene_change_requested>-1
 			ColorPad scene_change_requested, col_pending
+			SendMIDINoteOn 15, scene_change_requested, col_pending //LED FEEDBACK
 		endif
 		for i = 8 to 15
 			LatchPad i, NO
 	    ColorPad i, col_unused
 			LabelPad i, { }
+			SendMIDINoteOn 15, i, col_unused //LED FEEDBACK
 		endfor
 	elseif mode=2
 		for i = 0 to 15
@@ -1687,32 +1708,46 @@
 		LabelPad 8, {SONG MODE ACTIVE}
 		LabelPad 9, {-}
 		LatchPad 8, YES
+		SendMIDINoteOn 15, 8, 8 //LED FEEDBACK
 	elseif (songmode = 1)
 		LabelPad 8, {LOCKED TO S}, locked_to_scene+1
 		LatchPad 8, NO
 		LabelPad 9, {TO SONGMODE}
+		LatchPad 9, YES
 		LatchPad locked_to_scene, YES
+		SendMIDINoteOn 15, locked_to_scene, 8 //LED FEEDBACK
+		SendMIDINoteOn 15, 9, 8 //LED FEEDBACK
 	endif
 	LabelPad 10, {UPDATE ALL SCENES}
+	ColorPad 10, 2
+	SendMIDINoteOn 15, 10, 2 //LED FEEDBACK
 	if scene_copied
 		ColorPad 11, 3
+		SendMIDINoteOn 15, 11, 3 //LED FEEDBACK
 		LabelPad 11, {PASTE TO SCENE }, edit_scene+1
 		LabelPads {Use Scene knob to select scene then hit paste to copy contents across all QK midi generators}
 	else
-		ColorPad 11, 0
+		ColorPad 11, 2
+		SendMIDINoteOn 15, 11, 2 //LED FEEDBACK
 		LabelPad 11, {COPY SCENE }, edit_scene+1
 	endif
 	LabelPad 12, {ALL KORDS NOTES OFF}
-	ColorPad 13, col_unused
-	ColorPad 14, col_unused
-	ColorPad 15, col_unused
-	if HostRunning
-		ColorPad 15, 3
-	endif
+	ColorPad 12, 2
+	SendMIDINoteOn 15, 12, 2 //LED FEEDBACK
+	SendMIDINoteOn 15, 13, col_unused //LED FEEDBACK
+	SendMIDINoteOn 15, 14, col_unused //LED FEEDBACK
+	ColorPad 14, 1
+	SendMIDINoteOn 15, 14, 1 //LED FEEDBACK
+	SendMIDINoteOn 15, 15, 3 //LED FEEDBACK
+	ColorPad 15, 3
 	if loop_song_mode
 		LabelPad 13, {LOOP SONG MODE}
+		LatchPad 13, YES
+		SendMIDINoteOn 15, 13, 8 //LED FEEDBACK
 	else
 	  LabelPad 13, {LOOP SONG OFF}
+		LatchPad 13, NO 
+		SendMIDINoteOn 15, 13, 0 //LED FEEDBACK
 	endif
 	LabelPad 14, {[STOP]}
 	LabelPad 15, {PLAY>}
@@ -2140,22 +2175,26 @@
 				Call @LabelMGENPad
 			elseif i>=9 and i<=11
 				LabelPad i, { }
-				ColorPad i, 0		
+				ColorPad i, 0
+				SendMIDINoteOn 15, 9, 0 //LED FEEDBACK
+				SendMIDINoteOn 15, 10, 0 //LED FEEDBACK
+				SendMIDINoteOn 15, 11, 0 //LED FEEDBACK	
 			elseif i=12
 			  LabelPad i, {[GUI]}
 				ColorPad i, 0
+				SendMIDINoteOn 15, 12, 0 //LED FEEDBACK
 			elseif i=13
 			  LabelPad i, { }
 				ColorPad i, 0
+				SendMIDINoteOn 15, 13, 0 //LED FEEDBACK
 			elseif i=14
 			  LabelPad i, {[STOP]}
 				ColorPad i, 0
+				SendMIDINoteOn 15, 14, 1 //LED FEEDBACK
 			elseif i=15
 			  LabelPad i, {PLAY>}
-				ColorPad i, 0
-				if HostRunning
-					ColorPad i, 3
-				endif
+				ColorPad i, 3
+				SendMIDINoteOn 15, 15, 3 //LED FEEDBACK
 			endif
 		else //instrument page layout
 			pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + i
@@ -2167,6 +2206,7 @@
 @LabelChanPad // CHANNELS LABELLING - Channels for INSTRUMENTS or MGEN devices 
 	//Laborious task of labelling pads when you cant store a string
 	ColorPad pad_to_label, chan_colors[chan_pad]
+	SendMIDINoteOn 15, 0+pad_to_label, chan_colors[chan_pad] //LED FEEDBACK
 	label_num = chan_labels[chan_pad]
 	midi_ch = chan_midi_chs[chan_pad]
 	if (label_num=0)
@@ -2222,7 +2262,8 @@
 
 @LabelMGENPad //MGEN Pad labelling
 	ColorPad pad_to_label, mgen_colors[mgen_pad]
-	label_num = mgen_labels[mgen_pad]
+	SendMIDINoteOn 15, pad_to_label, mgen_colors[mgen_pad] //LED FEEDBACK
+ 	label_num = mgen_labels[mgen_pad]
 	if (label_num=0)
 		LabelPad pad_to_label, { }
 	elseif (label_num=1)
@@ -2270,6 +2311,7 @@
 
 @LabelInstrPad // An instrument pad to label 
 	ColorPad pad_to_label, inst_colors[pad_slot]
+	SendMIDINoteOn 15, pad_to_label, inst_colors[pad_slot] //LED FEEDBACK
 	label_num = inst_labels[pad_slot] // any pad any label except cc in protected range
 	if (label_num=0) and chan_layouts[edit_chan]=2 //MIX BUS
 		note_labels=[9,11,0,2]
