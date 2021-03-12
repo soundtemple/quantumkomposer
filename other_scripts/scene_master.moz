@@ -10,6 +10,7 @@
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 		edit_mode_active=FALSE
+		log_current_info=TRUE //logs current scene and beat data. 
 		SetMetroPPQN 4
 		ppqn = 4
 		edit_scene=0
@@ -21,7 +22,7 @@
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
-		//Log {On load successful}
+		ShowLayout 4
 	endif
 @End
 
@@ -31,12 +32,12 @@
 	cc_play=5
 	cc_stop=0
 	
-	cc_scene_duration=101 //+ scene_num0-7 ie 101-108 only for AUTOM
+	cc_scene_duration=101 //+ scene_num0-7 ie ccs101-108 only for AUTOM
 	send_cc21_for_spa=FALSE // chg SPA pattern when script changes scene	
 
 	//# Any knobset knob should have a setting here
 	current_scene = 0 // #0-7 Pads 0-7
-	scene_durs=[4,8,0,0,0,0,0,0]
+	scene_durs=[4,8,0,0,0,0,0,0] //default scene durations on load
 	scene_beat_count=0
 	//# Color Scheme
 	col_scene = 2
@@ -137,18 +138,25 @@
 
 @Description
 	..:: SCENEMASTER ::..
-	Map scene selection 1-8 in LK, Drambo etc to cc109-116.
+	Map scene selection 1-8 in LK, Drambo etc to cc109-116 (configurable)
 	Set Drambo/LK scenes to change instantaneously (no quantized change)
+	
+	Touch to select scene...
 	When host is stopped SceneMaster will change scene instantly
 	When in playback SceneMaster will send scene change message on first beat of new bar
-	When is Song Mode Active it will progress through all scenes
-	Loop song will return to scene1 after last scene with a duration
-	Loop song off will trigger host stop message if mapped
-	Set scene durations for your song
 	Tapping a scene will lock and loop that scene
-	When locked To Songmode button will return to progress through scenes
-	Map [STOP] and PLAY> cc0 and cc5 for this to work
-	CC values can be updated in  @InitKnobVariables
+	The "To Songmode" button will return to progress through scenes
+	
+	In Song Mode Active it will progress through all scenes, 
+	sending scene change messages after scene duration
+	
+	Loop song on will return to scene1 after last scene with a duration
+	Loop song off will trigger host stop message if mapped
+	
+	Update all scenes and scene duration change will update scene durations 
+	in other QK:Sequencers - BEATS, NOTES, AUTOM
+	
+	All CC values can be updated in  @InitKnobVariables
 	
 	Press SHIFT to exit
 @End
@@ -287,9 +295,11 @@
 @End
 
 @LogCurrentInfo
-	current_scene_duration = scene_durs[current_scene]
-	Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
-	LabelPads {Scene}, current_scene+1, {   Bar }, (Div scene_beat_count, HostBeatsPerMeasure)+1, {.}, HostBeat+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure) 
+	if log_current_info
+		current_scene_duration = scene_durs[current_scene]
+		Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
+		LabelPads {Scene}, current_scene+1, {   Bar }, (Div scene_beat_count, HostBeatsPerMeasure)+1, {.}, HostBeat+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure) 
+	endif
 @End
 
 @OnKnobChange
@@ -405,8 +415,8 @@
 	else
 	  LabelPad 13, {LOOP SONG OFF}
 	endif
-	LabelPad 14, {[STOP]}
-	LabelPad 15, {PLAY>}
+	LabelPad 14, {[STOP]}, {    [cc}, cc_stop, {]}
+	LabelPad 15, {PLAY>}, {     [cc}, cc_play, {]}
 @End
 
 @LabelScenePad
