@@ -10,6 +10,7 @@
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:PatternLocked
 	  SetMetroPPQN 4
 	  ppqn = 4 
+		mgen_device_num=-1 //used for midi control of pads
 		note_off_delay=10 //delay note off so adjaccent notes will glide
 	  scene_change_requested = -1 //# on pad down has next scene number
 	  pattn_change_requested = -1 //# on pad down has next pattn number
@@ -2543,6 +2544,18 @@ if seq_type=0
     Call @KnobChangeSet8 //# SEQ GENERATION
   elseif knob_set = 9
     Call @KnobChangeSet9 //# ROTATION
+	elseif knob_set = 99 //settings layout
+    if LastKnob = 0
+		  val = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 8
+			if val <> mgen_device_num
+				mgen_device_num=val
+				if mgen_device_num=-1
+					LabelKnob 0, {mgen# -}
+				else
+					LabelKnob 0, {mgen# }, mgen_device_num+1
+				endif
+			endif
+		endif
 	endif
 @End  
 	
@@ -2568,7 +2581,12 @@ if seq_type=0
 		knob_set=99
 		LabelKnobs { }
 		LabelPads {_QK:NOTES Settings}
-		LabelKnob 0, { }
+		SetKnobValue 0, TranslateScale mgen_device_num, -1, 8, 0, 127
+		if mgen_device_num=-1
+			LabelKnob 0, {mgen# -}
+		else
+			LabelKnob 0, {mgen# }, mgen_device_num+1
+		endif
 		LabelKnob 1, { }
 		LabelKnob 2, { }
 		LabelKnob 3, { }

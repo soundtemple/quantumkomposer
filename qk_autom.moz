@@ -14,6 +14,7 @@
 		edit_mode_active=FALSE //in edit mode use 20knob layout to step edit each beat
 		SetMetroPPQN 4
 		ppqn = 4
+		mgen_device_num=-1 //used for midi control of pads
 		knob_set=0
 		edit_scene=0
 		locked_to_scene=0
@@ -779,7 +780,6 @@
 	LabelKnob 0, {Edit scn }, edit_scene+1
 	LabelKnob 1, {Bars }, scene_durs[edit_scene]
 	LabelKnob 2, { }
-	LabelKnob 3, { }
 	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
 	SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
 @End
@@ -809,10 +809,15 @@
 	//# Settings knobs
 	knob_set = 1
 	LabelKnob 0, {Edit scn }, edit_scene+1
-	LabelKnob 1, { }
+	if mgen_device_num=-1
+		LabelKnob 1, {mgen# -}
+	else
+		LabelKnob 1, {mgen# }, mgen_device_num+1
+	endif
 	LabelKnob 2, {MIN }, auto_ramp_min 
 	LabelKnob 3, {MAX }, auto_ramp_max
 	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
+	SetKnobValue 1, TranslateScale mgen_device_num, -1, 8, 0, 127
 	SetKnobValue 2, auto_ramp_min
 	SetKnobValue 3, auto_ramp_max
 	LabelKnobs { }
@@ -825,7 +830,17 @@
 		if val <> edit_scene
 			edit_scene = val
 			LabelKnob 0, {Edit scn }, edit_scene+1
-			LabelKnob 1, {Bars }, scene_durs[edit_scene]
+		endif
+	endif
+	if LastKnob = 1
+	  val = Round TranslateScale (GetKnobValue 1), 0, 127, -1, 8
+		if val <> mgen_device_num
+			mgen_device_num=val
+			if mgen_device_num=-1
+				LabelKnob 1, {mgen# -}
+			else
+				LabelKnob 1, {mgen# }, mgen_device_num+1
+			endif
 		endif
 	endif
 	if LastKnob = 2
