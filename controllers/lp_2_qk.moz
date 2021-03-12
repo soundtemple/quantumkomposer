@@ -6,7 +6,7 @@
 @OnLoad
 	ppqn=4
 	if Unassigned msg_typw
-		SetShortName {C>2>QK}
+		SetShortName {LP>2>QK}
 		lp_ch=0
 		Call @ConfigureLaunchapd
 		Call @SetupMozaicLayout
@@ -47,13 +47,13 @@
 	on_val[11] = [127,127,127,127, 127,127,127,127, 127]
 	
 	off_val[91] = [-1,-1,-1,-1, -1,-1,-1,-1, -1] //msg value to send on pad release if >= 0
-	off_val[81] = [-1,-1,-1,-1, -1,-1,-1,-1, -1] 
-	off_val[71] = [-1,-1,-1,-1, -1,-1,-1,-1, -1]
+	off_val[81] = [0,  0, 0, 0,  0, 0, 0, 0, -1] 
+	off_val[71] = [0,  0, 0, 0,  0, 0, 0, 0, -1]
 	off_val[61] = [-1,-1,-1,-1, -1,-1,-1,-1, -1]
 	off_val[51] = [-1,-1,-1,-1, -1,-1,-1,-1, -1]
 	off_val[41] = [-1,-1,-1,-1, -1,-1,-1,-1, -1]
-	off_val[31] = [-1,-1,-1,-1, -1,-1,-1,-1, -1]
-	off_val[21] = [-1,-1,-1,-1, -1,-1,-1,-1, -1]
+	off_val[31] = [0,  0, 0, 0,  0, 0, 0, 0, -1]
+	off_val[21] = [0,  0, 0, 0,  0, 0, 0, 0, -1]
 	off_val[11] = [-1,-1,-1,-1, -1,-1,-1,-1, -1]
 	
 	out_ch[91] = [15,15,15,15, 15,15,15,15, 15] //the midi channel to send msg on
