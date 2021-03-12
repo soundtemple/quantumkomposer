@@ -6,7 +6,7 @@
 @OnLoad
 	ppqn=4
 	if Unassigned msg_typw
-		SetShortName {LP=>}
+		SetShortName {C>2>QK}
 		lp_ch=0
 		Call @ConfigureLaunchapd
 		Call @SetupMozaicLayout
