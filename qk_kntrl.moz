@@ -275,22 +275,24 @@
 @End
 
 @OnMidiNote //Ony on CH16 the lowest notes can control the pads and shift button
-	if MIDIChannel=15 and MIDINote<=16 and MIDIByte3>0 //NoteOn or NoteOff KNTRL PADS
+	if MIDIChannel=15 and MIDINote<=16 //NoteOn or NoteOff KNTRL PADS
 		// lowest notes on any channel used to trigger KNTRL pads 0-15
 		if MIDINote=16 //SHIFT
 			if MIDICommand=0x90 //noteOn	
 				Call @OnShiftDown2
 			endif
 		else
-			if MIDICommand=0x90 //noteOn
-				last_pad = MIDINote
+			last_pad = MIDINote
+			if MIDICommand=0x90 and MIDIByte3>0 //noteOn
 				Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mosaic
+			elseif MIDICommand=0x90 and MIDIByte3=0
+				Call @OnPadUp2
 			elseif MIDICommand=0x80 //Note off
 			  Call @OnPadUp2
 			endif
 		endif
 	elseif MIDIChannel=15
-		SendMIDIThruOnCh chan_midi_chs[curr_chan]
+		//SendMIDIThruOnCh chan_midi_chs[curr_chan]
 		//Log {Notes on other channels thru}
 	endif
 @End
@@ -650,7 +652,7 @@
 		LatchPad 0, YES
 	endif
 	Call @SendMidiCCBackToKnobs
-	SendMIDICC 15, 24, last_pad //communicate selected channel (to KB-1)
+	SendMIDICC 15, 24, last_pad //LED FEEDBACK
 	if chan_layouts[last_pad]=5 or chan_layouts[last_pad]=6
 		drambo_layout_active = TRUE
 	else
@@ -662,12 +664,11 @@
 	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + last_pad 
 	val=127 // for mute solo arm messages if required
 	chan = chan_midi_chs[curr_chan]
-	latch_last_pad=TRUE
 	re_label_pad_on_press=FALSE
-	for i = 0 to 15
-		LatchPad i, NO 
-		SendMIDINoteOn 15, i, inst_colors[i]
-	endfor
+	Call @SetupLayoutChannels
+	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + last_pad 
+	LatchPad last_pad, YES
+	SendMIDINoteOn 15, last_pad, 8 //LED FEEDBACK
 	lbl=inst_labels[pad_slot]
 	if inst_ccs[pad_slot]=121 //MUTE
 		chan_mute[curr_chan] = NOT chan_mute[curr_chan]
@@ -678,7 +679,7 @@
 		endif
 		SendMIDICC chan, chan_mx_ccs[16], val
 		mixer_state[(curr_chan*20)+16] = val
-		latch_last_pad=FALSE
+		LatchPad last_pad, NO
 		re_label_pad_on_press=TRUE
 	elseif inst_ccs[pad_slot]=122 //SOLO
 		chan_solo[curr_chan] = NOT chan_solo[curr_chan]
@@ -689,7 +690,7 @@
 		endif
 		SendMIDICC chan, chan_mx_ccs[17], val
 		mixer_state[(curr_chan*20)+17] = val
-		latch_last_pad=FALSE
+		LatchPad last_pad, NO
 		re_label_pad_on_press=TRUE
 	elseif inst_ccs[pad_slot]=123 //ARM
 		chan_arm[curr_chan] = NOT chan_arm[curr_chan]
@@ -700,7 +701,7 @@
 		endif
 		SendMIDICC chan, chan_mx_ccs[18], val
 		mixer_state[(curr_chan*20)+18] = val
-		latch_last_pad=FALSE
+		LatchPad last_pad, NO
 		re_label_pad_on_press=TRUE
 	elseif lbl=64 or lbl=65 or lbl=66 //mute solo arm but not std mixer is return or mixbus
 		rtnbuscols[64]=[6,4,1]
@@ -713,7 +714,7 @@
 		endif
 		inst_state[pad_slot] = val
 		SendMIDICC chan, inst_ccs[pad_slot], val
-		latch_last_pad=FALSE
+		LatchPad last_pad, NO
 		re_label_pad_on_press=TRUE
 	elseif lbl=61 or lbl=100 or lbl=101 or lbl=119 or lbl=120 or lbl=124 or lbl=125 or lbl=126 or lbl=127
 		SendMIDICC chan, inst_ccs[pad_slot], 127 //buttons for plugins 
@@ -796,8 +797,6 @@
 	else
 		Call @Setupknobset2 //setup INSTRUMENT KNOBS
 	endif
-	LatchPad last_pad, latch_last_pad
-	SendMIDINoteOn 15, last_pad, 8 //LED FEEDBACK
 @End
 
 @PadDownMGMode
@@ -1013,7 +1012,7 @@
 @OnKnobChange
 	// so midi input can simulate knob chnge even it calls @OnKnobChange2 directly 
 	last_knob = LastKnob
-  Call @OnKnobChange2 
+	Call @OnKnobChange2 
 @End
 
 @OnKnobChange2
@@ -1719,21 +1718,21 @@
 		SendMIDINoteOn 15, 9, 8 //LED FEEDBACK
 	endif
 	LabelPad 10, {UPDATE ALL SCENES}
-	ColorPad 10, 2
-	SendMIDINoteOn 15, 10, 2 //LED FEEDBACK
+	ColorPad 10, 4
+	SendMIDINoteOn 15, 10, 4 //LED FEEDBACK
 	if scene_copied
 		ColorPad 11, 3
 		SendMIDINoteOn 15, 11, 3 //LED FEEDBACK
 		LabelPad 11, {PASTE TO SCENE }, edit_scene+1
 		LabelPads {Use Scene knob to select scene then hit paste to copy contents across all QK midi generators}
 	else
-		ColorPad 11, 2
-		SendMIDINoteOn 15, 11, 2 //LED FEEDBACK
+		ColorPad 11, 4
+		SendMIDINoteOn 15, 11, 4 //LED FEEDBACK
 		LabelPad 11, {COPY SCENE }, edit_scene+1
 	endif
 	LabelPad 12, {ALL KORDS NOTES OFF}
-	ColorPad 12, 2
-	SendMIDINoteOn 15, 12, 2 //LED FEEDBACK
+	ColorPad 12, 4
+	SendMIDINoteOn 15, 12, 4 //LED FEEDBACK
 	SendMIDINoteOn 15, 13, col_unused //LED FEEDBACK
 	SendMIDINoteOn 15, 14, col_unused //LED FEEDBACK
 	ColorPad 14, 1
