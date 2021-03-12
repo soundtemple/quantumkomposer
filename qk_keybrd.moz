@@ -60,9 +60,9 @@
 	// Only add what you need to override. See @InitKnobVariables FillArray's for default values
 	kb2b = keyboard_to_build
 	if layouts[kb2b] = 0 //name: 3CH DRUMS & PERCS
-		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 1,2,3,4,5,6,7,15]	
-		pad_channels[kb2b*16] = [-1,-1,-1,-1,-1,-1,-1,-1, 0,0,1,1,1,1,1,1]
-		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
+		labels[kb2b*16] = [8,8,9,9,9,9,11,11, 1,2,3,4,7,15,5,6]	
+		pad_channels[kb2b*16] = [-1,-1,-1,-1,-1,-1,3,3, 0,0,1,1,1,1,1,1]
+		notes[kb2b*16] = [48,49,50,51, 52,53,48,49, 48,51,49,50, 52,53,54,55]
 		colors[kb2b*16] = [5,5,5,5,5,5,5,5, 1,1,2,2,2,2,2,2]
 	elseif layouts[kb2b] = 1 //name: SLICED LOOP#1
 		labels[kb2b*16] = [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]
