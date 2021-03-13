@@ -1,11 +1,11 @@
-// =>LP An adapter script for LED feedback to the Launchpad mini
+// LP>LEDS An adapter script for LED feedback to the Launchpad mini
 // LP must be in programmer mode
 // Companion app to =>LP which is used for adapting messages sent out in programmer mode
 // Routing: Instruments => LP Adapter => LP Controller  
 
 @OnLoad
 	if Unassigned lp_ch
-		SetShortName {=>LP}
+		SetShortName {LP>LED}
 		ppqn=4
 		lp_ch=0 //channel LP receives messages on
 		in_ch=15 //channel LED feedback messages received on
@@ -14,10 +14,21 @@
 		selected_mgen=0
 		selected_scene=0
 		brightness=64
-		//Put the LP into programmer mode
-		sx_lp_layout = [240, 0, 32, 41, 2, 13, 0, 127]
-		sx_lp_drums =  [240, 0, 32, 41, 2, 13, 0, 4]
-		SendSysex sx_lp_layout, 8
+		//SYSEX
+		lp_sysex_header=[0xF0,0x00,0x20,0x29,0x02,0x0D]
+		qk_sysex_header=[0x3F,0x40,0x3F,0x40,0x3F,0x40]
+		cmd_lp_mode=0 //see below for mode #'s'
+		cmd_pad_led=1
+		cmd_mgen_sel=2
+		cmd_brightness=8 //0-127
+		cmd_sleep=9 //0=off; 1=on
+		pgmr_mode=127
+		drum_mode=4
+		keys_mode=5
+		user_mode=6
+  	len_header=6
+		new_mode=pgmr_mode
+		Call @ChangeMode
 		Call @BuildColorMapping
 		Call @SetupControllerToQKMappings
 		Call @UpdateAllPads
@@ -51,33 +62,31 @@
 	pgreen=20
 	blue=45
 	pblue=41
-	purple=49
-	mauve=48
-	pink=54
+	purple=69
+	mauve=81
+	pink=53
 	//messages from KNTRL will send a color 0-9 as value MIDIBYTE3. Map to controller colours here:
-	to_pad_col = [off, pred, orange, pgreen, pblue, purple, mauve, pink, white, beige, pred] 
+	to_pad_col = [off, pred, orange, pgreen, pblue, purple, mauve, pink, white, beige, pred, grey] 
 	
-	colors[91] = [beige,	beige,	red,		green, 	off, 		off, 		off, 		blue,		off] //drambo, transport, mode
+	colors[91] = [beige,	beige,	red,		green, 	pgreen, grey, 	grey, 	grey,		off] //drambo, transport, mode
 	colors[81] = [orange, orange, orange, off, 		off, 		green,  blue, 	purple,	off] //mgen select
 	colors[71] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
 	colors[61] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
-	colors[51] = [orange,	orange,	orange,	orange,	pblue, 	pblue,	pblue, 	pblue,	off] //channel select
-	colors[41] = [pgreen, pgreen, pgreen,	pgreen,	purple,	purple,	purple,	pred,		off] //channel select
+	colors[51] = [orange,	orange,	mauve,	mauve,	pblue, 	pblue,	pblue, 	pblue,	off] //channel select
+	colors[41] = [pgreen, pgreen, pgreen,	pgreen,	purple,	purple,	purple,	grey,		off] //channel select
 	colors[31] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //kntrl pads
 	colors[21] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //kntrl pads
 	colors[11] = [off, 		white, 	white, 	off,		off,		off,		off,		off,		off] //shifts mixer select
 @End
 
 @SetupControllerToQKMappings
-	mgen_seq_pads = [81,82,83,84,85,86,87,88, 71,72,73,74,75,76,77,78, 13] //16 midigen pads + shift
-	mgen_pads = [20,21,22,23, 24,25,26,27, 28,29,30,31, 32,33,34,35, 36] //pads assigned to mgen pads
+	mgen_seq_pads = [71,72,73,74,75,76,77,78, 61,62,63,64,65,66,67,68, 13] //16 midigen pads + shift
+	mgen_pads = [81,82,83,84,85,86,87,88] //pads assigned to mgen selection
 	kntrl_pads= [31,32,33,34,35,36,37,38, 21,22,23,24,25,26,27,28] //pads assigned to 16 kntrl pads
 	channel_pads = [51,52,53,54, 55,56,57,58, 41,42,43,44, 45,46,47,48] //pads assigned to instrument selection
 	scene_pads = [89,79,69,59,49,39,29,19] //pads assigned to scene selection
-	mgen_pads_use_ccs=FALSE //using notes
-	kntrl_pads_use_ccs=FALSE //using notes
-	channel_pads_use_ccs=FALSE //using notes
-	scene_pads_use_ccs=TRUE //using cc pads to control scenes
+	mgen_pads_show_sel_only=TRUE
+	chan_pads_show_sel_only=TRUE
 	
 	//Additional custom messages
 	//Add the cc (only) val incoming as index to custom_messages and the value as the LP pad
@@ -97,11 +106,20 @@
 	//Send messages to light up all pads with values stored in colors
 	for pad_num = 0 to 127
 		if msg_type[pad_num]=0 //note pad
-			SendMIDINoteOn 0, pad_num, colors[pad_num]
+			SendMIDINoteOn lp_ch, pad_num, colors[pad_num]
 		elseif msg_type[pad_num]=1 // cc pad
-		  SendMIDICC 0, pad_num, colors[pad_num]
+		  SendMIDICC lp_ch, pad_num, colors[pad_num]
 		endif
 	endfor
+	if selected_scene>=0
+		Call @UpdateSelectedScene
+	endif
+	if selected_channel>=0
+		Call @UpdateSelectedChannel
+	endif
+	if selected_mgen>=0
+		Call @UpdateSelectedMgen
+	endif
 @End
 
 @ResetToDefault
@@ -119,15 +137,24 @@
 @OnMidiNote
 	if MIDIChannel=in_ch //messages coming from QK:KNTRL.. send to Controller
 		if MIDIByte2<=16 and kntrl_pads[MIDIByte2]>=0 //handle: kntrl pads 0-16 
-			SendMIDINoteOn lp_ch, kntrl_pads[MIDIByte2], to_pad_col[MIDIByte3]
-		elseif (MIDIByte2>=20 and MIDIByte2<=46 and mgen_pads[MIDIByte2-20]>=0) //handle mgen pads 20-46
-		  SendMIDINoteOn lp_ch, mgen_pads[MIDIByte2-20], to_pad_col[MIDIByte3]
+			if chan_pads_show_sel_only and MIDIByte3=0
+				col=112
+			else 
+				col=to_pad_col[MIDIByte3]
+			endif
+			SendMIDINoteOn lp_ch, kntrl_pads[MIDIByte2], col
+		elseif (MIDIByte2>=20 and MIDIByte2<=46 and mgen_seq_pads[MIDIByte2-20]>=0) //handle mgen pads 20-46
+			if mgen_pads_show_sel_only and MIDIByte3=0
+				col=112
+			else 
+				col=to_pad_col[MIDIByte3]
+			endif
+		  SendMIDINoteOn lp_ch, mgen_seq_pads[MIDIByte2-20], col
 		endif
 	endif
 @End
 
 @OnMidiCC
-	Log {Custom messages: }, custom_msgs[MIDIByte2]
 	if MIDIChannel=in_ch //messages coming from QK:KNTRL.. send to Controller
 		if MIDIByte2=24 and MIDIByte3<=15 // handle selected channel 24 vals 0-15
 			selected_channel=MIDIByte3
@@ -139,7 +166,7 @@
 		  selected_scene=MIDIByte2-109
 			Call @UpdateSelectedScene
 		elseif custom_msgs[MIDIByte2]>=0
-			if custom_msg_is_cc
+			if custom_msg_is_cc[MIDIByte2]
 		  	SendMIDICC lp_ch, custom_msgs[MIDIByte2], to_pad_col[MIDIByte3]
 			else
 			  SendMIDINoteOn lp_ch, custom_msgs[MIDIByte2], to_pad_col[MIDIByte3]
@@ -148,17 +175,59 @@
 	endif
 @End
 
+@OnSysex
+  ReceiveSysex sysex_msg
+  qk_msg=YES
+  lp_msg=YES 
+  for i = 0 to len_header-1
+    if sysex_msg[i] <> qk_sysex_header[i]
+      qk_msg=NO
+    endif
+    if sysex_msg[i] <> lp_sysex_header[i]
+      lp_msg=NO
+    endif
+  endfor
+  
+  if qk_msg // sysex message generated by QK:KNTRL
+    Log {QK MSG---START---}
+    qk_msg_type=sysex_msg[len_header]
+		
+		if qk_msg_type = cmd_pad_led 
+		elseif qk_msg_type = cmd_mgen_sel
+			//handle mgen selection and update led's
+		endif
+		//logging
+		Log {Message_type: }, sysex_msg[len_header]
+		for i = (len_header+1) to (SysexSize-1)
+			Log {Pad}, i-len_header, {:}, sysex_msg[i]
+		endfor
+    Log {QK MSG---END-----}
+  elseif lp_msg // sysex message generated by LAUNCHPAD
+		Log {LP MSG---START---}
+		SendSysexThru
+   	ReceiveSysex sysex_msg
+		if sysex_msg[len_header]=cmd_lp_mode and sysex_msg[len_header+1]=pgmr_mode
+			Call @BuildColorMapping
+			Call @SetupControllerToQKMappings
+			Call @UpdateAllPads
+		endif
+		Log {LP MSG---END-----}
+  else
+    Log {MSG header not recognised}
+	endif
+@End
+
 @UpdateSelectedChannel
 	//requires selected_channel to be set. Sets default colors and highlights selected
-	for i = 0 to 15
-		if channel_pads_use_ccs
-			SendMIDICC lp_ch, channel_pads[i], colors[channel_pads[i]]
+	for i = 0 to 14
+		if chan_pads_show_sel_only
+			SendMIDINoteOn lp_ch, channel_pads[i], off
 		else
 			SendMIDINoteOn lp_ch, channel_pads[i], colors[channel_pads[i]]
 		endif
 	endfor
-	if channel_pads_use_ccs
-		SendMIDICC lp_ch, channel_pads[selected_channel], white
+	if chan_pads_show_sel_only
+		SendMIDICC lp_ch, channel_pads[selected_channel], colors[channel_pads[selected_channel]]
 	else
 		SendMIDINoteOn lp_ch, channel_pads[selected_channel], white
 	endif
@@ -167,33 +236,25 @@
 @UpdateSelectedMgen
 	//requires selected_channel to be set. Sets default colors and highlights selected
 	for i = 0 to 7
-		if mgen_pads_use_ccs
-			SendMIDICC lp_ch, mgen_pads[i], colors[mgen_pads[i]]
+		if mgen_pads_show_sel_only
+			SendMIDINoteOn lp_ch, mgen_pads[i], off
 		else
 			SendMIDINoteOn lp_ch, mgen_pads[i], colors[mgen_pads[i]]
 		endif
 	endfor
-	if mgen_pads_use_ccs
-		SendMIDICC lp_ch, mgen_pads[selected_channel], white
+	if mgen_pads_show_sel_only
+		SendMIDICC lp_ch, mgen_pads[selected_mgen], colors[mgen_pads[selected_mgen]]
 	else
-		SendMIDINoteOn lp_ch, mgen_pads[selected_channel], white
+		SendMIDINoteOn lp_ch, mgen_pads[selected_mgen], white
 	endif
 @End
 
 @UpdateSelectedScene
 	//requires selected_scene to be set. Sets default colors and highlights selected
 	for i = 0 to 7
-		if scene_pads_use_ccs
-			SendMIDICC lp_ch, scene_pads[i], colors[scene_pads[i]]
-		else
-			SendMIDINoteOn lp_ch, scene_pads[i], colors[scene_pads[i]]
-		endif
+		SendMIDICC lp_ch, scene_pads[i], colors[scene_pads[i]]	
 	endfor
-	if scene_pads_use_ccs
-		SendMIDICC lp_ch, scene_pads[selected_scene], green
-	else
-		SendMIDINoteOn lp_ch, scene_pads[selected_scene], green
-	endif
+	SendMIDICC lp_ch, scene_pads[selected_scene], green
 @End
 
 @SetupMozaicLayout
@@ -205,24 +266,43 @@
 	LabelPad 9, {Brightness -}
 	LabelPad 10, {Brightness: }, (Div brightness, 16)
 @End
-
+		
 @OnPadDown
   if LastPad=0
-		SendSysex sx_lp_layout, 8 // reboot layout
+		new_mode=pgmr_mode
+		Call @ChangeMode
+	elseif LastPad=8
+		new_mode=drum_mode
+		Call @ChangeMode
+	elseif LastPad=1
+		brightness = Clip (brightness + 8), 0, 127
+		Call @AdjustBrightness
+		LabelPad 10, {Brightness: }, (Div brightness, 8)
+	elseif LastPad=9
+		brightness = Clip (brightness - 8), 0, 127
+		Call @AdjustBrightness
+		LabelPad 10, {Brightness: }, (Div brightness, 8)
+	endif
+@End
+
+@ChangeMode
+	//LP Session Mode
+	CopyArray lp_sysex_header, sysex_msg, len_header
+	sysex_msg[len_header]=cmd_lp_mode
+	sysex_msg[len_header+1]=new_mode
+	SendSysex sysex_msg, 8 // reboot layout
+	if new_mode=127 //QK MODE
 		Call @BuildColorMapping
 		Call @SetupControllerToQKMappings
 		Call @UpdateAllPads
-	elseif LastPad=8
-		SendSysex sx_lp_drums, 8 // to drums layout
-	elseif LastPad=1
-		sx_brightness = [240,0,32,41,2,13,8,brightness]
-		SendSysex sx_brightness, 8
-		brightness = Clip (brightness + 16), 0, 127
-		LabelPad 10, {Brightness: }, (Div brightness, 16)
-	elseif LastPad=9
-		sx_brightness = [240,0,32,41,2,13,8,brightness]
-		SendSysex sx_brightness, 8
-		brightness = Clip (brightness - 16), 0, 127
-		LabelPad 10, {Brightness: }, (Div brightness, 16)
 	endif
 @End
+
+@AdjustBrightness
+	CopyArray lp_sysex_header, sysex_msg, len_header
+	sysex_msg[len_header]=cmd_brightness
+	sysex_msg[len_header+1]=brightness
+	SendSysex sysex_msg, 8 // reboot layout		
+@End
+
+

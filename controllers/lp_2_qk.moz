@@ -1,4 +1,4 @@
-// LP=> An adapter script for Launchpad mini
+// LP>QK An adapter script for Launchpad mini
 // Especially for use when in programmer mode
 // Companion app to =>LP which is used for LED feedback
 // Routing: LP Controller => LP Adapter => Instruments
@@ -6,8 +6,21 @@
 @OnLoad
 	ppqn=4
 	if Unassigned msg_typw
-		SetShortName {LP>2>QK}
+		SetShortName {LP>QK}
 		lp_ch=0
+		//SYSEX
+		lp_sysex_header=[0xF0,0x00,0x20,0x29,0x02,0x0D]
+		qk_sysex_header=[0x3F,0x40,0x3F,0x40,0x3F,0x40]
+		cmd_lp_mode=0 //see below for mode #'s'
+		cmd_brightness=8 //0-127
+		cmd_sleep=9 //0=off; 1=on
+		pgmr_mode=127
+		drum_mode=4
+		keys_mode=5
+		user_mode=6
+  	len_header=6
+		lp_modes=[pgmr_mode, drum_mode, keys_mode, user_mode]
+		new_mode=pgmr_mode
 		Call @ConfigureLaunchapd
 		Call @SetupMozaicLayout
 	endif
@@ -97,7 +110,10 @@
 	
 	//Log {mb1:}, mb1, { mb2:}, mb2, { mb3:}, mb3, { MSGNUM:}, msg_num[mb2], { ONVAL:}, on_val[mb2], { CH:}, out_ch[mb2]
 	if MIDIChannel=lp_ch and MIDIByte3>0 //pad press
-		if msg_type[mb2]=0 and msg_num[mb2]>=0 and on_val[mb2]>=0
+		if mb2>=95 and mb2<=98 //change mode buttons
+			new_mode=lp_modes[mb2-95]
+			Call @ChangeMode
+		elseif msg_type[mb2]=0 and msg_num[mb2]>=0 and on_val[mb2]>=0
 			//Send NoteOn message on pad press
 			SendMIDINoteOn out_ch[mb2], msg_num[mb2], on_val[mb2]
 		elseif msg_type[mb2]=1 and msg_num[mb2]>=0 and on_val[mb2]>=0
@@ -113,6 +129,14 @@
 			SendMIDICC out_ch[mb2], msg_num[mb2], off_val[mb2]	
 		endif
 	endif
+@End
+
+@ChangeMode
+	//LP Session Mode
+	CopyArray lp_sysex_header, sysex_msg, len_header
+	sysex_msg[len_header]=cmd_lp_mode
+	sysex_msg[len_header+1]=new_mode
+	SendSysex sysex_msg, 8 // reboot layout
 @End
 
 @SetupMozaicLayout
