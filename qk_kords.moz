@@ -10,8 +10,7 @@
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 	  SetMetroPPQN 4
 	  ppqn = 4 
-		mgen_device_num=-1 //used for midi control of pads
-	  scene_change_requested = -1 //# on pad down has next scene number
+		scene_change_requested = -1 //# on pad down has next scene number
 	  chord_change_requested = -1 //# on pad down has next chord number
 		chord_beat_count = -1
 		scene_beat_count = -1
@@ -25,7 +24,10 @@
 	  use_turn_around = TRUE //# last chord as turn around on last bar of scene
 		allow_mel_harm_midi_ch_chg=FALSE //dangerous see sc_har1_slot see SendOutChordNotes
 	  //# used for LED feedback
-	  midi_channel_conflict = FALSE //# allowing midi OUT channel conflicts
+		mgen_device_id=-1 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_sel_dev=0 //used for midi control of pads
+	  led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
+		midi_channel_conflict = FALSE //# allowing midi OUT channel conflicts
 	  send_cc_back_to_knobs = FALSE 
 	  midi_controller=[15,14,15,16,17] //midi controller channel then 4 ccs
 		txpose_w_circle_fifths=FALSE
@@ -372,33 +374,38 @@
 @End
 
 @OnPadDown
+  last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
+	Call @OnPadDown2 //midi input cant trigger @OnPadDown, It calls @OnPadDown2
+@End
+
+@OnPadDown2
 	//# Splitting this event into separate handlers xopd
-	if in_mode_select and (LastPad <= (number_of_modes - 1))
-		if (HostRunning and (LastPad > 0) and NOT allow_mode_chg_playbk)
+	if in_mode_select and (last_pad <= (number_of_modes - 1))
+		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
-		elseif (LastPad=5 or LastPad=11 or LastPad=14)
+		elseif (last_pad=5 or last_pad=11 or last_pad=14)
 			Exit //# Not in use
-		elseif (HostRunning and LastPad=8)
+		elseif (HostRunning and last_pad=8)
 			Exit //# Not allowed in playback
-		elseif (LastPad = 1)
+		elseif (last_pad = 1)
 			in_mode_select = FALSE
 			mode = 0
 			knob_set = 1
 			Call @SetupLayout
-		elseif (LastPad = 7)
+		elseif (last_pad = 7)
 			Call @LogCurrentSceneToPresetFormat
-		elseif (LastPad>=2 and LastPad<=4) //# +CHORDS MODES
-			mode = LastPad-1 //# shifting mode to add kontroller slave in menu
+		elseif (last_pad>=2 and last_pad<=4) //# +CHORDS MODES
+			mode = last_pad-1 //# shifting mode to add kontroller slave in menu
 			//Log {MODE:}, mode-1
 			in_mode_select = FALSE
-		elseif (LastPad>=8 and LastPad<=13)
+		elseif (last_pad>=8 and last_pad<=13)
     	//# midi setup modes - dont exit in_select_mode
     	for i = 0 to 15
     		LatchPad i, NO
     	endfor
-    	mode = LastPad
+    	mode = last_pad
     	LatchPad mode, YES
-    elseif (HostRunning and LastPad=0)
+    elseif (HostRunning and last_pad=0)
     	//# Return to song mode requested
     	return_to_song_mode_requested = TRUE
     	scene_change_requested = current_scene
@@ -407,14 +414,18 @@
     	mode = 0
     	ColorPad 0, 3
 	    ColorPad 8, 3
+			if mgen_device_id=mgen_sel_dev
+				SendMIDINoteOn 15, 0+led_index, 3
+				SendMIDINoteOn 15, 8+led_index, 3
+			endif
 		else
-			mode = LastPad
+			mode = last_pad
 			//Log {MODE:}, mode
 			in_mode_select = FALSE
 		endif
 		Call @HandleModeChange
 		Call @SetupLayout
-		if (LastPad = 7)
+		if (last_pad = 7)
 			LabelPads {Scene preset data printed. Check log!}
 		endif
 	//# NOT IN MODE SELECT......
@@ -424,26 +435,29 @@
 			Call @OnPadDown_SceneChordChange //dont change if deleting or copy/pasting
 		endif	
 	 	Call @OnPadDown_KnobSetSelect
-		if (mode = 3) and (LastPad > 7)
+		if (mode = 3) and (last_pad > 7)
 			Call @SetupLayout
 	  	rec_chord_note_count = 0
   		LabelPad current_chord+8, {...waiting}
   		ColorPad current_chord+8, 1
+			if mgen_device_id=mgen_sel_dev
+				SendMIDINoteOn 15, current_chord+8+led_index, 1 //LED FEEDBACK
+			endif
 		elseif (mode = 6) //# COPY/PASTE
     	//# only call CP if pad and copy mode correspond
-    	if copy_mode=0 and LastPad<=7
+    	if copy_mode=0 and last_pad<=7
 	    	Call @CopyPaste //# copy paste scene
-	    elseif copy_mode=1 and LastPad>=8 
+	    elseif copy_mode=1 and last_pad>=8 
 	    	Call @CopyPaste //# copy paste chord
 	    endif
-		elseif (mode = 15) and (LastPad <= 7) //# reset mode
+		elseif (mode = 15) and (last_pad <= 7) //# reset mode
     	//Log {Reset scene called}
     	Call @ResetScene   
- 	 	elseif (mode = 15) and (LastPad >= 7)
+ 	 	elseif (mode = 15) and (last_pad >= 7)
     	//Log {Reset chord called}
     	Call @ResetChord
   	endif
-  	if NOT HostRunning and (LastPad >= 8)
+  	if NOT HostRunning and (last_pad >= 8)
 			for i = 5 to 8
 				ch = midi_channels_used[i]
 				trigger_note_oct_adj = 0 //pad down trigger uses default octave
@@ -612,6 +626,10 @@
 		endif
   	ColorPad current_scene, 3
     ColorPad 8, 3	
+		if mgen_device_id=mgen_sel_dev
+			SendMIDINoteOn 15, current_scene+led_index, 3
+			SendMIDINoteOn 15, 8+led_index, 3
+		endif
 	elseif (MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15 and not HostRunning)
 		in_mode_select = FALSE //# return to song 
 		return_to_song_mode_requested = TRUE
@@ -626,6 +644,10 @@
 		endif
 		ColorPad current_scene, 3
     ColorPad current_chord+8, 3
+		if mgen_device_id=mgen_sel_dev
+			SendMIDINoteOn 15, current_scene+led_index, 3
+			SendMIDINoteOn 15, 8+led_index, 3
+		endif
 	elseif (MIDIByte2=89 and MIDIChannel=15) //copy paste scene
 		in_mode_select = FALSE // return to scenes mode first
   	mode = 0
@@ -644,6 +666,11 @@
 			else
 				Call @SetupLayout
 			endif
+		endif
+	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
+		mgen_sel_dev=MIDIByte2-91
+		if mgen_sel_dev= mgen_device_id
+			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
 		endif
 	endif
 @End
@@ -1994,11 +2021,11 @@
 		else
 			//# disable knobs in_mode_select
 			LabelKnobs { }
-			SetKnobValue 0, TranslateScale mgen_device_num, -1, 8, 0, 127
-			if mgen_device_num=-1
+			SetKnobValue 0, TranslateScale mgen_device_id, -1, 8, 0, 127
+			if mgen_device_id=-1
 				LabelKnob 0, {mgen# -}
 			else
-				LabelKnob 0, {mgen# }, mgen_device_num+1
+				LabelKnob 0, {mgen# }, mgen_device_id+1
 			endif
 			LabelKnob 1, { }
 			LabelKnob 2, { }
@@ -2033,12 +2060,12 @@
 	elseif knob_set = 99 //settings layout
     if LastKnob = 0
 		  val = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 8
-			if val <> mgen_device_num
-				mgen_device_num=val
-				if mgen_device_num=-1
+			if val <> mgen_device_id
+				mgen_device_id=val
+				if mgen_device_id=-1
 					LabelKnob 0, {mgen# -}
 				else
-					LabelKnob 0, {mgen# }, mgen_device_num+1
+					LabelKnob 0, {mgen# }, mgen_device_id+1
 				endif
 			endif
 		endif
@@ -2094,8 +2121,12 @@
 	o4 = scene_bank[(current_scene * sc_size) + sc_har4_slot]
 	LabelPad 13, {HARMONY Modes }, {S}, current_scene+1, {     }, o1, {-}, o2, {-}, o3, {-}, o4
 @End
-	
+
 @OnShiftDown
+  Call @OnShiftDown2 //simply to allow midi note in simulation of SHIFT Note16 any channel
+@End	
+
+@OnShiftDown2
 	//# xosd
 	if in_mode_select
 		in_mode_select = FALSE
@@ -2111,9 +2142,6 @@
 	
 @End
 
-@OnShiftUp
-@End
-
 @SetupSettingsLayout
 // #Mode selection for Knobs n Pads
 		in_mode_select = TRUE
@@ -2121,6 +2149,15 @@
 		for i = 0 to (number_of_modes - 1)
 			ColorPad i, 6
 			LabelPad i, { } //# empty label to overwrite chord info
+			LatchPad i, NO 
+		endfor
+		settings_pad_cols=[7,4,5,5,5,0,4,3, 2,4,4,0,3,3,0,1]
+		for i = 0 to (number_of_modes - 1)
+			ColorPad i, settings_pad_cols[i]
+			if mgen_device_id=mgen_sel_dev
+				SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
+			endif
+			LabelPad i, { } //# empty label to overwrite pattn info
 			LatchPad i, NO 
 		endfor
 		if (songmode = 0)
@@ -2270,19 +2307,20 @@
   if in_mode_select
   	Exit
   else
-	  //# Setup scene pads
-   for i = 0 to 7  
+		//# Setup scene pads
+		FillArray scn_pad_cols, 0, 16
+		for i = 0 to 7  
 	    if scene_bank[i * sc_size] > 0
-		    ColorPad i, 2
+				scn_pad_cols[i]=2
 				scn_to_label = i
 				Call @LabelScenePad
 	  	else
-	  		ColorPad i, 0
+				scn_pad_cols[i]=0
 	  		LabelPad i, { }
 	  	endif
 	    LatchPad i, NO
 	    if (scene_bank[i * sc_size] > 0) and (mode = 15) and NOT in_mode_select
-	      ColorPad i, 1
+				scn_pad_cols[i]=1
 	    endif
 	  endfor		  
 	  //# Setup chord pads  
@@ -2290,51 +2328,57 @@
 	    chord_slot = (current_scene * 100) + ((i-8) * 10)
 	    LatchPad i, NO
 	    if chord_bank[chord_slot + dur_slot] > 0
-	    	ColorPad i, 2
+				scn_pad_cols[i]=2
 	    	chrd_to_label = i
 	    	Call @LabelChordPad
-	    else
-	  		ColorPad i, 0
+	    else 
+				scn_pad_cols[i]=0
 	  		LabelPad i, { }
 	  	endif
-	    if (mode = 3)
-		    ColorPad i, 1
+	    if (mode = 3) //del
+				scn_pad_cols[i]=1
 		  elseif (mode = 15) and (chord_bank[chord_slot] >= 0)
-		  	ColorPad i, 1
+				scn_pad_cols[i]=1
 		  endif
 	  endfor
 		//# Handle current scene and chord colors
-	  if (songmode = 0) //# Playthru no lock
-	  	ColorPad current_scene, 4
-	  	ColorPad current_chord+8, 4
-	  elseif (songmode = 1) //# Lock to scene
-	    ColorPad current_chord+8, 4
-	    LatchPad current_scene, YES
-	  elseif (songmode = 2) // Lock to chord
-	  	LatchPad current_scene, YES
-	    LatchPad current_chord+8, YES
-	  elseif (mode = 3) //# REC CHORDS 
-			ColorPad current_scene, 6 //# Locked playback doesnt change
-			if rec_chord_note_count = 0
-				LabelPad current_chord+8, {... waiting}
+		if not mode=7
+		  if (songmode = 0) //# Playthru no lock
+		  	scn_pad_cols[current_scene]=3
+		  	scn_pad_cols[current_chord+8]=3
+		  elseif (songmode = 1) //# Lock to scene
+		    scn_pad_cols[current_chord+8]=3
+				scn_pad_cols[current_scene]=4
+		  elseif (songmode = 2)
+		    scn_pad_cols[current_chord+8]=4
+				scn_pad_cols[current_scene]=4
+		  elseif (mode = 3) //# REC CHORDS 
+				scn_pad_cols[current_chord+8]=1
+				if rec_chord_note_count = 0
+					LabelPad current_chord+8, {... waiting}
+				endif
 			endif
-			//Log {REC CHORDS}
-	  endif
-	  if (mode >= 1)
-	  	LatchPad current_scene, YES
-	  	LatchPad current_chord+8, YES
+		  if (mode > 1)
+		    scn_pad_cols[current_chord+8]=4
+				scn_pad_cols[current_scene]=4
+			endif
 		endif
 		//# Handle pending chord and scene changes in playback
 	  if HostRunning and (songmode <=2)
 	  	if chord_change_requested >= 0
-	  		ColorPad chord_change_requested+8, 3
+				scn_pad_cols[chord_change_requested+8]=3
 	  	endif
 	  	if scene_change_requested >= 0
-	  		ColorPad scene_change_requested, 3
+	  		scn_pad_cols[scene_change_requested]=3
 	  	endif
-	  endif
+		endif
 	endif
-	//# Call @UpdateCurrentKnobset
+	for i = 0 to 15
+		ColorPad i, scn_pad_cols[i]
+		if mgen_device_id=mgen_sel_dev
+			SendMIDINoteOn 15, i+led_index, scn_pad_cols[i]
+		endif
+	endfor
 @End
 	
 @TransposeCalcArrays
