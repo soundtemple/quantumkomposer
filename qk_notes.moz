@@ -519,18 +519,18 @@
 @End
 
 @OnPadDown2
-	if in_mode_select and (LastPad <= (number_of_modes - 1))
-		if (HostRunning and (LastPad > 0) and NOT allow_mode_chg_playbk)
+	if in_mode_select and (last_pad <= (number_of_modes - 1))
+		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
-		elseif LastPad=14
+		elseif last_pad=14
 			Exit //# Not in use
-		elseif (HostRunning and (LastPad>=3 and LastPad<=5))
+		elseif (HostRunning and (last_pad>=3 and last_pad<=5))
 			Exit //# Not allowed in playback
-		elseif (LastPad=6) and not (mode=9 or mode=11 or mode<=1)
+		elseif (last_pad=6) and not (mode=9 or mode=11 or mode<=1)
 			Exit //# COPY PASTE not allowed
-		elseif (LastPad=7) and not (mode<=1 or mode>=8)
+		elseif (last_pad=7) and not (mode<=1 or mode>=8)
 			Exit //# DELETE not allowed
-		elseif (LastPad=2)
+		elseif (last_pad=2)
 		  notes_instance_type = notes_instance_type + 1
 			if notes_instance_type = 6
 				notes_instance_type=0
@@ -561,7 +561,7 @@
 				SetShortName {NOTES}
 			endif
 			LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
-		elseif (LastPad>=3 and LastPad<=5) or (LastPad=13 or LastPad=15)
+		elseif (last_pad>=3 and last_pad<=5) or (last_pad=13 or last_pad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
     	LabelPad 6, { } //# CopyPaste not allowed
     	LabelPad 7, { } //# Delete not allowed here
@@ -569,7 +569,7 @@
     		LatchPad mode, NO
     	endfor
 			//# toggle label view mode
-    	if LastPad=15
+    	if last_pad=15
 				if label_view_mode=5
 					label_view_mode=4
 					LabelPad 15, {SEQ VIEW     }, {  CHANNEL}
@@ -581,36 +581,36 @@
 				endif
 				label_style=label_view_mode
 				FlashPad 15
-			elseif LastPad=13
+			elseif last_pad=13
 				Call @ReverseSequence
 				in_mode_select=FALSE
 				in_seq_mode=TRUE
 				Call @SetupLayout
 				Log {Sequence reversed!}
 			else
-				mode = LastPad
+				mode = last_pad
 	    	Call @OnPadDown_KnobSetSelect
 			endif
 			LatchPad mode, YES
-    elseif (LastPad>=8 and LastPad<=12)
-    	if LastPad = 8
+    elseif (last_pad>=8 and last_pad<=12)
+    	if last_pad = 8
 	      Call @SetupKnobset6 //# SEQUENCE SETUP
-	    elseif LastPad = 9
+	    elseif last_pad = 9
 	      Call @SetupKnobset5 //# SEQUENCE STEPS EDIT
-	    elseif LastPad = 10
+	    elseif last_pad = 10
 	      Call @SetupKnobset7 //# MUTATE
-	    elseif LastPad = 11
+	    elseif last_pad = 11
 	    	//# Create random arp and ramp vals
 				Call @LoadArpPatterns
 	  		Call @LoadRampPatterns
 	      Call @SetupKnobset8 //# SEQ GEN
-	    elseif LastPad = 12
+	    elseif last_pad = 12
 	      Call @SetupKnobset9 //# ROTATION
 	    endif
-	    mode=LastPad
+	    mode=last_pad
     	in_mode_select = FALSE
     	in_seq_mode = TRUE
-    elseif (HostRunning and LastPad=0)
+    elseif (HostRunning and last_pad=0)
     	//# Return to song mode requested
     	return_to_song_mode_requested = TRUE
     	scene_change_requested = current_scene
@@ -623,7 +623,7 @@
 				SendMIDINoteOn 15, 0+led_index, 3
 				SendMIDINoteOn 15, 8+led_index, 3
 			endif
-	  elseif LastPad=6 and ((mode=9) or (mode=11) or (mode<=1))//# COPY PASTE
+	  elseif last_pad=6 and ((mode=9) or (mode=11) or (mode<=1))//# COPY PASTE
 	  	//# Copy/Paste pad hit so 'copy' current scene/pattn/seq xcp
 			return_to_mode=mode
 			mode=6
@@ -637,7 +637,7 @@
 				in_seq_mode=TRUE
 				Call @OnPadDown_KnobSetSelect
 			endif
-		elseif (LastPad=7) //# reset mode
+		elseif (last_pad=7) //# reset mode
 			return_to_mode=mode
 			mode=7
 			if return_to_mode>=8
@@ -649,7 +649,7 @@
 			endif
 			in_mode_select = FALSE
 		else
-			mode = LastPad
+			mode = last_pad
 			in_mode_select = FALSE
 		endif
 		//# Handle mode change
@@ -690,33 +690,33 @@
 			Call @OnPadDown_ScenePatternChange
 		endif
 	 	Call @OnPadDown_KnobSetSelect
-		if (mode = 3) and (LastPad > 7)
+		if (mode = 3) and (last_pad > 7)
 			Call @SetupLayout
 	  	rec_pattn_note_count = 0
   		LabelPad current_pattn+8, {...waiting}
   		ColorPad current_pattn+8, 1
 		elseif (mode = 6) //# COPY/PASTE
     	//# only call CP if pad and copy mode correspond
-    	if copy_mode=0 and LastPad<=7
+    	if copy_mode=0 and last_pad<=7
 	    	copy_paste_status=2 //# PASTE
     		return_to_mode=0
     		Call @CopyPaste //# copy paste scene
-	    elseif copy_mode=1 and LastPad>=8 
+	    elseif copy_mode=1 and last_pad>=8 
 	    	copy_paste_status=2 //# PASTE
     		return_to_mode=0
     		Call @CopyPaste //# copy paste pattn
 	    endif
-		elseif (mode = 7) and (LastPad <= 7) //# reset mode
+		elseif (mode = 7) and (last_pad <= 7) //# reset mode
     	Log {Reset scene called}
     	reset_type=0
     	Call @ResetScenePatternSequence   
- 	 	elseif (mode = 7) and (LastPad >= 7)
+ 	 	elseif (mode = 7) and (last_pad >= 7)
     	Log {Reset pattn called}
     	reset_type=1
     	Call @ResetScenePatternSequence
   	endif
   elseif (NOT in_mode_select and in_seq_mode)
-  	sel_pad=LastPad //# for updating step label info
+  	sel_pad=last_pad //# for updating step label info
 		if mode=8 and not steps_record_mode//# Step sequence mode
 			Call @UpdateSelStepType //# 0=off; 1=on; 2=sustain prev
   	elseif (mode=9 and seq_type=4)
@@ -742,24 +742,24 @@
   		reset_type=2 //# reset a sequence pad
     	Call @ResetScenePatternSequence
   	else	
-  		//Log {STEP SELECTED }, LastPad+1
+  		//Log {STEP SELECTED }, last_pad+1
   	endif
-  	sel_step=LastPad
+  	sel_step=last_pad
   	Call @SetupLayout
   endif
 @End
 
 @OnPadDown_ScenePatternChange
 	//# handle scene/pattn change xopds
-  if (LastPad >= 0 and LastPad <= 7)
+  if (last_pad >= 0 and last_pad <= 7)
   	//# Scene change
-  	scene_change_requested = LastPad
+  	scene_change_requested = last_pad
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
-	elseif (LastPad >= 8 and LastPad <= 15) 	
+	elseif (last_pad >= 8 and last_pad <= 15) 	
   	//# User Pattern change 
-  	pattn_change_requested = LastPad - 8 //# chrd 0-7
+  	pattn_change_requested = last_pad - 8 //# chrd 0-7
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandlePatternChange 
   	endif
@@ -2676,19 +2676,21 @@
 		  endif
 	  endfor
 		//# Handle current scene and pattn colors
-	  if (songmode = 0) //# Playthru no lock
-	  	scn_pad_cols[current_scene]=3
-	  	scn_pad_cols[current_pattn+8]=3
-	  elseif (songmode = 1) //# Lock to scene
-	    scn_pad_cols[current_pattn+8]=3
-			scn_pad_cols[current_scene]=4
-	  elseif (songmode = 2)
-	    scn_pad_cols[current_pattn+8]=4
-			scn_pad_cols[current_scene]=4
-	  endif
-	  if (mode > 1)
-	    scn_pad_cols[current_pattn+8]=4
-			scn_pad_cols[current_scene]=4
+		if not mode=7
+		  if (songmode = 0) //# Playthru no lock
+		  	scn_pad_cols[current_scene]=3
+		  	scn_pad_cols[current_pattn+8]=3
+		  elseif (songmode = 1) //# Lock to scene
+		    scn_pad_cols[current_pattn+8]=3
+				scn_pad_cols[current_scene]=4
+		  elseif (songmode = 2)
+		    scn_pad_cols[current_pattn+8]=4
+				scn_pad_cols[current_scene]=4
+		  endif
+		  if (mode > 1)
+		    scn_pad_cols[current_pattn+8]=4
+				scn_pad_cols[current_scene]=4
+			endif
 		endif
 		//# Handle pending pattn and scene changes in playback
 	  if HostRunning and (songmode <=2)
