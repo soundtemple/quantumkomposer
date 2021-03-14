@@ -2548,7 +2548,7 @@
 	  	endif
 	    LatchPad i, NO
 	    if (scene_durs[i] > 0) and (mode = 7) and NOT in_mode_select
-				scn_pad_cols[i]=1
+				scn_pad_cols[i]=1 
 	    endif
 	  endfor		  
 	  //# Setup pattn pads  
@@ -2567,19 +2567,21 @@
 		  endif
 	  endfor
 		//# Handle current scene and pattn colors
-	  if (songmode = 0) //# Playthru no lock
-	  	scn_pad_cols[current_scene]=3
-	  	scn_pad_cols[current_pattn+8]=3
-	  elseif (songmode = 1) //# Lock to scene
-	    scn_pad_cols[current_pattn+8]=3
-			scn_pad_cols[current_scene]=4
-	  elseif (songmode = 2)
-	    scn_pad_cols[current_pattn+8]=4
-			scn_pad_cols[current_scene]=4
-	  endif
-	  if (mode > 1)
-	    scn_pad_cols[current_pattn+8]=4
-			scn_pad_cols[current_scene]=4
+		if not mode=7
+		  if (songmode = 0) //# Playthru no lock
+		  	scn_pad_cols[current_scene]=3
+		  	scn_pad_cols[current_pattn+8]=3
+		  elseif (songmode = 1) //# Lock to scene
+		    scn_pad_cols[current_pattn+8]=3
+				scn_pad_cols[current_scene]=4
+		  elseif (songmode = 2)
+		    scn_pad_cols[current_pattn+8]=4
+				scn_pad_cols[current_scene]=4
+		  endif
+		  if (mode > 1)
+		    scn_pad_cols[current_pattn+8]=4
+				scn_pad_cols[current_scene]=4
+			endif
 		endif
 		//# Handle pending pattn and scene changes in playback
 	  if HostRunning and (songmode <=2)
