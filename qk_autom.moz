@@ -1,13 +1,13 @@
 //# SPLIT OFF FROM KNTRL ON 26SEP
 //# MOZAIC KOMPOSER SUITE
 //# AUTOM APP
-//# Handles automation, lfo's and macros
+//# Handles automation
 @OnLoad
 	SetShortName {AUTOM} 
 	ShowLayout 2
 	LabelPads {[ QK:AUTOM ]}
 	if unassigned scene_durs //# duration in first scene
-		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
+		mode = 0 //# 0Scenes, 1Channels, 2Kontrol
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 		scene_slave_mode=FALSE //instant scene chg on msg from KNTRL as opposed to onPadDown use internal scn clock
 		// ^^^ should be FALSE when used with KNTRL. TRUE when used with SCENEMASTER
@@ -15,6 +15,7 @@
 		SetMetroPPQN 4
 		ppqn = 4
 		mgen_device_num=-1 //used for midi control of pads
+		selected_mgen=-1
 		knob_set=0
 		edit_scene=0
 		locked_to_scene=0
@@ -27,6 +28,9 @@
 		send_automation_data_enabled=TRUE // toggle to disable temporarily
 		FillArray interpolation_buffer, -1, 48
 		last_pad_again=FALSE
+		mgen_device_id=-1 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_sel_dev=0 //used for midi control of pads
+		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		Call @GetAutoRamps
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupSettingsLayout
@@ -102,32 +106,6 @@
 	automation_chs    = [12,12,12,12,  12,12,12,12,  12,12,12,12,  12,12,12,12]
 	automation_ccs    = [40,41,117,39, 56,57,118,55, 72,73,119,71, 88,89,120,87]
 	automation_cols   = [2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5]
-	
-	//MACRO SECTION
-	sel_macro=0 //# currently selected for editing
-	macro_chans=[] //4 macros each with 4 assignable slots from the 16 channels and their 16 params
-	macro_params=[]
-	m1_vals=[0,0,0,0]
-	m2_vals=[0,0,0,0]
-	m3_vals=[0,0,0,0]
-	m4_vals=[0,0,0,0]
-	
-	//LFO SECTION VARS
-	lfo_num=0
-	dest_num=0
-	lfo_dests=[-1,0,-1,0,-1,0,  -1,0,-1,0,-1,0,-1,0] //#2LFO's 4 destinations calc'd by CH and PAD. -1 so no labelling
-	lfo_types=[3,4] //# Ramp, Sine etc...
-	lfo_freqs=[0.5, 0.5]
-	lfo_syncs=[TRUE, TRUE]
-	lfo_xmods=[0,0]
-	autom_scene=[0,0] //current scene selected for editing in each LFO
-	autom_bar=[1,1] //current bar selected for editing in each LFO
-	//# stored this way so we can preserve changes if scene lengths change in preceding scenes...
-	FillArray lfo_autom_amts, -1, 32*8*2 //# amt saved per bar -1 value=notsent. 8scenes, upto 32bars, 2lfos
-	SetLFOType 0, {RampUp} //{Sine}, {Cosine}, {Square}, {Triangle}, {RampUp}, {RampDown}, {SH}
-	SetLFOType 1, {RampDown}
-	SetupLFO 0, 0, 127, YES, 0.5
-	SetupLFO 1, 0, 127, YES, 0.5
 @End
 
 @ResetAutomToPosition
@@ -245,9 +223,6 @@
 	endif
 @End
 
-@OnNewBar
-@End
-
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	//Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
@@ -322,11 +297,19 @@
 			CopyArray auto_data_ch15[copied_scene*128], auto_data_ch15[paste_to_scene*128], 128
 			scene_durs[paste_to_scene] = scene_durs[copied_scene]
 		endif
+	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
+		mgen_sel_dev=MIDIByte2-91
+		if mgen_sel_dev= mgen_device_id
+			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
+		endif
 	endif
 @End
 
-
 @OnShiftDown
+  Call @OnShiftDown2 //simply to allow midi note in simulation of SHIFT Note16 any channel
+@End	
+	
+@OnShiftDown2
 	//Log {MODE: }, mode
 	if in_mode_select //# Exit SHIFT MODE
 		in_mode_select = FALSE	
@@ -335,24 +318,6 @@
 		elseif mode=2 //AUTOM
 			Call @LabelAutomationPads
 			Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
-		elseif mode=3 //MACROS
-			in_mode_select = FALSE
-			LabelPads {AUTOM : [ MACROS ] }
-			ShowLayout 2
-			for i = 0 to 15
-				LatchPad i, NO 
-				pad_to_label=i 
-				pad_slot=(macro_chans[i] * 16) + macro_params[i] 
-				Call @LabelAutomPad
-			endfor
-			LatchPad sel_macro, YES 
-			if edit_mode_active
-				Call @SetupKnobset11
-			else
-				Call @SetupKnobset12
-			endif
-		elseif mode=4 //LFOS
-			Call @SetupLayoutLFOS
 		endif
 		Call @UpdateCurrentKnobset		
 	else //not in mode select
@@ -368,24 +333,29 @@
 @End
 
 @OnPadDown
+  last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
+	Call @OnPadDown2 //midi input cant trigger @OnPadDown, It calls @OnPadDown2
+@End
+	
+@OnPadDown2
 	pad_is_down = TRUE
 	//# Pad Down actions
 	if in_mode_select
-		if LastPad=0
+		if last_pad=0
 		  in_mode_select = FALSE
 			mode=0 //SCENES
 			Call @SetupKnobset0
 			Call @SetupLayoutScenes
-		elseif LastPad=1
+		elseif last_pad=1
 			reset_position = edit_scene*128
 			Call @ResetAutomToPosition
 			LabelPad 1, {AUTOM RESET TO START S}, edit_scene+1
-		elseif LastPad=2
+		elseif last_pad=2
 			last_beat_in_scene = (scene_durs[edit_scene] * 4) - 1
 			reset_position = (edit_scene*128) + last_beat_in_scene
 			Call @ResetAutomToPosition
 			LabelPad 2, {AUTOM RESET TO END S}, edit_scene+1
-		elseif LastPad=3
+		elseif last_pad=3
 			autom_setup_mode = autom_setup_mode+1
 			if autom_setup_mode>2
 				autom_setup_mode=0
@@ -402,29 +372,29 @@
 			endif
 			FillArray rec_auto_buffer, -1, 16 //empty record auto buffer
 			Call @SetupSettingsLayout
-		elseif LastPad=4 // SETUP AUTOM LANES
+		elseif last_pad=4 // SETUP AUTOM LANES
 			edit_mode_active = FALSE
 			mode=2 //AUTOMATION
 			in_mode_select = FALSE
 			Call @LabelAutomationPads
 			Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
 			LatchPad sel_autom_pad, YES	
-		elseif LastPad=5
+		elseif last_pad=5
 			edit_mode_active = TRUE
 			mode=2 //AUTOMATION
 			in_mode_select = FALSE
 			Call @LabelAutomationPads
 			Call @SetupKnobset4 //# AUTOM and thru to editing
 			LatchPad sel_autom_pad, YES
-		elseif LastPad=6
+		elseif last_pad=6
 			interpolate_autom = not interpolate_autom
 			Call @SetupSettingsLayout	
-		elseif LastPad=7
+		elseif last_pad=7
 			send_automation_data_enabled = not send_automation_data_enabled
 		  Call @SetupSettingsLayout
-		elseif LastPad>=8
+		elseif last_pad>=8
 		  // AUTOM SCENE SET TASKS
-			scene_task=LastPad 
+			scene_task=last_pad 
 			Call @AutomSceneTasks
 		endif
 	elseif NOT in_mode_select
@@ -432,17 +402,18 @@
 			Call @PadDownScenesMode
 		elseif mode=2 // AUTOM. mode
 			Call @PadDownAutomMode
-		elseif mode=3 // MACROS mode
-			Call @PadDownMACROSMode
-		elseif mode=4 // LFO's mode
-			Call @PadDownLFOSMode
 		endif
 	endif
-	//LOG {MODE: }, mode
 @End
 
 @OnPadUp
-  pad_is_down = FALSE
+	last_pad=LastPad
+  Call @OnPadUp2
+@End
+
+@OnPadUp2
+  //pass
+	pad_is_down = FALSE
 @End
 
 @AutomSceneTasks
@@ -586,25 +557,6 @@
 	endif
 @End
 
-@PadDownLFOSMode
-	dest_num=LastPad
-	Call @SetupKnobset6
-@End
-
-@PadDownMACROSMode
-	macro_num = (Div LastPad, 4) + 1
-	param_num = (LastPad % 4) + 1	
-	sel_macro=LastPad 
-	LabelPads {AUTOM : [ MACRO }, macro_num, { PARAM }, param_num, { ]}
-	for i = 0 to 15
-		LatchPad i, no 
-	endfor
-	LatchPad sel_macro, YES
-	if edit_mode_active
-		Call @SetupKnobset11
-	endif
-@End
-
 @PadDownAutomMode
 	if LastPad = sel_autom_pad
 		last_pad_again=TRUE
@@ -741,12 +693,6 @@
   	Call @KnobChangeSet4	//# automation params
   elseif knob_set = 5
   	Call @KnobChangeSet5	//# automation write
-  elseif knob_set = 6
-  	Call @KnobChangeSet6	//# lfo's
-	elseif knob_set = 11
-  	Call @KnobChangeSet11	//# Macro setup 
-	elseif knob_set = 12
-  	Call @KnobChangeSet12	//# Macro usage
 	endif
 @End
 
@@ -762,12 +708,6 @@
 	  	Call @SetupKnobset4	//# automation params
 	  elseif knob_set = 5
 	  	Call @SetupKnobset5	//# automation writes
-	  elseif knob_set = 6
-	  	Call @SetupKnobset6	//# lfo setup
-		elseif knob_set = 11
-	  	Call @SetupKnobset11	//# macro setup
-		elseif knob_set = 12
-	  	Call @SetupKnobset12	//# macro usage
 		endif
 	endif
 @End
@@ -956,7 +896,6 @@
 @LabelAutomationPads
 	for i = 0 to 15
 		LabelPad i, { }
-		ColorPad i, 0
 		pad_to_label=i
 		pad_slot=i
 		Call @LabelAutomPad
@@ -1069,237 +1008,53 @@
 	Call @LabelAutomationKnobs
 @End
 
-@SetupKnobset6
-	//# LFO's
-  knob_set = 6
-  ShowLayout 0
-	d_ch =  lfo_dests[(lfo_num*8) + (dest_num*2)] //destination channel
-	d_pad = lfo_dests[(lfo_num*8) + (dest_num*2) + 1] //destination 0-15 setup in kntrl mode
-	//the amt to set at scene x bar y
-	autom_lfo_amt = autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]]  
-	SetKnobValue 0, TranslateScale lfo_dests[(lfo_num*8) + (dest_num*2)], 0, 15, 0, 127
-	SetKnobValue 1, TranslateScale lfo_dests[(lfo_num*8) + (dest_num*2) + 1], 0, 15, 0, 127
-	SetKnobValue 2, TranslateScale autom_scene, 0, 15, 0, 127
-	SetKnobValue 3, TranslateScale autom_bar, 0, 15, 0, 127
-	SetKnobValue 4, TranslateScale autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]], 0, 127, 0, 127
-	//SetKnobValue 5, TranslateScale lfo_num, 0, 1, 0, 127
-	SetKnobValue 6, TranslateScale lfo_types[lfo_num], 0, 5, 0, 127
-	SetKnobValue 7, TranslateScale lfo_freqs[lfo_num], 0, 127, 0, 127
-	SetKnobValue 8, TranslateScale lfo_syncs[lfo_num], 0, 1, 0, 127
-	SetKnobValue 9, TranslateScale lfo_xmods[lfo_num], 0, 10, 0, 127
-	Call @LabelLFOKnobs
-@End
-
-@KnobChangeSet6
-	//# LFO's  mode
-	if LastKnob = 0
-    d_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
-		lfo_dests[(lfo_num*8) + (dest_num*2)] = d_ch
-		if d_ch>=0 and d_pad>=0
-			pad_to_label=dest_num
-			pad_slot=(d_ch * 16) + d_pad
-			Call @LabelAutomPad
-		endif
-  endif
-  if LastKnob = 1
-    d_pad = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
-		lfo_dests[(lfo_num*8) + (dest_num*2) + 1] = d_pad
-		if d_ch>=0 and d_pad>=0
-			pad_to_label=dest_num
-			pad_slot=(d_ch * 16) + d_pad
-			Call @LabelAutomPad
-		endif
-  endif
-  if LastKnob = 2
-    autom_scene = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 15
-		SetKnobValue 4, TranslateScale autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]], 0, 127, 0, 127
-  endif
-  if LastKnob = 3
-		autom_bar = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 31
-		SetKnobValue 4, TranslateScale autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]], 0, 127, 0, 127
-  endif
-	if LastKnob = 4
-    autom_lfo_amt = Round TranslateScale (GetKnobValue 4), 0, 127, 0, 127
-		autom_lfo_amts[(autom_scene[lfo_num]*32) + autom_bar[lfo_num]] = autom_lfo_amt
-  endif
-  if LastKnob = 5
-    lfo_num = Round TranslateScale (GetKnobValue 5), 0, 127, 0, 1
-		Call @SetupKnobset6
-  endif
-  if LastKnob = 6
-    lfo_types[lfo_num] = Round TranslateScale (GetKnobValue 6), 0, 127, 0, 5
-  endif
-  if LastKnob = 7
-    lfo_freqs[lfo_num] = Round TranslateScale (GetKnobValue 7), 0, 127, 0, 127
-		//# how do we set this for synced? what are options. maybe need array of choices?
-	endif
-	if LastKnob = 8
-    lfo_syncs[lfo_num] = Round TranslateScale (GetKnobValue 8), 0, 127, 0, 1
-  endif
-  if LastKnob = 9
-    lfo_xmods[lfo_num] = Round TranslateScale (GetKnobValue 9), 0, 127, 0, 10
-  endif	
-	Call @LabelLFOKnobs
-@End
-
-@LabelLFOKnobs
-	LabelPads {[ LFO },lfo_num+1, { DESTINATIONS ]} 
-	LabelKnobs {AUTOM : [ LFO },lfo_num+1, { SETUP ]}   
-	LabelXY {[ LFO }, lfo_num+1, { OUTPUT ]}
-	d_ch =  lfo_dests[(lfo_num*8) + (dest_num*2)] //destination channel
-	d_pad = lfo_dests[(lfo_num*8) + (dest_num*2) + 1] //destination 0-15 setup in kntrl mode
-	LabelKnob 0, {D-CH }, d_ch+1
-	LabelKnob 1, {D-PAD }, d_pad+1
-	if autom_scene <=7
-		LabelKnob 2, {A-SCENE }, autom_scene[lfo_num]+1 //0-7 + 8 which is autom off free
-		LabelKnob 3, {A-BAR }, autom_bar[lfo_num]+1 //set dynamically but 0-31
-		LabelKnob 4, {AMT }, autom_lfo_amt
-  else
-		LabelKnob 2, {Auto. OFF}
-		LabelKnob 3, { }
-  endif
-	LabelKnob 4, {AMT }, autom_lfo_amt
-	LabelKnob 5, {LFO# }, lfo_num+1
-	lfo_type = lfo_types[lfo_num]
-	if lfo_type=0
-		LabelKnob 6, {SINE}
-	elseif lfo_type=1
-		LabelKnob 6, {COSINE}
-  elseif lfo_type=2
-		LabelKnob 6, {SQUARE}
-  elseif lfo_type=3
-		LabelKnob 6, {RAMP UP}
-  elseif lfo_type=4
-		LabelKnob 6, {RAMP DN}
-  elseif lfo_type=5
-		LabelKnob 6, {S&H}
-  endif
-  LabelKnob 7, {FREQ }, lfo_freqs[lfo_num]
-  if lfo_syncs[lfo_num] = 0
-	  LabelKnob 8, {FREE}
-	else
-		LabelKnob 8, {SYNC}
-	endif
-	LabelKnob 9, {X-MOD }, lfo_xmods[lfo_num]
-	//label destination pads
-	for i = 0 to 3
-		d_ch = lfo_dests[(lfo_num*8) + (i * 2)] //destination channel
-		d_pad = lfo_dests[(lfo_num*8) + (i * 2) + 1] //destination 0-15 setup in kntrl mode
-		if d_ch>=0 and d_pad>=0 //# initialised with value -1 so no labelling until assigned
-			pad_to_label=i 
-			pad_slot=(d_ch * 16) + d_pad
-			Call @LabelAutomPad
-		endif
-	endfor
-@End
-
-@SetupKnobset11
-	//# MACRO SETUP
-	knob_set = 11
-	LabelKnobs {MACRO SETUP}
-	LabelKnob 0, {Channel }, macro_chans[sel_macro]+1
-	LabelKnob 1, {Param }, macro_params[sel_macro]+1
-	LabelKnob 2, { }
-	LabelKnob 3, { }
-	SetKnobValue 0, TranslateScale macro_chans[sel_macro], 0, 15, 0, 127
-	SetKnobValue 1, TranslateScale macro_params[sel_macro], 0, 15, 0, 127
-	SetKnobValue 2, 0
-	SetKnobValue 3, 0
-@End
-
-@KnobChangeSet11
-	//# MACRO SETUP
-	if LastKnob = 0
-		macro_chans[sel_macro] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
-	endif
-	if LastKnob = 1
-		macro_params[sel_macro] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15	
-	endif
-	pad_to_label=sel_macro
-	pad_slot=(macro_chans[sel_macro] * 16) + macro_params[sel_macro]
-	Call @LabelAutomPad
-	LabelKnob 0, {Channel }, macro_chans[sel_macro]+1
-	LabelKnob 1, {Param }, macro_params[sel_macro]+1
-@End
-
-@SetupKnobset12
-	//# MACRO USAGE
-	knob_set = 12
-	LabelKnobs {MACRO KNOBS}
-	LabelKnob 0, {M1 }, m1_vals[sel_macro]
-	LabelKnob 1, {M2 }, m2_vals[sel_macro]
-	LabelKnob 2, {M3 }, m3_vals[sel_macro]
-	LabelKnob 3, {M4 }, m4_vals[sel_macro]
-	SetKnobValue 0, TranslateScale m1_vals[sel_macro], 0, 127, 0, 127
-	SetKnobValue 1, TranslateScale m2_vals[sel_macro], 0, 127, 0, 127
-	SetKnobValue 2, TranslateScale m3_vals[sel_macro], 0, 127, 0, 127
-	SetKnobValue 3, TranslateScale m4_vals[sel_macro], 0, 127, 0, 127 
-@End
-
-@KnobChangeSet12
-	//# MACRO USAGE
-	if LastKnob = 0
-		m1_vals[sel_macro] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
-	endif
-	if LastKnob = 1
-		m2_vals[sel_macro] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
-	endif
-	if LastKnob = 2
-		m3_vals[sel_macro] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
-	endif
-	if LastKnob = 3
-		m4_vals[sel_macro] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
-	endif
-	LabelKnob 0, {M1 }, m1_vals[sel_macro]
-	LabelKnob 1, {M2 }, m2_vals[sel_macro]
-	LabelKnob 2, {M3 }, m3_vals[sel_macro]
-	LabelKnob 3, {M4 }, m4_vals[sel_macro]
-@End
-
 @SetupLayoutScenes
-	//#xsl setup layout for Scenes mode
+	//#setup layout for Scenes mode
 	LabelKnobs {Setup Scenes}
+	FillArray pad_cols, col_unused, 16
 	if mode=0 or mode=1
 		//# Setup scene pads
 		for i = 0 to 7
 			if scene_durs[i] > 0
-				ColorPad i, col_scene
+				pad_cols[i] = col_scene
 				scn_to_label = i
 				Call @LabelScenePad
 			else
-				ColorPad i, col_unused
 				LabelPad i, { }
 			endif
 			LatchPad i, NO
 	  endfor
-		ColorPad current_scene, col_sel_scene
-		ColorPad edit_scene, col_edit_scene
+		pad_cols[current_scene]=3
+		pad_cols[edit_scene]=7
 		if scene_change_requested>-1
-			ColorPad scene_change_requested, col_pending
+			pad_cols[scene_change_requested]=6
 		endif
 		for i = 8 to 15
 			LatchPad i, NO
-	    ColorPad i, col_unused
-			LabelPad i, { }
+			pad_cols[i]=0
+	    LabelPad i, { }
 		endfor
 	endif
 	if (songmode = 0)
 		LabelPad 8, {SONG MODE }
 		LabelPad 9, {-}
-		LatchPad 8, YES
+		pad_cols[8]=3
 	elseif (songmode = 1)
 		LabelPad 8, {LOCKED TO S}, locked_to_scene+1
-		LatchPad 8, NO
+		pad_cols[8]=2
 		LabelPad 9, {TO SONGMODE}
-		LatchPad locked_to_scene, YES
+		pad_cols[locked_to_scene]=4
 	endif
 	LabelPad 10, { }
-	ColorPad 13, col_unused
-	ColorPad 14, col_unused
-	ColorPad 15, col_unused
 	LabelPad 13, { }
 	LabelPad 14, { }
 	LabelPad 15, { }
+	for i = 0 to 15
+		ColorPad i, pad_cols[i]
+		if mgen_device_id=mgen_sel_dev
+			SendMIDINoteOn 15, i+led_index, pad_cols[i]
+		endif
+	endfor
 @End
 
 @LabelScenePad
@@ -1311,24 +1066,11 @@
 @SetupLayoutAutom
 	ShowLayout 1
 	for i = 0 to 15
-		ColorPad i, 2
+		ColorPad i, 0
 		LabelPad i, {autom }, i
-	endfor
-@End
-
-@SetupLayoutMacros
-	ShowLayout 1
-	for i = 0 to 15
-		ColorPad i, 6
-		LabelPad i, {Macros}, i
-	endfor
-@End
-	
-@SetupLayoutLFOS
-	ShowLayout 0
-	for i = 0 to 4
-		ColorPad i, 6
-		LabelPad i, {D}, i+1
+		if mgen_device_id=mgen_sel_dev
+			SendMIDINoteOn 15, i+led_index, 0 //off when in 20knobs layout
+		endif
 	endfor
 @End
 
@@ -1672,9 +1414,14 @@
 @End
  
 @LabelAutomPad
+	pad_color=automation_cols[pad_slot]
 	ColorPad pad_to_label, automation_cols[pad_slot]
 	if record_autom_on and rec_auto_buffer[pad_slot] >= 0
 		ColorPad pad_to_label, 1 //red its recording or armed to record bc buffer has a val
+		pad_color=1
+	endif
+	if mgen_device_id=mgen_sel_dev
+		SendMIDINoteOn 15, pad_to_label+led_index, pad_color
 	endif
 	label_num = automation_labels[pad_slot] // any pad any label except cc in protected range
 	ch=automation_chs[pad_slot]+1
