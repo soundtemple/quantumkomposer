@@ -532,20 +532,20 @@
 
 
 @PadDownScenesMode
-	if mode=0 and (LastPad >= 0 and LastPad <= 7) //SCENES MODE
+	if mode=0 and (last_pad >= 0 and last_pad <= 7) //SCENES MODE
 		//Log { SCENE CHANGE REQUESTED }
-		scene_change_requested = LastPad
+		scene_change_requested = last_pad
 		songmode=1 //# Lock to selected scene
-		edit_scene=LastPad
-		locked_to_scene=LastPad
+		edit_scene=last_pad
+		locked_to_scene=last_pad
 		if NOT HostRunning //# immediate change else newbeat/bar handles
 			Call @HandleSceneChange 
 		endif
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
-	elseif mode=0 and LastPad=8
+	elseif mode=0 and last_pad=8
 		songmode=0 //# return to song mode
-	elseif mode=0 and LastPad=9
+	elseif mode=0 and last_pad=9
 		return_to_song_mode_requested = TRUE
   	scene_change_requested = current_scene
   	songmode = 0
@@ -558,12 +558,12 @@
 @End
 
 @PadDownAutomMode
-	if LastPad = sel_autom_pad
+	if last_pad = sel_autom_pad
 		last_pad_again=TRUE
 	endif
-	sel_autom_pad=LastPad
+	sel_autom_pad=last_pad
 	if edit_mode_active
-		auto_lane=LastPad 
+		auto_lane=last_pad 
 		auto_scene=edit_scene
 		Call @SetupLayoutAutom
 		Call @SetupKnobset5 //# AUTOM. Edit indiv steps with 20knobs layout	

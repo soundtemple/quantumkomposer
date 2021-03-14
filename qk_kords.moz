@@ -468,7 +468,12 @@
 @End
 
 @OnPadUp
-	if NOT HostRunning and (LastPad >= 8)
+	last_pad=LastPad
+  Call @OnPadUp2
+@End
+
+@OnPadUp2
+	if NOT HostRunning and (last_pad >= 8)
 		for i = 5 to 8
 			ch = midi_channels_used[i]
   		Call @TurnOffChordNotes
@@ -534,17 +539,17 @@
 
 @OnPadDown_SceneChordChange
 	//# handle scene/chord change xopds
-  if (LastPad >= 0 and LastPad <= 7)
+  if (last_pad >= 0 and last_pad <= 7)
   	//# Scene change
   	//Log { SCENE CHANGE REQUESTED }
-	  scene_change_requested = LastPad
+	  scene_change_requested = last_pad
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
-	elseif (LastPad >= 8 and LastPad <= 15) 	
+	elseif (last_pad >= 8 and last_pad <= 15) 	
   	//# User Chord change 
   	//Log { CHORD CHANGE REQUESTED }
-  	chord_change_requested = LastPad - 8 //# chrd 0-7
+  	chord_change_requested = last_pad - 8 //# chrd 0-7
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleChordChange 
   	endif
@@ -554,7 +559,7 @@
 
 @OnPadDown_KnobSetSelect
 	//# choose a knob set based on pad type
-	if LastPad <= 7 and (NOT in_mode_select)
+	if last_pad <= 7 and (NOT in_mode_select)
 		if (mode = 1)	 //# Select quick chords 2 knobs
 			Call @SetupKnobset2
 		elseif (mode = 2) //# Construct chords 4 knobs
@@ -564,7 +569,7 @@
 		else
 			Call @SetupKnobset0
 		endif
-	elseif LastPad >= 8 and NOT in_mode_select
+	elseif last_pad >= 8 and NOT in_mode_select
 		if (mode = 1)	
 			Call @SetupKnobset2
 		elseif (mode = 2) //# Construct chords 4 knobs
@@ -1288,38 +1293,38 @@
 
 @ResetScene
   //# Reset scene: Duration, Txpose, Preset, modes for ch's 1-4, out ch's ON1-4, pgm_chg_msg
-  scene_bank[LastPad * sc_size] = [-1,6,0,0,0,0,0,0,0,0,0,-1]
-  chord_slot = (LastPad * 100)
+  scene_bank[last_pad * sc_size] = [-1,6,0,0,0,0,0,0,0,0,0,-1]
+  chord_slot = (last_pad * 100)
   for c = 0 to 7
 		chord_bank[(current_scene*100) + (c*10)] = [-1, -1, -1, -1, 0, 0, -1]
 	endfor
   Call @SetupLayout
-  //Log {Scene }, LastPad +1, { reset. All chords for scene reset}
+  //Log {Scene }, last_pad +1, { reset. All chords for scene reset}
 @End
 
 @ResetChord
-	chord_slot = (current_scene * 100) + ((LastPad - 8) * 10)
+	chord_slot = (current_scene * 100) + ((last_pad - 8) * 10)
   //# 4 chord notes, duration, inv, bass, pattern_msg 
   chord_bank[chord_slot] = [-1,-1,-1,-1,0,0,-1,-1]
-  //Log {Chord }, LastPad +1, { reset}
+  //Log {Chord }, last_pad+1, { reset}
   Call @SetupLayout
 @End
 
 @CopyPaste
 	//# copy paste scenes and chords xcp
-	if LastPad <=7
+	if last_pad <=7
 		//Log {Pasting scene to }, current_scene+1 
-		LabelPads {Copied Scene }, copied_scene+1, { to Scene }, LastPad+1
-		CopyArray scene_bank[copied_scene * sc_size], scene_bank[LastPad * sc_size], sc_size
-		CopyArray chord_bank[copied_scene * 100], chord_bank[LastPad * 100], 100
+		LabelPads {Copied Scene }, copied_scene+1, { to Scene }, last_pad+1
+		CopyArray scene_bank[copied_scene * sc_size], scene_bank[last_pad * sc_size], sc_size
+		CopyArray chord_bank[copied_scene * 100], chord_bank[last_pad * 100], 100
 		//# Exit copy paste
 		songmode = 1
 		mode=0
-	elseif LastPad >= 8
-		//Log {pasting to chord }, LastPad-8
-		LabelPads	{Copied S}, copied_scene+1, { Chord }, copied_chord+1, { to }, {S}, current_scene+1, { Chord }, LastPad-7
+	elseif last_pad >= 8
+		//Log {pasting to chord }, last_pad-8
+		LabelPads	{Copied S}, copied_scene+1, { Chord }, copied_chord+1, { to }, {S}, current_scene+1, { Chord }, last_pad-7
 		chord_slot_from = (copied_scene * 100) + (copied_chord * 10)
-		chord_slot_to = (current_scene * 100) + ((LastPad-8) * 10)
+		chord_slot_to = (current_scene * 100) + ((last_pad-8) * 10)
 		CopyArray chord_bank[chord_slot_from], chord_bank[chord_slot_to], 10
 		//# Exit copy paste
 		songmode = 2
@@ -2174,7 +2179,7 @@
 		LabelPad 3, {+CHORDS: Construct}
 		LabelPad 4, {+CHORDS: Record}
 		LabelPad 5,{ }
-		if LastPad<=7 //# copy scene or chord
+		if last_pad<=7 //# copy scene or chord
 			LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
 			copy_mode=0
 		else
@@ -2366,10 +2371,10 @@
 		//# Handle pending chord and scene changes in playback
 	  if HostRunning and (songmode <=2)
 	  	if chord_change_requested >= 0
-				scn_pad_cols[chord_change_requested+8]=3
+				scn_pad_cols[chord_change_requested+8]=6
 	  	endif
 	  	if scene_change_requested >= 0
-	  		scn_pad_cols[scene_change_requested]=3
+	  		scn_pad_cols[scene_change_requested]=6
 	  	endif
 		endif
 	endif

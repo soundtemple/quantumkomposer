@@ -978,27 +978,27 @@
 	reset_all_channels=TRUE
   if reset_type=0 //# Reset scene
 	  //# Reset scene: Duration, Txpose, Preset, modes for ch's 1-4, out ch's ON1-4, pgm_chg_msg
-	  scene_durs[LastPad] = 0
-	  pattn_slot = (LastPad * 8)
+	  scene_durs[last_pad] = 0
+	  pattn_slot = (last_pad * 8)
 		pattn_durs[current_scene*8] = [0,0,0,0,0,0,0,0]
 		pattn_octs[current_scene*8] = [0,0,0,0,0,0,0,0]
-		paste_slot=(LastPad*128)
+		paste_slot=(last_pad*128)
 		steps_to_copy=(16*8)
-		//Log {Scene }, LastPad +1, { reset. All pattns for scene reset}
+		//Log {Scene }, last_pad +1, { reset. All pattns for scene reset}
 		//# Also RESET euclidean info 4types, 4chs, 8patts
 		euc_reset_slot=(current_scene*128)			
 		FillArray euc_vals[euc_reset_slot], 0, (4*4*8)	
 	elseif reset_type=1 //# reset pattern
-		pattn_slot = (current_scene * 8) + (LastPad - 8) 
+		pattn_slot = (current_scene * 8) + (last_pad - 8) 
   	pattn_durs[pattn_slot] = 0
   	pattn_octs[pattn_slot] = 0
-  	paste_slot=(current_scene*128)+((LastPad-8)*16)
+  	paste_slot=(current_scene*128)+((last_pad-8)*16)
 		steps_to_copy=16
 		//# Also RESET euclidean info 4types, 4chs = 16steps to copy
-		euc_reset_slot=(current_scene*128)+((LastPad-8)*16)
+		euc_reset_slot=(current_scene*128)+((last_pad-8)*16)
 		FillArray euc_vals[euc_reset_slot], 0, 16
  	elseif reset_type=2 //# reset seq step
- 		paste_slot=(current_scene*128)+(current_pattn*16)+LastPad
+ 		paste_slot=(current_scene*128)+(current_pattn*16)+last_pad
 		steps_to_copy=1
 		if label_view_mode=4 //#copypaste seq_ch only
 			reset_all_channels=FALSE
@@ -1024,16 +1024,16 @@
 @End
 
 @CopyPaste //# copy paste scenes. patterns. sequences
-	if LastPad <=7 and not in_seq_mode
+	if last_pad <=7 and not in_seq_mode
 		//# copy pasting a scene
-		LabelPads {Copied scene }, copied_scene+1, { to scene }, LastPad+1
-		scene_durs[LastPad] = scene_durs[copied_scene] 
+		LabelPads {Copied scene }, copied_scene+1, { to scene }, last_pad+1
+		scene_durs[last_pad] = scene_durs[copied_scene] 
 		//# CopyArray source, dest, cells 
-		CopyArray pattn_durs[copied_scene * 8], pattn_durs[LastPad * 8], 8
-		CopyArray pattn_octs[copied_scene * 8], pattn_octs[LastPad * 8], 8
+		CopyArray pattn_durs[copied_scene * 8], pattn_durs[last_pad * 8], 8
+		CopyArray pattn_octs[copied_scene * 8], pattn_octs[last_pad * 8], 8
 		//# Also copy sequence information
 		copy_slot=(copied_scene*128)
-		paste_slot=(LastPad*128)
+		paste_slot=(last_pad*128)
 		steps_to_copy=(16*8)
 		for i = 0 to 3
 			copy_seq_ch=i
@@ -1046,16 +1046,16 @@
 		euc_paste_slot=(current_scene*128)			
 		CopyArray euc_vals[euc_copy_slot], euc_vals[euc_paste_slot], (4*4*8)
 		//# Exit copy paste
-	elseif LastPad >= 8 and not in_seq_mode
+	elseif last_pad >= 8 and not in_seq_mode
 		//# handle copy pasting a pattern
-		LabelPads	{Copied S}, copied_scene+1, { Pattern }, copied_pattn+1, { to }, { S}, current_scene+1, { Pattern }, LastPad-7
+		LabelPads	{Copied S}, copied_scene+1, { Pattern }, copied_pattn+1, { to }, { S}, current_scene+1, { Pattern }, last_pad-7
 		pattn_slot_from = (copied_scene*8) + copied_pattn
-		pattn_slot_to = (current_scene*8) + (LastPad-8)
+		pattn_slot_to = (current_scene*8) + (last_pad-8)
 		pattn_durs[pattn_slot_to] = pattn_durs[pattn_slot_from]
 		pattn_octs[pattn_slot_to] = pattn_octs[pattn_slot_from]
 		//# Also copy sequence information
 		copy_slot=(copied_scene*128)+(copied_pattn*16)
-		paste_slot=(current_scene*128)+((LastPad-8)*16)
+		paste_slot=(current_scene*128)+((last_pad-8)*16)
 		steps_to_copy=16
 		for i = 0 to 3
 			copy_seq_ch=i
@@ -1065,13 +1065,13 @@
 		endfor
 		//# Also copy euclidean info 4types, 4chs = 16steps to copy
 		euc_copy_slot=(copied_scene*128)+(copied_pattn*16)
-		euc_paste_slot=(current_scene*128)+((LastPad-8)*16)
+		euc_paste_slot=(current_scene*128)+((last_pad-8)*16)
 		CopyArray euc_vals[euc_copy_slot], euc_vals[euc_paste_slot], 16
 		//# Exit copy paste
 	elseif in_seq_mode and return_to_mode=9 //# edit mode copy single pads
 		//# handle copypaste a single seq_pad
 		copy_slot=(current_scene*128)+(current_pattn*16)+copied_seq_pad
-		paste_slot=(current_scene*128)+(current_pattn*16)+LastPad
+		paste_slot=(current_scene*128)+(current_pattn*16)+last_pad
 		steps_to_copy=1
 		if label_view_mode=4 //#copypaste seq_ch only
 			copy_seq_ch=copied_ch
@@ -2613,7 +2613,7 @@
 		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 		LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]       [}, cc_vals[2],{-}, cc_vals[3],{]}
 		if mode<=1
-			if LastPad<=7 //# copy scene or chord
+			if last_pad<=7 //# copy scene or chord
 				LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
 				copy_mode=0 //# copy scene
 			else
