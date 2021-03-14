@@ -1706,85 +1706,72 @@
 @SetupLayoutScenes
 	//setup layout for Scenes mode
 	ShowLayout 2
+	FillArray pad_cols, 0, 16
 	if mode=0 or mode=1
 		//# Setup scene pads
 		for i = 0 to 7
 			if scene_durs[i] > 0
-				ColorPad i, col_scene
+				pad_cols[i]=2
 				scn_to_label = i
 				Call @LabelScenePad
-				SendMIDINoteOn 15, i, col_scene //LED FEEDBACK
 			else
-				ColorPad i, col_unused
 				LabelPad i, { }
-				SendMIDINoteOn 15, i, col_unused //LED FEEDBACK
+				pad_cols[i]=0
 			endif
 			LatchPad i, NO
 	  endfor
-		ColorPad current_scene, col_sel_scene
+		pad_cols[current_scene]=3
 		if scene_change_requested>-1
-			ColorPad scene_change_requested, col_pending
-			SendMIDINoteOn 15, scene_change_requested, col_pending //LED FEEDBACK
+			pad_cols[scene_change_requested]=6
 		endif
 		for i = 8 to 15
 			LatchPad i, NO
-	    ColorPad i, col_unused
+	    pad_cols[i]=0
 			LabelPad i, { }
-			SendMIDINoteOn 15, i, col_unused //LED FEEDBACK
 		endfor
 	elseif mode=2
 		for i = 0 to 15
-	  	ColorPad i, 2
-			LabelPad i, {mode??}
+			pad_cols[i]=2
 		endfor
 	endif
 	if (songmode = 0)
 		LabelPad 8, {SONG MODE ACTIVE}
 		LabelPad 9, {-}
-		LatchPad 8, YES
-		SendMIDINoteOn 15, 8, 8 //LED FEEDBACK
+		pad_cols[8]=3
 	elseif (songmode = 1)
 		LabelPad 8, {LOCKED TO S}, locked_to_scene+1
-		LatchPad 8, NO
 		LabelPad 9, {TO SONGMODE}
-		LatchPad 9, YES
-		LatchPad locked_to_scene, YES
-		SendMIDINoteOn 15, locked_to_scene, 8 //LED FEEDBACK
-		SendMIDINoteOn 15, 9, 8 //LED FEEDBACK
+		pad_cols[8]=[4]
+		pad_cols[9]=3
+		pad_cols[locked_to_scene]=4
 	endif
 	LabelPad 10, {UPDATE ALL SCENES}
-	ColorPad 10, 4
-	SendMIDINoteOn 15, 10, 4 //LED FEEDBACK
+	pad_cols[10]=6
 	if scene_copied
-		ColorPad 11, 3
-		SendMIDINoteOn 15, 11, 3 //LED FEEDBACK
+		pad_cols[11]=3
 		LabelPad 11, {PASTE TO SCENE }, edit_scene+1
 		LabelPads {Use Scene knob to select scene then hit paste to copy contents across all QK midi generators}
 	else
-		ColorPad 11, 4
-		SendMIDINoteOn 15, 11, 4 //LED FEEDBACK
+		pad_cols[11]=6
 		LabelPad 11, {COPY SCENE }, edit_scene+1
 	endif
 	LabelPad 12, {ALL KORDS NOTES OFF}
-	ColorPad 12, 4
-	SendMIDINoteOn 15, 12, 4 //LED FEEDBACK
-	SendMIDINoteOn 15, 13, col_unused //LED FEEDBACK
-	SendMIDINoteOn 15, 14, col_unused //LED FEEDBACK
-	ColorPad 14, 1
-	SendMIDINoteOn 15, 14, 1 //LED FEEDBACK
-	SendMIDINoteOn 15, 15, 3 //LED FEEDBACK
-	ColorPad 15, 3
+	pad_cols[12]=6
 	if loop_song_mode
 		LabelPad 13, {LOOP SONG MODE}
-		LatchPad 13, YES
-		SendMIDINoteOn 15, 13, 8 //LED FEEDBACK
+		pad_cols[13]=8
 	else
 	  LabelPad 13, {LOOP SONG OFF}
-		LatchPad 13, NO 
-		SendMIDINoteOn 15, 13, 0 //LED FEEDBACK
+		pad_cols[13]=0 
 	endif
+	pad_cols[14]=1
+	pad_cols[15]=3
 	LabelPad 14, {[STOP]}
 	LabelPad 15, {PLAY>}
+	for i=0 to 15
+		SendMIDINoteOn 15, i, pad_cols[i]
+		ColorPad i, pad_cols[i]
+	endfor
 @End
 
 @LabelScenePad
