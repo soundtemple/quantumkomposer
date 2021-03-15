@@ -122,7 +122,7 @@
 	lower_mx_ccs_max=14
 	upper_mx_ccs_min=113
 	//send ccs back to controller
-	curr_chan_ccs_update_controler = [7,8,6,9, 10,11,12,13, 14,15,16,17, 117,118,119,120, 121,122,123]
+	curr_chan_ccs_update_controller = [7,8,6,9, 10,11,12,13, 14,15,16,17, 117,118,119,120, 121,122,123]
 	
 	mute_solo_arm=0 //remember pad state 0-2
 	for ch = 0 to 15 //set up mixer on all channels with default vals on def cc's
@@ -207,7 +207,8 @@
 		endif
 			
 	elseif (MIDIByte2>=26 and MIDIByte2<=35)
-		//General purpose cc's available for mapping
+		//General purpose cc's available for mapping. forward message on.
+		//See midi implementation chart for purpose
 		SendMIDICC 15, MIDIByte2, MIDIByte3
 		
 	elseif MIDIByte2>=36 and MIDIByte2<=39 //KNTRL Knobs on CH16
@@ -358,7 +359,7 @@
 		SendMidiCC midi_controller[0], midi_controller[4], (Round GetKnobValue 3), 75
 		for i = 0 to 14 //send selected mixer vals for curr_chan back to midi controller
 			val = mixer_state[(curr_chan*20)+i]
-			SendMIDICC 15, curr_chan_ccs_update_controler[i], val, (i*40)+40
+			SendMIDICC 15, curr_chan_ccs_update_controller[i], val, (i*40)+40
 		endfor
 	endif
 @End

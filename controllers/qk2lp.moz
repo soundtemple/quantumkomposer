@@ -6,10 +6,12 @@
 @OnLoad
 	if Unassigned lp_ch
 		SetShortName {QK2LP}
+		Log {QK > LP : Handles messages from QK. Adapts and routes to LP for LED illumination}
 		ppqn=4
 		lp_ch=0 //channel LP receives messages on
 		in_ch=15 //channel LED feedback messages received on
-		show_metro_pulse=FALSE
+		show_metro_pulse=FALSE //display a running metro pulse on the MGEN pads
+		led_layout1=TRUE //toggle LED highlights for pads or mgen/ch selection
 		selected_channel=0
 		selected_mgen=0
 		selected_scene=0
@@ -85,16 +87,9 @@
 	kntrl_pads= [31,32,33,34,35,36,37,38, 21,22,23,24,25,26,27,28] //pads assigned to 16 kntrl pads
 	channel_pads = [51,52,53,54, 55,56,57,58, 41,42,43,44, 45,46,47,48] //pads assigned to instrument selection
 	scene_pads = [89,79,69,59,49,39,29,19] //pads assigned to scene selection
-	mgen_pads_show_sel_only=TRUE
-	chan_pads_show_sel_only=TRUE
-	
-	//Additional custom messages
-	//Add the cc (only) val incoming as index to custom_messages and the value as the LP pad
-	//Additionally add the LP pad type to custom_msg_type 
-	FillArray custom_msgs, -1, 127
-	custom_msgs[88]=48 //handle stuck note button
-	custom_msg_is_cc[88]=FALSE // The LP pad type
-	
+	led_layout1=TRUE
+	led_layout1=TRUE
+		
 	FillArray msg_type, 0, 127 //0=Note; 1=CC set pads that send notes
 	msg_type[91] = [1,1,1,1, 1,1,1,1, 1] //top row pads send cc
 	for i = 0 to 8 //scene pads send cc
@@ -130,53 +125,59 @@
 @OnMetroPulse
 	if show_metro_pulse
 	  SendMIDINoteOn 0, mgen_seq_pads[CurrentMetroPulse], 3
-		SendMIDINoteOn 0, mgen_seq_pads[CurrentMetroPulse], 0, 100
+		SendMIDINoteOn 0, mgen_seq_pads[CurrentMetroPulse], colors[mgen_seq_pads[CurrentMetroPulse]], 100
 	endif
 @End
 
 @OnMidiNote
 	if MIDIChannel=in_ch //messages coming from QK:KNTRL.. send to Controller
 		if MIDIByte2<=16 and kntrl_pads[MIDIByte2]>=0 //handle: kntrl pads 0-16 
-			if chan_pads_show_sel_only and MIDIByte3=0
+			if led_layout1 and MIDIByte3=0
 				col=112
 			else 
 				col=to_pad_col[MIDIByte3]
 			endif
 			SendMIDINoteOn lp_ch, kntrl_pads[MIDIByte2], col
 		elseif (MIDIByte2>=20 and MIDIByte2<=46 and mgen_seq_pads[MIDIByte2-20]>=0) //handle mgen pads 20-46
-			if mgen_pads_show_sel_only and MIDIByte3=0
+			if led_layout1 and MIDIByte3=0
 				col=112
 			else 
 				col=to_pad_col[MIDIByte3]
 			endif
 		  SendMIDINoteOn lp_ch, mgen_seq_pads[MIDIByte2-20], col
+			colors[mgen_seq_pads[MIDIByte2-20]]=col //store the current pad color for metro pulse overlay removal
 		endif
 	endif
 @End
 
 @OnMidiCC
+	//handle all incoming cc messages to Launchpad for LED illumination
 	if MIDIChannel=in_ch //messages coming from QK:KNTRL.. send to Controller
 		if MIDIByte2=24 and MIDIByte3<=15 // handle selected channel 24 vals 0-15
 			selected_channel=MIDIByte3
 			Call @UpdateSelectedChannel
+		elseif MIDIByte2=28
+			// LP Top row btn 1 - not in use
+		elseif MIDIByte2=29
+			// LP Top row btn 1 - not in use
+		elseif MIDIByte2=30
+			// Toggle metro pulse
+			show_metro_pulse = not show_metro_pulse
+		elseif MIDIByte2=31
+			// Toggle KNTRL mode layout
+			led_layout1 = not led_layout1
+		elseif MIDIByte2=32
+			// LP Bottom row btn 8 - not in use
 		elseif MIDIByte2>=40 and MIDIByte2<=43 //mgen knob for selected mgen device
-			//mgen_knob=MIDIByte2 % 4 
-			//mgen_knobset_adj=selected_mgen*4
-			//mgen_knob_cc= 40 + mgen_knobset_adj + mgen_knob
-			//Log {Twister feedback received: knob:}, mgen_knob, { ksetadj:}, mgen_knobset_adj, { cc:}, mgen_knob_cc 
 			SendMIDICC in_ch, MIDIByte2, MIDIByte3 // sends feedback back to Twister for LED update
+		elseif MIDIByte2=88 //handle stuck note button LED
+			SendMIDICC lp_ch, MIDIByte2, to_pad_col[MIDIByte3]
 		elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
 			selected_mgen=MIDIByte2-91
 		  Call @UpdateSelectedMgen
 		elseif MIDIByte2>=109 and MIDIByte2<=116 and MIDIByte3>0
 		  selected_scene=MIDIByte2-109
 			Call @UpdateSelectedScene
-		elseif custom_msgs[MIDIByte2]>=0
-			if custom_msg_is_cc[MIDIByte2]
-		  	SendMIDICC lp_ch, custom_msgs[MIDIByte2], to_pad_col[MIDIByte3]
-			else
-			  SendMIDINoteOn lp_ch, custom_msgs[MIDIByte2], to_pad_col[MIDIByte3]
-			endif
 		endif
 	endif
 @End
@@ -226,13 +227,13 @@
 @UpdateSelectedChannel
 	//requires selected_channel to be set. Sets default colors and highlights selected
 	for i = 0 to 14
-		if chan_pads_show_sel_only
+		if led_layout1
 			SendMIDINoteOn lp_ch, channel_pads[i], off
 		else
 			SendMIDINoteOn lp_ch, channel_pads[i], colors[channel_pads[i]]
 		endif
 	endfor
-	if chan_pads_show_sel_only
+	if led_layout1
 		SendMIDICC lp_ch, channel_pads[selected_channel], colors[channel_pads[selected_channel]]
 	else
 		SendMIDINoteOn lp_ch, channel_pads[selected_channel], white
@@ -242,13 +243,13 @@
 @UpdateSelectedMgen
 	//requires selected_channel to be set. Sets default colors and highlights selected
 	for i = 0 to 7
-		if mgen_pads_show_sel_only //color other mgens
+		if led_layout1 //color other mgens
 			SendMIDINoteOn lp_ch, mgen_pads[i], off
 		else
 			SendMIDINoteOn lp_ch, mgen_pads[i], colors[mgen_pads[i]]
 		endif
 	endfor
-	if mgen_pads_show_sel_only //highlight selected
+	if led_layout1 //highlight selected
 		SendMIDICC lp_ch, mgen_pads[selected_mgen], colors[mgen_pads[selected_mgen]]
 	else
 		SendMIDINoteOn lp_ch, mgen_pads[selected_mgen], white
