@@ -5,8 +5,9 @@
 
 @OnLoad
 	ppqn=4
-	if Unassigned msg_typw
-		SetShortName {LP>QK}
+	SetShortName {C>X>QK}
+	if Unassigned msg_type
+		
 		lp_ch=0
 		//SYSEX
 		lp_sysex_header=[0xF0,0x00,0x20,0x29,0x02,0x0D]

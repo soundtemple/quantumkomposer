@@ -5,7 +5,7 @@
 
 @OnLoad
 	if Unassigned lp_ch
-		SetShortName {LP>LED}
+		SetShortName {QK>X>C}
 		ppqn=4
 		lp_ch=0 //channel LP receives messages on
 		in_ch=15 //channel LED feedback messages received on
@@ -159,6 +159,8 @@
 		if MIDIByte2=24 and MIDIByte3<=15 // handle selected channel 24 vals 0-15
 			selected_channel=MIDIByte3
 			Call @UpdateSelectedChannel
+		elseif MIDIByte2>=40 and MIDIByte2<=75 //mgen knob for selected mgen device
+			SendMIDICC in_ch, MIDIByte2, MIDIByte3 // sends feedback back to Twister for LED update
 		elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
 			selected_mgen=MIDIByte2-91
 		  Call @UpdateSelectedMgen
@@ -236,13 +238,13 @@
 @UpdateSelectedMgen
 	//requires selected_channel to be set. Sets default colors and highlights selected
 	for i = 0 to 7
-		if mgen_pads_show_sel_only
+		if mgen_pads_show_sel_only //color other mgens
 			SendMIDINoteOn lp_ch, mgen_pads[i], off
 		else
 			SendMIDINoteOn lp_ch, mgen_pads[i], colors[mgen_pads[i]]
 		endif
 	endfor
-	if mgen_pads_show_sel_only
+	if mgen_pads_show_sel_only //highlight selected
 		SendMIDICC lp_ch, mgen_pads[selected_mgen], colors[mgen_pads[selected_mgen]]
 	else
 		SendMIDINoteOn lp_ch, mgen_pads[selected_mgen], white
