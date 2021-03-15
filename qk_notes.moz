@@ -827,7 +827,7 @@
 
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
-	// Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
+	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
 	if (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
 		//# handle scene duration change
 		scene_durs[MIDIByte2-101] = MIDIByte3
@@ -2560,8 +2560,7 @@
 		in_mode_select = FALSE
 		if mode>=8
 			in_seq_mode=TRUE
-		endif
-		last_pad=LastPad	
+		endif	
 		Call @OnPadDown_KnobSetSelect				
 		Call @SetupLayout
 	else
@@ -2612,6 +2611,7 @@
 		Call @LabelSet3
 		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 		LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]       [}, cc_vals[2],{-}, cc_vals[3],{]}
+		LabelPad 6, { }
 		if mode<=1
 			if last_pad<=7 //# copy scene or chord
 				LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1

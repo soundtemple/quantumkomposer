@@ -5,7 +5,7 @@
 
 @OnLoad
 	ppqn=4
-	SetShortName {C>X>QK}
+	SetShortName {LP2QK}
 	if Unassigned msg_type
 		
 		lp_ch=0

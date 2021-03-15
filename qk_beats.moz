@@ -25,7 +25,7 @@
 		mgen_device_id=-1 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
-		send_cc_back_to_knobs = TRUE 
+		send_cc_back_to_knobs = FALSE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id)
 		mchnce=100
 		pattn_beat_count = 0
@@ -829,12 +829,11 @@
 
 @SendMidiCCBackToKnobs //# Update controller knob vals with midi cc
 	//send LED feedback when mgen device is active device to mgen knobs
-	if send_cc_back_to_knobs
-		cc_knob0 = knobs_controller[1] + (4 * mgen_device_id)
-		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0]  , Round GetKnobValue 0
-		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+1], Round GetKnobValue 1
-		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+2], Round GetKnobValue 2
-		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+3], Round GetKnobValue 3
+	if send_cc_back_to_knobs and mgen_device_id=mgen_sel_dev
+		SendMidiCC knobs_controller[0], knobs_controller[0], Round GetKnobValue 0
+		SendMidiCC knobs_controller[0], knobs_controller[1], Round GetKnobValue 1
+		SendMidiCC knobs_controller[0], knobs_controller[2], Round GetKnobValue 2
+		SendMidiCC knobs_controller[0], knobs_controller[3], Round GetKnobValue 3
 	endif
 @End
 
@@ -930,7 +929,7 @@
 		endif
 	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
 		mgen_sel_dev=MIDIByte2-91
-		if mgen_sel_dev= mgen_device_id
+		if mgen_sel_dev=mgen_device_id
 			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
 		endif
 	elseif (MIDIByte2=23 and MIDIChannel=15) //# Global swing
@@ -2434,7 +2433,6 @@
 		if mode>=8
 			in_seq_mode=TRUE
 		endif
-		last_pad=LastPad
 		Call @OnPadDown_KnobSetSelect				
 		Call @SetupLayout
 	else
@@ -2473,6 +2471,7 @@
 		Call @LabelSet3
 		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 		LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]        [}, cc_vals[2],{-}, cc_vals[3],{]}
+		LabelPad 6, { }
 		if mode<=1
 			if last_pad<=7 //# copy scene or chord
 				LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1

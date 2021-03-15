@@ -5,7 +5,7 @@
 
 @OnLoad
 	if Unassigned lp_ch
-		SetShortName {QK>X>C}
+		SetShortName {QK2LP}
 		ppqn=4
 		lp_ch=0 //channel LP receives messages on
 		in_ch=15 //channel LED feedback messages received on
@@ -69,7 +69,7 @@
 	to_pad_col = [off, pred, orange, pgreen, pblue, purple, mauve, pink, white, beige, pred, grey] 
 	
 	colors[91] = [beige,	beige,	red,		green, 	pgreen, grey, 	grey, 	grey,		off] //drambo, transport, mode
-	colors[81] = [orange, orange, orange, off, 		off, 		green,  blue, 	purple,	off] //mgen select
+	colors[81] = [orange, orange, orange, pink, 	pink, 	green,  blue, 	purple,	off] //mgen select
 	colors[71] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
 	colors[61] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
 	colors[51] = [orange,	orange,	mauve,	mauve,	pblue, 	pblue,	pblue, 	pblue,	off] //channel select
@@ -159,7 +159,11 @@
 		if MIDIByte2=24 and MIDIByte3<=15 // handle selected channel 24 vals 0-15
 			selected_channel=MIDIByte3
 			Call @UpdateSelectedChannel
-		elseif MIDIByte2>=40 and MIDIByte2<=75 //mgen knob for selected mgen device
+		elseif MIDIByte2>=40 and MIDIByte2<=43 //mgen knob for selected mgen device
+			//mgen_knob=MIDIByte2 % 4 
+			//mgen_knobset_adj=selected_mgen*4
+			//mgen_knob_cc= 40 + mgen_knobset_adj + mgen_knob
+			//Log {Twister feedback received: knob:}, mgen_knob, { ksetadj:}, mgen_knobset_adj, { cc:}, mgen_knob_cc 
 			SendMIDICC in_ch, MIDIByte2, MIDIByte3 // sends feedback back to Twister for LED update
 		elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
 			selected_mgen=MIDIByte2-91
