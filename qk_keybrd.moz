@@ -36,8 +36,24 @@
 	log_notes=FALSE //setting to log notes as played
 	use_knobset0=TRUE
 	kntrl_keyboard_selection=[0,0,0,3, 4,5,6,7, 8,8,8,8, 0,0,0,0] //on KNTRL channel change cc24 0-15 
+	mgen_device_id=-1 //used for midi control of pads. each mgen instance is assigned a number
+	mgen_sel_dev=0 //used for midi control of pads	
+	led_index=20 // notes 20-46 used for updating LED feedback on 16pads
+	send_cc_back_to_knobs = TRUE
+  knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
 @end
 
+@SendMidiCCBackToKnobs //# Update controller knob vals with midi cc
+	//send LED feedback when mgen device is active device to mgen knobs
+	if send_cc_back_to_knobs
+		cc_knob0 = knobs_controller[1] + (4 * mgen_device_id)
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0]  , Round GetKnobValue 0
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+1], Round GetKnobValue 1
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+2], Round GetKnobValue 2
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+3], Round GetKnobValue 3
+	endif
+@End
+	
 @BuildLayouts
 	//Store your layout info here
 	//Pads from top left to bottom right
@@ -182,6 +198,11 @@
 		Call @BuildKeyboardLayout
 		Call @LabelLayout
 		Call @SetupKnobSet
+	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
+		mgen_sel_dev=MIDIByte2-91
+		if mgen_sel_dev= mgen_device_id
+			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
+		endif
 	endif
 @End
 
@@ -240,6 +261,7 @@
 @OnShiftDown
   use_knobset0 = not use_knobset0	
 	Call @SetupKnobSet
+	Call @SendMidiCCBackToKnobs
 @End
 
 @SetupKnobSet
@@ -248,6 +270,7 @@
 	else
 	  Call @SetupKnobSet1
 	endif
+	Call @SendMidiCCBackToKnobs
 @End
 
 @SetupKnobSet0
@@ -284,6 +307,7 @@
 	else
 	  Call @HandleKnobChange1
 	endif
+	Call @SendMidiCCBackToKnobs
 @End
 
 @HandleKnobChange0

@@ -28,8 +28,8 @@
 		mgen_sel_dev=0 //used for midi control of pads
 	  led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		midi_channel_conflict = FALSE //# allowing midi OUT channel conflicts
-	  send_cc_back_to_knobs = FALSE 
-	  midi_controller=[15,14,15,16,17] //midi controller channel then 4 ccs
+	  send_cc_back_to_knobs = TRUE
+		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
 		txpose_w_circle_fifths=FALSE
 		copy_mode=-1
 	  Call @TransposeCalcArrays
@@ -532,9 +532,7 @@
 	elseif mode = 15
 		LabelPads {DELETE: Select a scene or chord slot to reset}
 	endif
-	if send_cc_back_to_knobs
-		Call @SendMidiCCBackToKnobs
-	endif
+	Call @SendMidiCCBackToKnobs
 @End
 
 @OnPadDown_SceneChordChange
@@ -578,18 +576,18 @@
 			Call @SetupKnobset1
 		endif
 	endif
-	if send_cc_back_to_knobs
-		Call @SendMidiCCBackToKnobs
-	endif
+	Call @SendMidiCCBackToKnobs
 @End
 
-@SendMidiCCBackToKnobs
-	//# Update controller knob vals with midi cc
-	//# Log {Updating Twister... }, Round GetKnobValue 0
-	SendMidiCC 0, midi_controller[1], Round GetKnobValue 0
-	SendMidiCC 0, midi_controller[2], Round GetKnobValue 1
-	SendMidiCC 0, midi_controller[3], Round GetKnobValue 2
-	SendMidiCC 0, midi_controller[4], Round GetKnobValue 3
+@SendMidiCCBackToKnobs //# Update controller knob vals with midi cc
+	//send LED feedback when mgen device is active device to mgen knobs
+	if send_cc_back_to_knobs
+		cc_knob0 = knobs_controller[1] + (4 * mgen_device_id)
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0]  , Round GetKnobValue 0
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+1], Round GetKnobValue 1
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+2], Round GetKnobValue 2
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+3], Round GetKnobValue 3
+	endif
 @End
 
 @OnAuParameter
@@ -2038,9 +2036,7 @@
 			knob_set = 99 //# dummy number to disable
 		endif
 	endif
-	if send_cc_back_to_knobs
-		Call @SendMidiCCBackToKnobs
-	endif
+	Call @SendMidiCCBackToKnobs
 @End
 
 @OnKnobChange

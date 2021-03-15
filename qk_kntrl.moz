@@ -141,7 +141,7 @@
 	endfor
 	//# MIDI GEN KONTROL SECTION
 	allow_edit_mgen_ccs=FALSE
-	last_mgen_pad=0 //# return to last pad used MG-kntrl mode
+	sel_mgen_dev=0 //# return to last pad used MG-kntrl mode
 	mgen_vals=[]
 	mgen_labels =  [2,3,12,15,15,16,17,18,20,14,1,15,0,0,0,0]
 	mgen_colors =  [2,2,2,0,0,4,3,5,6,6,5,5,0,0,0,0]
@@ -215,6 +215,10 @@
 		SetKnobValue last_knob, MIDIByte3 // change knob position
 		Call @OnKnobChange2 //handle that change 
 	
+	elseif MIDIByte2>=40 and MIDIByte2<=44 //selected mgen device knobs
+		pad_slot=[4 * sel_mgen_dev] //where we store the cc value for that instance and knob0-3 
+		SendMIDICC 15, mgen_ccs[pad_slot+(MIDIByte2-40)], MIDIByte3
+	
 	elseif MIDIByte2>=76 and MIDIByte2<=79 //mix bus volumes
 		mixbusvol_ccs=[30,46,62,78]
 		SendMIDICC 12, mixbusvol_ccs[MIDIByte2-76], MIDIByte3
@@ -247,20 +251,20 @@
 	elseif MIDIByte2=90 and MIDIByte3<=8 // MGEN setup in MG Kntrol
 			mode=6
 			in_mode_select=FALSE
-			last_mgen_pad=MIDIByte3
+			sel_mgen_dev=MIDIByte3
 			Call @SetupLayoutChannels
 			Call @SetupKnobset10
-			LatchPad last_mgen_pad, YES
+			LatchPad sel_mgen_dev, YES
 			
 	elseif MIDIByte2>=91 and MIDIByte2<=99 // MGEN GUI toggle
 		if MIDIByte3>0
 			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
 			mode=6
 			in_mode_select=FALSE
-			last_mgen_pad=MIDIByte2-91
+			sel_mgen_dev=MIDIByte2-91
 			Call @SetupLayoutChannels
 			Call @SetupKnobset10
-			LatchPad last_mgen_pad, YES
+			LatchPad sel_mgen_dev, YES
 		endif
 		
 	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7) //SCENE CHANGE CH16 CC100 only vals0-7
@@ -487,7 +491,7 @@
 			else
 				Call @SetupKnobset10
 			endif
-			LatchPad last_mgen_pad, YES
+			LatchPad sel_mgen_dev, YES
 		elseif last_pad=2 // TOGGLE EDIT MODE
 			edit_mode_active = NOT edit_mode_active
 			Call @SetupSettingsLayout
@@ -837,7 +841,7 @@
 @PadDownMGMode
 	// Midi Gen plugins kontrol
 	if last_pad=12
-		SendMIDICC 15, mgen_guis[last_mgen_pad], 127
+		SendMIDICC 15, mgen_guis[sel_mgen_dev], 127
 	elseif last_pad>=9 and last_pad<=13
 		//empty pads
 	elseif last_pad>=14 and last_pad<=15
@@ -847,17 +851,17 @@
 			use_mgen_knobset_a = NOT use_mgen_knobset_a
 		endif
 		edit_pad = last_pad 
-		last_mgen_pad=last_pad
+		sel_mgen_dev=last_pad
 		if use_mgen_knobset_a
 			Call @Setupknobset8 //setup a
 		else 
 			Call @SetupKnobset9 //setup b
 		endif
 	else
-		if last_pad = last_mgen_pad //user hit same pad again
-			SendMIDICC 15, mgen_guis[last_mgen_pad], 127 // toggle gui
+		if last_pad = sel_mgen_dev //user hit same pad again
+			SendMIDICC 15, mgen_guis[sel_mgen_dev], 127 // toggle gui
 		endif
-	  last_mgen_pad=last_pad
+	  sel_mgen_dev=last_pad
 		edit_pad = last_pad
 		Call @SetupKnobset10 //use m-kntrl knobs
 	endif
@@ -865,7 +869,7 @@
 		LatchPad i, no 
 		SendMIDINoteOn 15, i,  mgen_colors[i] //LED FEEDBACK
 	endfor
-	LatchPad last_mgen_pad, YES
+	LatchPad sel_mgen_dev, YES
 	SendMIDINoteOn 15, last_pad, 8 //LED FEEDBACK
 @End
 
@@ -1593,46 +1597,46 @@
 	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
 	knob_set = 8
 	LabelPads {KNTRL : [ MIDI GENERATORS ]}
-	LabelKnobs {SETUP PAD }, last_mgen_pad+1
-	LabelKnob 0, {Label }, mgen_labels[last_mgen_pad]
-	LabelKnob 1, {Color }, mgen_colors[last_mgen_pad]
-	LabelKnob 2, {GUI CC }, mgen_guis[last_mgen_pad]
+	LabelKnobs {SETUP PAD }, sel_mgen_dev+1
+	LabelKnob 0, {Label }, mgen_labels[sel_mgen_dev]
+	LabelKnob 1, {Color }, mgen_colors[sel_mgen_dev]
+	LabelKnob 2, {GUI CC }, mgen_guis[sel_mgen_dev]
 	LabelKnob 3, { }
-	SetKnobValue 0, TranslateScale mgen_labels[last_mgen_pad], 0, 20, 0, 127
-	SetKnobValue 1, TranslateScale mgen_colors[last_mgen_pad], 0, 6, 0, 127
-	SetKnobValue 2, TranslateScale mgen_guis[last_mgen_pad], 0, 127, 0, 127 
+	SetKnobValue 0, TranslateScale mgen_labels[sel_mgen_dev], 0, 20, 0, 127
+	SetKnobValue 1, TranslateScale mgen_colors[sel_mgen_dev], 0, 6, 0, 127
+	SetKnobValue 2, TranslateScale mgen_guis[sel_mgen_dev], 0, 127, 0, 127 
 	SetKnobValue 3, 0	
 @End
 
 @KnobChangeSet8
 	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
-	if last_knob=0 and last_mgen_pad<=9
-		mgen_labels[last_mgen_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 20
-		pad_to_label=last_mgen_pad
-		mgen_pad=last_mgen_pad // settings mode labels pad7 diff loc.
+	if last_knob=0 and sel_mgen_dev<=9
+		mgen_labels[sel_mgen_dev] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 20
+		pad_to_label=sel_mgen_dev
+		mgen_pad=sel_mgen_dev // settings mode labels pad7 diff loc.
 		Call @LabelMGENPad
 	endif
 	if last_knob = 1
-		mgen_colors[last_mgen_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
+		mgen_colors[sel_mgen_dev] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
 		LatchPad last_pad, NO 
-		ColorPad last_pad, mgen_colors[last_mgen_pad]
+		ColorPad last_pad, mgen_colors[sel_mgen_dev]
 	endif
 	if allow_edit_mgen_ccs
 		if last_knob = 2
-			mgen_guis[last_mgen_pad] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
+			mgen_guis[sel_mgen_dev] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
 		endif
 	endif
-	LabelKnob 0, {Label }, mgen_labels[last_mgen_pad]
-	LabelKnob 1, {Color }, mgen_colors[last_mgen_pad]
-	LabelKnob 2, {GUI CC }, mgen_guis[last_mgen_pad]
+	LabelKnob 0, {Label }, mgen_labels[sel_mgen_dev]
+	LabelKnob 1, {Color }, mgen_colors[sel_mgen_dev]
+	LabelKnob 2, {GUI CC }, mgen_guis[sel_mgen_dev]
 @End
 
 @SetupKnobset9
 	//# MGEN -KONTROL SETUP B - CC#s 1-4
 	knob_set = 9
-	pad_slot=[4 * last_mgen_pad] //location channel 17
+	pad_slot=[4 * sel_mgen_dev] //location channel 17
 	LabelPads {KNTRL : [ MIDI GENERATORS ]}
-	LabelKnobs {SETUP PAD }, last_mgen_pad+1
+	LabelKnobs {SETUP PAD }, sel_mgen_dev+1
 	LabelKnob 0, {cc#}, mgen_ccs[pad_slot]
 	LabelKnob 1, {cc#}, mgen_ccs[pad_slot+1]
 	LabelKnob 2, {cc#}, mgen_ccs[pad_slot+2]
@@ -1645,7 +1649,7 @@
 
 @KnobChangeSet9
 	//# MGEN-KONTROL SETUP B - CC#'s 1-4 (*** IF allow_edit_mgen_ccs OnKnobChange)
-	pad_slot=[4 * last_mgen_pad] //location channel 17
+	pad_slot=[4 * sel_mgen_dev] //location channel 17
 	if last_knob = 0
 		mgen_ccs[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 	endif
@@ -1667,9 +1671,9 @@
 @SetupKnobset10
 	//# MGEN-KONTROL USAGE - VAL KNOBS1-4
 	knob_set = 10
-	pad_slot=[4 * last_mgen_pad] //location channel 17
+	pad_slot=[4 * sel_mgen_dev] //location channel 17
 	LabelPads {KNTRL : [ MIDI GENERATORS ]}
-	LabelKnobs {PAD }, last_mgen_pad+1
+	LabelKnobs {PAD }, sel_mgen_dev+1
 	LabelKnob 0, {cc}, mgen_ccs[pad_slot+0], {:}, mgen_vals[pad_slot]
 	LabelKnob 1, {cc}, mgen_ccs[pad_slot+1], {:}, mgen_vals[pad_slot+1]
 	LabelKnob 2, {cc}, mgen_ccs[pad_slot+2], {:}, mgen_vals[pad_slot+2]
@@ -1682,7 +1686,7 @@
 
 @KnobChangeSet10
 	//# MGEN-KONTROL USAGE - Val knobs 1-4
-	pad_slot=[4 * last_mgen_pad] //location channel 17
+	pad_slot=[4 * sel_mgen_dev] //location channel 17
 	if last_knob = 0
 		mgen_vals[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 	endif
