@@ -49,16 +49,18 @@
 	seq_type=4 //# sequence lane to edit. Step, Note, Velo, CC
 	euc_type=0
 	rot_type=0
-	timer_intervals=[500, 700, 150, 150, 700]
 	label_style=4 //#0-3 seq_types, 4 all_seq_type_sel_ch, 5_all_ch's_al_seq's
 	label_view_mode=4 //# A toggle for the settings pad. 4 or 5. Updates label_style also, which is used more frequently for sequence editing
   presets=[]
   preset_num=0
-  move_all_dir=0
   step_val=0
   copy_paste_status=0 //# Copy paste 0=off; 1=Copied; 2=Paste
   return_to_mode=0 //# Copy paste on completion
 	rnd_scene_chg=FALSE //# will select rnd scene on (auto) change not user change
+	rot_dir=1
+	move_all=0 //boolean to move all or move 1 in step edit
+	move_all_dir=0 //direction for all to move in step edit mode
+	last_pad=0
 @End
 
 @SetupSequences
@@ -732,13 +734,35 @@
     	Call @ResetScenePatternSequence
   	endif
   elseif (NOT in_mode_select and in_seq_mode)
-  	sel_pad=last_pad
+		Log {mode=},mode
+		sel_pad=last_pad
 		if mode=8 and not steps_record_mode//# Step sequence mode
   		Call @UpdateSelStepType //# 0=off; 1=on;
-		elseif (mode=9 and seq_type=4)
-		  Call @UpdateSelStepType //# 0=off; 1=on;
-  	elseif (mode>=10 and mode<=13)
-  		Call @UpdateSelStepType //# 0=off; 1=on; 
+		elseif (mode=9 and seq_type=4 and not move_all)  //setp edit ALL adjust move_all_dir
+			Call @UpdateSelStepType //# 0=off; 1=on;
+  	elseif (mode=9 and move_all)
+			if last_pad=14
+				move_all_dir=-1
+				Call @MoveAllSteps
+			elseif last_pad=15
+				move_all_dir=1
+				Call @MoveAllSteps
+			else 
+				move_all_dir=0
+			endif
+		elseif (mode>=10 and mode<=13)
+			if mode=12 //rotate sequence xyz
+				if last_pad=14
+					rot_dir=-1
+				elseif last_pad=15
+					rot_dir=1
+				else 
+					rot_dir=0
+				endif
+				Call @RotateSequence
+			else
+				Call @UpdateSelStepType //# 0=off; 1=on;
+			endif 
   	elseif mode=8 and steps_record_mode
   		step_slot=(current_scene*128)+(current_pattn*16)
 			if seq_ch=0
@@ -1602,10 +1626,7 @@
   endif	
   SetKnobValue 1, TranslateScale seq_type, 0, 4, 0, 127
   SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
-  if Round TranslateScale (GetKnobValue 3), 0, 127, -1, 1 <> move_all_dir
-  	SetKnobValue 3, TranslateScale 0, -1, 1, 0, 127
-  endif
-  move_all_dir=0
+  SetKnobValue 3, TranslateScale move_all, 0, 1, 0, 127
   Call @LabelSet5Knobs
 @End
 
@@ -1629,19 +1650,10 @@
     Call @SetStepVal
   endif
   if (LastKnob=3) //# ALL STEPS
-    move_all_dir = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 1
-  	if move_all_dir <> 0
-  		timer_type=0
-  		ResetTimer
-  		SetTimerInterval (timer_intervals[seq_type])
-  		StartTimer
-  	else	
-  		StopTimer
-  		label_style=label_view_mode
-  		Call @SetupLayout
-			Call @GetStepVal
-    	SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
-  	endif
+    val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
+  	if move_all <> val
+  		move_all=val
+		endif	
   endif
   Call @LabelSet5Knobs
   sel_pad = sel_step
@@ -1649,16 +1661,7 @@
   Call @LabelSequencePad
 @End
 
-@OnTimer //# Route to correct timer function
-	timer_rpts=timer_rpts+1
-	if timer_type=0
-		Call @MoveAllSteps
-	elseif timer_type=1
-		Call @RotateSequence
-	endif
-@End
-
-@MoveAllSteps //# Timer for notes move 
+@MoveAllSteps //# Step edit move all steps 
 	for i = 0 to 15
 		slot=(current_scene*128)+(current_pattn*16)+i
 		if (seq_type=0) and (seq_ch=0) and note_set_type<=1
@@ -1698,13 +1701,13 @@
 		elseif (seq_type=3) and (seq_ch=3)
 			seq3_ccs[slot] = Clip (seq3_ccs[slot]+ move_all_dir), -1, 127
 		elseif (seq_type=4) and (seq_ch=0)
-			seq0_steps[slot] = Clip (seq0_steps[slot]+ move_all_dir), 0, 2
+			seq0_steps[slot] = Clip (seq0_steps[slot]+ move_all_dir), 0, 1
 		elseif (seq_type=4) and (seq_ch=1)
-			seq1_steps[slot] = Clip (seq1_steps[slot]+ move_all_dir), 0, 2
+			seq1_steps[slot] = Clip (seq1_steps[slot]+ move_all_dir), 0, 1
 		elseif (seq_type=4) and (seq_ch=2)
-			seq2_steps[slot] = Clip (seq2_steps[slot]+ move_all_dir), 0, 2
+			seq2_steps[slot] = Clip (seq2_steps[slot]+ move_all_dir), 0, 1
 		elseif (seq_type=4) and (seq_ch=3)
-			seq3_steps[slot] = Clip (seq3_steps[slot]+ move_all_dir), 0, 2
+			seq3_steps[slot] = Clip (seq3_steps[slot]+ move_all_dir), 0, 1
 		endif
 	endfor
 	label_style=seq_type
@@ -1834,6 +1837,15 @@
 @end
 
 @LabelSet5Knobs
+	if move_all=1
+	  LabelPads {STEP EDIT ALL: Pad15-Decrease, Pad16-Increase "Knob2" value for all steps}
+		FlashPad 14
+		FlashPad 15
+	elseif move_all=0 and seq_type=4
+		LabelPads {STEP EDIT ONE: Tap STEP to toggle on/off state}
+	else
+	  LabelPads {STEP EDIT ONE: Tap Step. Select "TYPE" to edit. Edit value for selected pad}
+	endif
 	LabelKnobs {CH}, seq_ch+1, { SC}, current_scene+1, { PT}, current_pattn+1, { STEP}, sel_step+1
 	//# KNOB 0
 	LabelKnob 0, {CH: }, seq_ch+1
@@ -1873,12 +1885,10 @@
 	if note_set_type=12
 		LabelKnob 3, { }
 	else 
-		if (move_all_dir<0)
-		  LabelKnob 3, {<<<}
-		elseif (move_all_dir>0)
-			LabelKnob 3, {>>>}
+		if move_all=1	
+		  LabelKnob 3, {<< ALL >>}
 		else
-			LabelKnob 3, {<<ALL>>}
+			LabelKnob 3, {< Move1 >}
 		endif
 	endif
 @End
@@ -2303,64 +2313,10 @@
 @SetupKnobset9 //# ROTATION
   knob_set = 9
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { ROTATE}
-  rot_dir=0 //# reset on setup knobs
   SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
   SetKnobValue 1, TranslateScale rot_type, 0, 5, 0, 127
   SetKnobValue 2, TranslateScale rot_dir, -1, 1, 0, 127
   SetKnobValue 3, 0
-  LabelKnob 0, {CH: }, seq_ch+1
-  if rot_type=0
-		LabelKnob 1, {ALL}
-	elseif rot_type=1
-		LabelKnob 1, {NOTE}
-	elseif rot_type=2
-		LabelKnob 1, {OCT.}
-	elseif rot_type=3
-		LabelKnob 1, {VELO}
-	elseif rot_type=4
-		LabelKnob 1, {CC}
-	elseif rot_type=5
-		LabelKnob 1, {STEP}
-	endif
-	if rot_dir=0
-		LabelKnob 2, {< ROT >}
-  elseif rot_dir=-1
-  	LabelKnob 2, {<<< ROT}
-  else
-  	LabelKnob 2, {ROT >>>}
-  endif
-  LabelKnob 3, { } //# not in use
-@End
-
-@KnobChangeSet9
-  //# ROTATION xs9
-  LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { ROTATE}
-  if LastKnob = 0
-    new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
-		if new_seq_ch <> seq_ch
-			seq_ch=new_seq_ch
-			Call @LabelAllSequencePads
-		endif
-	endif
-  if LastKnob = 1
-    rot_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 5
-	endif
-  if LastKnob = 2
-    rot_dir = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 1
-    if rot_dir <> 0
-  		timer_type=1
-  		ResetTimer
-  		SetTimerInterval (400)
-  		StartTimer
-  		timer_rpts=0
-  	else	
-  		StopTimer
-		endif
-  endif
-  if LastKnob = 3
-  	//# not in use
-  endif
-  
   LabelKnob 0, {CH: }, seq_ch+1
   if rot_type=0
 		LabelKnob 1, {ALL}
@@ -2381,7 +2337,43 @@
   	LabelKnob 2, {<<< ROT}
   else
   	LabelKnob 2, {ROT >>>}
+	endif
+  LabelKnob 3, { } //# not in use
+	FlashPad 14 //attention use these to rotate
+	FlashPad 15 
+@End
+
+@KnobChangeSet9
+  //# ROTATION xs9
+  LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { ROTATE}
+  if LastKnob = 0
+    new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
+		if new_seq_ch <> seq_ch
+			seq_ch=new_seq_ch
+			Call @LabelAllSequencePads
+		endif
+	endif
+  if LastKnob = 1
+    rot_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 5
+	endif
+  if LastKnob = 3
+  	//# not in use
   endif
+  
+  LabelKnob 0, {CH: }, seq_ch+1
+  if rot_type=0
+		LabelKnob 1, {ALL}
+	elseif rot_type=1
+		LabelKnob 1, {NOTE}
+	elseif rot_type=2
+		LabelKnob 1, {OCT.}
+	elseif rot_type=3
+		LabelKnob 1, {VELO}
+	elseif rot_type=4
+		LabelKnob 1, {CC}
+	elseif rot_type=5
+		LabelKnob 1, {STEP}
+	endif
   LabelKnob 3, { }
 @End
 
@@ -2616,7 +2608,6 @@
 	elseif mode = 9
 		label_style=label_view_mode
 	  Call @SetupKnobset5 //# SEQUENCE EDIT ALL TYPES
-	  LabelPads {STEP EDIT: Select Note, Oct, Velo, CC, Step. Tap Step. Edit value}
 	elseif mode = 10
 		label_style=label_view_mode
 	  Call @SetupKnobset7 //# MELODY GENERATION
@@ -2626,7 +2617,7 @@
 	elseif mode = 12
 	    label_style=label_view_mode
 	  Call @SetupKnobset9 //# ROTATE
-	  LabelPads {ROTATE SEQUENCE: Select CH, type and use <ROT> to rotate.}
+	  LabelPads {ROTATE SEQUENCE: Select CH. Tap  <<pad15 or pad16>> to rotate.}
 	endif 
 	Call @LabelAllSequencePads
 @End

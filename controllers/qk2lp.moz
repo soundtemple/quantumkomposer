@@ -70,7 +70,7 @@
 	//messages from KNTRL will send a color 0-9 as value MIDIBYTE3. Map to controller colours here:
 	to_pad_col = [off, pred, orange, pgreen, pblue, purple, mauve, pink, white, beige, pred, grey] 
 	
-	colors[91] = [beige,	beige,	red,		green, 	pgreen, grey, 	grey, 	grey,		off] //drambo, transport, mode
+	colors[91] = [off,		off,		red,		green, 	pgreen, grey, 	grey, 	grey,		off] //drambo, transport, mode
 	colors[81] = [orange, orange, orange, pink, 	pink, 	green,  blue, 	purple,	off] //mgen select
 	colors[71] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
 	colors[61] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
@@ -78,7 +78,7 @@
 	colors[41] = [pgreen, pgreen, pgreen,	pgreen,	purple,	purple,	purple,	grey,		off] //channel select
 	colors[31] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //kntrl pads
 	colors[21] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //kntrl pads
-	colors[11] = [off, 		white, 	white, 	off,		off,		off,		off,		off,		off] //shifts mixer select
+	colors[11] = [off, 		white, 	white, 	off,		off,		grey,		grey,		grey,		off] //shifts mixer select
 @End
 
 @SetupControllerToQKMappings
@@ -87,9 +87,7 @@
 	kntrl_pads= [31,32,33,34,35,36,37,38, 21,22,23,24,25,26,27,28] //pads assigned to 16 kntrl pads
 	channel_pads = [51,52,53,54, 55,56,57,58, 41,42,43,44, 45,46,47,48] //pads assigned to instrument selection
 	scene_pads = [89,79,69,59,49,39,29,19] //pads assigned to scene selection
-	led_layout1=TRUE
-	led_layout1=TRUE
-		
+	
 	FillArray msg_type, 0, 127 //0=Note; 1=CC set pads that send notes
 	msg_type[91] = [1,1,1,1, 1,1,1,1, 1] //top row pads send cc
 	for i = 0 to 8 //scene pads send cc
@@ -134,15 +132,19 @@
 		if MIDIByte2<=16 and kntrl_pads[MIDIByte2]>=0 //handle: kntrl pads 0-16 
 			if led_layout1 and MIDIByte3=0
 				col=112
-			else 
+			elseif led_layout1 and MIDIByte3>0
 				col=to_pad_col[MIDIByte3]
+			elseif not led_layout1
+			  col=off
 			endif
 			SendMIDINoteOn lp_ch, kntrl_pads[MIDIByte2], col
 		elseif (MIDIByte2>=20 and MIDIByte2<=46 and mgen_seq_pads[MIDIByte2-20]>=0) //handle mgen pads 20-46
 			if led_layout1 and MIDIByte3=0
 				col=112
-			else 
+			elseif led_layout1 and MIDIByte3>0 
 				col=to_pad_col[MIDIByte3]
+			elseif not led_layout1
+			  col=off
 			endif
 		  SendMIDINoteOn lp_ch, mgen_seq_pads[MIDIByte2-20], col
 			colors[mgen_seq_pads[MIDIByte2-20]]=col //store the current pad color for metro pulse overlay removal
@@ -162,10 +164,28 @@
 			// LP Top row btn 1 - not in use
 		elseif MIDIByte2=30
 			// Toggle metro pulse
+			Log {toggle metro pulse}
 			show_metro_pulse = not show_metro_pulse
+			if show_metro_pulse
+				colors[16]=90
+			else
+			  colors[16]=grey
+			endif
+			SendMIDINoteOn lp_ch, 16, colors[16] //light pad
 		elseif MIDIByte2=31
 			// Toggle KNTRL mode layout
+			Log {Toggle KNTRL Layout}
 			led_layout1 = not led_layout1
+			if led_layout1
+				colors[17]=grey
+			else
+			  colors[17]=90
+			endif
+			Call @UpdateAllPads
+			for i=0 to 15
+				SendMIDINoteOn lp_ch, mgen_seq_pads[i], off //wipe pads when layout uses blank
+				SendMIDINoteOn lp_ch, kntrl_pads[i], off
+			endfor
 		elseif MIDIByte2=32
 			// LP Bottom row btn 8 - not in use
 		elseif MIDIByte2>=40 and MIDIByte2<=43 //mgen knob for selected mgen device
