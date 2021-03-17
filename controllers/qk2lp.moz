@@ -10,13 +10,16 @@
 		ppqn=4
 		lp_ch=0 //channel LP receives messages on
 		in_ch=15 //channel LED feedback messages received on
+		tmode_btn1=FALSE //a toggle mode button top row pad1
+		tmode_btn2=FALSE //a toggle mode button top row pad2
+		lmode_btn2=FALSE //a toggle mode button bottom row pad 8
 		show_metro_pulse=FALSE //display a running metro pulse on the MGEN pads
 		led_layout1=TRUE //toggle LED highlights for pads or mgen/ch selection
 		selected_channel=0
 		selected_mgen=0
 		selected_scene=0
 		brightness=64
-		//SYSEX
+		//SYSEX 
 		lp_sysex_header=[0xF0,0x00,0x20,0x29,0x02,0x0D]
 		qk_sysex_header=[0x3F,0x40,0x3F,0x40,0x3F,0x40]
 		cmd_lp_mode=0 //see below for mode #'s'
@@ -160,8 +163,24 @@
 			Call @UpdateSelectedChannel
 		elseif MIDIByte2=28
 			// LP Top row btn 1 - not in use
+			Log {toggle mode btn1}
+			tmode_btn1 = not tmode_btn1
+			if tmode_btn1
+				colors[91]=blue
+			else
+			  colors[91]=off
+			endif
+			SendMIDINoteOn lp_ch, 16, colors[16] //light pad
 		elseif MIDIByte2=29
-			// LP Top row btn 1 - not in use
+			// LP Top row btn 2 - not in use
+			Log {toggle mode btn2}
+			tmode_btn2 = not tmode_btn2
+			if tmode_btn2
+				colors[92]=blue
+			else
+			  colors[92]=off
+			endif
+			SendMIDINoteOn lp_ch, 16, colors[16] //light pad
 		elseif MIDIByte2=30
 			// Toggle metro pulse
 			Log {toggle metro pulse}
@@ -187,7 +206,15 @@
 				SendMIDINoteOn lp_ch, kntrl_pads[i], off
 			endfor
 		elseif MIDIByte2=32
-			// LP Bottom row btn 8 - not in use
+			// Toggle lower mode btn3 bottom row
+			Log {toggle lower_mode btn3}
+			lmode_btn3 = not lmode_btn3
+			if lmode_btn3
+				colors[18]=90
+			else
+			  colors[18]=grey
+			endif
+			SendMIDINoteOn lp_ch, 16, colors[17] //light pad
 		elseif MIDIByte2>=40 and MIDIByte2<=43 //mgen knob for selected mgen device
 			SendMIDICC in_ch, MIDIByte2, MIDIByte3 // sends feedback back to Twister for LED update
 		elseif MIDIByte2=88 //handle stuck note button LED
