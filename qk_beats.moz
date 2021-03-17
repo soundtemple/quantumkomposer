@@ -614,9 +614,14 @@
 				mode = last_pad
 	    	Call @OnPadDown_KnobSetSelect
 			endif
+			for i = 0 to (number_of_modes - 1)
+				ColorPad i, settings_pad_cols[i]
+				if mgen_device_id=mgen_sel_dev
+					SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
+				endif
+				LatchPad i, NO 
+			endfor
 			LatchPad mode, YES
-			in_mode_select=FALSE //hack to reload settings mode with correct colors 
-			Call @OnShiftDown2
     elseif (last_pad>=8 and last_pad<=12)
     	if last_pad = 8
 	      Call @SetupKnobset6 //# SEQUENCE SETUP
