@@ -734,7 +734,6 @@
     	Call @ResetScenePatternSequence
   	endif
   elseif (NOT in_mode_select and in_seq_mode)
-		Log {mode=},mode
 		sel_pad=last_pad
 		if mode=8 and not steps_record_mode//# Step sequence mode
   		Call @UpdateSelStepType //# 0=off; 1=on;
