@@ -14,8 +14,6 @@
 		edit_mode_active=FALSE //in edit mode use 20knob layout to step edit each beat
 		SetMetroPPQN 4
 		ppqn = 4
-		mgen_device_num=-1 //used for midi control of pads
-		selected_mgen=-1
 		knob_set=0
 		edit_scene=0
 		locked_to_scene=0
@@ -27,8 +25,9 @@
 		interpolate_autom=TRUE
 		send_automation_data_enabled=TRUE // toggle to disable temporarily
 		FillArray interpolation_buffer, -1, 48
+		FillArray pad_colors, 0, 16 //state storing for 16 pad colours
 		last_pad_again=FALSE
-		mgen_device_id=-1 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=4 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		send_cc_back_to_knobs = TRUE
@@ -52,8 +51,6 @@
 	col_sel_scene = 4
 	col_edit_scene = 3
 	col_pending = 3
-	loop_col = 6
-	col_warn = 1
 	col_mode_select = 4 //# Mode selection buttons
 	col_unused = 0
 	col_mode_edit = 6 //# Mode selection buttons in edit mode
@@ -310,9 +307,30 @@
 @OnShiftDown
   Call @OnShiftDown2 //simply to allow midi note in simulation of SHIFT Note16 any channel
 @End	
+
+@OnMidiNote
+	//Log {midi note }, MIDIChannel, {-}, MIDIByte2, {-}, MIDIByte3, {selmgen:}, mgen_sel_dev, { mgen_device_id:}, mgen_device_id
+  if MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
+		// notes 20-36 on channel 16  used to trigger MGEN pads 0-15
+		if MIDINote=36 //SHIFT
+			if MIDICommand=0x90 //noteOn	
+				Call @OnShiftDown2
+			endif
+		else
+			last_pad = MIDINote-20
+			if MIDICommand=0x90 and MIDIByte3>0 //noteOn
+				Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mosaic
+			elseif MIDICommand=0x90 and MIDIByte3=0
+				Call @OnPadUp2
+			elseif MIDICommand=0x80 //Note off
+			  Call @OnPadUp2
+			endif
+		endif
+	endif		
+@End
 	
 @OnShiftDown2
-	//Log {MODE: }, mode
+	Log {MODE: }, mode
 	if in_mode_select //# Exit SHIFT MODE
 		in_mode_select = FALSE	
 		if mode=0
@@ -483,7 +501,9 @@
 		endfor
 		auto_lane = previous_auto_lane
 	endif
-	ColorPad scene_task, 3
+	pad_to_label=scene_task
+	pad_color=3
+	Call @UpdateSinglePad
 	LabelPad scene_task, {Done!}
 	SetTimerInterval 1000
 	StartTimer
@@ -623,11 +643,7 @@
 	in_mode_select = TRUE
 	ShowLayout 2
 	LabelPads {AUTOM : [ SETTINGS ]}
-	autom_settings_pad_cols = [4,4,4,0,4,4,0,0,  2,2,2,2,2,1,1,1]
-	for i = 0 to 15
-		ColorPad i, autom_settings_pad_cols[i]
-		LatchPad i, NO
-	endfor
+	pad_colours = [4,5,5,7,7,3,0,0,  2,2,2,2,2,1,1,1]
 	ch=automation_chs[sel_autom_pad]+1
 	cc=automation_ccs[sel_autom_pad]
 	scn=edit_scene+1
@@ -640,37 +656,37 @@
 	LabelPad 2, {SET AUTOM TO END S}, edit_scene+1
 	if record_autom_on
 		LabelPads {AUTOM : [ Record autom parameters during playback. Use rec knob in setup ]}
-		ColorPad 3, 1
 		LabelPad 3, {MODE=> RECORD}
 		LabelPad 4, {AUTOM RECORD}
-		ColorPad 4, 1
+		pad_colours[3]=1
+		pad_colours[4]=1
 	elseif control_autom_on
 	  LabelPads {AUTOM : [ Control autom parameters ]}
-		ColorPad 3, 3
 		LabelPad 3, {MODE=> CONTROL}
 		LabelPad 4, {AUTOM CONTROL}
-		ColorPad 4, 3
+		pad_colours[3]=3
+		pad_colours[4]=3
 	else
 	  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS. Use con knob in setup ] }
-		ColorPad 3, 6
 		LabelPad 3, {MODE=> SETUP}
 		LabelPad 4, {AUTOM SETUP}
-		ColorPad 4, 6
+		pad_colours[3]=7
+		pad_colours[4]=7
 	endif 
 	LabelPad 5, {AUTOM EDITOR}
 	if interpolate_autom
 		LabelPad 6, {SMOOTH AUTOM ON}
-		ColorPad 6, 3
+		pad_colours[6]=2
 	else
 	  LabelPad 6, {SMOOTH AUTOM OFF}
-		ColorPad 6, 0
+		pad_colours[6]=0
 	endif
 	if send_automation_data_enabled
 		LabelPad 7, {AUTOM ENABLED}
-		ColorPad 7, 3
+		pad_colours[7]=2
 	else
 	  LabelPad 7, {AUTOM DISABLED}
-		ColorPad 7, 0
+		pad_colours[7]=0
 	endif
 	LabelPad 8, {SCN}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MIN }, min
 	LabelPad 9, {SCN}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MID }, mid
@@ -680,10 +696,25 @@
 	LabelPad 13,{DELETE S}, scn, {          AUTOM}, sap
 	LabelPad 14,{DELETE S}, scn, {          ALL AUTOMS}
 	LabelPad 15, {DELETE ALL SCENES}
-	ColorPad 13, 1
-	ColorPad 14, 1
-	ColorPad 15, 1
 	knob_set = 1 //settings knobs
+	Call @UpdateAllPadColours
+@End
+
+@UpdateAllPadColours
+	//update pad colours and send midi feedback for LED lighting
+	for i = 0 to 15
+		pad_to_label=i
+		pad_color=pad_colours[i]
+		Call @UpdateSinglePad
+	endfor
+@End
+
+@UpdateSinglePad
+	//update colour on a single pad
+	ColorPad pad_to_label, pad_color
+	if mgen_device_id=mgen_sel_dev
+		SendMIDINoteOn 15, pad_to_label+led_index, pad_color
+	endif
 @End
 
 @SendMidiCCBackToKnobs //# Update controller knob vals with midi cc
@@ -763,15 +794,15 @@
 	//# Settings knobs
 	knob_set = 1
 	LabelKnob 0, {Edit scn }, edit_scene+1
-	if mgen_device_num=-1
+	if mgen_device_id=-1
 		LabelKnob 1, {mgen# -}
 	else
-		LabelKnob 1, {mgen# }, mgen_device_num+1
+		LabelKnob 1, {mgen# }, mgen_device_id+1
 	endif
 	LabelKnob 2, {MIN }, auto_ramp_min 
 	LabelKnob 3, {MAX }, auto_ramp_max
 	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
-	SetKnobValue 1, TranslateScale mgen_device_num, -1, 8, 0, 127
+	SetKnobValue 1, TranslateScale mgen_device_id, -1, 8, 0, 127
 	SetKnobValue 2, auto_ramp_min
 	SetKnobValue 3, auto_ramp_max
 	LabelKnobs { }
@@ -788,12 +819,12 @@
 	endif
 	if LastKnob = 1
 	  val = Round TranslateScale (GetKnobValue 1), 0, 127, -1, 8
-		if val <> mgen_device_num
-			mgen_device_num=val
-			if mgen_device_num=-1
+		if val <> mgen_device_id
+			mgen_device_id=val
+			if mgen_device_id=-1
 				LabelKnob 1, {mgen# -}
 			else
-				LabelKnob 1, {mgen# }, mgen_device_num+1
+				LabelKnob 1, {mgen# }, mgen_device_id+1
 			endif
 		endif
 	endif
@@ -1025,12 +1056,12 @@
 @SetupLayoutScenes
 	//#setup layout for Scenes mode
 	LabelKnobs {Setup Scenes}
-	FillArray pad_cols, col_unused, 16
+	FillArray pad_colours, col_unused, 16
 	if mode=0 or mode=1
 		//# Setup scene pads
 		for i = 0 to 7
 			if scene_durs[i] > 0
-				pad_cols[i] = col_scene
+				pad_colours[i] = col_scene
 				scn_to_label = i
 				Call @LabelScenePad
 			else
@@ -1038,37 +1069,32 @@
 			endif
 			LatchPad i, NO
 	  endfor
-		pad_cols[current_scene]=3
-		pad_cols[edit_scene]=7
+		pad_colours[current_scene]=3
+		pad_colours[edit_scene]=7
 		if scene_change_requested>-1
-			pad_cols[scene_change_requested]=6
+			pad_colours[scene_change_requested]=6
 		endif
 		for i = 8 to 15
 			LatchPad i, NO
-			pad_cols[i]=0
+			pad_colours[i]=0
 	    LabelPad i, { }
 		endfor
 	endif
 	if (songmode = 0)
 		LabelPad 8, {SONG MODE }
 		LabelPad 9, {-}
-		pad_cols[8]=3
+		pad_colours[8]=3
 	elseif (songmode = 1)
 		LabelPad 8, {LOCKED TO S}, locked_to_scene+1
-		pad_cols[8]=2
+		pad_colours[8]=2
 		LabelPad 9, {TO SONGMODE}
-		pad_cols[locked_to_scene]=4
+		pad_colours[locked_to_scene]=4
 	endif
 	LabelPad 10, { }
 	LabelPad 13, { }
 	LabelPad 14, { }
 	LabelPad 15, { }
-	for i = 0 to 15
-		ColorPad i, pad_cols[i]
-		if mgen_device_id=mgen_sel_dev
-			SendMIDINoteOn 15, i+led_index, pad_cols[i]
-		endif
-	endfor
+	Call @UpdateAllPadColours
 @End
 
 @LabelScenePad
