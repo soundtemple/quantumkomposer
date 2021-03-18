@@ -163,7 +163,7 @@
 
 @OnHostStart
 	//# keep track of scene progress
-	Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
+	//Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
 	if (HostBeat = 0) and (HostBar = 0)
 		//# starting playback from beginning		
 		scene_beat_count = -1
