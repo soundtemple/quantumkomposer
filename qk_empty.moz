@@ -1,0 +1,150 @@
+//# QUANTUM KONTROLLER SUITE
+//# EMPTY SCRIPT WITH QKNTRL LAUNCHPAD INTEGRATION BUILT IN 
+//# SETUP...
+//# Script should receive midi from KNTRL and LP2QK scripts on channel 16 (0-15 in Mozaic)
+//# QK2LP script should receive midi from this script on channel 16 (0-15 in Mozaic) (ie feedback messages)
+//# Colors for pads are stored in pad_colors. Update these as needed then call @UpdateAllPadColors or @UpdateSinglePad
+//# See OnPadDown2 and OnShiftDown2 for usage examples
+
+@OnLoad
+	mgen_device_id=3 //used for midi control of pads. each mgen instance is assigned a number 0-7
+	ShowLayout 2
+	LabelPads {[ QUANTUM:KONTROL PLUGIN ]}
+	SetShortName {QK:??}
+	if unassigned mgen_sel_dev
+		Call @InitKnobVariables
+	endif
+@End
+
+@InitKnobVariables
+	mgen_sel_dev=0 //only selected mgen device sends LED feedback to controller	
+	led_index=20 // notes 20-46 used for updating LED feedback on 16pads
+	send_cc_back_to_knobs = TRUE //midi feedback to knobs. sent to QK2LP script 
+  knobs_controller=[15,40,41,42,43] //knobs communication for feedback [chan, k1, k2, k3, k4] device1.
+	//colors (variables corresponding to mozaic pads)
+	off=0
+	red=1
+	orange=2
+	green=3
+	blue=4
+	purple=5
+	mauve=6
+	pink=7
+	pad_colors=[3,3,3,3, 4,4,4,4, 5,5,5,5, 6,6,6,6] //a default pad color setup
+	//array storing color state of each pad. Update and call  @UpdateAllPadColors or @UpdatSinglePad
+@end
+
+@SendMidiCCBackToKnobs //# Update controller knob vals with midi cc
+	//send LED feedback when mgen device is active device to mgen knobs
+	if send_cc_back_to_knobs
+		cc_knob0 = knobs_controller[1] + (4 * mgen_device_id)
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0]  , Round GetKnobValue 0
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+1], Round GetKnobValue 1
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+2], Round GetKnobValue 2
+		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+3], Round GetKnobValue 3
+	endif
+@End
+
+@OnMidiCC
+	if MIDIChannel <> 15
+		Exit //we use channel 16 to communicate with midi gen devices. other channels used for instruments
+	endif 
+	if MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
+		//sets the current mgen device ID. If equal to mgen_sel_dev then this script will send feedback
+		mgen_sel_dev=MIDIByte2-91
+		if mgen_sel_dev= mgen_device_id
+			//Call setup of your initial layout to colors stored in pad_colors array
+			Call @UpdateAllPadColors
+		endif 
+	endif
+@End
+
+@OnMidiNote
+	if MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
+		// notes 20-36 on channel 16  used to trigger MGEN pads 0-15
+		if MIDINote=36 //SHIFT
+			if MIDICommand=0x90 //noteOn	
+				Call @OnShiftDown2
+			endif
+		else
+			last_pad = MIDINote-20
+			if MIDICommand=0x90 and MIDIByte3>0 //noteOn
+				Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mosaic
+			elseif MIDICommand=0x90 and MIDIByte3=0
+				Call @OnPadUp2
+			elseif MIDICommand=0x80 //Note off
+			  Call @OnPadUp2
+			endif
+		endif
+	else
+		//add your OnMidiNote conditions here 	  
+	endif		
+@End
+
+@OnPadDown
+  // implemented so we can use incoming midi to trigger onPadDown and onPadUp
+	last_pad = LastPad
+	Call @OnPadDown2
+@End
+
+@OnPadDown2
+	//handle PadDown events here
+	
+	//eg...
+	pad_colors[last_pad] = (Random 0, 7)
+	pad_to_label=last_pad
+	Call @UpdateSinglePad
+@End
+
+@OnPadUp
+	// implemented so we can use incoming midi to trigger onPadDown and onPadUp
+  Call @OnPadUp2
+	last_pad = LastPad
+@End
+
+
+@OnPadUp2
+	//handle PadUp events here
+	
+	//eg...
+	pad_colors[last_pad] = (Random 0, 7)
+	pad_to_label=last_pad
+	Call @UpdateSinglePad
+@End
+
+@OnShiftDown
+  Call @OnShiftDown2
+@End
+
+@OnShiftDown2
+	//handle ShiftDown events here
+	
+	//eg... set all pad colors to off
+	FillArray pad_colors, off, 16 //set pad colors to off
+	Call @UpdateAllPadColors
+@End
+
+@OnKnobChange
+	//handle knob change events here
+	
+	//after knob change events send midi feedback to knobs controller
+	Call @SendMidiCCBackToKnobs
+@End
+
+
+@UpdateAllPadColors
+	//update pad colors and send midi feedback for LED lighting
+	for i = 0 to 15
+		pad_to_label=i
+		Call @UpdateSinglePad
+	endfor
+@End
+
+@UpdateSinglePad
+	//update color on a single pad
+	ColorPad pad_to_label, pad_colors[pad_to_label] //color the mozaic layout pad
+	if mgen_device_id=mgen_sel_dev //if this script is the current mgen device
+		SendMIDINoteOn 15, pad_to_label+led_index, pad_colors[pad_to_label]  //send midi feedback to LP via QK2LP
+	endif
+@End
+
