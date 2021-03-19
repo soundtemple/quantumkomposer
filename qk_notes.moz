@@ -539,31 +539,26 @@
 				notes_instance_type=0
 			endif
 			if notes_instance_type=1
-				LabelPad 2, {QK:NOTES }, {>MELODY}
 				midi_out_chs=[4,5,6,7]
 				SetShortName {MELODY}
 			elseif notes_instance_type=2
-				LabelPad 2, {QK:NOTES }, {>HARMONY}
 				midi_out_chs=[8,9,10,11]
 				SetShortName {HARMNY}
 			elseif notes_instance_type=3
-				LabelPad 2, {QK:NOTES }, {>PERCS}
 				midi_out_chs=[1,1,1,1]
 				SetShortName {PERCS}
 			elseif notes_instance_type=4
-				LabelPad 2, {QK:NOTES }, {>LOOPS}
 				midi_out_chs=[2,2,2,2]
 				SetShortName {LOOPS}
 			elseif notes_instance_type=5
-				LabelPad 2, {QK:NOTES }, {>FX}
 				midi_out_chs=[3,3,3,3]
 				SetShortName {FX}
 			elseif notes_instance_type=0
-				LabelPad 2, {QK:NOTES }, {>NOTES}
 				midi_out_chs=[0,1,2,3]
 				SetShortName {NOTES}
 			endif
-			LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+			in_mode_select=FALSE
+			Call @OnShiftDown2
 		elseif (last_pad>=3 and last_pad<=5) or (last_pad=13 or last_pad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
     	LabelPad 6, { } //# CopyPaste not allowed
@@ -2592,16 +2587,22 @@
 		LabelPad 1, {SCENES/PATTERNS}
 		if notes_instance_type=1
 			LabelPad 2, {QK:NOTES }, {>MELODY}
+			ncol=4
 		elseif notes_instance_type=2
 			LabelPad 2, {QK:NOTES }, {>HARMONY}
+			ncol=3
 		elseif notes_instance_type=3
 			LabelPad 2, {QK:NOTES }, {>PERCS}
+			ncol=2
 		elseif notes_instance_type=4
 			LabelPad 2, {QK:NOTES }, {>LOOPS}
+			ncol=2
 		elseif notes_instance_type=5
 			LabelPad 2, {QK:NOTES }, {>FX}
+			ncol=6
 		elseif notes_instance_type=0
 			LabelPad 2, {QK:NOTES }, {>NOTES}
+			ncol=2
 		endif
 		Call @LabelSet3
 		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
@@ -2640,7 +2641,7 @@
 		elseif label_view_mode=4
 			LabelPad 15, {SEQ VIEW     }, {  CHANNEL}
 		endif
-		settings_pad_cols=[7,4,0,5,5,5,4,1, 3,3,3,3,3,1,0,2]
+		settings_pad_cols=[7,4,0,5,5,5,4,1, ncol,ncol,ncol,ncol,ncol,1,0,2]
 		if mode>=3 and mode<=5
 			settings_pad_cols[mode]=8
 		endif	
