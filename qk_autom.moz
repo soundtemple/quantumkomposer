@@ -299,6 +299,7 @@
 	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
 		mgen_sel_dev=MIDIByte2-91
 		if mgen_sel_dev= mgen_device_id
+			in_mode_select = FALSE
 			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
 		endif
 	endif

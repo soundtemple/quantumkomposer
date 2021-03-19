@@ -261,13 +261,13 @@
 	elseif MIDIByte2>=91 and MIDIByte2<=99 // MGEN GUI toggle
 		if MIDIByte3>0
 			SendMIDICC MIDIChannel, sel_mgen_dev+91, MIDIByte3
-			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 //open new mgen gui
 			mode=6
 			in_mode_select=FALSE
 			sel_mgen_dev=MIDIByte2-91
 			Call @SetupLayoutChannels
 			Call @SetupKnobset10
 			LatchPad sel_mgen_dev, YES
+			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3, 10 //open new mgen gui
 		endif
 		
 	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7) //SCENE CHANGE CH16 CC100 only vals0-7
