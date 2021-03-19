@@ -5,9 +5,12 @@
 //# To build your layouts populate the data in @BuildLayouts, @BuildKeyboardLayout and @SetLayoutName
 
 @OnLoad
+	mgen_device_id=3 //used for midi control of pads. each mgen instance is assigned a number
+	mgen_sel_dev=0 //used for midi control of pads	
+	log_notes=FALSE //setting to log notes (sent to instruments) as played
   ShowLayout 2
 	LabelPads {[ QUANTUM:KEYBOARD ]}
-	SetShortName {QK:KB1}
+	SetShortName {QKB1}
 	if unassigned layout
 		Call @InitKnobVariables
 		Call @BuildLayouts
@@ -18,29 +21,26 @@
 
 @InitKnobVariables
 	keyboard=0 //current keyboard
-	number_of_keyboards=16 //number of keyboards
+	number_of_keyboards=17 //number of keyboards
 	last_note_pad=0 //the last pad hit in a keyboard layout
 	note=60 //the note number to play on pad press after oct_adj and txpose
 	chan=0 // the midi channel to send note on pad press
-	velo=100 // the velocity to send with pad press
+	velo=100 // the velocity to send with pad press. 0 for Vel thru
 	FillArray layouts, 0, number_of_keyboards //the layout to apply to the keyboard
-	FillArray labels, 0, 1024 //index to labels
-	FillArray pad_channels, -1, 1024 //midi channel a note_pad will play on. overrides keyboard channel if >-1
-	FillArray notes, 60, 1024 //the note number a note_pad will play on
- 	FillArray velos, 100, 1024 //the def velocity for a note_pad to play at
-	FillArray colors, 0, 1024 //the pad colour of each pad in each keyboard layout
-	FillArray keybd_channels, 0, number_of_keyboards //each keyboard has a default midi ch setting
-	FillArray oct_adjustments, 0, number_of_keyboards //each layout has a default octave adj.
-	FillArray txpose_adjustments, 0, number_of_keyboards //each layout has a default transposition
-	FillArray random_vel_amts, 0, number_of_keyboards //allowable +/- fluctuation in velocity
-	log_notes=FALSE //setting to log notes as played
 	use_knobset0=TRUE
-	kntrl_keyboard_selection=[0,0,0,3, 4,5,6,7, 8,8,8,8, 0,0,0,0] //on KNTRL channel change cc24 0-15 
-	mgen_device_id=-1 //used for midi control of pads. each mgen instance is assigned a number
-	mgen_sel_dev=0 //used for midi control of pads	
 	led_index=20 // notes 20-46 used for updating LED feedback on 16pads
 	send_cc_back_to_knobs = TRUE
   knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
+	
+	//Arrays used for curent keyboard info
+	FillArray labels, 0, 1024 //index to labels
+	FillArray pad_channels, -1, 1024 //midi channel a note_pad will play on. overrides keyboard channel if >-1
+	FillArray notes, 60, 1024 //the note number a note_pad will play on
+ 	global_velo=100 //the def velocity for a note_pad to play at
+	FillArray colors, 0, 1024 //the pad color of each pad in each keyboard layout
+	FillArray oct_adjustments, 0, number_of_keyboards //each layout has a default octave adj.
+	FillArray txpose_adjustments, 0, number_of_keyboards //each layout has a default transposition
+	FillArray random_vel_amts, 0, number_of_keyboards //allowable +/- fluctuation in velocity
 @end
 
 @SendMidiCCBackToKnobs //# Update controller knob vals with midi cc
@@ -59,8 +59,9 @@
 	//Pads from top left to bottom right
 	
 	// Layout to use with each keyboard.
-	layouts =        [0,1,2,3, 4,4,4,4, 5,6,7,8, 9,10,11,12]
+	layouts =        [0,1,2,3, 4,4,15,15, 5,6,7,8, 9,10,11,12]
 	keybd_channels = [2,2,2,3, 4,5,6,7, 8,9,10,11, 6,6,6,6]
+	ntrl_keyboard_selection=[0,0,0,3, 4,5,6,7, 8,8,8,8, 0,0,0,0] //on KNTRL Instr. channel change - select a keyboard 
 	
 	for i = 0 to number_of_keyboards
 		keyboard_to_build = i 
@@ -138,6 +139,10 @@
 		labels[kb2b*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]	
 		notes[kb2b*16] = [63,64,68,70,72,74,75,76,48,50,52,52,56,58,60,62]
 		colors[kb2b*16] = [0,0,0,0,5,0,0,0,5,0,0,0,0,0,5,0]
+	elseif layouts[kb2b] = 15 //name: KORDS:MELODY CHANNEL CHORD NOTES ONLY
+		labels[kb2b*16] = [24,25,26,27,24,25,26,27, 24,25,26,27,24,25,26,27]
+		notes[kb2b*16] = [60,64,67,71, 72,76,79,83,  36,40,43,47, 48,52,55,59]
+		colors[kb2b*16] = [4,3,3,3, 4,3,3,3, 4,3,3,3, 4,3,3,3]
 	else //name: default keyboard
 		labels[kb2b*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]	
 		notes[kb2b*16] = [56,57,58,59, 60,61,62,63,48,49,50,51, 52,53,54,55]
@@ -178,6 +183,8 @@
 		LabelPads keyboard+1, { - }, {MINOR PENTATONIC}
 	elseif layout_num=14
 		LabelPads keyboard+1, { - }, {BLUES MAJOR}
+	elseif layout_num=15
+		LabelPads keyboard+1, { - }, {KORDS: MELODY CHORD NOTES ONLY}
 	else
 	  LabelPads keyboard+1, { - }, {ANOTHER LAYOUT}
 	endif
@@ -190,7 +197,10 @@
 @End
 
 @OnMidiCC
-	if MIDIChannel=15 and MIDIByte2=24 and MIDIByte3<=15
+	if MIDIChannel <> 15
+		Exit
+	endif
+	if MIDIByte2=24 and MIDIByte3<=15
 		// updates the selected keyboard based on the current channel in KNTRL
 		// map KNTRL channels to KB-1 keyboards using kntrl_keyboard_selection array
 		keyboard=kntrl_keyboard_selection[MIDIByte3]
@@ -201,21 +211,31 @@
 	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
 		mgen_sel_dev=MIDIByte2-91
 		if mgen_sel_dev= mgen_device_id
-			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
-		endif
+			Call @BuildKeyboardLayout
+			Call @LabelLayout
+			Call @SetupKnobSet
+		endif 
 	endif
 @End
 
 @OnMidiNote
-  if MIDIChannel=0 and MIDIByte2>=48 and MIDIByte2<=64
-		last_pad = MIDIByte2-48
-		if MIDICommand=0x90 //noteOn
-			Call @OnPadDown2
-			FlashPad last_pad
-		elseif MIDICommand=0x80 //Note off
-		  Call @OnPadUp2
+	if MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
+		// notes 20-36 on channel 16  used to trigger MGEN pads 0-15
+		if MIDINote=36 //SHIFT
+			if MIDICommand=0x90 //noteOn	
+				Call @OnShiftDown2
+			endif
+		else
+			last_pad = MIDINote-20
+			if MIDICommand=0x90 and MIDIByte3>0 //noteOn
+				Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mosaic
+			elseif MIDICommand=0x90 and MIDIByte3=0
+				Call @OnPadUp2
+			elseif MIDICommand=0x80 //Note off
+			  Call @OnPadUp2
+			endif
 		endif
-	endif
+	endif		
 @End
 
 @OnPadDown
@@ -233,12 +253,21 @@
 	endif
 	note = Clip (notes[last_note_pad] + (oct_adjustments[keyboard]*12) + txpose_adjustments[keyboard]), 0, 127
 	rnd_vel_amt = Random 0, random_vel_amts[keyboard]
-	velo = Clip (velos[last_note_pad] + rnd_vel_amt), 0, 127
-	
+	if global_vel=0 //THRU
+		velo = MIDIByte3
+		Log {using thru velocity}
+	else
+	  velo = Clip (global_velo + rnd_vel_amt), 0, 127
+	endif
 	// SEND THE NOTE and store note data for note off msg
 	SendMIDINoteOn chan, note, velo
 	note_on_store[last_pad] = note
 	chan_on_store[last_pad] = chan
+	
+	//color held pad white
+	pad_to_label=last_pad
+	pad_color=8
+	Call @UpdateSinglePad
 	
 	if log_notes
 		Log {Pad: }, last_pad, { Ch: }, chan, { Note: }, (NoteName note, YES), { Velo: }, velo, { Keyboard: }, Keyboard, { Layout: }, layouts[keyboard]
@@ -256,9 +285,19 @@
 @OnPadUp2
   // SEND NOTE OFF
 	SendMIDINoteOff chan_on_store[last_pad], note_on_store[last_pad], 127
+	
+	//re-color white pad back to pad color
+	LatchPad last_pad, FALSE
+	pad_to_label=last_pad
+	pad_color=colors[(keyboard*16)+last_pad]
+	Call @UpdateSinglePad
 @End
 
 @OnShiftDown
+  Call @OnShiftDown2
+@End
+
+@OnShiftDown2
   use_knobset0 = not use_knobset0	
 	Call @SetupKnobSet
 	Call @SendMidiCCBackToKnobs
@@ -278,11 +317,15 @@
 	knob_set=0
 	LabelKnobs {SETUP}
 	LabelKnob 0, {Keybrd }, keyboard+1
-	LabelKnob 1, {Velo }, velos[last_note_pad]
+	if global_velo=0
+		LabelKnob 1, {vTHRU}
+	else
+		LabelKnob 1, {Velo }, global_velo
+	endif
 	LabelKnob 2, {Oct }, oct_adjustments[keyboard]
 	LabelKnob 3, {Txpose }, txpose_adjustments[keyboard]
 	SetKnobValue 0, TranslateScale keyboard, 0, number_of_keyboards-1, 0, 127
-	SetKnobValue 1, TranslateScale velos[last_note_pad], 0, 127, 0, 127
+	SetKnobValue 1, TranslateScale global_velo, 0, 127, 0, 127
 	SetKnobValue 2, TranslateScale oct_adjustments[keyboard], -2, 2, 0, 127
 	SetKnobValue 3, TranslateScale txpose_adjustments[keyboard], -12, 12, 0, 127 
 @End
@@ -294,7 +337,7 @@
 	LabelKnob 0, {Keybrd }, keyboard+1
 	LabelKnob 1, {Layout }, layouts[keyboard]
 	LabelKnob 2, {RndV+/- }, random_vel_amts[keyboard]
-	LabelKnob 3, {GCh }, keybd_channels[keyboard]+1
+	LabelKnob 3, {DefCh }, keybd_channels[keyboard]+1
 	SetKnobValue 0, TranslateScale keyboard, 0, number_of_keyboards-1, 0, 127
 	SetKnobValue 1, TranslateScale layouts[keyboard], 0, 15, 0, 127
 	SetKnobValue 2, TranslateScale random_vel_amts[keyboard], 0, 64, 0, 127
@@ -321,8 +364,12 @@
 			Call @SetupKnobSet
 		endif
 	elseif LastKnob=1
-	  velos[last_note_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
-		LabelKnob 1, {Velo }, velos[last_note_pad]
+	  global_velo = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
+		if global_velo=0
+			LabelKnob 1, {vTHRU}
+		else
+			LabelKnob 1, {Velo }, global_velo
+		endif
 	elseif LastKnob=2
 	  val = Round TranslateScale (GetKnobValue 2), 0, 127, -2, 2
 		if val <> oct_adjustments[keyboard]
@@ -459,5 +506,29 @@
 	else
 		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {NOTE PAD}
 	endif
-	ColorPad pad_to_label, colors[note_pad_to_label]
+	pad_color=colors[note_pad_to_label]
+	Call @UpdateSinglePad
 @End
+
+@UpdateAllPadColors
+	//update pad colors and send midi feedback for LED lighting
+	for i = 0 to 15
+		pad_to_label=i
+		pad_color=colors[(keyboard*16)+pad_to_label]
+		Call @UpdateSinglePad
+	endfor
+@End
+
+@UpdateSinglePad
+	//update color on a single pad
+	if pad_color=8
+		LatchPad pad_to_label, TRUE
+	else
+		LatchPad pad_to_label, FALSE
+		ColorPad pad_to_label, pad_color
+	endif
+	if mgen_device_id=mgen_sel_dev
+		SendMIDINoteOn 15, pad_to_label+led_index, pad_color
+	endif
+@End
+

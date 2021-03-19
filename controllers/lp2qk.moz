@@ -60,9 +60,9 @@
 	on_val[11] = [127,127,127,127, 127,127,127,127, 127]
 	
 	off_val[91] = [-1,-1,-1,-1, -1,-1,-1,-1, -1] //msg value to send on pad release if >= 0
-	off_val[81] = [0,  0, 0, 0,  0, 0, 0, 0, -1] 
+	off_val[81] = [-1,-1,-1,-1, -1,-1,-1,-1, -1] 
 	off_val[71] = [0,  0, 0, 0,  0, 0, 0, 0, -1]
-	off_val[61] = [-1,-1,-1,-1, -1,-1,-1,-1, -1]
+	off_val[61] = [0,  0, 0, 0,  0, 0, 0, 0, -1]
 	off_val[51] = [-1,-1,-1,-1, -1,-1,-1,-1, -1]
 	off_val[41] = [-1,-1,-1,-1, -1,-1,-1,-1, -1]
 	off_val[31] = [0,  0, 0, 0,  0, 0, 0, 0, -1]
@@ -83,7 +83,7 @@
 @OnMidiNote
 	//Midi note messages from LP converted to...
 	mb2=MIDIByte2
-	
+	//Log {midi note }, MIDIChannel, {-}, MIDIByte2, {-}, MIDIByte3
 	if MIDIChannel=lp_ch and MIDICommand=0x90 // Pad Press (NoteOn Msg)
 		if msg_type[mb2]=0 and msg_num[mb2]>=0  and on_val[mb2]>=0 
 			SendMIDINoteOn out_ch[mb2], msg_num[mb2], on_val[mb2]
@@ -91,7 +91,7 @@
 			SendMIDICC out_ch[mb2], msg_num[mb2], on_val[mb2]
 		endif
 	elseif MIDIChannel=lp_ch and MIDICommand=0x80 //Pad Release (NoteOff Msg)
-	  if msg_type[mb2]=0 and msg_num[mb2]>=0 and off_val[mb2]>=0
+		if msg_type[mb2]=0 and msg_num[mb2]>=0 and off_val[mb2]>=0
 			SendMIDINoteOff out_ch[mb2], msg_num[mb2], off_val[mb2]
 		elseif msg_type[mb2]=1 and msg_num[mb2]>=0 and off_val[mb2]>=0
 			SendMIDICC out_ch[mb2], msg_num[mb2], off_val[mb2]	

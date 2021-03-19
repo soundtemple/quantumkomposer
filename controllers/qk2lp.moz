@@ -4,8 +4,8 @@
 // Routing: Instruments => LP Adapter => LP Controller  
 
 @OnLoad
+	SetShortName {QK2LP}
 	if Unassigned lp_ch
-		SetShortName {QK2LP}
 		Log {QK > LP : Handles messages from QK. Adapts and routes to LP for LED illumination}
 		ppqn=4
 		lp_ch=0 //channel LP receives messages on
