@@ -556,7 +556,7 @@
 	in_mid_step=[0,0,0,0]
   
   //# Label pads
-  LabelPads {_QK:BEATS  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
+  LabelPads {Scene: }, current_scene+1, { Pattern: }, current_pattn+1
   //Log {----- PATTERN CHANGE -----}, {S}, current_scene+1, { P}, current_pattn+1, { PS}, pattn_slot
   Call @SetupLayout
 @End
@@ -684,11 +684,11 @@
 		endif
 		//# Handle mode change
 		if mode = 0
-			LabelPads {_QK:BEATS     PLAYBACK MODE: Loop whole song}
+			LabelPads {PLAYBACK MODE: Loop whole song}
 			songmode = 0
 			in_seq_mode = FALSE
 		elseif mode=1
-			LabelPads {_QK:BEATS  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
+			LabelPads {Scene: }, current_scene+1, { Pattern: }, current_pattn+1
 			in_seq_mode = FALSE
 		endif
 		Call @SendMidiCCBackToKnobs
@@ -1216,6 +1216,7 @@
 @SetupKnobset0 //# Scene settings
 	knob_set = 0
 	LabelKnobs {Scene }, current_scene+1, { setup}
+	LabelPads {Scene: }, current_scene+1, { Pattern: }, current_pattn+1
 	LabelKnob 0, {Duration}
 	LabelKnob 1, {Swing }, scene_swing[current_scene], {%}
 	LabelKnob 2, { }
@@ -2439,12 +2440,12 @@
 			mode=return_to_mode //# cancel cp/del
 		endif
 		copy_paste_status=0 //# In case COPYPASTE aborted
-		LabelPads {_QK:BEATS  SETTINGS:      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
+		LabelPads {SETTINGS:      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
 		//# disable knobs on entry to settings to prevent overwrite
 		knob_set=99
 		LabelKnobs { }
 		SetKnobValue 0, TranslateScale mgen_device_id, -1, 8, 0, 127
-		LabelPads {_QK:BEATS Settings}
+		LabelPads {Settings}
 		if mgen_device_id=-1
 			LabelKnob 0, {mgen# -}
 		else

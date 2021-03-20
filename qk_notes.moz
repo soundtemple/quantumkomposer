@@ -505,7 +505,7 @@
   curr_pattn_pulses=[0,0,0,0] //# reset metroPulse count for each seq.
   curr_steps=[0,0,0,0] //# reset steps for each seq.
 	in_mid_step=[0,0,0,0]
-  LabelPads {_QK:NOTES  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
+  LabelPads {Scene: }, current_scene+1, { Pattern: }, current_pattn+1
   Call @SetupLayout
 @End
 
@@ -659,11 +659,11 @@
 		endif
 		//# Handle mode change
 		if mode = 0
-			LabelPads {_QK:NOTES     PLAYBACK MODE: Loop whole song}
+			LabelPads {PLAYBACK MODE: Loop whole song}
 			songmode = 0
 			in_seq_mode = FALSE
 		elseif mode=1
-			LabelPads {_QK:NOTES  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
+			LabelPads {Scene: }, current_scene+1, { Pattern: }, current_pattn+1
 			in_seq_mode = FALSE
 		endif
 		Call @SendMidiCCBackToKnobs
@@ -2561,11 +2561,11 @@
 			mode=return_to_mode //# cancel cp/del
 		endif
 		copy_paste_status=0 //# In case COPYPASTE aborted
-		LabelPads {_QK:NOTES  SETTINGS:      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
+		LabelPads {SETTINGS:      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
 		//# disable knobs on entry to settings to prevent overwrite
 		knob_set=99
 		LabelKnobs { }
-		LabelPads {_QK:NOTES Settings}
+		LabelPads {Settings}
 		SetKnobValue 0, TranslateScale mgen_device_id, -1, 8, 0, 127
 		if mgen_device_id=-1
 			LabelKnob 0, {mgen# -}
