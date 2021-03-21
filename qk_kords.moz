@@ -522,10 +522,10 @@
 		LabelPads {MELODY MODES: 0.OFF 1.Chord, 2.RoundToChord, 3.+NonChord, 4.Bass, 5.Root, 6.Third, 7.Fifth 8.THRU}
 		Call @SetupKnobset3
 	elseif mode = 12
-		LabelPads {HARMONY MIDI CHANNELS: Notes transposed to current chord based on mode (per scene)}
+		LabelPads {HARMONY MIDI CHANNELS: Notes C-C#-D-D# (only) trigger chord note(s) out on channels 9-10-11-12 }
 		Call @SetupKnobset7
 	elseif mode = 13
-		LabelPads {HARMONY MODES: Any note in will trigger chord note out based on mode}
+		LabelPads {HARMONY MODES: Notes (C-C#-D-D#) determine channel. Mode determines chord note(s) sent}
 		Call @SetupKnobset9
 	elseif mode = 15
 		LabelPads {DELETE: Select a scene or chord slot to reset}
@@ -783,15 +783,14 @@
 			endif
 		endfor
 	elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY trigger/gate notes coming in  
-		for i = 5 to 8 // gated chord notes turned on an off by incoming note
-			if MIDIChannel = midi_channels_used[i]
-				ch = MIDIChannel
-				trigger_note_octave = Div MIDINote, 12 //note in influences octave out
-				trigger_note_oct_adj = (trigger_note_octave - 4) * 12  //notes 48-59 no change
-				Call @SendOutChordNotes
-				Exit
-			endif
-		endfor
+		//can come on any channel 8-11 but C=>8 C#=>9 D=>10 D#=>11
+		//so midi for all 4 harmony channels can come in on 1 midi channel
+		if (MIDINote%12)<=3
+			ch=(MIDINote%12)+8
+			trigger_note_octave = Div MIDINote, 12 //note in influences octave out
+			trigger_note_oct_adj = (trigger_note_octave - 4) * 12  //notes 48-59 no change
+			Call @SendOutChordNotes
+		endif
 	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
 		// notes 20-36 on channel 16  used to trigger MGEN pads 0-15
 		if MIDINote=36 //SHIFT
