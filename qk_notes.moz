@@ -158,7 +158,6 @@
 @End
 
 @SetupScales //# Scale definitions for midi out key, scale handling
-	//# 3 types of scale input: Common. Fixed, Single 
 	note_set_type=0 //# type of input selected 
 	noteset_len=13 //# array length for a scale. see common scales below...
 	scale_root = 0 // # root note of sel scale 
@@ -179,6 +178,7 @@
 	common_scales[10*12] = [0,0,2,4,4,4,7,7, 9, 9, 9, 9] //#	Major Pent
 	common_scales[11*12] = [0,0,3,3,3,5,7,7,10,10,10,10] //#	Minor Pent
 	common_scales[12*12] = [0,0,3,3,3,5,6,7,10,10,10,10] //#	Blues
+	common_scales[13*12] = [0,0,0,1,1,1,2,2, 2, 3, 3, 3] //#	Harmony Trigger
 	
 	//# Melody generation scale degrees
 	starting_indexes = [0,2,4,6] //# ie Root
@@ -209,7 +209,7 @@
 	//# curr_mel_gen_scale gives the scale degrees chosen an index to get to curr_scale
 	//# an index of 7 will give the 5th scale degree in curr_scale
 	CopyArray mel_gen_scales[scale_slot], curr_mel_gen_scale, 7
-	//Log (NoteName curr_scale[0]), { }, (NoteName curr_scale[1]), { }, (NoteName curr_scale[2]), { }, (NoteName curr_scale[3]), { }, (NoteName curr_scale[4]), { }, (NoteName curr_scale[5]), { }, (NoteName curr_scale[6]), { }, (NoteName curr_scale[7]), { }, (NoteName curr_scale[8]), { }, (NoteName curr_scale[9]), { }, (NoteName curr_scale[10]), { }, (NoteName curr_scale[11]), { }
+	Log (NoteName curr_scale[0]), { }, (NoteName curr_scale[1]), { }, (NoteName curr_scale[2]), { }, (NoteName curr_scale[3]), { }, (NoteName curr_scale[4]), { }, (NoteName curr_scale[5]), { }, (NoteName curr_scale[6]), { }, (NoteName curr_scale[7]), { }, (NoteName curr_scale[8]), { }, (NoteName curr_scale[9]), { }, (NoteName curr_scale[10]), { }, (NoteName curr_scale[11]), { }
 @End
 		
 
@@ -534,29 +534,43 @@
 		elseif (last_pad=7) and not (mode<=1 or mode>=8)
 			Exit //# DELETE not allowed
 		elseif (last_pad=2)
-		  notes_instance_type = notes_instance_type + 1
+			scale_root=0 //we will set a scale based on notes_instance_type selected
+			notes_instance_type = notes_instance_type + 1
 			if notes_instance_type = 6
 				notes_instance_type=0
 			endif
 			if notes_instance_type=1
 				midi_out_chs=[4,5,6,7]
 				SetShortName {MELODY}
+				sel_scale=1 // major
+				note_set_type=0 //via KORDS
 			elseif notes_instance_type=2
 				midi_out_chs=[8,9,10,11]
 				SetShortName {HARMNY}
+				sel_scale=13 // HARMONY TRIGGER
+				note_set_type=0 //via KORDS
 			elseif notes_instance_type=3
 				midi_out_chs=[1,1,1,1]
 				SetShortName {PERCS}
+				sel_scale=0 // Chromatic
+				note_set_type=1 //to instrument
 			elseif notes_instance_type=4
 				midi_out_chs=[2,2,2,2]
 				SetShortName {LOOPS}
+				sel_scale=0 // Chromatic
+				note_set_type=1 //to instrument
 			elseif notes_instance_type=5
 				midi_out_chs=[3,3,3,3]
 				SetShortName {FX}
+				sel_scale=0 // Chromatic
+				note_set_type=1 //to instrument
 			elseif notes_instance_type=0
 				midi_out_chs=[0,1,2,3]
 				SetShortName {NOTES}
+				sel_scale=0 // Chromatic
+				note_set_type=1 //to instrument
 			endif
+			Call @GetMidiINPUTScale //setup the new scale type
 			in_mode_select=FALSE
 			Call @OnShiftDown2
 		elseif (last_pad>=3 and last_pad<=5) or (last_pad=13 or last_pad=15)
@@ -735,7 +749,7 @@
 				move_all_dir=0
 			endif
 		elseif (mode>=11 and mode<=13)
-			if mode=12 //rotate sequence xyz
+			if mode=12 //rotate sequence
 				if last_pad=14
 					rot_dir=-1
 				elseif last_pad=15
@@ -1389,7 +1403,9 @@
   	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Minor Pent}
   elseif sel_scale=12
   	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Blues}
-  endif
+  elseif sel_scale=13
+  	LabelPad 3, {KEY/SCALE       }, { QK:HRMNY}
+	endif
   if knob_set=3
   	LabelKnobs {KEY/SCALE}
   	LabelKnob 1, {Key }, (NoteName scale_root)
