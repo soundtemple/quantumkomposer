@@ -18,23 +18,24 @@
 @OnMidiCC
 	mb2=MIDIByte2
 	mb3=MIDIByte3
-	Log MIDIChannel, {-}, mb2, {-}, mb3
+	//Log MIDIChannel, {-}, mb2, {-}, mb3
 	if MIDIChannel=15 //only receive on this channel. KNTRL and MGEN devices send lots of midi on other channels
 		if mb2=kk[0] or mb2=kk[1] or mb2=kk[2] or mb2=kk[3] //a KNTRL KNOB
-			SendMIDICC out_ch, mb2, mb3 //send feedback to KNTRL KNOB
-		elseif mb2=mk[0] or mb2=mk[0] or mb2=mk[0] or mb2=mk[3] //a sel. MGEN knob
-			SendMIDICC out_ch, mb2, mb3 //send feedback to MGEN KNOB
+			Call @SendFeedbackCC //send feedback to KNTRL KNOB
+			//Log {KNTRL FEEDBACK}
+		elseif mb2=mk[0] or mb2=mk[1] or mb2=mk[2] or mb2=mk[3] //a sel. MGEN knob
+			Call @SendFeedbackCC //send feedback to MGEN KNOB
+			//Log {MGEN FEEDBACK}
 		elseif mb2=xk[0] or mb2=xk[1] or mb2=xk[2] or mb2=xk[3] //a top row of Twister knobs
-			SendMIDICC out_ch, mb2, mb3 //send feedback to Top Row knobs Twister
+			Call @SendFeedbackCC //send feedback to Top Row knobs Twister
+			//Log {MGEN Top ROW}
 		elseif mb2=xk[4] or mb2=xk[5] or mb2=xk[6] or mb2=xk[7] //a 2nd row of Twister knobs
-			SendMIDICC out_ch, mb2, mb3 //send feedback to 2nd row knobs Twister
-		elseif (mb2<=17 or mb2>=117) //MIXER CONTROLS  curr_ch (21<>113)
-			SendMIDICC 15, mb2, mb3
-			Log {mixer cc}, mb2, { ch}, MIDIChannel
+			Call @SendFeedbackCC //send feedback to 2nd row knobs Twister
+			//Log {MGEN BTM ROW}
 		endif
 	endif
 @End
 
 @SendFeedbackCC
-	SendMIDICC out_ch, cc, MIDIByte3 //send feedback to knob controller
+	SendMIDICC out_ch, mb2, mb3 //send feedback to knob controller
 @End

@@ -25,7 +25,7 @@
 		mgen_device_id=-1 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
-		send_cc_back_to_knobs = FALSE
+		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id)
 		mchnce=100
 		pattn_beat_count = 0
@@ -860,10 +860,10 @@
 @SendMidiCCBackToKnobs //# Update controller knob vals with midi cc
 	//send LED feedback when mgen device is active device to mgen knobs
 	if send_cc_back_to_knobs and mgen_device_id=mgen_sel_dev
-		SendMidiCC knobs_controller[0], knobs_controller[0], Round GetKnobValue 0
-		SendMidiCC knobs_controller[0], knobs_controller[1], Round GetKnobValue 1
-		SendMidiCC knobs_controller[0], knobs_controller[2], Round GetKnobValue 2
-		SendMidiCC knobs_controller[0], knobs_controller[3], Round GetKnobValue 3
+		SendMidiCC knobs_controller[0], knobs_controller[1], (Round GetKnobValue 0)
+		SendMidiCC knobs_controller[0], knobs_controller[2], (Round GetKnobValue 1), 25
+		SendMidiCC knobs_controller[0], knobs_controller[3], (Round GetKnobValue 2), 50
+		SendMidiCC knobs_controller[0], knobs_controller[4], (Round GetKnobValue 3), 75
 	endif
 @End
 
