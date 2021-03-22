@@ -157,13 +157,15 @@
 	fixed_notesets[1*50] = [36,38,39,42,45,46, 48, 50] //# [RuisGM]
 	fixed_notesets[2*50] = [24,30,36,42,48,54,60,66] //# [DC Note]
 	fixed_notesets[3*50] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15, 72,73,74,75,76,77,78,79,80,81,82,83] //# [DC Patt++]
-	fixed_notesets[4*50] = [60,62,64,65,67,69, 71, 72] //# [Patt'ng.2]
+	fixed_notesets[4*50] = [60,62,64,65,67,69, 71, 72] //# [Patt'ng.2 or Dr FX LOOPS]
 	fixed_notesets[5*50] = [36,38,39,42,43,46, 47, 50] //# [EG Pulse]
 	fixed_notesets[6*50] = [48,49,50,51,52,53,54,55, 56,57,58,59,60,61,62,63] // [Digistix]
 	fixed_notesets[7*50] = [36,37,38,39,40,41,42,43, 44,45,46,47,48,49,50,51] // Beathawk 
-	for i = 0 to 47 // 2x 16 slices from note 60 and from note 84 
-		fixed_notesets[(8*50) + i] = 36 + i 
+	for i = 0 to 15 // 2x 16 slices from note 60 and from note 84 
+		fixed_notesets[(8*50) + i]      = 36 + i
+		fixed_notesets[(8*50) + i + 16] = 60 + i	
 	endfor
+	fixed_notesets[(8*50) + 32] = [84,85,86,87,88,89]
 	fixed_notesets[9*50] = [48,51,49,50, 52,53,54,55] //# [SEEKBEATS]
 	fixed_notesets[10*50]= [48,49,50,51, 52,53,54,55] //# [KDRAMBO]
 	//# Single noteset (always 4 notes long, 1 for each channel)
@@ -213,14 +215,14 @@
 			FillArray seq1_notes, 2, 1024
 			FillArray seq2_notes, 4, 1024
 			FillArray seq3_notes, 6, 1024
-		elseif sel_scale=8 // 4 OCT
-			notes_in_set=48
+		elseif sel_scale=8 // 2x16 slices + 6 percs aka DrPERCS
+			notes_in_set=38
 			midi_out_chs=[2,2,2,2]
 			FillArray seq0_notes, 0, 1024
-			FillArray seq1_notes, 12, 1024
-			FillArray seq2_notes, 24, 1024
-			FillArray seq3_notes, 36, 1024
-		elseif sel_scale=9 or sel_scale=10 // SeekBeats or K-DRAMBO
+			FillArray seq1_notes, 16, 1024
+			FillArray seq2_notes, 32, 1024
+			FillArray seq3_notes, 32, 1024
+		elseif sel_scale=9 or sel_scale=10 // SeekBeats or DrDRUMS
 			notes_in_set=8
 			midi_out_chs=[0,1,1,1]
 			FillArray seq0_notes, 0, 1024
@@ -1418,7 +1420,7 @@
 		elseif sel_scale=3
 	  	LabelPad 3, {NOTESET   [DC Patt++]}
 		elseif sel_scale=4
-	  	LabelPad 3, {NOTESET   [Patt'ng.2]}
+	  	LabelPad 3, {NOTESET   [Dr FXLOOPS]}
 	  elseif sel_scale=5
 	  	LabelPad 3, {NOTESET   [EG Pulse]}
 	  elseif sel_scale=6
@@ -1426,12 +1428,12 @@
 		elseif sel_scale=7
 	  	LabelPad 3, {NOTESET   [Beathawk]}
 		elseif sel_scale=8
-	  	LabelPad 3, {NOTESET   [4 OCT]}
+	  	LabelPad 3, {NOTESET   [Dr PERCS]}
 			SetShortName {PERCS}
 		elseif sel_scale=9
 	  	LabelPad 3, {NOTESET   [SeekBeats]}
 		elseif sel_scale=10
-	  	LabelPad 3, {NOTESET   [K-DRAMBO]}
+	  	LabelPad 3, {NOTESET   [Dr DRUMS]}
 		endif
 		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]         [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
   elseif note_set_type=2
