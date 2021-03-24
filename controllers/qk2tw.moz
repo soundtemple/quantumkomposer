@@ -10,9 +10,10 @@
 	LabelPads {QK2TW - Handles midi feedback to the KNOBS controller (MF TWISTER)} 
 	Log {QK2TW - Handles midi feedback to the KNOBS controller}
 	out_ch=15 //the channel to send feedback to the controller on
-	kk=[36,37,38,39] //cc's used to control the knobs in KNTRL. Feedback comes from KNTRL
-	mk=[40,41,42,43] //cc's used to control the knobs on the selected MGEN device. FB from sel. MGEN
-	xk=[7,8,16,17, 1,117,119,-1] //cc's custom for other 8 knobs on Twister
+	kkntrl=[36,37,38,39] //cc's used to control the knobs in KNTRL. Feedback comes from KNTRL
+	kmgen=[40,41,42,43] //cc's used to control the knobs on the selected MGEN device. FB from sel. MGEN
+	kr1=[7,8,16,17] //cc's custom for other 8 knobs on Twister row 1
+	kr2=[1,117,119,87] //cc's custom for other 8 knobs on Twister row 2
 @End
 
 @OnMidiCC
@@ -20,16 +21,16 @@
 	mb3=MIDIByte3
 	//Log MIDIChannel, {-}, mb2, {-}, mb3
 	if MIDIChannel=15 //only receive on this channel. KNTRL and MGEN devices send lots of midi on other channels
-		if mb2=kk[0] or mb2=kk[1] or mb2=kk[2] or mb2=kk[3] //a KNTRL KNOB
+		if mb2=kkntrl[0] or mb2=kkntrl[1] or mb2=kkntrl[2] or mb2=kkntrl[3] //a KNTRL KNOB
 			Call @SendFeedbackCC //send feedback to KNTRL KNOB
 			//Log {KNTRL FEEDBACK}
-		elseif mb2=mk[0] or mb2=mk[1] or mb2=mk[2] or mb2=mk[3] //a sel. MGEN knob
+		elseif mb2=kmgen[0] or mb2=kmgen[1] or mb2=kmgen[2] or mb2=kmgen[3] //a sel. MGEN knob
 			Call @SendFeedbackCC //send feedback to MGEN KNOB
 			//Log {MGEN FEEDBACK}
-		elseif mb2=xk[0] or mb2=xk[1] or mb2=xk[2] or mb2=xk[3] //a top row of Twister knobs
+		elseif mb2=kr1[0] or mb2=kr1[1] or mb2=kr1[2] or mb2=kr1[3] //a top row of Twister knobs
 			Call @SendFeedbackCC //send feedback to Top Row knobs Twister
 			//Log {MGEN Top ROW}
-		elseif mb2=xk[4] or mb2=xk[5] or mb2=xk[6] or mb2=xk[7] //a 2nd row of Twister knobs
+		elseif mb2=kr1[0] or mb2=kr2[1] or mb2=kr2[2] or mb2=kr2[3] //a 2nd row of Twister knobs
 			Call @SendFeedbackCC //send feedback to 2nd row knobs Twister
 			//Log {MGEN BTM ROW}
 		endif
@@ -37,5 +38,7 @@
 @End
 
 @SendFeedbackCC
-	SendMIDICC out_ch, mb2, mb3 //send feedback to knob controller
+	if mb3>=0 //-1 = unassigned
+		SendMIDICC out_ch, mb2, mb3 //send feedback to knob controller
+	endif
 @End

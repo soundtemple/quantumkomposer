@@ -619,7 +619,11 @@
 			for i = 0 to (number_of_modes - 1)
 				ColorPad i, settings_pad_cols[i]
 				if mgen_device_id=mgen_sel_dev
-					SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
+					if i=mode
+						SendMIDINoteOn 15, i+led_index, 8
+					else
+						SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
+					endif
 				endif
 				LatchPad i, NO 
 			endfor
@@ -2413,6 +2417,7 @@
 		  val = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 8
 			if val <> mgen_device_id
 				mgen_device_id=val
+				Log {mgen device id updated to: }, mgen_device_id
 				if mgen_device_id=-1
 					LabelKnob 0, {mgen# -}
 				else
@@ -2505,10 +2510,7 @@
 		elseif label_view_mode=4
 			LabelPad 15, {SEQ VIEW     }, {  CHANNEL}
 		endif
-		settings_pad_cols=[7,4,0,5,5,5,4,1, 3,3,3,3,3,1,0,2]
-		if mode>=3 and mode<=5
-			settings_pad_cols[mode]=8
-		endif	
+		settings_pad_cols=[7,4,0,5,5,5,4,1, 3,3,3,3,3,1,0,2]	
 		for i = 0 to (number_of_modes - 1)
 			ColorPad i, settings_pad_cols[i]
 			if mgen_device_id=mgen_sel_dev

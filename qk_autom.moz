@@ -425,6 +425,7 @@
 			Call @PadDownAutomMode
 		endif
 	endif
+	Call @SendMidiCCBackToKnobs
 @End
 
 @OnPadUp
@@ -720,12 +721,11 @@
 
 @SendMidiCCBackToKnobs //# Update controller knob vals with midi cc
 	//send LED feedback when mgen device is active device to mgen knobs
-	if send_cc_back_to_knobs
-		cc_knob0 = knobs_controller[1] + (4 * mgen_device_id)
-		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0]  , Round GetKnobValue 0
-		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+1], Round GetKnobValue 1
-		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+2], Round GetKnobValue 2
-		SendMidiCC knobs_controller[0], knobs_controller[cc_knob0+3], Round GetKnobValue 3
+	if send_cc_back_to_knobs and mgen_device_id=mgen_sel_dev
+		SendMidiCC knobs_controller[0], knobs_controller[1], (Round GetKnobValue 0)
+		SendMidiCC knobs_controller[0], knobs_controller[2], (Round GetKnobValue 1), 25
+		SendMidiCC knobs_controller[0], knobs_controller[3], (Round GetKnobValue 2), 50
+		SendMidiCC knobs_controller[0], knobs_controller[4], (Round GetKnobValue 3), 75
 	endif
 @End
 
@@ -766,6 +766,7 @@
 	LabelKnob 0, {Edit scn }, edit_scene+1
 	LabelKnob 1, {Bars }, scene_durs[edit_scene]
 	LabelKnob 2, { }
+	LabelKnob 3, { }
 	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
 	SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
 @End
