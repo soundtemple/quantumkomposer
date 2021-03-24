@@ -33,22 +33,39 @@
 		midi_controller=[15,36,37,38,39] //midi controller channel then 4 ccs for kntrl of kntrl knobs
 		scene_copied=FALSE
 		loop_song_mode=FALSE
-		//SYSEX
-		lp_sysex_header=[0xF0,0x00,0x20,0x29,0x02,0x0D]
-		qk_sysex_header=[0x3F,0x40,0x3F,0x40,0x3F,0x40]
-		len_header=6
-		kntrl_pads_state=0 //msg to update color of 16 KNTRL pads
-		mgen_pads_state=3 //msg to update color of 16 mgen pads 
-		mgen_slct_pads_state=3 //msg to update color of 9 mgen select pads
-		chan_slct_pads_state=7 //msg to update color of 15 channel pads
-		scene_slct=4 //msg to update color of scene selection
-		lp_msg=9 //a message from launchpad rather than from QK
 		//Initialise KNTRL
+		Call @SysexMessageSetup
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
 		//Log {On load successful}
 	endif
+@End
+
+@SysexMessageSetup
+	//Sending SYSEX. 
+	//Method: Set msg_type=[sx_var_below]; msg_data=[an array]; len_data=[len msg_data array]; Then Call @SendSysex
+	lp_sysex_header=[0xF0,0x00,0x20,0x29,0x02,0x0D] //launchpad messages - passed thru
+	qk_sysex_header=[0x3F,0x40,0x3F,0x40,0x3F,0x40] //QK messages
+	sx_lp_msg=9
+	len_header=6 
+	//QK message types - pad colors
+	sx_cmd_btn=5 //top row 4; bottom row 4; 16th chan pad aka stuck notes pad
+	sx_kntrl_pad_cols=16 //16 KNTRL pad colors
+	sx_chan_select=24 //selected instrument channel
+	sx_chan_select_cols=25 //pad colors for the 15 instrument channels
+	sx_mgen_pad_cols=32 //16 pad colors for mgen pads
+	sx_mgen_select=90 //The selected mgen device
+	sx_mgen_select_cols=91 //pad colors for 9 mgen device slots 
+	//QK message types - qk functions (which may also result in pad color change aka scene change)
+	sx_scene_change=100 //scene change
+	sx_scene_durations=101 //scene durations
+	sx_rtn_to_song=22 //return to song 
+	sx_glbl_swing=23 //global swing
+	sx_copy_scene=89 //Copy paste contents of whole scene
+	//QK message types - knobs change messages
+	sx_kntrl_knobs=36 //KNTRL 4 knobs --to knobs controller
+	sx_mgen_knobs=40 //MGEN 4 knobs --to knobs controller
 @End
 
 @InitKnobVariables
@@ -269,7 +286,7 @@
 			
 	elseif MIDIByte2>=91 and MIDIByte2<=99 // MGEN GUI toggle
 		if MIDIByte3>0
-			SendMIDICC MIDIChannel, sel_mgen_dev+91, MIDIByte3
+			SendMIDICC MIDIChannel, sel_mgen_dev+91, MIDIByte3 //close old gui
 			mode=6
 			in_mode_select=FALSE
 			sel_mgen_dev=MIDIByte2-91
@@ -358,14 +375,14 @@
 @End
 
 @SendSysex
-	if msg_type=lp_msg
+	if msg_type=sx_lp_msg //
 		CopyArray lp_sysex_header, sysex_msg, len_header //set header to LK msg
 	else 
 		CopyArray qk_sysex_header, sysex_msg, len_header //set header to QK msg
 	endif
 	sysex_msg[len_header] = msg_type //add the message type to the sysex msg
-  CopyArray msg_data, sysex_msg[len_header+1], len_data //add msg data to sysex msg
-	SendSysex sysex_msg, len_header+len_data //Send header, msg_type msg_data
+	CopyArray msg_data, sysex_msg[len_header+1], len_data //add msg data to sysex msg
+	SendSysex sysex_msg, len_header+len_data+1 //Send header, msg_type msg_data
 @End
 
 @SendMidiCCBackToKnobs
@@ -427,10 +444,10 @@
 		Call @HandleSceneChange
 	elseif (scene_beat_count >= current_scene_duration)
 		//# its time to increment scene
-		Log {Time to increment scene }, scene_change_requested
+		//Log {Time to increment scene }, scene_change_requested
 		Call @HandleSceneChange
 	endif
-	Log {Logging current info}, scene_change_requested
+	// Log {Logging current info}, scene_change_requested
 	Call @LogCurrentInfo
 @End
 
@@ -627,10 +644,13 @@
 
 @PadDownScenesMode
 	if last_pad >= 0 and last_pad <= 7 //SCENES MODE
-		//Log { SCENE CHANGE REQUESTED }
 		scene_change_requested = last_pad
 		//qk devices manage own pattern timing. Others LK, Drambo we use instant change in HandleSceneChange
-		SendMIDICC 15, 100, scene_change_requested //scn change request cc100, val scn to chg to QK devices only
+		msg_type=sx_scene_change //sysex scene change
+		msg_data=[scene_change_requested] //copy colors to msg_data array
+		len_data=1
+		Call @SendSysex 
+		
 		songmode=1 //# Lock to selected scene
 		edit_scene=last_pad
 		locked_to_scene=last_pad
@@ -705,7 +725,7 @@
 		if send_midi_feedback
 			SendMIDINoteOn 15, last_pad, 8 //LED Feedback. Highlight selected chan
 		endif
-	elseif chan_labels[LastPad]>0 and chan_labels[LastPad]<23 //ch16 rsvd KNTRL
+	elseif chan_labels[last_pad]>0 and chan_labels[last_pad]<23 //ch16 rsvd KNTRL
 		mode=5 //goto INSTRUMENT MODE
 		curr_chan = last_pad  
 		edit_pad=0
@@ -972,7 +992,11 @@
 	if last_pad=14 
 		SendMIDICC 15,0,127 //STOP
 		ColorPad 15, 0
-		SendMIDICC 15, 100, current_scene
+		msg_type=sx_scene_change //sysex scene change
+		msg_data=[current_scene] 
+		len_data=1
+		Call @SendSysex 
+		
 		SendMIDICC 15, 109+current_scene, 127//go to scene on stop
 		if songmode = 0 // in song mode
 			SendMIDICC 15, 22, 127 //make sure QK devices are in song mode too
@@ -1002,7 +1026,10 @@
     current_scene = 0 
 		if not loop_song_mode
 			SendMIDICC 15, 109, 127 // Pattern change
-			SendMIDICC 15, 100, current_scene //goto scene 1
+			msg_type=sx_scene_change //sysex scene change
+			msg_data=[0] 
+			len_data=1
+			Call @SendSysex 
 			SendMIDICC 15, 0, 127 // transport stop
 		endif
   elseif scene_durs[current_scene + 1] <= 0
@@ -1010,7 +1037,10 @@
   	current_scene = 0 //# no duration in next scene return to beginning
 		if not loop_song_mode
 			SendMIDICC 15, 109, 127 // Pattern change
-			SendMIDICC 15, 100, current_scene
+			msg_type=sx_scene_change //sysex scene change
+			msg_data=[0] 
+			len_data=1
+			Call @SendSysex 
 			SendMIDICC 15, 0, 127 // transport stop	
 		endif
   else
@@ -2279,12 +2309,12 @@
 		endif
 	endfor
 	if mode=6 //mgen mode feedback mgen colors 
-		msg_type=mgen_slct_pads_state //update channel select pad colors
+		msg_type=sx_mgen_select_cols //update channel select pad colors
 		CopyArray mgen_colors, msg_data, 9 //copy colors to msg_data array
 		len_data=9 //9mgen pad slots
 		Call @SendSysex 
 	elseif mode=1 or mode=7 //channels mode feedback channel colors
-		msg_type=chan_slct_pads_state //update mgen select pad colors
+		msg_type=sx_chan_select_cols //update mgen select pad colors
 		CopyArray chan_colors, msg_data, 16 //copy colors to msg_data array
 		len_data=16
 		Call @SendSysex
