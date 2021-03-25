@@ -35,11 +35,25 @@
 		copy_mode=-1
 	  Call @TransposeCalcArrays
 	  Call @InitKnobVariables //# All knob settings on start
+		Call @SysexMessageSetup
 	  Call @SetupChordsScenes
 	  Call @SetupKnobset0
 	  Call @SetupLayout
 	endif
- @End
+@End
+
+@SysexMessageSetup
+	//QK Sysex messages. from KNTRL to BEATS and from BEATS to midi controllers
+	qk_sysex_header=[0x3F,0x40,0x3F,0x40,0x3F,0x40] //QK messages
+	len_header=6 
+	//QK message types 
+	sx_scene_change=100 //scene change
+	sx_scene_durations=101 //scene durations
+	sx_rtn_to_song=22 //return to song 
+	sx_glbl_swing=23 //global swing
+	sx_copy_scene=89 //Copy paste contents of whole scene
+	sx_mgen_knobs=40 //MGEN 4 knobs --to knobs controller
+@End
 
 @InitKnobVariables
 	//# Any knobset knob should have a setting here
@@ -675,6 +689,33 @@
 	endif
 @End
 
+@OnSysex
+  ReceiveSysex sysex_msg
+  qk_msg=YES
+  for i = 0 to len_header-1 //check header make sure its a QK sysex message
+    if sysex_msg[i] <> qk_sysex_header[i]
+      qk_msg=NO
+    endif
+  endfor
+  if qk_msg 
+    msg_start=len_header+1 //where msg_data starts
+		msg_end=SysexSize-1 //where msg_data ends
+		qk_msg_type=sysex_msg[len_header] //the message type received
+		//handle msg types...
+		if qk_msg_type = sx_scene_change
+			//# handle scene change requested (ie: PadDown Scene change)
+			scene_change_requested = sysex_msg[msg_start]		
+			if NOT HostRunning //# immediate change else newbeat/bar handles
+	  		Call @HandleSceneChange 
+	  	endif
+			if in_mode_select
+				Call @SetupSettingsLayout
+			else
+				Call @SetupLayout
+			endif	
+		endif
+	endif
+@End
 
 @SaveSelectedChordPad
 	//# save to pad in select mode once chord params chosen on knobs 
