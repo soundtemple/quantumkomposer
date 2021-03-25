@@ -286,7 +286,7 @@
 			
 	elseif MIDIByte2>=91 and MIDIByte2<=99 // MGEN GUI toggle
 		if MIDIByte3>0
-			SendMIDICC MIDIChannel, sel_mgen_dev+91, MIDIByte3 //close old gui
+			//SendMIDICC MIDIChannel, sel_mgen_dev+91, MIDIByte3 //close old gui
 			mode=6
 			in_mode_select=FALSE
 			sel_mgen_dev=MIDIByte2-91
@@ -368,7 +368,19 @@
     Log {LP MSG---START---}
 		SendSysexThru
    	Log SysexSize, { Bytes long}
+		Log {msg }, sysex_msg[6], { }, sysex_msg[7] 
 		Log {LP MSG---END-----}
+		if sysex_msg[6]=0 and sysex_msg[7]=127 //enter session mode
+			//trigger sysex for mgen and chan select pads
+			msg_type=sx_mgen_select_cols //update channel select pad colors
+			CopyArray mgen_colors, msg_data, 9 //copy colors to msg_data array
+			len_data=9 //9mgen pad slots
+			Call @SendSysex 
+			msg_type=sx_chan_select_cols //update mgen select pad colors
+			CopyArray chan_colors, msg_data, 16 //copy colors to msg_data array
+			len_data=16
+			Call @SendSysex
+		endif
   else
     Log {MSG header not recognised}
 	endif
@@ -908,7 +920,7 @@
 			Call @SetupKnobset9 //setup b
 		endif
 	else
-		SendMIDICC MIDIChannel, sel_mgen_dev+91, 127 //toggle old GUI off
+		//SendMIDICC MIDIChannel, sel_mgen_dev+91, 127 //toggle old GUI off
 		sel_mgen_dev=last_pad
 		SendMIDICC MIDIChannel, sel_mgen_dev+91, 127 //toggle new GUI ON
 		edit_pad = last_pad
@@ -920,8 +932,8 @@
 			SendMIDINoteOn 15, i+91,  mgen_colors[i] //LED FEEDBACK
 		endif
 	endfor
-	LatchPad sel_mgen_dev, YES
 	Call @SetupLayoutChannels
+	LatchPad sel_mgen_dev, YES
 	if send_midi_feedback
 		SendMIDINoteOn 15, sel_mgen_dev, 8 //highlight selected mgen device //LED FEEDBACK
 	endif
