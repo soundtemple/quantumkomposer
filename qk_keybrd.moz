@@ -13,10 +13,20 @@
 	SetShortName {QKB1}
 	if unassigned layout
 		Call @InitKnobVariables
+		Call @SysexMessageSetup
 		Call @BuildLayouts
 		Call @SetupKnobset
 		Call @LabelLayout
 	endif
+@End
+
+@SysexMessageSetup
+	//QK Sysex messages. from KNTRL to BEATS and from BEATS to midi controllers
+	qk_sysex_header=[0x3F,0x40,0x3F,0x40,0x3F,0x40] //QK messages
+	len_header=6 
+	//QK message types
+	sx_chan_select=24 //selected instrument channel
+	sx_mgen_knobs=40 //MGEN 4 knobs --to knobs controller
 @End
 
 @InitKnobVariables
@@ -235,6 +245,25 @@
 			endif
 		endif
 	endif		
+@End
+
+@OnSysex
+  ReceiveSysex sysex_msg
+  qk_msg=YES
+  for i = 0 to len_header-1 //check header make sure its a QK sysex message
+    if sysex_msg[i] <> qk_sysex_header[i]
+      qk_msg=NO
+    endif
+  endfor
+  if qk_msg 
+    msg_start=len_header+1 //where msg_data starts
+		msg_end=SysexSize-1 //where msg_data ends
+		qk_msg_type=sysex_msg[len_header] //the message type received
+		//handle msg types...
+		if qk_msg_type = sx_chan_select
+			Log {Receive message to set new instrument channel}
+		endif
+	endif
 @End
 
 @OnPadDown
