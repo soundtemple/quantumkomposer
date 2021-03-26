@@ -25,7 +25,7 @@
 		FillArray interpolation_buffer, -1, 48
 		FillArray pad_colors, 0, 16 //state storing for 16 pad colours
 		last_pad_again=FALSE
-		mgen_device_id=4 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=5 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		send_cc_back_to_knobs = TRUE
@@ -817,15 +817,15 @@
 	//# Settings knobs
 	knob_set = 1
 	LabelKnob 0, {Edit scn }, edit_scene+1
-	if mgen_device_id=-1
-		LabelKnob 1, {mgen# -}
+	if mgen_device_id
+		LabelKnob 1, {mgen# }, mgen_device_id
 	else
-		LabelKnob 1, {mgen# }, mgen_device_id+1
+		LabelKnob 1, {mgen# -}
 	endif
 	LabelKnob 2, {MIN }, auto_ramp_min 
 	LabelKnob 3, {MAX }, auto_ramp_max
 	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
-	SetKnobValue 1, TranslateScale mgen_device_id, -1, 8, 0, 127
+	SetKnobValue 1, TranslateScale mgen_device_id, 0, 9, 0, 127
 	SetKnobValue 2, auto_ramp_min
 	SetKnobValue 3, auto_ramp_max
 	LabelKnobs { }
@@ -841,13 +841,13 @@
 		endif
 	endif
 	if LastKnob = 1
-	  val = Round TranslateScale (GetKnobValue 1), 0, 127, -1, 8
+	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 9
 		if val <> mgen_device_id
 			mgen_device_id=val
-			if mgen_device_id=-1
-				LabelKnob 1, {mgen# -}
+			if mgen_device_id
+				LabelKnob 1, {mgen# }, mgen_device_id
 			else
-				LabelKnob 1, {mgen# }, mgen_device_id+1
+				LabelKnob 1, {mgen# -}
 			endif
 		endif
 	endif
