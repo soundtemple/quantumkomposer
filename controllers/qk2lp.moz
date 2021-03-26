@@ -186,24 +186,6 @@
 			selected_channel=MIDIByte3
 			Call @UpdateSelectedChannel
 		elseif MIDIByte2=28
-			// LP Top row btn 1 - not in use
-			tmode_btn1 = not tmode_btn1
-			if tmode_btn1
-				colors[91]=blue
-			else
-			  colors[91]=off
-			endif
-			SendMIDINoteOn lp_ch, 16, colors[16] //light pad
-		elseif MIDIByte2=29
-			// LP Top row btn 2 - not in use
-			tmode_btn2 = not tmode_btn2
-			if tmode_btn2
-				colors[92]=blue
-			else
-			  colors[92]=off
-			endif
-			SendMIDINoteOn lp_ch, 16, colors[16] //light pad
-		elseif MIDIByte2=30
 			// Toggle metro pulse
 			show_metro_pulse = not show_metro_pulse
 			if show_metro_pulse
@@ -212,8 +194,8 @@
 			  colors[16]=grey
 			endif
 			SendMIDINoteOn lp_ch, 16, colors[16] //light pad
-		elseif MIDIByte2=31
-			// Toggle KNTRL mode layout
+		elseif MIDIByte2=29
+			// Toggle KNTRL mode layout (inverse lights)
 			led_layout1 = not led_layout1
 			if led_layout1
 				colors[17]=grey
@@ -225,8 +207,8 @@
 				SendMIDINoteOn lp_ch, mgen_seq_pads[i], off //wipe pads when layout uses blank
 				SendMIDINoteOn lp_ch, kntrl_pads[i], off
 			endfor
-		elseif MIDIByte2=32
-			// Toggle lower mode btn3 bottom row
+		elseif MIDIByte2=30
+			// Toggle lower mode btn3 bottom row - not in use
 			lmode_btn3 = not lmode_btn3
 			if lmode_btn3
 				colors[18]=90
@@ -234,6 +216,24 @@
 			  colors[18]=grey
 			endif
 			SendMIDINoteOn lp_ch, 18, colors[18] //light pad
+		elseif MIDIByte2=31
+			// LP Top row btn 1 - not in use
+			tmode_btn1 = not tmode_btn1
+			if tmode_btn1
+				colors[91]=blue
+			else
+			  colors[91]=off
+			endif
+			SendMIDINoteOn lp_ch, 16, colors[16] //light pad
+		elseif MIDIByte2=32
+			// LP Top row btn 2 - not in use
+			tmode_btn2 = not tmode_btn2
+			if tmode_btn2
+				colors[92]=blue
+			else
+			  colors[92]=off
+			endif
+			SendMIDINoteOn lp_ch, 16, colors[16] //light pad
 		elseif MIDIByte2>=40 and MIDIByte2<=43 //mgen knob for selected mgen device
 			SendMIDICC in_ch, MIDIByte2, MIDIByte3 // sends feedback back to Twister for LED update
 		elseif MIDIByte2=88 //handle stuck note button LED (in Chan. pads slot 16)
