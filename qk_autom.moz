@@ -7,6 +7,8 @@
 	ShowLayout 2
 	LabelPads {[ QK:AUTOM ]}
 	if unassigned scene_durs //# duration in first scene
+		mgen_device_id=5 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_sel_dev=0 //used for midi control of pads
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 		edit_mode_active=FALSE //in edit mode use 20knob layout to step edit each beat
@@ -25,8 +27,6 @@
 		FillArray interpolation_buffer, -1, 48
 		FillArray pad_colors, 0, 16 //state storing for 16 pad colours
 		last_pad_again=FALSE
-		mgen_device_id=5 //used for midi control of pads. each mgen instance is assigned a number
-		mgen_sel_dev=0 //used for midi control of pads
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
@@ -265,6 +265,12 @@
   	swng=MIDIByte3
   	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
   	Call @SetupLayoutScenes
+	elseif MIDIByte2>=40 and MIDIByte2<=43 //KNTRL Knobs on CH16
+		if mgen_sel_dev=mgen_device_id
+			last_knob = MIDIByte2-40 //simulate  LastPad action
+			SetKnobValue last_knob, MIDIByte3 // change knob position
+			Call @OnKnobChange2 //handle that change
+		endif
 	elseif (MIDIByte2=89 and MIDIChannel=15) //copy paste scene
 		if MIDIByte3<=7 //handle copy scene
 			copied_scene = MIDIByte3
@@ -291,7 +297,7 @@
 			scene_durs[paste_to_scene] = scene_durs[copied_scene]
 		endif
 	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
-		mgen_sel_dev=MIDIByte2-91
+		mgen_sel_dev=MIDIByte2-91+1 // range 1-9 to match display
 		if mgen_sel_dev= mgen_device_id
 			in_mode_select = FALSE
 			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
@@ -751,6 +757,11 @@
 @End
 
 @OnKnobChange
+  last_knob=LastKnob
+	Call @OnKnobChange2
+@End
+	
+@OnKnobChange2
 	if knob_set = 0 
 	  Call @KnobChangeSet0 //# scene settings
 	elseif knob_set = 1
@@ -794,7 +805,7 @@
 
 @KnobChangeSet0
 	//# scene settings xs0
-	if LastKnob = 0
+	if last_knob = 0
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
 		if val <> edit_scene
 			edit_scene = val
@@ -803,7 +814,7 @@
 			LabelKnob 1, {Bars }, scene_durs[edit_scene]
 		endif
 	endif
-	if LastKnob = 1
+	if last_knob = 1
 		scn_duration = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32
 		scene_durs[edit_scene] = scn_duration
 	endif
@@ -833,14 +844,14 @@
 
 @KnobChangeSet1
 	//# settings knobs
-	if LastKnob = 0
+	if last_knob = 0
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
 		if val <> edit_scene
 			edit_scene = val
 			LabelKnob 0, {Edit scn }, edit_scene+1
 		endif
 	endif
-	if LastKnob = 1
+	if last_knob = 1
 	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 9
 		if val <> mgen_device_id
 			mgen_device_id=val
@@ -851,11 +862,11 @@
 			endif
 		endif
 	endif
-	if LastKnob = 2
+	if last_knob = 2
 	  auto_ramp_min = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
 	  LabelKnob 2, {MIN }, auto_ramp_min 
   endif
-	if LastKnob = 3
+	if last_knob = 3
 	  auto_ramp_max = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
 	  LabelKnob 3, {MAX }, auto_ramp_max
 	endif
@@ -910,29 +921,29 @@
 	  val_to_set = autom_control_vals[sel_autom_pad]
 	endif 
 	if record_autom_on or control_autom_on
-		if LastKnob = 0
+		if last_knob = 0
 	    min_vals_rec_cont[sel_autom_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
 			LabelKnob 0, {MIN }, min_vals_rec_cont[sel_autom_pad]
 			SetKnobValue 2, TranslateScale val_to_set, min_vals_rec_cont[sel_autom_pad], max_vals_rec_cont[sel_autom_pad], 0, 127
 			Call @LabelAutomationPads
 	  endif
-	  if LastKnob = 1
+	  if last_knob = 1
 	    max_vals_rec_cont[sel_autom_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
 			LabelKnob 1, {MAX }, max_vals_rec_cont[sel_autom_pad]
 			SetKnobValue 2, TranslateScale val_to_set, min_vals_rec_cont[sel_autom_pad], max_vals_rec_cont[sel_autom_pad], 0, 127
 			Call @LabelAutomationPads
 		endif
 	else
-		if LastKnob = 0
+		if last_knob = 0
 	    automation_chs[sel_autom_pad] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
 			LabelKnob 0, {ch }, automation_chs[sel_autom_pad]+1
 	  endif
-	  if LastKnob = 1
+	  if last_knob = 1
 	    automation_labels[sel_autom_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 48
 			LabelKnob 1, {Label }, automation_labels[sel_autom_pad]
 		endif
 	endif
-  if LastKnob = 2
+  if last_knob = 2
 		if record_autom_on
 			break_point = Round TranslateScale (GetKnobValue 2), 0, 127, min_vals_rec_cont[sel_autom_pad], max_vals_rec_cont[sel_autom_pad]
 			LabelKnob 2, {REC#}, break_point
@@ -951,7 +962,7 @@
 			LabelKnob 2, {cc# }, automation_ccs[sel_autom_pad]
 		endif
 	endif
-  if LastKnob = 3
+  if last_knob = 3
 		automation_cols[sel_autom_pad] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 6
 		LabelKnob 3, {Color }, automation_cols[sel_autom_pad]
 		LatchPad sel_autom_pad, NO 
@@ -1022,15 +1033,15 @@
 	if scene_durs[auto_scene] <=4
 		auto_adv_max = 0
 	endif
-	if LastKnob = 12
+	if last_knob = 12
 	  auto_ramp_min = Round TranslateScale (GetKnobValue 12), 0, 127, 0, 127
 	  LabelKnob 12, {RMin }, auto_ramp_min 
   endif
-	if LastKnob = 13
+	if last_knob = 13
 	  auto_ramp_max = Round TranslateScale (GetKnobValue 13), 0, 127, 0, 127
 	  LabelKnob 13, {RMax }, auto_ramp_max
 	endif
-	if LastKnob = 1
+	if last_knob = 1
 	  auto_ramp = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 23
 		if auto_ramp=23
 			for i = 0 to 15
@@ -1039,29 +1050,29 @@
 		endif
 		Call @ApplyAutoRamp
 	endif
-	if LastKnob = 11
+	if last_knob = 11
 	  auto_lane =  Round TranslateScale (GetKnobValue 11), 0, 127, 0, 15
 		Call @LabelAutomationKnobs
 	endif
-	if LastKnob = 0
+	if last_knob = 0
 	  auto_scene =  Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
 		edit_scene = auto_scene
 		auto_adv_bar = 0
 		Call @LabelAutomationKnobs
 		SetKnobValue 2, TranslateScale auto_adv_bar, 0, auto_adv_max, 0, 127 //mv fwd back in current scene
 	endif
-	if LastKnob = 2
+	if last_knob = 2
 	  auto_adv_bar =  Round TranslateScale (GetKnobValue 2), 0, 127, 0, auto_adv_max
 		Call @LabelAutomationKnobs
 	endif
-	if (LastKnob>=3 and LastKnob<=10) or (LastKnob>=14)
+	if (last_knob>=3 and last_knob<=10) or (last_knob>=14)
 		data_slot = (auto_scene*128) + (auto_adv_bar * HostBeatsPerMeasure)
-		knob_slot=LastKnob-3
-		if LastKnob>=14
-			knob_slot=LastKnob-6
+		knob_slot=last_knob-3
+		if last_knob>=14
+			knob_slot=last_knob-6
 		endif
 		data_slot = data_slot+knob_slot
-		break_point = Round TranslateScale (GetKnobValue LastKnob), 0, 127, 0, 127
+		break_point = Round TranslateScale (GetKnobValue last_knob), 0, 127, 0, 127
 		Call @UpdateAutomationPoint
 	endif
 @End

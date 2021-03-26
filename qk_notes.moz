@@ -920,6 +920,12 @@
 			SendMIDINoteOn 15, current_scene+led_index, 3
 			SendMIDINoteOn 15, 8+led_index, 3
 		endif
+	elseif MIDIByte2>=40 and MIDIByte2<=43 //KNTRL Knobs on CH16
+		if mgen_sel_dev=mgen_device_id
+			last_knob = MIDIByte2-40 //simulate  LastPad action
+			SetKnobValue last_knob, MIDIByte3 // change knob position
+			Call @OnKnobChange2 //handle that change
+		endif
   elseif (MIDIByte2=89) //copy paste scene
 		in_mode_select = FALSE // return to scenes mode first
   	mode = 0
@@ -949,7 +955,7 @@
 			Call @SetupLayout
 		endif
 	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
-		mgen_sel_dev=MIDIByte2-91
+		mgen_sel_dev=MIDIByte2-91+1 // range 1-9 to match display
 		if mgen_sel_dev= mgen_device_id
 			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
 		endif
@@ -1269,14 +1275,14 @@
 @End
 
 @KnobChangeSet0 //# scene settings xs0
-	if LastKnob = 0
+	if last_knob = 0
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_durs[current_scene] 	
 		  scene_durs[current_scene] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
 	  endif
   endif
-  if LastKnob = 1
+  if last_knob = 1
 	  scn_swing = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 100
 	  if scn_swing <> scene_swing[current_scene] 	
 		  scene_swing[current_scene] = scn_swing
@@ -1284,7 +1290,7 @@
 	  	SetMetroSwing scene_swing[current_scene]
 	  endif
   endif
-	if LastKnob = 3
+	if last_knob = 3
 	  rnd_scene_chg = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
 		if rnd_scene_chg = 0
 				LabelKnob 3, {RndScOFF} 
@@ -1316,7 +1322,7 @@
 
 @KnobChangeSet1 //# PATTN SETUP KNOBS xs1
   pattn_slot = (current_scene * 8) + current_pattn
-  if LastKnob = 2
+  if last_knob = 2
 	  pattn_duration = (Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127)+1
 	  if pattn_duration <> pattn_durs[pattn_slot] 
 		  pattn_durs[pattn_slot] = pattn_duration
@@ -1325,17 +1331,17 @@
 	  	LabelKnob 2 , {Dur }, dur_bars, {.}, dur_beats
   	endif
   endif
-  if LastKnob = 3
+  if last_knob = 3
     patt_oct = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 1
     if patt_oct <> pattn_octs[pattn_slot] 
     	pattn_octs[pattn_slot] = patt_oct
     	LabelKnob 3, {OCT: }, patt_oct
     endif
   endif
-  if LastKnob = 0 //# not in use
+  if last_knob = 0 //# not in use
     LabelKnob 0, { }
   endif
-  if LastKnob = 1 //# not in use
+  if last_knob = 1 //# not in use
     LabelKnob 1, { }
   endif
   pattn_to_label = current_pattn+8
@@ -1357,8 +1363,8 @@
 @End
 
 @KnobChangeSet2 //# MIDI OUT CHANNELS 
-  ch = Round TranslateScale (GetKnobValue LastKnob), 0, 127, 0, 15
-	midi_out_chs[LastKnob] = ch  
+  ch = Round TranslateScale (GetKnobValue last_knob), 0, 127, 0, 15
+	midi_out_chs[last_knob] = ch  
 	LabelKnob 0, {CH1: }, midi_out_chs[0]+1
   LabelKnob 1, {CH2: }, midi_out_chs[1]+1
   LabelKnob 2, {CH3: }, midi_out_chs[2]+1
@@ -1382,7 +1388,7 @@
 @End
 
 @KnobChangeSet3 //# NOTE SET
-  if LastKnob = 0
+  if last_knob = 0
   	ns_type = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 1
 	  if ns_type <> note_set_type
 	    note_set_type=ns_type
@@ -1394,14 +1400,14 @@
 			SetKnobValue 2, TranslateScale sel_scale, 0, num_common_scales-1, 0, 127
 	  endif
   endif
-  if LastKnob = 1
+  if last_knob = 1
 		sr = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 11
 		if sr <> scale_root
 			scale_root=sr
 			Call @GetMidiINPUTScale
 		endif
   endif
-  if LastKnob = 2
+  if last_knob = 2
     if note_set_type=0
 	    scale = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
 	  else
@@ -1474,8 +1480,8 @@
 @End
 
 @KnobChangeSet4 //# CC VALS
-  cc = Round TranslateScale (GetKnobValue LastKnob), 0, 127, 0, 127
-  cc_vals[LastKnob] = cc 
+  cc = Round TranslateScale (GetKnobValue last_knob), 0, 127, 0, 127
+  cc_vals[last_knob] = cc 
 	LabelKnob 0, {CH1: }, cc_vals[0]
   LabelKnob 1, {CH2: }, cc_vals[1]
   LabelKnob 2, {CH3: }, cc_vals[2]
@@ -1636,22 +1642,22 @@
   //# currently selected step/pad (out of 16) in a pattern xgpss
 	step_slot=(current_scene*128)+(current_pattn*16)+sel_step
 	pattn_slot = (current_scene * 8) + current_pattn
-  if LastKnob = 0 //# SEQ_CH
+  if last_knob = 0 //# SEQ_CH
     seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
     Call @GetStepVal
     SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
 		Call @SetupLayout
   endif
-  if LastKnob = 1 //# SEQ_TO_EDIT
+  if last_knob = 1 //# SEQ_TO_EDIT
     seq_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 4
     Call @GetStepVal
     SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
   endif
-  if (LastKnob=2) //# STEP VAL FOR SEQ
+  if (last_knob=2) //# STEP VAL FOR SEQ
     step_val = Round TranslateScale (GetKnobValue 2), 0, 127, seq_type_min, seq_type_max
     Call @SetStepVal
   endif
-  if (LastKnob=3) //# ALL STEPS
+  if (last_knob=3) //# ALL STEPS
     val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
   	if move_all <> val
   		move_all=val
@@ -1951,12 +1957,12 @@
 @KnobChangeSet6 //# EUCLIDEAN STEP SEQ and PRESETSxs6
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { STEPS}
 	euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
-  if LastKnob = 0 //# seq ch to edit
+  if last_knob = 0 //# seq ch to edit
   	seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
 	  SetKnobValue 2, TranslateScale euc_vals[euc_slot+euc_type], k2min, k2max, 0, 127
 	Call @LabelAllSequencePads
   endif
-  if LastKnob = 1 //# type to edit
+  if last_knob = 1 //# type to edit
   	euc_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
 	SetKnobValue 2, TranslateScale euc_vals[euc_slot+euc_type], k2min, k2max, 0, 127
 	if euc_type=0 //#notes
@@ -1973,7 +1979,7 @@
 	  	k2max=4
 	  endif
   endif
-  if LastKnob = 2
+  if last_knob = 2
 	  e_val = Round TranslateScale (GetKnobValue 2), 0, 127, k2min, k2max	
   	if e_val <> euc_vals[euc_slot+euc_type]
   		euc_vals[euc_slot+euc_type] = e_val
@@ -1991,7 +1997,7 @@
   		endif
   	endif
   endif
-  if LastKnob = 3
+  if last_knob = 3
   	srm = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
   	if srm <> steps_record_mode
   		steps_record_mode=srm
@@ -2081,7 +2087,7 @@
 @End
 
 @KnobChangeSet7 //# MUTATION
-  if LastKnob = 0
+  if last_knob = 0
     new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
     if new_seq_ch <> seq_ch
 		seq_ch=new_seq_ch
@@ -2091,13 +2097,13 @@
 		SetKnobValue 3, TranslateScale cc_mutation[(current_scene*4) + seq_ch], 0, 127, 0, 127
     endif
   endif
-  if LastKnob = 1
+  if last_knob = 1
   	step_mutation[(current_scene*4) + seq_ch] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 100
 	endif
-  if LastKnob = 2
+  if last_knob = 2
     velo_mutation[(current_scene*4) + seq_ch] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 64
   endif
-  if LastKnob = 3
+  if last_knob = 3
     cc_mutation[(current_scene*4) + seq_ch] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
   endif
   LabelKnob 0, {CH: }, seq_ch+1
@@ -2132,7 +2138,7 @@
 @End
 
 @KnobChangeSet8 //# SEQ GEN
-  if LastKnob = 0
+  if last_knob = 0
 		new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
 		if new_seq_ch <> seq_ch
 			seq_ch=new_seq_ch
@@ -2153,7 +2159,7 @@
 			endif
 		endif
 	endif
-  if LastKnob = 1
+  if last_knob = 1
     sg_type[seq_ch] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 5
   	if sg_type[seq_ch] = 0
 		  SetKnobValue 2, TranslateScale sg_lo, 0, 127, 0, 127
@@ -2172,14 +2178,14 @@
 	  endif
 	  Call @LabelAllSequencePads
 	endif
-	if LastKnob=2
+	if last_knob=2
 		if sg_type[seq_ch]=0
     	sg_lo = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
 		else
 			sg_sel_beat = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 4
 		endif
 	endif
-  if LastKnob = 3
+  if last_knob = 3
     if sg_type[seq_ch]=0
     	sg_hi = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
     else
@@ -2533,14 +2539,14 @@
 
 @KnobChangeSet9 //# ROTATION 
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { ROTATE}
-  if LastKnob = 0
+  if last_knob = 0
     new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
 		if new_seq_ch <> seq_ch
 			seq_ch=new_seq_ch
 			Call @LabelAllSequencePads
 		endif
 	endif
-	if LastKnob = 1
+	if last_knob = 1
 		rot_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 5
 	endif
   LabelKnob 0, {CH: }, seq_ch+1
@@ -2561,6 +2567,11 @@
 @End
 
 @OnKnobChange
+  last_knob=LastKnob
+	Call @OnKnobChange2
+@End
+	
+@OnKnobChange2
 	//# Knob change router xokc
   if knob_set = 0 
     Call @KnobChangeSet0 //# scene settings
@@ -2583,7 +2594,7 @@
   elseif knob_set = 9
     Call @KnobChangeSet9 //# ROTATION
 	elseif knob_set = 99 //settings layout
-    if LastKnob = 0
+    if last_knob = 0
 		  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 9
 			if val <> mgen_device_id
 				mgen_device_id=val

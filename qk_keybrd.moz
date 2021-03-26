@@ -5,7 +5,7 @@
 //# To build your layouts populate the data in @BuildLayouts, @BuildKeyboardLayout and @SetLayoutName
 
 @OnLoad
-	mgen_device_id=3 //used for midi control of pads. each mgen instance is assigned a number
+	mgen_device_id=4 //used for midi control of pads. each mgen instance is assigned a number
 	mgen_sel_dev=0 //used for midi control of pads	
 	log_notes=FALSE //setting to log notes (sent to instruments) as played
   ShowLayout 2
@@ -217,8 +217,14 @@
 		Call @BuildKeyboardLayout
 		Call @LabelLayout
 		Call @SetupKnobSet
+	elseif MIDIByte2>=40 and MIDIByte2<=43 //KNTRL Knobs on CH16
+		if mgen_sel_dev=mgen_device_id
+			last_knob = MIDIByte2-40 //simulate  LastPad action
+			SetKnobValue last_knob, MIDIByte3 // change knob position
+			Call @OnKnobChange2 //handle that change
+		endif
 	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
-		mgen_sel_dev=MIDIByte2-91
+		mgen_sel_dev=MIDIByte2-91+1 // range 1-9 to match display
 		if mgen_sel_dev= mgen_device_id
 			Call @BuildKeyboardLayout
 			Call @LabelLayout
@@ -373,6 +379,11 @@
 @End
 
 @OnKnobChange
+  last_knob=LastKnob
+	Call @OnKnobChange2
+@End
+
+@OnKnobChange2
   if use_knobset0
 		Call @HandleKnobChange0
 	else
@@ -382,7 +393,7 @@
 @End
 
 @HandleKnobChange0
-	if LastKnob=0
+	if last_knob=0
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, number_of_keyboards-1
 		if val <> keyboard
 			keyboard = val
@@ -391,14 +402,14 @@
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
-	elseif LastKnob=1
+	elseif last_knob=1
 	  global_velo = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127
 		if global_velo=0
 			LabelKnob 1, {vTHRU}
 		else
 			LabelKnob 1, {Velo }, global_velo
 		endif
-	elseif LastKnob=2
+	elseif last_knob=2
 	  val = Round TranslateScale (GetKnobValue 2), 0, 127, -2, 2
 		if val <> oct_adjustments[keyboard]
 			oct_adjustments[keyboard] = val
@@ -407,7 +418,7 @@
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
-	elseif LastKnob=3
+	elseif last_knob=3
 	  val = Round TranslateScale (GetKnobValue 3), 0, 127, -12, 12
 		if val <> txpose_adjustments[keyboard]
 			txpose_adjustments[keyboard] = val
@@ -420,7 +431,7 @@
 @End
 
 @HandleKnobChange1
-	if LastKnob=0
+	if last_knob=0
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, number_of_keyboards-1
 		if val <> keyboard
 			keyboard = val
@@ -429,7 +440,7 @@
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
-	elseif LastKnob=1
+	elseif last_knob=1
 	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
 		if val <> layouts[keyboard]
 			layouts[keyboard] = val
@@ -438,13 +449,13 @@
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
-	elseif LastKnob=2
+	elseif last_knob=2
 	  val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 64
 		if val <> random_vel_amts[keyboard]
 			random_vel_amts[keyboard] = val
 			LabelKnob 2, {RndV+/- }, random_vel_amts[keyboard]
 		endif
-	elseif LastKnob=3
+	elseif last_knob=3
 	  val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 15
 		if val <> keybd_channels[keyboard]
 			keybd_channels[keyboard] = val
