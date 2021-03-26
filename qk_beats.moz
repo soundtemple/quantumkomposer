@@ -1691,8 +1691,7 @@
   endif
   if (last_knob=2) //# STEP VAL FOR SEQ
     step_val = Round TranslateScale (GetKnobValue 2), 0, 127, seq_type_min, seq_type_max
-    Call @SetStepVal
-		if move_all
+    if move_all
 			rtn_to_step_slot=step_slot
 			for i = 0 to 15
 				step_slot=(current_scene*128)+(current_pattn*16)+i

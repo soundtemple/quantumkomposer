@@ -1655,7 +1655,17 @@
   endif
   if (last_knob=2) //# STEP VAL FOR SEQ
     step_val = Round TranslateScale (GetKnobValue 2), 0, 127, seq_type_min, seq_type_max
-    Call @SetStepVal
+    if move_all
+			rtn_to_step_slot=step_slot
+			for i = 0 to 15
+				step_slot=(current_scene*128)+(current_pattn*16)+i
+				Call @SetStepVal
+			endfor
+			step_slot=rtn_to_step_slot
+			Call @LabelAllSequencePads
+		else 
+			Call @SetStepVal
+		endif
   endif
   if (last_knob=3) //# ALL STEPS
     val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
@@ -1848,11 +1858,9 @@
 
 @LabelSet5Knobs
 	if move_all=1
-	  LabelPads {STEP EDIT ALL: Pad15-Decrease, Pad16-Increase "Knob2" value for all steps}
-		FlashPad 14
-		FlashPad 15
+	  LabelPads {STEP EDIT ALL: Select "TYPE" to edit. Edit value for all pads}
 	elseif move_all=0 and seq_type=4
-		LabelPads {STEP EDIT ONE: Tap STEP to toggle on/off state}
+		LabelPads {STEP EDIT ONE: Tap Step to toggle on/off state}
 	else
 	  LabelPads {STEP EDIT ONE: Tap Step. Select "TYPE" to edit. Edit value for selected pad}
 	endif
@@ -1890,7 +1898,7 @@
 		LabelKnob 3, { }
 	else 
 		if move_all=1
-		  LabelKnob 3, {<<< ALL >>}
+		  LabelKnob 3, {<< ALL >>}
 		else
 			LabelKnob 3, {< Move1 >}
 		endif
@@ -2599,7 +2607,7 @@
 			if val <> mgen_device_id
 				mgen_device_id=val
 				if mgen_device_id
-					LabelKnob 0, {mgen# -}, mgen_device_id
+					LabelKnob 0, {mgen# }, mgen_device_id
 				else
 					LabelKnob 0, {mgen# -}
 				endif
