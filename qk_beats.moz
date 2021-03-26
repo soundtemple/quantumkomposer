@@ -768,6 +768,16 @@
   		Call @UpdateSelStepType //# 0=off; 1=on;
 		elseif (mode=9 and seq_type=4 and not move_all)  //setp edit ALL adjust move_all_dir
 			Call @UpdateSelStepType //# 0=off; 1=on;
+		elseif (mode=9 and move_all)
+			if last_pad=14
+				move_all_dir=-1
+				Call @MoveAllSteps
+			elseif last_pad=15
+				move_all_dir=1
+				Call @MoveAllSteps
+			else 
+				move_all_dir=0
+			endif
 		elseif (mode>=10 and mode<=13)
 			if mode=12 //rotate sequence xyz
 				if last_pad=14
@@ -1715,6 +1725,59 @@
   Call @LabelSequencePad
 @End
 
+@MoveAllSteps //# Move all steps in step edit mode
+	for i = 0 to 15
+		slot=(current_scene*128)+(current_pattn*16)+i
+		if (seq_type=0) and (seq_ch=0) and note_set_type<=1
+			new_index = Clip (seq0_notes[slot] + move_all_dir), 0, noteset_len-1
+			seq0_notes[slot] = new_index
+		elseif (seq_type=0) and (seq_ch=1) and note_set_type<=1
+			new_index = Clip (seq1_notes[slot] + move_all_dir), 0, noteset_len-1
+			seq1_notes[slot] = new_index
+		elseif (seq_type=0) and (seq_ch=2) and note_set_type<=1
+			new_index = Clip (seq2_notes[slot] + move_all_dir), 0, noteset_len-1
+			seq2_notes[slot] = new_index
+		elseif (seq_type=0) and (seq_ch=3) and note_set_type<=1
+			new_index = Clip (seq3_notes[slot] + move_all_dir), 0, noteset_len-1
+			seq3_notes[slot] = new_index
+		elseif (seq_type=1) and (seq_ch=0)
+			seq0_octs[slot] = Clip (seq0_octs[slot]+move_all_dir), 0, 6
+		elseif (seq_type=1) and (seq_ch=1)
+			seq1_octs[slot] = Clip (seq1_octs[slot]+move_all_dir), 0, 6
+		elseif (seq_type=1) and (seq_ch=2)
+			seq2_octs[slot] = Clip (seq2_octs[slot]+move_all_dir), 0, 6
+		elseif (seq_type=1) and (seq_ch=3)
+			seq3_octs[slot] = Clip (seq3_octs[slot]+move_all_dir), 0, 6
+		elseif (seq_type=2) and (seq_ch=0)
+			seq0_velos[slot] = Clip (seq0_velos[slot]+ move_all_dir), 0, 127
+		elseif (seq_type=2) and (seq_ch=1)
+			seq1_velos[slot] = Clip (seq1_velos[slot]+ move_all_dir), 0, 127
+		elseif (seq_type=2) and (seq_ch=2)
+			seq2_velos[slot] = Clip (seq2_velos[slot]+ move_all_dir), 0, 127
+		elseif (seq_type=2) and (seq_ch=3)
+			seq3_velos[slot] = Clip (seq3_velos[slot]+ move_all_dir), 0, 127
+		elseif (seq_type=3) and (seq_ch=0)
+			seq0_ccs[slot] = Clip (seq0_ccs[slot]+ move_all_dir), -1, 127
+		elseif (seq_type=3) and (seq_ch=1)
+			seq1_ccs[slot] = Clip (seq1_ccs[slot]+ move_all_dir), -1, 127
+		elseif (seq_type=3) and (seq_ch=2)
+			seq2_ccs[slot] = Clip (seq2_ccs[slot]+ move_all_dir), -1, 127
+		elseif (seq_type=3) and (seq_ch=3)
+			seq3_ccs[slot] = Clip (seq3_ccs[slot]+ move_all_dir), -1, 127
+		elseif (seq_type=4) and (seq_ch=0)
+			seq0_steps[slot] = Clip (seq0_steps[slot]+ move_all_dir), 0, 2
+		elseif (seq_type=4) and (seq_ch=1)
+			seq1_steps[slot] = Clip (seq1_steps[slot]+ move_all_dir), 0, 2
+		elseif (seq_type=4) and (seq_ch=2)
+			seq2_steps[slot] = Clip (seq2_steps[slot]+ move_all_dir), 0, 2
+		elseif (seq_type=4) and (seq_ch=3)
+			seq3_steps[slot] = Clip (seq3_steps[slot]+ move_all_dir), 0, 2
+		endif
+	endfor
+	label_style=seq_type
+	Call @LabelAllSequencePads
+@End
+
 @RotateSequence //# rotate a selected sequence. requires args rotation(-1 or +1), old_seq
 	step_slot=(current_scene*128)+(current_pattn*16)
 	FillArray old_notes, 0, 16
@@ -1839,7 +1902,9 @@
 
 @LabelSet5Knobs
 	if move_all=1
-	  LabelPads {STEP EDIT ALL: Select "TYPE" to edit. Edit value for all pads}
+	  LabelPads {STEP EDIT ALL: Knob sets a value for all pads. Increment with <<PAD15 PAD16>>}
+		FlashPad 14
+		FlashPad 15
 	elseif move_all=0 and seq_type=4
 		LabelPads {STEP EDIT ONE: Tap Step to toggle on/off state}
 	else

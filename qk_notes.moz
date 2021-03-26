@@ -1858,7 +1858,9 @@
 
 @LabelSet5Knobs
 	if move_all=1
-	  LabelPads {STEP EDIT ALL: Select "TYPE" to edit. Edit value for all pads}
+	  LabelPads {STEP EDIT ALL: Knob sets a value for all pads. Increment with <<PAD15 PAD16>>}
+		FlashPad 14
+		FlashPad 15
 	elseif move_all=0 and seq_type=4
 		LabelPads {STEP EDIT ONE: Tap Step to toggle on/off state}
 	else
