@@ -165,7 +165,6 @@
 	endfor
 	//# MIDI GEN KONTROL SECTION
 	allow_edit_mgen_ccs=FALSE
-	sel_mgen_dev=0 //# return to last pad used MG-kntrl mode
 	mgen_vals=[]
 	mgen_labels =  [2,3,12,20,15,16,17,18,19,14,1,15,0,0,0,0]
 	mgen_colors =  [2,2,2,7,7,4,3,5,2,0,0,0,2,0,1,3]
@@ -279,7 +278,7 @@
 	elseif MIDIByte2=90 and MIDIByte3<=8 // MGEN setup in MG Kntrol
 			mode=6
 			in_mode_select=FALSE
-			sel_mgen_dev=MIDIByte3
+			sel_mgen_dev=MIDIByte3+1 //range 1-9 +1 to match display
 			Call @SetupLayoutChannels
 			Call @SetupKnobset10
 			LatchPad sel_mgen_dev, YES
@@ -289,7 +288,7 @@
 			//SendMIDICC MIDIChannel, sel_mgen_dev+91, MIDIByte3 //close old gui
 			mode=6
 			in_mode_select=FALSE
-			sel_mgen_dev=MIDIByte2-91
+			sel_mgen_dev=MIDIByte2-91+1 //(range 1-9 for the 9 slots. +1 to match display)
 			Call @SetupLayoutChannels
 			Call @SetupKnobset10
 			LatchPad sel_mgen_dev, YES
@@ -913,7 +912,7 @@
 			use_mgen_knobset_a = NOT use_mgen_knobset_a
 		endif
 		edit_pad = last_pad 
-		sel_mgen_dev=last_pad
+		sel_mgen_dev=last_pad+1  //range 1-9 to match slots
 		if use_mgen_knobset_a
 			Call @Setupknobset8 //setup a
 		else 
@@ -921,7 +920,7 @@
 		endif
 	else
 		//SendMIDICC MIDIChannel, sel_mgen_dev+91, 127 //toggle old GUI off
-		sel_mgen_dev=last_pad
+		sel_mgen_dev=last_pad+1 //range 1-9 to match slots
 		SendMIDICC MIDIChannel, sel_mgen_dev+91, 127 //toggle new GUI ON
 		edit_pad = last_pad
 		Call @SetupKnobset10 //use m-kntrl knobs

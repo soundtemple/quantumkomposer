@@ -24,7 +24,7 @@
 	  use_turn_around = TRUE //# last pattn as turn around on last bar of scene
 	  //# used for LED feedback
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads
-		mgen_device_id=-1 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=0 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 	  send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
@@ -558,31 +558,37 @@
 				SetShortName {MELODY}
 				sel_scale=1 // major
 				note_set_type=0 //via KORDS
+				mgen_device_id=6
 			elseif notes_instance_type=2
 				midi_out_chs=[8,9,10,11]
 				SetShortName {HARMNY}
 				sel_scale=13 // HARMONY TRIGGER
 				note_set_type=0 //via KORDS
+				mgen_device_id=7
 			elseif notes_instance_type=3
 				midi_out_chs=[1,1,1,1]
 				SetShortName {PERCS}
 				sel_scale=0 // Chromatic
 				note_set_type=1 //to instrument
+				mgen_device_id=2
 			elseif notes_instance_type=4
 				midi_out_chs=[2,2,2,2]
 				SetShortName {LOOPS}
 				sel_scale=0 // Chromatic
 				note_set_type=1 //to instrument
+				mgen_device_id=3
 			elseif notes_instance_type=5
 				midi_out_chs=[3,3,3,3]
 				SetShortName {FX}
 				sel_scale=0 // Chromatic
 				note_set_type=1 //to instrument
+				mgen_device_id=3
 			elseif notes_instance_type=0
 				midi_out_chs=[0,1,2,3]
 				SetShortName {NOTES}
 				sel_scale=0 // Chromatic
 				note_set_type=1 //to instrument
+				mgen_device_id=0
 			endif
 			Call @GetMidiINPUTScale //setup the new scale type
 			in_mode_select=FALSE
@@ -2578,13 +2584,13 @@
     Call @KnobChangeSet9 //# ROTATION
 	elseif knob_set = 99 //settings layout
     if LastKnob = 0
-		  val = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 8
+		  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 9
 			if val <> mgen_device_id
 				mgen_device_id=val
-				if mgen_device_id=-1
-					LabelKnob 0, {mgen# -}
+				if mgen_device_id
+					LabelKnob 0, {mgen# -}, mgen_device_id
 				else
-					LabelKnob 0, {mgen# }, mgen_device_id+1
+					LabelKnob 0, {mgen# -}
 				endif
 			endif
 		endif
@@ -2616,11 +2622,11 @@
 		knob_set=99
 		LabelKnobs { }
 		LabelPads {Settings}
-		SetKnobValue 0, TranslateScale mgen_device_id, -1, 8, 0, 127
-		if mgen_device_id=-1
-			LabelKnob 0, {mgen# -}
+		SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
+		if mgen_device_id
+			LabelKnob 0, {mgen# }, mgen_device_id
 		else
-			LabelKnob 0, {mgen# }, mgen_device_id+1
+			LabelKnob 0, {mgen# -}
 		endif
 		LabelKnob 1, { }
 		LabelKnob 2, { }
@@ -2638,21 +2644,27 @@
 		if notes_instance_type=1
 			LabelPad 2, {QK:NOTES }, {>MELODY}
 			ncol=4
+			mgen_device_id=6
 		elseif notes_instance_type=2
 			LabelPad 2, {QK:NOTES }, {>HARMONY}
 			ncol=3
+			mgen_device_id=7
 		elseif notes_instance_type=3
 			LabelPad 2, {QK:NOTES }, {>PERCS}
 			ncol=2
+			mgen_device_id=2
 		elseif notes_instance_type=4
 			LabelPad 2, {QK:NOTES }, {>LOOPS}
 			ncol=2
+			mgen_device_id=3
 		elseif notes_instance_type=5
 			LabelPad 2, {QK:NOTES }, {>FX}
 			ncol=6
+			mgen_device_id=4
 		elseif notes_instance_type=0
 			LabelPad 2, {QK:NOTES }, {>NOTES}
 			ncol=2
+			mgen_device_id=0
 		endif
 		Call @LabelSet3
 		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}

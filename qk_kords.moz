@@ -25,7 +25,7 @@
 		allow_mel_harm_midi_ch_chg=FALSE //dangerous see sc_har1_slot see SendOutChordNotes
 	  //# used for LED feedback
 		last_pad=0 
-		mgen_device_id=-1 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=8 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 	  led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		midi_channel_conflict = FALSE //# allowing midi OUT channel conflicts
@@ -2077,11 +2077,11 @@
 		else
 			//# disable knobs in_mode_select
 			LabelKnobs { }
-			SetKnobValue 0, TranslateScale mgen_device_id, -1, 8, 0, 127
-			if mgen_device_id=-1
-				LabelKnob 0, {mgen# -}
+			SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
+			if mgen_device_id
+				LabelKnob 0, {mgen# }, mgen_device_id
 			else
-				LabelKnob 0, {mgen# }, mgen_device_id+1
+				LabelKnob 0, {mgen# -}
 			endif
 			LabelKnob 1, { }
 			LabelKnob 2, { }
@@ -2113,13 +2113,13 @@
   	Call @KnobChangeSet9	//# HARMONY modes
 	elseif knob_set = 99 //settings layout
     if LastKnob = 0
-		  val = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 8
+		  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 9
 			if val <> mgen_device_id
 				mgen_device_id=val
-				if mgen_device_id=-1
-					LabelKnob 0, {mgen# -}
+				if mgen_device_id
+					LabelKnob 0, {mgen# }, mgen_device_id
 				else
-					LabelKnob 0, {mgen# }, mgen_device_id+1
+					LabelKnob 0, {mgen# -}
 				endif
 			endif
 		endif
