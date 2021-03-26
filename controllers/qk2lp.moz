@@ -66,12 +66,12 @@
 @End
 
 @OnHostStart //map colors for transport buttons
-	SendMIDICC 0, 93, pred 
+	SendMIDICC 2, 93, ppred 
   SendMIDICC 2, 94, bgreen
 @End
 
 @OnHostStop
-	SendMIDICC 0, 93, red
+	SendMIDICC 0, 93, ddred
 	SendMIDICC 0, 94, green
 @End
 
@@ -84,10 +84,13 @@
 	beige=105
 	red=6
 	pred=120
+	ppred=5
+	ddred=7
 	orange=9
 	porange=11
 	green=64
 	bgreen=87
+	dgreen=123
 	pgreen=20
 	blue=45
 	pblue=41
@@ -95,9 +98,9 @@
 	mauve=81
 	pink=53
 	//messages from KNTRL will send a color 0-9 as value MIDIBYTE3. Map to controller colours here:
-	to_pad_col = [off, pred, orange, pgreen, pblue, purple, mauve, pink, white, beige, pred, grey] 
+	to_pad_col = [off, ddred, orange, pgreen, pblue, purple, mauve, pink, white, beige, pred, grey] 
 	
-	colors[91] = [off,		off,		red,		green, 	pgreen, grey, 	grey, 	grey,		off] //drambo, transport, mode
+	colors[91] = [off,		off,		ddred,	dgreen, 	pgreen, grey, 	grey, 	grey,		off] //drambo, transport, mode
 	colors[81] = [orange, orange, orange, orange, orange, orange, orange, orange,	off] //mgen select
 	colors[71] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
 	colors[61] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
@@ -149,7 +152,7 @@
 	
 @OnMetroPulse
 	if show_metro_pulse
-	  SendMIDINoteOn 0, mgen_seq_pads[CurrentMetroPulse], 3
+		SendMIDINoteOn 0, mgen_seq_pads[CurrentMetroPulse], 3
 		SendMIDINoteOn 0, mgen_seq_pads[CurrentMetroPulse], colors[mgen_seq_pads[CurrentMetroPulse]], 100
 	endif
 @End
