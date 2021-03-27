@@ -31,7 +31,7 @@
 		send_midi_feedback = 1 //send feedabck to update controller state. 0=off
 		midi_controller=[15,36,37,38,39] //midi controller channel then 4 ccs for kntrl of kntrl knobs
 		scene_copied=FALSE
-		loop_song_mode=FALSE
+		loop_song_mode=TRUE
 		//Initialise KNTRL
 		Call @SysexMessageSetup
 		Call @InitKnobVariables //# All knob settings on start
@@ -164,8 +164,8 @@
 	endfor
 	//# MIDI GEN KONTROL SECTION
 	mgen_vals=[]
-	mgen_labels =  [2,3,12,20,15,16,17,18,19,14,1,15,0,0,0,0]
-	mgen_colors =  [2,2,2,7,7,4,3,5,2,0,0,0,2,0,1,3]
+	mgen_labels =  [20,2,3,12,15,16,17,18,19,14,1,15,0,0,0,0]
+	mgen_colors =  [7,2,2,2,7,4,3,5,2,0,0,0,2,0,1,3]
 	mgen_guis = [91,92,93,94,95,96,97,98,99,0,0,0,0,0,0,0]
 	mgen_ccs=[40,41,42,43]	
 	//Ruismaker instruments per channel 
@@ -1781,7 +1781,7 @@
 	pad_cols[12]=6
 	if loop_song_mode
 		LabelPad 13, {LOOP SONG MODE}
-		pad_cols[13]=8
+		pad_cols[13]=7
 	else
 	  LabelPad 13, {LOOP SONG OFF}
 		pad_cols[13]=0 
