@@ -10,7 +10,7 @@
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:PatternLocked
 	  SetMetroPPQN 4
 	  ppqn = 4 
-		note_off_delay=10 //delay note off so adjaccent notes will glide
+		note_off_delay=5 //delay note off so adjaccent notes will glide
 	  scene_change_requested = -1 //# on pad down has next scene number
 	  pattn_change_requested = -1 //# on pad down has next pattn number
 	  scene_change_pattn_reset = TRUE //# Goto pattn 0 when user changes scene
@@ -22,8 +22,7 @@
 	  return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		notes_instance_type = 0
 	  use_turn_around = TRUE //# last pattn as turn around on last bar of scene
-	  //# used for LED feedback
-		led_index=20 // notes 20-46 used for updating LED feedback on 16pads
+	  led_index=20 // notes 20-46 used for updating LED feedback on 16pads
 		mgen_device_id=0 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 	  send_cc_back_to_knobs = TRUE
@@ -55,8 +54,7 @@
 	endif
 @End
 
-@SysexMessageSetup
-	//QK Sysex messages. from KNTRL to BEATS and from BEATS to midi controllers
+@SysexMessageSetup //QK Sysex messages. from KNTRL to BEATS and from BEATS to midi controllers
 	qk_sysex_header=[0x3F,0x40,0x3F,0x40,0x3F,0x40] //QK messages
 	len_header=6 
 	//QK message types 
@@ -68,8 +66,7 @@
 	sx_mgen_knobs=40 //MGEN 4 knobs --to knobs controller
 @End
  
-@InitKnobVariables
-	//# Any knobset knob should have a setting here
+@InitKnobVariables //# Any knobset knob should have a setting here
 	scn_duration = 0 
 	pattn_duration = 0
 	//# select 0-15 -- display 1-16 so 9 shows as 10
@@ -79,7 +76,7 @@
 	rot_type=0
 	timer_intervals=[500, 700, 150, 150, 700]
 	label_style=4 //#0-3 seq_types, 4 all_seq_type_sel_ch, 5_all_ch's_al_seq's
-	label_view_mode=4 //# A toggle for the settings pad. 4 or 5. Updates label_style also, which is used more frequently for sequence editing
+	label_view_mode=4 //# A toggle for the settings pad. 4 or 5. Updates label_style also
   input_restrict=0
   presets=[]
   preset_num=0
@@ -100,37 +97,29 @@
   scene_swing = [0,0,0,0,0,0,0,0]
   pattn_durs=[4] //# Pattern durations in beats
   pattn_octs=[] //# Octave adjust
-  //# Sequence general setup
-	in_seq_mode = FALSE
-	//# Playhead position
+  in_seq_mode = FALSE
 	current_scene = 0 // #0-7 Pads 0-7
   current_pattn = 0 // #0-7 Pads 8-15
-	//# selected step for editing on the current playing scene/pattn
 	sel_step = 0 
   //# All sequences 8scenes x 8patterns x 16 steps. Each 1024 cells
 	//# slot = (sel_scene*128) + (sel_pattn*16) + sel_step 
-	//# STEPS
-	FillArray seq0_steps, 0, 1024
+	FillArray seq0_steps, 0, 1024 //# STEPS
 	FillArray seq1_steps, 0, 1024
 	FillArray seq2_steps, 0, 1024
 	FillArray seq3_steps, 0, 1024
-	//# NOTES
-	FillArray seq0_notes, 0, 1024
+	FillArray seq0_notes, 0, 1024 //# NOTES
 	FillArray seq1_notes, 4, 1024
 	FillArray seq2_notes, 7, 1024
 	FillArray seq3_notes, 11, 1024
-	//# OCTS
-	FillArray seq0_octs, 3, 1024
+	FillArray seq0_octs, 3, 1024 //# OCTS
 	FillArray seq1_octs, 3, 1024
 	FillArray seq2_octs, 3, 1024
 	FillArray seq3_octs, 3, 1024
-	//# VELO
-	FillArray seq0_velos, 100, 1024
+	FillArray seq0_velos, 100, 1024 //# VELO
 	FillArray seq1_velos, 100, 1024
 	FillArray seq2_velos, 100, 1024
 	FillArray seq3_velos, 100, 1024
-	//# CC
-	FillArray seq0_ccs, -1, 1024
+	FillArray seq0_ccs, -1, 1024 //# CC
 	FillArray seq1_ccs, -1, 1024
 	FillArray seq2_ccs, -1, 1024
 	FillArray seq3_ccs, -1, 1024
@@ -143,14 +132,11 @@
 	e_rate_pos=3  //# Rate division for seq. see pulses_per_note
 	euc_vals=[]
 	//# access using eg: euc_vals[euc_slot + e_rot_pos] 
-	//# MetroPulse settings
 	curr_steps=[0,0,0,0] //# current note 
 	in_mid_step=[0,0,0,0] //# for slow rates metroPulse can be between steps
 	pulses_per_note = [1,2,4,8,16] //# a divisor to give metroPulses per note
 	//# curr_rate = pulses_per_note[euc_vals[euc_slot + e_rate_pos]]
 	curr_pattn_pulses=[0,0,0,0] //# one for each seq_ch. relative to MetroPulse
-	//# stored midi note num for current playing note. for sending OFF notes
-	//# stored at time midi note on is sent. see @OnMetroPulse
 	playing_notes=[0,0,0,0]
 	steps_record_mode=FALSE //# steps mode: tap on step or tap any step record step at playhead
 	//# MEL & SEQ GENERATION
@@ -193,7 +179,6 @@
 	common_scales[11*12] = [0,0,3,3,3,5,7,7,10,10,10,10] //#	Minor Pent
 	common_scales[12*12] = [0,0,3,3,3,5,6,7,10,10,10,10] //#	Blues
 	common_scales[13*12] = [0,0,0,1,1,1,2,2, 2, 3, 3, 3] //#	Harmony Trigger
-	
 	//# Melody generation scale degrees
 	starting_indexes = [0,2,4,6] //# ie Root
 	mel_gen_scales[0]     = [0,2,4,5,7,9,11] //#	Chromatic use major
@@ -210,7 +195,6 @@
 	mel_gen_scales[11*12] = [0,0,3,5,7,7,10] //#	Minor Pent
 	mel_gen_scales[12*12] = [0,2,3,4,8,8,10] //#	Blues Major
 	index_last_note_p = 0 //# Calc note variable for recalling last note to be played
-	
 	Call @GetMidiINPUTScale //# set up init scale for midi input	
 @End
 
@@ -226,16 +210,12 @@
 	Log (NoteName curr_scale[0]), { }, (NoteName curr_scale[1]), { }, (NoteName curr_scale[2]), { }, (NoteName curr_scale[3]), { }, (NoteName curr_scale[4]), { }, (NoteName curr_scale[5]), { }, (NoteName curr_scale[6]), { }, (NoteName curr_scale[7]), { }, (NoteName curr_scale[8]), { }, (NoteName curr_scale[9]), { }, (NoteName curr_scale[10]), { }, (NoteName curr_scale[11]), { }
 @End
 		
-
 @OnHostStart //# Start beat count on same beat as host
 	SetMetroSwing scene_swing[current_scene] 
 	if (HostBeat = 0) and (HostBar = 0)
-		//# starting playback from beginning		
-		//# SEQUENCE MODE RESETS...
 		curr_pattn_pulses=[0,0,0,0] //# reset metroPulse count for each seq.
 		curr_steps=[0,0,0,0]
 		in_mid_step=[0,0,0,0]
-		
 		pattn_beat_count = -1
 		scene_beat_count = -1
 		scene_changed = FALSE
@@ -246,13 +226,10 @@
 			current_pattn = 0
 		endif
 	else
-		//# continuing playback. Could do nothing and allow continue with vars unchanged
-		//# but in case use can jump timeline we are doing this to keep HostBeat aligned and pattn/Scene at same relative positions.
 		scene_completed_bars = scene_beat_count % HostBeatsPerMeasure
 		pattn_completed_bars = pattn_beat_count % HostBeatsPerMeasure
 		scene_beat_count = scene_completed_bars + HostBeat
 		pattn_beat_count = pattn_completed_bars + HostBeat	
-		//# TODO:- take into account song position!!!
 		curr_pattn_pulses=[0,0,0,0] //# reset metroPulse count for each seq.
 		curr_steps=[0,0,0,0]
 		in_mid_step=[0,0,0,0]	
@@ -269,7 +246,6 @@
 		  playing_notes[i] = 0
 		endif
 	endfor  
-  //Log {---- Host Stopped ---- }, scene_beat_count, { - }, pattn_beat_count 
   Call @SetupLayout
 @End 
 
@@ -322,12 +298,9 @@
 	endfor
 @End
 
-@PlayCurrentNotes
-	//# Play current notes & send CC data. All seq_ch's xpcn
-	//# handle turn off old and sending new note
+@PlayCurrentNotes //# Play current notes & send CC data. All seq_ch's xpcn
 	step_slot=(current_scene*128)+(current_pattn*16)+curr_steps[ch]
-	//# check sus_prev on new step per ch because this data stored array per ch
-	sus_prev_note = FALSE
+	sus_prev_note = FALSE //# check sus_prev on new step per ch because this data stored array per ch
 	if ch=0
 		step_type = seq0_steps[step_slot]
 	elseif ch=1
@@ -337,7 +310,6 @@
 	elseif ch=3
 		step_type = seq3_steps[step_slot]
 	endif
-	
 	if step_mutation[(current_scene*4) + ch]>=1 and (mutate_step[ch] = curr_steps[ch])
 		//# mutate this step
 		if step_type=0
@@ -346,13 +318,11 @@
 			mutated_step=0 //# only turn off steps if step_mut>50
 		endif
 		step_type=mutated_step
-	endif
-			
+	endif		
 	if (step_type<2) and playing_notes[ch]>0 //# turn off old note
 	  SendMIDINoteOff midi_out_chs[ch], playing_notes[ch], 127, note_off_delay
 		playing_notes[ch]=0 
 	endif 
-	
 	if ch=0 
 		oct_num = seq0_octs[step_slot]
 		scale_degree = seq0_notes[step_slot]
@@ -386,26 +356,22 @@
 			//#Log {MUTATTION RANGE: }, -cc_mutation[(current_scene*4) + ch], { to }, cc_mutation[(current_scene*4) + ch], { B4CCVAL }, cc_val, { MUTVAL}, cc_mutate_val, { SUM }, Clip (cc_val+mutate_val), 0, 127
 			cc_val = Clip (cc_val+cc_mutate_val), 0, 127
 		endif
-		//Log {Sending midi cc }, midi_out_chs[ch], cc_vals[ch], cc_val 
 		SendMIDICC midi_out_chs[ch], cc_vals[ch], cc_val
 	endif
 	if step_type=1 //# turn on new note
 		if velo_mutation[(current_scene*4) + ch]>=1 //# mutate velo_val
 			mutate_val = Random -velo_mutation[(current_scene*4) + ch], velo_mutation[(current_scene*4) + ch]
 			velo_val = Clip (velo_val+mutate_val), 0, 127
-			//# Log {Mutate velo amt: }, mutate_val
 		endif
-		SendMIDINoteOn midi_out_chs[ch], note_val, velo_val, 5
+		SendMIDINoteOn midi_out_chs[ch], note_val, velo_val
 		playing_notes[ch]= note_val
 		//Log {NotePlayed: }, note_val, { HBEAT:}, HostBeat, { HBAR:}, HostBar, { CMP: }, CurrentMetroPulse
 	endif
 @End
 
 @OnNewBeat 
-	//# increment beat counts
 	scene_beat_count = scene_beat_count + 1
 	pattn_beat_count = pattn_beat_count + 1
-	//# Handle Scene and Pattern changes
 	current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
 	pattn_slot = (current_scene * 8) + (current_pattn)
 	current_pattn_duration = pattn_durs[pattn_slot]
@@ -417,14 +383,11 @@
   endif
 	//# Pattern progression -- Order of operations
 	if (scene_change_requested > -1) and (HostBeat=0)
-		//# user requested scene change and its a new bar (& return to song)
-		Call @HandleSceneChange
+		Call @HandleSceneChange //# user requested scene change and its a new bar (& return to song)
 	elseif (scene_beat_count >= current_scene_duration)
-		//# its time to increment scene
-		Call @HandleSceneChange
+		Call @HandleSceneChange //# its time to increment scene
 	elseif (pattn_change_requested > -1) and (HostBeat=0)
-  	//# User requested pattn change & its a new beat
- 		Call @HandlePatternChange
+ 		Call @HandlePatternChange //# User requested pattn change & its a new beat
  	elseif time_for_turnaround
  		Call @HandlePatternChange
 	elseif (pattn_beat_count >= current_pattn_duration)
@@ -433,23 +396,17 @@
 	Call @LogCurrentInfo
 @End
 
-@TimeForTurnaround
-	//# Under these conditions jump to last pattn for 1 bar before scene change
+@TimeForTurnaround //# Under these conditions jump to last pattn for 1 bar before scene change
 	//# 2nd last pattn in scene has no duration. Last pattn has 4 beat duration
 	//# Mode must be in song or scene lock, must be 1 bar before scene ends
 	pattn6 = pattn_durs[(current_scene * 8) + 6]
 	pattn7 = pattn_durs[(current_scene * 8) + 7]
-	//# Log {Pattern6 dur: }, pattn6, { Pattern7 dur: }, pattn7
-	//# Log {SBC: }, scene_beat_count, { SC_DUR: }, current_scene_duration, { HBPM: }, HostBeatsPerMeasure
-	//# Log scene_beat_count, { === }, (current_scene_duration - HostBeatsPerMeasure)
 	if (songmode <= 1) and (pattn6 = 0) and (pattn7 = 4) and (current_pattn <= 5) and (scene_beat_count = current_scene_duration - HostBeatsPerMeasure)
 		time_for_turnaround = TRUE
-		//Log {Its TURN AROUND TIME!!}
 	endif
 @End
 
 @HandleSceneChange
-	//# Work out which scene is next xhsc
 	scene_changed = TRUE
   if scene_change_requested > -1
   	current_scene = scene_change_requested
@@ -463,8 +420,7 @@
   	current_scene = current_scene
   elseif (current_scene = 7) //# End of song 
     current_scene = 0 //# TODO: Handle end of song
-  elseif (scene_durs[current_scene+1] <= 0)
-  	//# also song end
+  elseif (scene_durs[current_scene+1] <= 0) //# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
   else
     rnd_scene = Random 0,7 //# only move to rnd scene if it has a duration
@@ -477,12 +433,10 @@
   scene_beat_count = 0
 	pattn_beat_count = 0
   SetMetroSwing scene_swing[current_scene]
-  //Log {----- SCENE CHANGE -----}, {S}, current_scene+1, { SWING: }, scene_swing[current_scene], {%}
   Call @HandlePatternChange //# Scene change effect pattn change
 @End
 
-@HandlePatternChange
-	//# Work out what the next pattn is xhcc
+@HandlePatternChange //# Work out next pattn
 	pattn_slot = (current_scene * 8) + (current_pattn)
 	if (pattn_change_requested > -1)
 		current_pattn = pattn_change_requested
@@ -491,14 +445,12 @@
 			songmode = 2 //# Lock to pattn if user requests pattn change
  		endif
  	elseif (scene_change_requested > -1) //# also handle pattn change
-		//# Log {Scene change requested handling pattn reset}
 		current_pattn = 0
   	scene_change_requested = -1
   	scene_changed = FALSE
   elseif scene_changed
 		//# reset pattn to 0 on scene change if songmode < 2
 		if (songmode <= 1)
-			//# Log {Scene changed reset pattn to 0}
 			current_pattn = 0
 		endif
 		scene_changed = FALSE
@@ -643,7 +595,6 @@
 	    elseif last_pad = 10
 	      Call @SetupKnobset7 //# MUTATE
 	    elseif last_pad = 11
-	    	//# Create random arp and ramp vals
 				Call @LoadArpPatterns
 	  		Call @LoadRampPatterns
 	      Call @SetupKnobset8 //# SEQ GEN
@@ -653,8 +604,7 @@
 	    mode=last_pad
     	in_mode_select = FALSE
     	in_seq_mode = TRUE
-    elseif (HostRunning and last_pad=0)
-    	//# Return to song mode requested
+    elseif (HostRunning and last_pad=0) //# Return to song mode requested
     	return_to_song_mode_requested = TRUE
     	scene_change_requested = current_scene
     	in_mode_select = FALSE
@@ -695,8 +645,7 @@
 			mode = last_pad
 			in_mode_select = FALSE
 		endif
-		//# Handle mode change
-		if mode = 0
+		if mode = 0 //# Handle mode change
 			LabelPads {PLAYBACK MODE: Loop whole song}
 			songmode = 0
 			in_seq_mode = FALSE
@@ -748,20 +697,40 @@
     		Call @CopyPaste //# copy paste pattn
 	    endif
 		elseif (mode = 7) and (last_pad <= 7) //# reset mode
-    	Log {Reset scene called}
-    	reset_type=0
+			reset_type=0
     	Call @ResetScenePatternSequence   
  	 	elseif (mode = 7) and (last_pad >= 7)
-    	Log {Reset pattn called}
-    	reset_type=1
+			reset_type=1
     	Call @ResetScenePatternSequence
   	endif
   elseif (NOT in_mode_select and in_seq_mode)
+		if sel_step=last_pad
+			double_tap=TRUE
+		else
+		  double_tap=FALSE
+		endif
   	sel_pad=last_pad //# for updating step label info
 		if mode=8 and not steps_record_mode//# Step sequence mode
 			Call @UpdateSelStepType //# 0=off; 1=on; 2=sustain prev
   	elseif (mode=9 and seq_type=4) and not move_all
 		  Call @UpdateSelStepType //# 0=off; 1=on;
+		elseif (mode=9 and seq_type<4) and double_tap and not move_all //step edit mode pre-hear sel pad 
+			step_slot=(current_scene*128)+(current_pattn*16)+last_pad
+			if seq_ch=0 //get note to play for seq pad pressed
+				note_val = (seq0_octs[step_slot]*12) + (curr_scale[seq0_notes[step_slot]])
+				velo_val = seq0_velos[step_slot]
+			elseif seq_ch=1
+				note_val = (seq1_octs[step_slot]*12) + (curr_scale[seq1_notes[step_slot]])
+				velo_val = seq1_velos[step_slot]
+			elseif seq_ch=2
+				note_val = (seq2_octs[step_slot]*12) + (curr_scale[seq2_notes[step_slot]])
+				velo_val = seq2_velos[step_slot]
+			elseif seq_ch=3
+				note_val = (seq3_octs[step_slot]*12) + (curr_scale[seq3_notes[step_slot]])
+				velo_val = seq3_velos[step_slot]
+			endif
+			SendMIDINoteOn midi_out_chs[seq_ch], note_val, velo_val //allow user press to send note
+			SendMIDINoteOff midi_out_chs[seq_ch], note_val, velo_val, 500
 		elseif (mode=9 and move_all)
 			if last_pad=14
 				move_all_dir=-1
@@ -803,9 +772,7 @@
   	elseif (mode = 7)
   		reset_type=2 //# reset a sequence pad
     	Call @ResetScenePatternSequence
-  	else	
-  		//Log {STEP SELECTED }, last_pad+1
-  	endif
+		endif
   	sel_step=last_pad
   	Call @SetupLayout
   endif
@@ -822,14 +789,12 @@
 
 @OnPadDown_ScenePatternChange
 	//# handle scene/pattn change
-  if (last_pad >= 0 and last_pad <= 7)
-  	//# Scene change
+  if (last_pad >= 0 and last_pad <= 7) //# Scene change
   	scene_change_requested = last_pad
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
-	elseif (last_pad >= 8 and last_pad <= 15) 	
-  	//# User Pattern change 
+	elseif (last_pad >= 8 and last_pad <= 15) 	//# User Pattern change 
   	pattn_change_requested = last_pad - 8 //# chrd 0-7
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandlePatternChange 
@@ -887,16 +852,12 @@
 @End
 
 @OnMidiCC
-	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
-	Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
+	//Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
 	if (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
-		//# handle scene duration change
-		scene_durs[MIDIByte2-101] = MIDIByte3
+		scene_durs[MIDIByte2-101] = MIDIByte3 //# handle scene duration change
 		Call @SetupLayout
-	elseif (HostRunning and MIDIByte2=22 and MIDIByte3>0)
-  	//# handle return to song mode requested
-  	return_to_song_mode_requested = TRUE
-  	//scene_change_requested = current_scene no scene change - just continue
+	elseif (HostRunning and MIDIByte2=22 and MIDIByte3>0) //# handle return to song mode requested
+  	return_to_song_mode_requested = TRUE //scene_change_requested = current_scene no scene change - just continue
   	in_mode_select = FALSE
   	songmode = 0
   	mode = 0
@@ -1025,8 +986,7 @@
 		steps_to_copy=16
 		copy_slot=(current_scene*128)+(current_pattn*16)
 		Call @CopySequencePad
-		//# create temp arrays
-		temp_steps=[]
+		temp_steps=[] //# create temp arrays
 		temp_notes=[]
 		temp_octs=[]
 		temp_velos=[]
@@ -1088,8 +1048,7 @@
 			reset_all_channels=FALSE
 		endif
  	endif 
-	//# Create empty arrays to reset to
-	FillArray copied_seq_steps, 0, steps_to_copy 
+	FillArray copied_seq_steps, 0, steps_to_copy //# Create empty arrays to reset to
 	FillArray copied_seq_octs, 3, steps_to_copy
 	FillArray copied_seq_velos, 100, steps_to_copy
 	FillArray copied_seq_ccs, -1, steps_to_copy
@@ -1108,8 +1067,7 @@
 @End
 
 @CopyPaste //# copy paste scenes. patterns. sequences
-	if last_pad <=7 and not in_seq_mode
-		//# copy pasting a scene
+	if last_pad <=7 and not in_seq_mode//# copy pasting a scene
 		LabelPads {Copied scene }, copied_scene+1, { to scene }, last_pad+1
 		scene_durs[last_pad] = scene_durs[copied_scene] 
 		//# CopyArray source, dest, cells 
@@ -1129,7 +1087,6 @@
 		euc_copy_slot=(copied_scene*128)
 		euc_paste_slot=(current_scene*128)			
 		CopyArray euc_vals[euc_copy_slot], euc_vals[euc_paste_slot], (4*4*8)
-		//# Exit copy paste
 	elseif last_pad >= 8 and not in_seq_mode
 		//# handle copy pasting a pattern
 		LabelPads	{Copied S}, copied_scene+1, { Pattern }, copied_pattn+1, { to }, { S}, current_scene+1, { Pattern }, last_pad-7
@@ -1151,7 +1108,6 @@
 		euc_copy_slot=(copied_scene*128)+(copied_pattn*16)
 		euc_paste_slot=(current_scene*128)+((last_pad-8)*16)
 		CopyArray euc_vals[euc_copy_slot], euc_vals[euc_paste_slot], 16
-		//# Exit copy paste
 	elseif in_seq_mode and return_to_mode=9 //# edit mode copy single pads
 		//# handle copypaste a single seq_pad
 		copy_slot=(current_scene*128)+(current_pattn*16)+copied_seq_pad
@@ -1198,29 +1154,25 @@
 	copied_seq_octs=[]
 	copied_seq_velos=[]
 	copied_seq_ccs=[]
-	if copy_seq_ch=0
-		//# copy...
+	if copy_seq_ch=0 //# copy...
 		CopyArray seq0_steps[copy_slot], copied_seq_steps, steps_to_copy 
 		CopyArray seq0_notes[copy_slot], copied_seq_notes, steps_to_copy
 		CopyArray seq0_octs[copy_slot], copied_seq_octs, steps_to_copy
 		CopyArray seq0_velos[copy_slot], copied_seq_velos, steps_to_copy
 		CopyArray seq0_ccs[copy_slot], copied_seq_ccs, steps_to_copy
-	elseif copy_seq_ch=1
-		//# copy...
+	elseif copy_seq_ch=1 //# copy...
 		CopyArray seq1_steps[copy_slot], copied_seq_steps, steps_to_copy 
 		CopyArray seq1_notes[copy_slot], copied_seq_notes, steps_to_copy
 		CopyArray seq1_octs[copy_slot], copied_seq_octs, steps_to_copy
 		CopyArray seq1_velos[copy_slot], copied_seq_velos, steps_to_copy
 		CopyArray seq1_ccs[copy_slot], copied_seq_ccs, steps_to_copy
-	elseif copy_seq_ch=2
-		//# copy...
+	elseif copy_seq_ch=2 //# copy...
 		CopyArray seq2_steps[copy_slot], copied_seq_steps, steps_to_copy 
 		CopyArray seq2_notes[copy_slot], copied_seq_notes, steps_to_copy
 		CopyArray seq2_octs[copy_slot], copied_seq_octs, steps_to_copy
 		CopyArray seq2_velos[copy_slot], copied_seq_velos, steps_to_copy
 		CopyArray seq2_ccs[copy_slot], copied_seq_ccs, steps_to_copy
-	elseif copy_seq_ch=3
-		//# copy...
+	elseif copy_seq_ch=3 //# copy...
 		CopyArray seq3_steps[copy_slot], copied_seq_steps, steps_to_copy 
 		CopyArray seq3_notes[copy_slot], copied_seq_notes, steps_to_copy
 		CopyArray seq3_octs[copy_slot], copied_seq_octs, steps_to_copy
@@ -1372,7 +1324,6 @@
   LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 @End
 
-
 @SetupKnobset3 //# NOTE SET
   knob_set = 3
   LabelPads {Select Key/Scale. Routing via KORDS or direct to instrument}
@@ -1491,8 +1442,7 @@
 
 @GetStepVal //# Step val is the value for editing ch,scene,pattn,step,seq_type
 	sel_pad_type=1 //# set so visible when editing. not saved
-	if seq_type=0
- 	  //# note val 0-13 (off; 1-12; rnd)
+	if seq_type=0  //# note val 0-13 (off; 1-12; rnd)
   	seq_type_min=0
   	seq_type_max=noteset_len-1
   	if seq_ch=0
@@ -1504,8 +1454,7 @@
 	  elseif seq_ch=3
 	  	step_val=seq3_notes[step_slot]
 	  endif
-  elseif seq_type=1
-  	//# oct val 0 to 6
+  elseif seq_type=1 //# oct val 0 to 6
   	seq_type_min=0
   	seq_type_max=6
 		if seq_ch=0
@@ -1517,8 +1466,7 @@
 	  elseif seq_ch=3
 	  	step_val=seq3_octs[step_slot]
 	  endif
-  elseif seq_type=2
-  	//# velo val 0-127
+  elseif seq_type=2 //# velo val 0-127
   	seq_type_min=0
   	seq_type_max=127
   	if seq_ch=0
@@ -1530,8 +1478,7 @@
 	  elseif seq_ch=3
 	  	step_val=seq3_velos[step_slot]
 	  endif
-  elseif seq_type=3
-  	//#  ccval -1-127 (off + 0-127)
+  elseif seq_type=3 //#  ccval -1-127 (off + 0-127)
   	seq_type_min=-1
   	seq_type_max=127
   	if seq_ch=0
@@ -1543,8 +1490,7 @@
 	  elseif seq_ch=3
 	  	step_val=seq3_ccs[step_slot]
 	  endif
-  elseif seq_type=4
-  	//#  step off-on-sus_prev 
+  elseif seq_type=4 //#  step off-on-sus_prev 
   	seq_type_min=0
   	seq_type_max=2
   	if seq_ch=0
@@ -1559,11 +1505,9 @@
   endif
 @End
 
-@SetStepVal
-	//# Step val is the value for editing ch,scene,pattn,step,seq_type	
+@SetStepVal //# Step val is the value for editing ch,scene,pattn,step,seq_type	
   sel_pad_type=1 //# set so visible when editing. not saved
-  if seq_type=0
- 	  //# step_val here is index to curr_scale	  	
+  if seq_type=0 //# step_val here is index to curr_scale	  	
   	if seq_ch=0
 	  	seq0_notes[step_slot]=step_val
 	  elseif seq_ch=1
@@ -1573,8 +1517,7 @@
 	  elseif seq_ch=3
 	  	seq3_notes[step_slot]=step_val
 	  endif
-  elseif seq_type=1
-  	//# oct val 1 to 5
+  elseif seq_type=1 //# oct val 1 to 5
   	if seq_ch=0
 	  	seq0_octs[step_slot]=step_val
 	  elseif seq_ch=1
@@ -1584,8 +1527,7 @@
 	  elseif seq_ch=3
 	  	seq3_octs[step_slot]=step_val
 	  endif
-  elseif seq_type=2
-  	//# velo val 0-127
+  elseif seq_type=2 //# velo val 0-127
   	if seq_ch=0
 	  	seq0_velos[step_slot]=step_val
 	  elseif seq_ch=1
@@ -1595,8 +1537,7 @@
 	  elseif seq_ch=3
 	  	seq3_velos[step_slot]=step_val
 	  endif
-  elseif seq_type=3
-  	//#  ccval -1-127 (off + 0-127)
+  elseif seq_type=3 //#  ccval -1-127 (off + 0-127)
   	if seq_ch=0
 	  	seq0_ccs[step_slot]=step_val
 	  elseif seq_ch=1
@@ -1606,8 +1547,7 @@
 	  elseif seq_ch=3
 	  	seq3_ccs[step_slot]=step_val
 	  endif
-  elseif seq_type=4
-  	//#  STEP off-on-sus_prev
+  elseif seq_type=4 //#  STEP off-on-sus_prev
   	if seq_ch=0
 	  	seq0_steps[step_slot]=step_val
 	  elseif seq_ch=1
@@ -1623,9 +1563,7 @@
 
 @SetupKnobset5 //# PATTERN EDIT
   knob_set = 5
-  //# currently selected step/pad (out of 16) in a pattern xgpss
-	step_slot=(current_scene*128)+(current_pattn*16)+sel_step
-	//# plus current pattern on current scene
+  step_slot=(current_scene*128)+(current_pattn*16)+sel_step
 	pattn_slot = (current_scene * 8) + current_pattn
   Call @GetStepVal //# sets step_val
   if Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3 <> seq_ch
@@ -1639,7 +1577,6 @@
 @End
 
 @KnobChangeSet5 //# PATTERN EDIT 
-  //# currently selected step/pad (out of 16) in a pattern xgpss
 	step_slot=(current_scene*128)+(current_pattn*16)+sel_step
 	pattn_slot = (current_scene * 8) + current_pattn
   if last_knob = 0 //# SEQ_CH
@@ -1685,11 +1622,9 @@
 		if (seq_type=0) and (seq_ch=0) and note_set_type<=1
 			new_index = Clip (seq0_notes[slot] + move_all_dir), 0, noteset_len-1
 			seq0_notes[slot] = new_index
-		
 		elseif (seq_type=0) and (seq_ch=1) and note_set_type<=1
 			new_index = Clip (seq1_notes[slot] + move_all_dir), 0, noteset_len-1
 			seq1_notes[slot] = new_index
-		
 		elseif (seq_type=0) and (seq_ch=2) and note_set_type<=1
 			new_index = Clip (seq2_notes[slot] + move_all_dir), 0, noteset_len-1
 			seq2_notes[slot] = new_index
@@ -2258,11 +2193,9 @@
 	p_slot = (current_scene*128)+(current_pattn*16)
 	range = sg_hi - sg_lo
 	if range < 0
-		Log {BAD RANGE! Will use 0}
-		range = 0
+		range = 0 // {BAD RANGE! Will use 0}		
 	endif
-	//# Set beats to update range
-	if sg_sel_beat=0
+	if sg_sel_beat=0 //# Set beats to update range
 		sg_from=0
 		sg_to=3
 	elseif sg_sel_beat=1
@@ -2278,8 +2211,7 @@
 	  sg_from=0
 		sg_to=15
 	endif
-	//# GET PATTERN into general array p
-	p=[]
+	p=[] //# GET PATTERN into general array p
 	loc = sg_gen[seq_ch] * 16
 	if sg_type[seq_ch]=1 //# rytm pattern
 		for i = sg_from to sg_to
@@ -2297,17 +2229,13 @@
 		endfor
 	elseif sg_type[seq_ch]=2 //# mel pattern
 		if sg_gen[seq_ch] < 8
-			first_note = starting_indexes[0]
-			//Log {starting note index=}, first_note, { which in the curr_scale: }, curr_mel_gen_scale[first_note]
+			first_note = starting_indexes[0] 
 		elseif sg_gen[seq_ch]>=8 and sg_gen[seq_ch]<16 
 			first_note = starting_indexes[1]
-			//Log {starting note index=}, first_note, { which in the curr_scale: }, curr_mel_gen_scale[first_note]
 		elseif sg_gen[seq_ch] >= 16 and sg_gen[seq_ch]<24
 			first_note = starting_indexes[2]
-			//Log {starting note index=}, first_note, { which in the curr_scale: }, curr_mel_gen_scale[first_note]
 		elseif sg_gen[seq_ch] >= 24
 			first_note = starting_indexes[3]
-			//Log {starting note index=}, first_note, { which in the curr_scale: }, curr_mel_gen_scale[first_note]
 		endif
 		first_note_set = FALSE
 	elseif sg_type[seq_ch]=3 //# arp pattern
@@ -2317,10 +2245,8 @@
 	elseif sg_type[seq_ch]=5 //# cc pattern
 		CopyArray ramps[sg_gen[seq_ch] * 16], p, 16
 	endif
-	//# Apply RHYTHM PATTERNS
-	if sg_type[seq_ch]=1
+	if sg_type[seq_ch]=1 //# Apply RHYTHM PATTERNS
 		for i = sg_from to sg_to
-			//# paste depending on seq_ch
 			if seq_ch=0
 				seq0_steps[p_slot+i] = p[i]
 			elseif seq_ch=1
@@ -2336,11 +2262,8 @@
 	if sg_type[seq_ch]=2
 		euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
 		slow_sequence_rate = euc_vals[euc_slot + 3] > 1
-		//Log {sequence rate: }, euc_vals[euc_slot + 3]
 		for i = sg_from to sg_to
-			//# Calculate note choice (index for curr_scale) returns p[i] (a scale degree) but more importantly
-			//# an index to curr_mel_gen_scale [0-6] which has the relevant notes from curr_scale
-			//# but uses only 7 slots instead of 12 slots as in curr_scale  
+			// Calculate note choice (index for curr_scale) returns p[i] (a scale degree) but more importantly  an index to curr_mel_gen_scale [0-6] which has the relevant notes from curr_scale  but uses only 7 slots instead of 12 slots as in curr_scale  
 			Call @CalculateNoteChoice 
 			new_note_index = curr_mel_gen_scale[p[i]]
 			if seq_ch=0
@@ -2368,7 +2291,6 @@
 				seq_octave=4 //# up1 when arp pattern uses 8
 			endif
 			n = curr_scale[note_index%12] //# note
-			//# paste depending on seq_ch
 			if seq_ch=0
 				seq0_notes[p_slot+i] = n
 				seq0_octs[p_slot+i] = seq_octave
@@ -2389,7 +2311,6 @@
 		for i = sg_from to sg_to
 			//# Get the right value to paste
 			v = (Round (p[i]/15 * range)) + sg_lo //# velo
-			//# paste depending on seq_ch
 			if seq_ch=0
 				seq0_velos[p_slot+i] = Clip v, 0, 127 
 			elseif seq_ch=1
@@ -2406,7 +2327,6 @@
 		for i = sg_from to sg_to
 			//# Get the right value to paste
 			v = (Round (p[i]/16 * range)) + sg_lo //# velo
-			//# paste depending on seq_ch
 			if seq_ch=0
 				seq0_ccs[p_slot+i] = Clip v, 0, 127 
 			elseif seq_ch=1
@@ -2420,7 +2340,7 @@
 	endif
 @End
 
-@CalculateNoteChoice
+@CalculateNoteChoice 
 	//# returns an index to a scale degree [0-6] which has to be converted to the curr_scale style 
 	//# based on strong and weak beats and move size from previous note index
 	move=0
@@ -2457,8 +2377,7 @@
 	if (curr_step_type=1) and not first_note_set
 		p[i] = first_note 
 		first_note_set = TRUE
-		index_last_note_p = i //# step=1 note set
-		//Log {first note set at pad: },i+1, { note_index: }, first_note 
+		index_last_note_p = i //# step=1 note set 
 	elseif (curr_step_type=1) and first_note_set and slow_sequence_rate
 	  //# force nearby chord note - slow sequence rate
 		new_index = Random 0,3
@@ -2466,30 +2385,23 @@
 		//Log {Slow sequence rate, no passing notes. Force nearby chord note }, i+1, { set to }, p[i]
 	elseif (curr_step_type=1) and first_note_set and not weak_beat
 	  if i>0 and prev_step_type=1 and prev_note_passing_note
-			//# force nearby chord note
-			moves = [-1, 1]
+			moves = [-1, 1] //# force nearby chord note
 			move = moves[(Random 0,1)]
 			p[i] = prev_note + move //# will always be 1 scale degree from chord note
 			//Log {prev note passing note setting chord note on }, i+1, { gone for... }, p[i]
-		else
-			//# allow any chord note
+		else //# allow any chord note
 			new_index = Random 0,3
 			p[i] = starting_indexes[new_index]
-			//Log {allowing any chord note on },i+1, { gone for...}, p[i]
 		endif
 		index_last_note_p = i //# step=1 note set
 	elseif (curr_step_type=1) and first_note_set and weak_beat
-	  if i<15 and next_step_type=1
-			//# allow passing note
+	  if i<15 and next_step_type=1 //# allow passing note
 			move = Random -2,2
 			p[i] = prev_note + move
-			//Log {allowing passing or chord note on },i+1
-		else
-		  //# nearby chord note
+		else //# nearby chord note
 			move_options = [-2,0,2] //# prev_note is strong therefore chord note
 			move = move_options[(Random 0,2)]
 			p[i] = prev_note + move
-			//Log {nearby chord note to previous on },i+1
 		endif
 		index_last_note_p = i //# step=1 note set
 	elseif curr_step_type <> 1 and i=0
@@ -2502,15 +2414,13 @@
 	//# finally if p[i] has gone outside the range [0-6]
 	mel_gen_note_oct=3
 	if p[i]>=0
-		if p[i]>6
-			//Log {Over the octave: }
+		if p[i]>6 //Log {Over the octave: }
 			mel_gen_note_oct=4
 		endif
 		p[i] = p[i]%7 //# 6 should be 6. 7 should be back to 0
 	else
 		p[i] = 7 + p[i] //# -ve number wrap back to end ie: -1 goes to 6
-		//Log {Under the octave: }
-		mel_gen_note_oct=2
+		mel_gen_note_oct=2 // {Under the octave: }
 	endif
 @End
 
@@ -2581,8 +2491,7 @@
 	Call @OnKnobChange2
 @End
 	
-@OnKnobChange2
-	//# Knob change router xokc
+@OnKnobChange2 //# Knob change router xokc
   if knob_set = 0 
     Call @KnobChangeSet0 //# scene settings
   elseif knob_set = 1
@@ -2639,7 +2548,6 @@
 		endif
 		copy_paste_status=0 //# In case COPYPASTE aborted
 		LabelPads {SETTINGS:      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
-		//# disable knobs on entry to settings to prevent overwrite
 		knob_set=99
 		LabelKnobs { }
 		LabelPads {Settings}
@@ -2760,9 +2668,8 @@
   elseif in_seq_mode
   	Call @SetupSeqLayout
   else
-	 //# Setup scene pads
-	 FillArray scn_pad_cols, 0, 16
-   for i = 0 to 7  
+		FillArray scn_pad_cols, 0, 16 //# Setup scene pads
+   	for i = 0 to 7  
 	    if scene_durs[i] > 0
 		    scn_pad_cols[i]=2
 				scn_to_label = i
@@ -2775,8 +2682,7 @@
 				scn_pad_cols[i]=1 //del btn
 	    endif
 	  endfor		  
-	  //# Setup pattn pads  
-    for i = 8 to 15
+	  for i = 8 to 15 //# Setup pattn pads  
 	    pattn_slot = (current_scene*8) + (i-8)
 	    LatchPad i, NO
 	    if pattn_durs[pattn_slot] > 0
@@ -2896,11 +2802,9 @@
 	if (mode=7) and (sel_pad_type>0) //# delete reset pads mode
 		padColor=1
 	endif
-	//# Off pads past pattn length
-	if sel_pad >= pattn_length
+	if sel_pad >= pattn_length //# Off pads past pattn length
 		padColor = 5
 	endif
-	//# Selected step
 	if (sel_pad=sel_step) and mode=9 and seq_type<4
 		padColor=3
 	endif
@@ -2913,7 +2817,6 @@
 @LabelSequencePad //# label sequence pads 
 	euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
 	pattn_length = (16 - euc_vals[euc_slot+2])
-	//# Pad labeling notes, velo, cc etc
   x=15
 	o0=seq0_octs[step_slot]+1
 	o1=seq1_octs[step_slot]+1
@@ -2947,8 +2850,7 @@
   elseif (label_style=4) //# label selected channel + all values
   	LabelPad sel_pad, (NoteName n[seq_ch], YES), {     }, n[seq_ch], {          v},v[seq_ch],{  cc},cc[seq_ch]
   elseif (label_style=0) or (label_style=1) 
-  	//# label selected channel note and octave only
-  	LabelPad sel_pad, (NoteName n[seq_ch], YES)
+		LabelPad sel_pad, (NoteName n[seq_ch], YES) //# label selected channel note and octave only
   elseif (label_style=2) //# label selected channel velo only
   	LabelPad sel_pad, {VEL: }, v[seq_ch]
 	elseif (label_style=3) //# label selected channel cc only
@@ -2958,27 +2860,21 @@
   		LabelPad sel_pad, {CC: }, cc[seq_ch]
   	endif
   endif
-  //# Pad labelling for steps mode
-  if (mode=8 or mode=6 or mode=7) and sel_pad_type=0 and not label_style=5
-  	//# extra modes for copy/paste and delete
-  	LabelPad sel_pad, { }
+  if (mode=8 or mode=6 or mode=7) and sel_pad_type=0 and not label_style=5  //# Pad labelling for steps mode
+		LabelPad sel_pad, { }
   elseif (mode=8 or mode=6 or mode=7) and sel_pad_type=2
   	LabelPad sel_pad, {==>}
   endif
   if (mode>=9) and (mode<=12) and sel_pad_type=2  and label_style<=4
   	LabelPad sel_pad, {==>}
   endif
-  //# Hide data for pads outside seq length
-  if sel_pad >= pattn_length
+  if sel_pad >= pattn_length //# Hide data for pads outside seq length
 		LabelPad sel_pad, { }
 	endif
 @End
 
-@LoadRampPatterns
-	//Log {--- LOADING RAMP PATTERNS ---}
-	//# Ramps for Arp, Velo and CC generations
- 	//# convert to VELO or CC# = Round (val/16*127)
- 	//# convert to NOTE = Round (val/16*12)
+@LoadRampPatterns //# Ramps for Arp, Velo and CC generations
+ 	//# convert to VELO or CC# = Round (val/16*127). convert to NOTE = Round (val/16*12)
  	for i = 0 to 47 //# Create random vals for random ramps
  		r[i] = Random 0,15
  	endfor 
@@ -3011,13 +2907,12 @@
 	ramps[26*16] = [10,10,15,15, 10,10,15,15,  10,10,15,15, 10,10,15,15] //# sc2
 	ramps[27*16] = [4,15,15,15,  4,15,15,15,   4,15,15,15,  4,15,15,15] //# sc3
 	ramps[28*16] = [4,4,15,15,   4,4,15,15,    4,4,15,15,   4,4,15,15]  //#sc4
-	ramps[29*16] = [r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9],r[10],r[11],r[12],r[13],r[14],r[15]] //# RND1 regen on setup (no need to do when range changes)
+	ramps[29*16] = [r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9],r[10],r[11],r[12],r[13],r[14],r[15]] //# RND1 
 	ramps[30*16] = [r[16],r[17],r[18],r[19],r[20],r[21],r[22],r[23],r[24],r[25],r[26],r[27],r[28],r[29],r[30],r[31]] //# RND2
 	ramps[31*16] = [r[32],r[33],r[34],r[35],r[36],r[37],r[38],r[39],r[40],r[41],r[42],r[43],r[44],r[45],r[46],r[47]] //# RND3  
 @End
 
 @LoadArpPatterns
-	//Log {--- LOADING ARP PATTERNS ---}
 	for i = 0 to 47
 	 	a[i] = Random 0,3
 	endfor  
@@ -3058,5 +2953,6 @@
 	arps[28*16] = [1,2,3,4,  5,6,7,8,  1,2,3,4,  5,6,7,8] //# RISE2
 	arps[29*16] = [a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10],a[11],a[12],a[13],a[14],a[15]] //# RND1 
 	arps[30*16] = [a[16],a[17],a[18],a[19],a[20],a[21],a[22],a[23],a[24],a[25],a[26],a[27],a[28],a[29],a[30],a[31]] //# RND2
-	arps[31*16] = [a[32],a[33],a[34],a[35],a[36],a[37],a[38],a[39],a[40],a[41],a[42],a[43],a[44],a[45],a[46],a[47]] //# RND3 Regen on setup 
+	arps[31*16] = [a[32],a[33],a[34],a[35],a[36],a[37],a[38],a[39],a[40],a[41],a[42],a[43],a[44],a[45],a[46],a[47]] //# RND3
+	Log {---- LOADING COMPLETE ----}	
 @End
