@@ -14,6 +14,7 @@
 	  chord_change_requested = -1 //# on pad down has next chord number
 		chord_beat_count = -1
 		scene_beat_count = -1
+		scene_changed = FALSE
 	  scene_change_chord_reset = TRUE //# Goto chord 0 when user changes scene
 	  in_mode_select = FALSE //# Toggle for changing modes mode
 	  number_of_modes = 16 //# Change in operational mode 
@@ -283,10 +284,12 @@
  		Call @HandleChordChange
  	elseif time_for_turnaround
  		Call @HandleChordChange
-	elseif (chord_beat_count >= current_chord_duration)
+	elseif (chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
 		Call @HandleChordChange
 	endif
-	// Call @LogCurrentInfo
+	if mode=0
+		LabelPads {[ KORDS ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration) 
+	endif
 @End
 
 @TimeForTurnaround
@@ -344,18 +347,16 @@
 	if (chord_change_requested > -1)
 		current_chord = chord_change_requested
 		chord_change_requested = -1 //# reset request flag
-		if songmode <= 2
+		if songmode < 2
 			songmode = 2 //# Lock to chord if user requests chord change
  		endif
  	elseif (scene_change_requested > -1) //# also handle chord change
-		//# Log {Scene change requested handling chord reset}
 		current_chord = 0
   	scene_change_requested = -1
   	scene_changed = FALSE
   elseif scene_changed
 		//# reset chord to 0 on scene change if songmode < 2
 		if (songmode <= 1)
-			//Log {Scene changed reset chord to 0}
 			current_chord = 0
 		endif
 		scene_changed = FALSE
@@ -372,10 +373,9 @@
     current_chord = current_chord + 1
   endif
   chord_beat_count = 0 //# reset chord beat count on new chord
-	
   //# Label pads
   if not in_mode_select
-	  LabelPads {_QK:KORDS  Scene: }, current_scene+1, { Chord: }, current_chord+1
+	  LabelPads {[ KORDS ]  Scene: }, current_scene+1, { Chord: }, current_chord+1
   endif
   //Log {----- CHORD CHANGE -----}, {C}, current_chord+1
   Call @SetupLayout
@@ -496,7 +496,7 @@
 @HandleModeChange
 	//# Handle Labels
 	if mode = 0
-		LabelPads {_QK:KORDS   PLAYBACK MODE: Loop whole song}
+		LabelPads {[ KORDS ]  Scene: }, current_scene+1, { Chord: }, current_chord+1 
 		Call @SetupKnobset1
 		songmode = 0
 	elseif mode = 1
@@ -608,54 +608,33 @@
 
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
-	// Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
+	//Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
 	if MIDIChannel>=4 and MIDIChannel<=11 and MIDIByte2<=4
 		SendMIDIThru // step cc automation from NOTES. Allowed ccs 0-4 only. 
-	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7)
-		//# handle scene change requested (ie: PadDown Scene change)
-		scene_change_requested = MIDIByte3
-		if NOT HostRunning //# immediate change else newbeat/bar handles
-  		Call @HandleSceneChange 
-  	endif
-		if in_mode_select
-			Call @SetupSettingsLayout
-		else
-			Call @SetupLayout
-		endif
 	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
 		//# handle scene duration change
 		scene_bank[((MIDIByte2-101) * sc_size)] = MIDIByte3 
 		Call @SetupLayout	
-	elseif (HostRunning and MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15)
-  	//# handle return to song mode requested
-  	return_to_song_mode_requested = TRUE
-  	// scene_change_requested = current_scene no scn chg just rtn continue
+	elseif (MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15 and HostRunning)
+  	return_to_song_mode_requested = TRUE //# handle return to song mode requested
   	in_mode_select = FALSE
-  	songmode = 0
+		songmode = 0
   	mode = 0
-  	if in_mode_select
-			Call @SetupSettingsLayout
-		else
-			Call @SetupLayout
-		endif
-  	ColorPad current_scene, 3
+		Call @SetupLayout
+  	ColorPad current_scene, 6
     ColorPad 8, 3	
 		if mgen_device_id=mgen_sel_dev
 			SendMIDINoteOn 15, current_scene+led_index, 3
 			SendMIDINoteOn 15, 8+led_index, 3
 		endif
 	elseif (MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15 and not HostRunning)
-		in_mode_select = FALSE //# return to song 
 		return_to_song_mode_requested = TRUE
+		in_mode_select = FALSE //Return to song mode
   	songmode = 0
   	mode = 0
 		current_scene=0
 		current_chord=0
-  	if in_mode_select
-			Call @SetupSettingsLayout
-		else
-			Call @SetupLayout
-		endif
+		Call @SetupLayout
 		ColorPad current_scene, 3
     ColorPad current_chord+8, 3
 		if mgen_device_id=mgen_sel_dev
@@ -710,7 +689,8 @@
 		//handle msg types...
 		if qk_msg_type = sx_scene_change
 			//# handle scene change requested (ie: PadDown Scene change)
-			scene_change_requested = sysex_msg[msg_start]		
+			scene_change_requested = sysex_msg[msg_start]
+			songmode = 1
 			if NOT HostRunning //# immediate change else newbeat/bar handles
 	  		Call @HandleSceneChange 
 	  	endif
@@ -2194,7 +2174,7 @@
 @OnShiftDown2
 	if in_mode_select
 		in_mode_select = FALSE
-		LabelPads {_QK:KORDS Scene: }, current_scene+1, { Chord: }, current_chord+1
+		LabelPads {[ KORDS ]  Scene: }, current_scene+1, { Chord: }, current_chord+1
 		if (mode >= 1)
 			mode = 0
 			knob_set = 1

@@ -289,12 +289,10 @@
 		
 	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7) //SCENE CHANGE CH16 CC100 only vals0-7
 		last_pad = MIDIByte3
-		mode=0
 		Call @PadDownScenesMode
 		
 	elseif (MIDIByte2>=109) and (MIDIByte2<=116) and (MIDIByte3=127) //SCENE CHANGE CH16 CC109-116 val127
 		last_pad = MIDIByte2-109
-		mode=0
 		Call @PadDownScenesMode
 		
 	else
@@ -643,17 +641,21 @@
 
 @PadDownScenesMode
 	if last_pad >= 0 and last_pad <= 7 //SCENES MODE
-		scene_change_requested = last_pad
 		//qk devices manage own pattern timing. Others LK, Drambo we use instant change in HandleSceneChange
 		msg_type=sx_scene_change //sysex scene change
-		msg_data=[scene_change_requested] //copy colors to msg_data array
+		msg_data=[last_pad] //copy colors to msg_data array
 		len_data=1
-		Call @SendSysex 
-		
-		songmode=1 //# Lock to selected scene
-		edit_scene=last_pad
-		locked_to_scene=last_pad
-		if NOT HostRunning //# immediate change else newbeat/bar handles
+		Call @SendSysex //let other MGENS know we have a user initiated scene trigger
+		if (last_pad=current_scene) and songmode=0 and HostRunning //in song mode. just lock to scene
+			songmode=1
+			edit_scene=last_pad
+			locked_to_scene=last_pad
+		elseif songmode=1 and HostRunning //locked to scene. re-trigger
+			scene_change_requested = last_pad
+			songmode=1 //# Lock to selected scene
+			edit_scene=last_pad
+			locked_to_scene=last_pad
+		elseif NOT HostRunning //# immediate change else newbeat/bar handles
 			Call @HandleSceneChange 
 		endif
 		Call @SetupKnobset0
@@ -676,12 +678,8 @@
 	elseif mode=0 and last_pad=9 // return to song mode
 		SendMIDICC 15, cc_rtn_to_song_mode, 127
 		return_to_song_mode_requested = TRUE
-  	scene_change_requested = current_scene
-		if NOT HostRunning
-			scene_change_requested = current_scene
-			if HostBar = 0
-				scene_change_requested = 0
-			endif
+  	if NOT HostRunning
+			current_scene = 0
 			Call @HandleSceneChange
 		endif
   	songmode = 0

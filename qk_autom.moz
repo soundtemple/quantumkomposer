@@ -1,6 +1,4 @@
-//# SPLIT OFF FROM KNTRL ON 26SEP
-//# MOZAIC KOMPOSER SUITE
-//# AUTOM APP
+//# QK:AUTOM APP
 //# Handles automation
 @OnLoad
 	SetShortName {AUTOM} 
@@ -56,13 +54,12 @@
 	//# Any knobset knob should have a setting here
 	current_scene = 0 // #0-7 Pads 0-7
 	scene_durs=[0,0,0,0,0,0,0,0]
-	scene_names=[0,1,2,3,4,5,6,7]
 	scene_presets=[]
 	//# Color Scheme
 	col_scene = 2
 	col_sel_scene = 4
 	col_edit_scene = 3
-	col_pending = 3
+	col_pending = 6
 	col_mode_select = 4 //# Mode selection buttons
 	col_unused = 0
 	col_mode_edit = 6 //# Mode selection buttons in edit mode
@@ -243,24 +240,21 @@
 		if mode=0
 			Call @SetupLayoutScenes
 		endif
-	elseif (HostRunning and MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0)
-  	//# handle return to song mode requested
-  	return_to_song_mode_requested = TRUE
-  	// scene_change_requested = current_scene no scn chg just continue
+	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and HostRunning)
+  	return_to_song_mode_requested = TRUE //# handle return to song mode requested
   	in_mode_select = FALSE
-  	songmode = 0
+		songmode = 0
   	mode = 0
-  	ColorPad current_scene, 3
+		ColorPad current_scene, 6
     ColorPad 8, 3
 	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
 		return_to_song_mode_requested = TRUE
-		in_mode_select = FALSE
+		in_mode_select = FALSE //Return to song mode
   	songmode = 0
   	mode = 0
 		current_scene=0
-  	Call @SetupLayoutScenes
+		Call @SetupLayoutScenes
 		ColorPad current_scene, 3
-    ColorPad current_pattn+8, 3
   elseif (MIDIByte2=cc_swing) //# Global swing
   	swng=MIDIByte3
   	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
@@ -341,10 +335,11 @@
 		//handle msg types...
 		if qk_msg_type = sx_scene_change
 			//# handle scene change requested (ie: PadDown Scene change)
-			scene_change_requested = sysex_msg[msg_start]		
+			scene_change_requested = sysex_msg[msg_start]
+			songmode = 1
+			locked_to_scene=scene_change_requested
 			if NOT HostRunning //# immediate change else newbeat/bar handles
 	  		Call @HandleSceneChange
-				edit_scene=scene_change_requested	
 	  	endif
 			in_mode_select = FALSE
 			mode=0
@@ -641,6 +636,7 @@
 			ColorPad current_scene, col_pending
 		else
 	  	songmode = 1 //# lock to scene if user requests
+			locked_to_scene=scene_change_requested
   	endif
   	return_to_song_mode_requested = FALSE
 		scene_change_requested = -1
@@ -793,7 +789,7 @@
 @SetupKnobset0
 	//# Scene settings
 	knob_set = 0
-	LabelPads {AUTOM : [ SCENES ]}
+	LabelPads {[ AUTOM ]  Scene: }, current_scene+1
 	LabelKnobs {SCENE SETUP}
 	LabelKnob 0, {Edit scn }, edit_scene+1
 	LabelKnob 1, {Bars }, scene_durs[edit_scene]
@@ -1104,9 +1100,8 @@
 			LatchPad i, NO
 	  endfor
 		pad_colours[current_scene]=3
-		pad_colours[edit_scene]=7
 		if scene_change_requested>-1
-			pad_colours[scene_change_requested]=6
+			pad_colours[current_scene]=6
 		endif
 		for i = 8 to 15
 			LatchPad i, NO

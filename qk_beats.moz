@@ -453,6 +453,9 @@
 	elseif (pattn_beat_count >= current_pattn_duration)
 		Call @HandlePatternChange
 	endif
+	if mode=0
+		LabelPads {[ BEATS ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration) 
+	endif
 @End
 
 @TimeForTurnaround
@@ -474,7 +477,7 @@
   	current_scene = scene_change_requested
   	if return_to_song_mode_requested
   		songmode = 0
-	else
+		else
 	  	songmode = 1 //# lock to scene if user requests
   	endif
   	return_to_song_mode_requested = FALSE
@@ -534,7 +537,7 @@
   curr_pattn_pulses=[0,0,0,0] //# reset metroPulse count for each seq.
   curr_steps=[0,0,0,0] //# reset steps for each seq.
 	in_mid_step=[0,0,0,0]
-  LabelPads {Scene: }, current_scene+1, { Pattern: }, current_pattn+1
+  LabelPads {[ BEATS ]  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
   Call @SetupLayout
 @End
 
@@ -665,7 +668,7 @@
 			songmode = 0
 			in_seq_mode = FALSE
 		elseif mode=1
-			LabelPads {Scene: }, current_scene+1, { Pattern: }, current_pattn+1
+			LabelPads {[ BEATS ]  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
 			in_seq_mode = FALSE
 		endif
 		Call @SendMidiCCBackToKnobs
@@ -905,11 +908,11 @@
 	elseif (HostRunning and MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15)
 		return_to_song_mode_requested = TRUE //# handle return to song mode requested
   	in_mode_select = FALSE
-  	songmode = 0
+		songmode = 0
   	mode = 0
-  	ColorPad current_scene, 3
+		ColorPad current_scene, 6
     ColorPad 8, 3
-		if mgen_device_id=mgen_sel_dev
+  	if mgen_device_id=mgen_sel_dev
 			SendMIDINoteOn 15, current_scene+led_index, 3
 			SendMIDINoteOn 15, 8+led_index, 3
 		endif
@@ -987,7 +990,8 @@
 		qk_msg_type=sysex_msg[len_header] //the message type received
 		if qk_msg_type = sx_scene_change //handle msg types...
 			//# handle scene change requested (ie: PadDown Scene change)
-			scene_change_requested = sysex_msg[msg_start]		
+			scene_change_requested = sysex_msg[msg_start]
+			songmode = 1
 			if NOT HostRunning //# immediate change else newbeat/bar handles
 				Call @HandleSceneChange 
 			endif
@@ -1235,7 +1239,7 @@
 @SetupKnobset0 //# Scene settings
 	knob_set = 0
 	LabelKnobs {Scene }, current_scene+1, { setup}
-	LabelPads {Scene: }, current_scene+1, { Pattern: }, current_pattn+1
+	LabelPads {[ BEATS ]  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
 	LabelKnob 0, {Duration}
 	LabelKnob 1, {Swing }, scene_swing[current_scene], {%}
 	LabelKnob 2, { }
