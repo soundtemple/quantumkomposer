@@ -17,7 +17,6 @@
 		SetMetroPPQN 4
 		ppqn = 4
 		edit_scene=0
-		locked_to_scene=0
 		pad_is_down=FALSE
 		reset_mxr=FALSE //confirm reset mixer in settings mode
 		reset_whole_layout=FALSE //confirm reset whole layout in settings mode
@@ -471,8 +470,6 @@
 			Call @Setupknobset0
 		elseif mode=1
 			Call @SetupLayoutChannels
-		elseif mode=2
-			Call @LabelMIDILearnPads
 		elseif mode=5 //instrument mode
 			edit_pad=0
 			Call @SetupLayoutChannels
@@ -490,9 +487,6 @@
 			Call @SetupKnobset7
 		endif
 		Call @UpdateCurrentKnobset
-	elseif mode=2
-		mode=0 //just exiting midi learn
-	  Call @SetupSettingsLayout
 	else //not in mode select
 		Call @SetupSettingsLayout
 		Call @UpdateCurrentKnobset
@@ -647,15 +641,14 @@
 		len_data=1
 		Call @SendSysex //let other MGENS know we have a user initiated scene trigger
 		if (last_pad=current_scene) and songmode=0 and HostRunning //in song mode. just lock to scene
-			songmode=1
 			edit_scene=last_pad
-			locked_to_scene=last_pad
+			songmode=1 // lock to scene
 		elseif songmode=1 and HostRunning //locked to scene. re-trigger
 			scene_change_requested = last_pad
-			songmode=1 //# Lock to selected scene
 			edit_scene=last_pad
-			locked_to_scene=last_pad
 		elseif NOT HostRunning //# immediate change else newbeat/bar handles
+			scene_change_requested = last_pad
+			songmode=1 // lock to scene
 			Call @HandleSceneChange 
 		endif
 		Call @SetupKnobset0
@@ -678,11 +671,10 @@
 	elseif mode=0 and last_pad=9 // return to song mode
 		SendMIDICC 15, cc_rtn_to_song_mode, 127
 		return_to_song_mode_requested = TRUE
+  	songmode = 0
   	if NOT HostRunning
 			current_scene = 0
-			Call @HandleSceneChange
 		endif
-  	songmode = 0
   	ColorPad 0, col_pending
     ColorPad 8, col_pending
 		LabelPads {KNTRL: [ LOOPING SONG ] }
@@ -968,14 +960,6 @@
 	endif
 @End
 
-@PadDownMidiLearnMode
-	//Setup midi learn assignments
-	Call @LabelMIDILearnPads
-	ColorPad last_pad, 1
-	last_midi_learn_pad=last_pad
-	Call @SetupKnobset3
-@End
-
 @HandleTransportRequest
 	//# Transport buttons handling
 	if last_pad=14 
@@ -999,15 +983,11 @@
 @HandleSceneChange
 	//# Work out which scene is next
 	scene_changed = TRUE
-  if scene_change_requested > -1
+	if return_to_song_mode_requested
+		return_to_song_mode_requested = FALSE
+	endif
+	if scene_change_requested > -1
   	current_scene = scene_change_requested
-  	if return_to_song_mode_requested
-  		songmode = 0
-			ColorPad current_scene, col_pending
-		else
-	  	songmode = 1 //# lock to scene if user requests
-  	endif
-  	return_to_song_mode_requested = FALSE
 		scene_change_requested = -1
   elseif (songmode > 0)
   	current_scene = current_scene
@@ -1740,18 +1720,18 @@
 			endif
 			LatchPad i, NO
 	  endfor
-		pad_cols[current_scene]=3
+		if songmode=0
+			pad_cols[current_scene]=3
+		elseif songmode=1
+			pad_cols[current_scene]=4
+		endif
 		if scene_change_requested>-1
 			pad_cols[scene_change_requested]=6
 		endif
-		for i = 8 to 15
+		for i = 8 to 15 //bottom row pads
 			LatchPad i, NO
 	    pad_cols[i]=0
 			LabelPad i, { }
-		endfor
-	elseif mode=2
-		for i = 0 to 15
-			pad_cols[i]=2
 		endfor
 	endif
 	if (songmode = 0)
@@ -1759,11 +1739,11 @@
 		LabelPad 9, {-}
 		pad_cols[8]=3
 	elseif (songmode = 1)
-		LabelPad 8, {LOCKED TO S}, locked_to_scene+1
+		LabelPad 8, {LOCKED TO S}, current_scene+1
 		LabelPad 9, {TO SONGMODE}
 		pad_cols[8]=[4]
 		pad_cols[9]=3
-		pad_cols[locked_to_scene]=4
+		pad_cols[current_scene]=4
 	endif
 	LabelPad 10, {UPDATE ALL SCENES}
 	pad_cols[10]=6
