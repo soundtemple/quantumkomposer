@@ -423,6 +423,8 @@
 
 @OnHostStop
   scene_beat_count = 0
+	scene_change_requested = -1
+	return_to_song_mode = FALSE
 	if mode=0 or mode=1
 		Call @SetupLayoutScenes
 	elseif mode=6
@@ -674,9 +676,10 @@
 		Call @HandleTransportRequest
 	elseif mode=0 and last_pad=9 // return to song mode
 		SendMIDICC 15, cc_rtn_to_song_mode, 127
-		return_to_song_mode_requested = TRUE
-  	songmode = 0
-  	if NOT HostRunning
+		songmode = 0
+  	if HostRunning
+			return_to_song_mode_requested = TRUE
+		else
 			current_scene = 0
 		endif
 		LabelPads {KNTRL: [ LOOPING SONG ] }
