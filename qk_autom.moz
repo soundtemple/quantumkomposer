@@ -14,7 +14,6 @@
 		ppqn = 4
 		knob_set=0
 		edit_scene=0
-		locked_to_scene=0
 		current_scene=0
 		scene_change_requested = -1 //# on pad down has next scene number
 		in_mode_select = TRUE //# Toggle for changing modes mode
@@ -56,12 +55,10 @@
 	scene_durs=[0,0,0,0,0,0,0,0]
 	scene_presets=[]
 	//# Color Scheme
-	col_scene = 2
 	col_sel_scene = 4
 	col_edit_scene = 3
 	col_pending = 6
 	col_mode_select = 4 //# Mode selection buttons
-	col_unused = 0
 	col_mode_edit = 6 //# Mode selection buttons in edit mode
 	cc_rtn_to_song_mode=9
 	cc_swing=10
@@ -335,14 +332,19 @@
 		//handle msg types...
 		if qk_msg_type = sx_scene_change
 			//# handle scene change requested (ie: PadDown Scene change)
-			scene_change_requested = sysex_msg[msg_start]
-			songmode = 1
-			locked_to_scene=scene_change_requested
-			if NOT HostRunning //# immediate change else newbeat/bar handles
-	  		Call @HandleSceneChange
-	  	endif
-			in_mode_select = FALSE
-			mode=0
+			if songmode=0 and HostRunning and sysex_msg[msg_start]=current_scene //in song mode. just lock to scene
+				songmode=1 // lock to scene
+			elseif songmode=0 and HostRunning
+			  scene_change_requested = sysex_msg[msg_start]
+				songmode=1
+			elseif songmode=1 and HostRunning //locked to scene. re-trigger
+				scene_change_requested = sysex_msg[msg_start]
+				edit_scene=last_pad
+			elseif NOT HostRunning //# immediate change else newbeat/bar handles
+				scene_change_requested = sysex_msg[msg_start]
+				songmode=1 // lock to scene
+				Call @HandleSceneChange 
+			endif
 			Call @SetupLayoutScenes	
 		endif
 	endif
@@ -583,7 +585,6 @@
 		scene_change_requested = last_pad
 		songmode=1 //# Lock to selected scene
 		edit_scene=last_pad
-		locked_to_scene=last_pad
 		if NOT HostRunning //# immediate change else newbeat/bar handles
 			Call @HandleSceneChange 
 		endif
@@ -629,18 +630,13 @@
 @HandleSceneChange
 	//# Work out which scene is next xhsc
 	scene_changed = TRUE
+	if return_to_song_mode_requested
+		return_to_song_mode_requested = FALSE
+	endif
   if scene_change_requested > -1
   	current_scene = scene_change_requested
-  	if return_to_song_mode_requested
-  		songmode = 0
-			ColorPad current_scene, col_pending
-		else
-	  	songmode = 1 //# lock to scene if user requests
-			locked_to_scene=scene_change_requested
-  	endif
-  	return_to_song_mode_requested = FALSE
 		scene_change_requested = -1
-  elseif (songmode > 0)
+	elseif (songmode > 0)
   	current_scene = current_scene
   elseif (current_scene = 7) //# End of song. Loop back to beginning 
     current_scene = 0 
@@ -668,7 +664,7 @@
 	in_mode_select = TRUE
 	ShowLayout 2
 	LabelPads {AUTOM : [ SETTINGS ]}
-	pad_colours = [4,5,5,7,7,3,0,0,  2,2,2,2,2,1,1,1]
+	pad_cols = [4,5,5,7,7,3,0,0,  2,2,2,2,2,1,1,1]
 	ch=automation_chs[sel_autom_pad]+1
 	cc=automation_ccs[sel_autom_pad]
 	scn=edit_scene+1
@@ -683,35 +679,35 @@
 		LabelPads {AUTOM : [ Record autom parameters during playback. Use rec knob in setup ]}
 		LabelPad 3, {MODE=> RECORD}
 		LabelPad 4, {AUTOM RECORD}
-		pad_colours[3]=1
-		pad_colours[4]=1
+		pad_cols[3]=1
+		pad_cols[4]=1
 	elseif control_autom_on
 	  LabelPads {AUTOM : [ Control autom parameters ]}
 		LabelPad 3, {MODE=> CONTROL}
 		LabelPad 4, {AUTOM CONTROL}
-		pad_colours[3]=3
-		pad_colours[4]=3
+		pad_cols[3]=3
+		pad_cols[4]=3
 	else
 	  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS. Use con knob in setup ] }
 		LabelPad 3, {MODE=> SETUP}
 		LabelPad 4, {AUTOM SETUP}
-		pad_colours[3]=7
-		pad_colours[4]=7
+		pad_cols[3]=7
+		pad_cols[4]=7
 	endif 
 	LabelPad 5, {AUTOM EDITOR}
 	if interpolate_autom
 		LabelPad 6, {SMOOTH AUTOM ON}
-		pad_colours[6]=2
+		pad_cols[6]=2
 	else
 	  LabelPad 6, {SMOOTH AUTOM OFF}
-		pad_colours[6]=0
+		pad_cols[6]=0
 	endif
 	if send_automation_data_enabled
 		LabelPad 7, {AUTOM ENABLED}
-		pad_colours[7]=2
+		pad_cols[7]=2
 	else
 	  LabelPad 7, {AUTOM DISABLED}
-		pad_colours[7]=0
+		pad_cols[7]=0
 	endif
 	LabelPad 8, {SCN}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MIN }, min
 	LabelPad 9, {SCN}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MID }, mid
@@ -729,7 +725,7 @@
 	//update pad colours and send midi feedback for LED lighting
 	for i = 0 to 15
 		pad_to_label=i
-		pad_color=pad_colours[i]
+		pad_color=pad_cols[i]
 		Call @UpdateSinglePad
 	endfor
 @End
@@ -1086,38 +1082,44 @@
 @SetupLayoutScenes
 	//#setup layout for Scenes mode
 	LabelKnobs {Setup Scenes}
-	FillArray pad_colours, col_unused, 16
+	FillArray pad_cols, 0, 16
 	if mode=0 or mode=1
 		//# Setup scene pads
 		for i = 0 to 7
 			if scene_durs[i] > 0
-				pad_colours[i] = col_scene
+				pad_cols[i] = 2
 				scn_to_label = i
 				Call @LabelScenePad
 			else
 				LabelPad i, { }
+				pad_cols[i]=0
 			endif
 			LatchPad i, NO
 	  endfor
-		pad_colours[current_scene]=3
+		if songmode=0
+			pad_cols[current_scene]=3
+		elseif songmode=1
+			pad_cols[current_scene]=4
+		endif
 		if scene_change_requested>-1
-			pad_colours[current_scene]=6
+			pad_cols[scene_change_requested]=6
 		endif
 		for i = 8 to 15
 			LatchPad i, NO
-			pad_colours[i]=0
+			pad_cols[i]=0
 	    LabelPad i, { }
 		endfor
 	endif
 	if (songmode = 0)
 		LabelPad 8, {SONG MODE }
 		LabelPad 9, {-}
-		pad_colours[8]=3
+		pad_cols[8]=3
 	elseif (songmode = 1)
-		LabelPad 8, {LOCKED TO S}, locked_to_scene+1
-		pad_colours[8]=2
+		LabelPad 8, {LOCKED TO S}, current_scene+1
 		LabelPad 9, {TO SONGMODE}
-		pad_colours[locked_to_scene]=4
+		pad_cols[8]=4
+		pad_cols[9]=3
+		pad_cols[current_scene]=4
 	endif
 	LabelPad 10, { }
 	LabelPad 13, { }

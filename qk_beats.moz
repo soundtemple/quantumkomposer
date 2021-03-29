@@ -473,15 +473,13 @@
 
 @HandleSceneChange //# Work out which scene is next
 	scene_changed = TRUE
+	if return_to_song_mode_requested
+		return_to_song_mode_requested = FALSE
+	endif
   if scene_change_requested > -1
   	current_scene = scene_change_requested
-  	if return_to_song_mode_requested
-  		songmode = 0
-		else
-	  	songmode = 1 //# lock to scene if user requests
-  	endif
-  	return_to_song_mode_requested = FALSE
-  elseif (songmode > 0)
+		scene_change_requested = -1
+	elseif (songmode > 0)
   	current_scene = current_scene
   elseif (current_scene = 7) //# End of song 
     current_scene = 0 //# TODO: Handle end of song
@@ -990,9 +988,17 @@
 		qk_msg_type=sysex_msg[len_header] //the message type received
 		if qk_msg_type = sx_scene_change //handle msg types...
 			//# handle scene change requested (ie: PadDown Scene change)
-			scene_change_requested = sysex_msg[msg_start]
-			songmode = 1
-			if NOT HostRunning //# immediate change else newbeat/bar handles
+			if songmode=0 and HostRunning and sysex_msg[msg_start]=current_scene //in song mode. just lock to scene
+				songmode=1 // lock to scene
+			elseif songmode=0 and HostRunning
+			  scene_change_requested = sysex_msg[msg_start]
+				songmode=1
+			elseif songmode=1 and HostRunning //locked to scene. re-trigger
+				scene_change_requested = sysex_msg[msg_start]
+				edit_scene=last_pad
+			elseif NOT HostRunning //# immediate change else newbeat/bar handles
+				scene_change_requested = sysex_msg[msg_start]
+				songmode=1 // lock to scene
 				Call @HandleSceneChange 
 			endif
 			Call @SetupLayout	
@@ -2590,6 +2596,9 @@
 	    scn_pad_cols[current_pattn+8]=4
 			scn_pad_cols[current_scene]=4
 	  endif
+		if return_to_song_mode_requested
+			scn_pad_cols[current_scene]=6
+		endif
 		//# Handle pending pattn and scene changes in playback
 	  if HostRunning and (songmode <=2)
 	  	if pattn_change_requested >= 0

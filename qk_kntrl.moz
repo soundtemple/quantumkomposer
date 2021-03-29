@@ -640,9 +640,13 @@
 		msg_data=[last_pad] //copy colors to msg_data array
 		len_data=1
 		Call @SendSysex //let other MGENS know we have a user initiated scene trigger
-		if (last_pad=current_scene) and songmode=0 and HostRunning //in song mode. just lock to scene
+		if songmode=0 and HostRunning and last_pad=current_scene //in song mode. just lock to scene
 			edit_scene=last_pad
 			songmode=1 // lock to scene
+		elseif songmode=0 and HostRunning
+		  scene_change_requested = last_pad
+			edit_scene=last_pad
+			songmode=1
 		elseif songmode=1 and HostRunning //locked to scene. re-trigger
 			scene_change_requested = last_pad
 			edit_scene=last_pad
@@ -675,8 +679,6 @@
   	if NOT HostRunning
 			current_scene = 0
 		endif
-  	ColorPad 0, col_pending
-    ColorPad 8, col_pending
 		LabelPads {KNTRL: [ LOOPING SONG ] }
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
@@ -1014,7 +1016,6 @@
 		endif
   else
 		current_scene = current_scene + 1 //# Going to next
-		Log {GOING TO NEXT Scene:}, current_scene+1
   endif
 	if send_cc21_for_spa
 		SendMIDICC 15, 21, current_scene // Pattern change for StepPolyArpUnit
@@ -1728,6 +1729,9 @@
 		if scene_change_requested>-1
 			pad_cols[scene_change_requested]=6
 		endif
+		if return_to_song_mode_requested
+			pad_cols[current_scene]=6
+		endif
 		for i = 8 to 15 //bottom row pads
 			LatchPad i, NO
 	    pad_cols[i]=0
@@ -1741,7 +1745,7 @@
 	elseif (songmode = 1)
 		LabelPad 8, {LOCKED TO S}, current_scene+1
 		LabelPad 9, {TO SONGMODE}
-		pad_cols[8]=[4]
+		pad_cols[8]=4
 		pad_cols[9]=3
 		pad_cols[current_scene]=4
 	endif
