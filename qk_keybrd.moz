@@ -100,7 +100,7 @@
 	// Only add what you need to override. See @InitKnobVariables FillArray's for default values
 	kb2b = keyboard_to_build
 	if layouts[kb2b] = 0 //name: 3CH DRUMS & PERCS
-		labels[kb2b*16] = [8,8,9,9,9,9,11,11, 1,2,3,4,5,6,7,15]	
+		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 1,2,3,4,5,6,7,15]	
 		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2, 0,0,1,1,1,1,1,1]
 		notes[kb2b*16] = [60,61,62,63, 64,65,66,67, 48,49,50,51, 52,53,54,55]
 		colors[kb2b*16] = [5,5,5,5,5,5,5,5, 1,1,2,2,2,2,2,2]
@@ -113,8 +113,8 @@
 		notes[kb2b*16] = [85,86,87,88, 89,90,91,92, 93,94,95,96, 97,98,99,100]
 		colors[kb2b*16] = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
 	elseif layouts[kb2b] = 3 //name: TEXTURE
-		labels[kb2b*16] = [9,9,9,9,9,9,9,9, 11,11,12,13, 14,14,14,14]	
-		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
+		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 11,11,12,13, 14,14,14,14]	
+		notes[kb2b*16] = [60,61,62,63, 64,65,66,67, 48,49,50,51, 52,53,54,55]
 		colors[kb2b*16] = [0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,6]
 		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2]
 	elseif layouts[kb2b] = 4 //name: KORDS:MELODY CHANNEL KEYBOARD
@@ -518,7 +518,7 @@
 	elseif label=8
 		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {SHAKER}
 	elseif label=9
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {PERC}
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {PERC}, pad_to_label+1
 	elseif label=10
 		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {LOOP SLICE}
 	elseif label=11

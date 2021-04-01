@@ -1128,7 +1128,6 @@
 @UpdateCurrentKnobset
 	//# On entering select mode the following need knobsets selected
 	if in_mode_select	//# disable knobs in_mode_select
-		LabelKnobs {Send Midi Feedback}
 		if send_midi_feedback
 			LabelKnob 0, {ON}
 		else 
