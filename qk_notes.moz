@@ -10,7 +10,6 @@
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:PatternLocked
 	  SetMetroPPQN 4
 	  ppqn = 4 
-		note_off_delay=5 //delay note off so adjaccent notes will glide
 	  scene_change_requested = -1 //# on pad down has next scene number
 	  pattn_change_requested = -1 //# on pad down has next pattn number
 	  scene_change_pattn_reset = TRUE //# Goto pattn 0 when user changes scene
@@ -320,7 +319,7 @@
 		step_type=mutated_step
 	endif		
 	if (step_type<2) and playing_notes[ch]>0 //# turn off old note
-	  SendMIDINoteOff midi_out_chs[ch], playing_notes[ch], 127, note_off_delay
+	  SendMIDINoteOff midi_out_chs[ch], playing_notes[ch], 127
 		playing_notes[ch]=0 
 	endif 
 	if ch=0 
