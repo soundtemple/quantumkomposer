@@ -113,7 +113,7 @@
 		notes[kb2b*16] = [85,86,87,88, 89,90,91,92, 93,94,95,96, 97,98,99,100]
 		colors[kb2b*16] = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
 	elseif layouts[kb2b] = 3 //name: TEXTURE
-		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 11,11,12,13, 14,14,14,14]	
+		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 11,13,12,29, 14,14,14,14]	
 		notes[kb2b*16] = [60,61,62,63, 64,65,66,67, 48,49,50,51, 52,53,54,55]
 		colors[kb2b*16] = [0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,6]
 		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2]
@@ -524,7 +524,7 @@
 	elseif label=11
 		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {CRASH}
 	elseif label=12
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {S'SCAPE}
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {SCAPES}
 	elseif label=13
 		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {RIZER}
 	elseif label=14	
@@ -557,6 +557,28 @@
 		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {7TH}
 	elseif label=28
 		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {NON CHORD}
+	elseif label=29
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {  FX  }
+	elseif label=30
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER1}
+	elseif label=31
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER2}
+	elseif label=32
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER3}
+	elseif label=33
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER4}
+	elseif label=34
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER5}
+	elseif label=35
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER6}
+	elseif label=36
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER7}
+	elseif label=37
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER9}
+	elseif label=38
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER10}
+	elseif label=39
+		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER11}
 	else
 		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {NOTE PAD}
 	endif

@@ -109,9 +109,10 @@
 	chan_pgm=[]
 	FillArray chan_pgm_max, 127, 16
 	// Default setup for Channels - midi chs are fixed
-	chan_labels =  [16,1,2,15,3,3,5,5,4,6,10,8,20,21,22,23]
+	chan_labels =  [16,1,2,15,3,3,5,5,8,6,10,11,20,21,22,23]
 	chan_colors =  [2,2,6,6,4,4,4,4,3,3,3,3,5,5,5,0]
 	chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	chan_layouts =  [5,5,5,5,6,6,6,6,6,6,6,6,2,16,17,0]
 	chan_layouts =  [5,5,5,5,6,6,6,6,6,6,6,6,2,16,17,0]
 	FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
