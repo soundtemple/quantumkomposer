@@ -617,7 +617,7 @@
 				SendMIDINoteOn 15, 8+led_index, 3
 			endif
 	  elseif last_pad=6 and ((mode=9) or (mode=11) or (mode<=1))//# COPY PASTE
-	  	//# Copy/Paste pad hit so 'copy' current scene/pattn/seq xcp
+	  	//# Copy/Paste pad hit so 'copy' current scene/pattn/seq
 			return_to_mode=mode
 			mode=6
 			copied_scene = current_scene
@@ -667,7 +667,7 @@
 			endif
 		elseif (copy_paste_status=1) and return_to_mode=11
 			//# CP activated for seq mode
-			LabelPads {SEQ COPY: Copied Scene}, current_scene+1, { Pattern}, current_pattn+1, { CH}, seq_ch+1, {. Select a Channel then hit pad to paste (16steps)}
+			LabelPads {SEQ COPY: Copied Scene}, current_scene+1, { Pattern}, current_pattn+1, { CH}, seq_ch+1, {. Select a Channel then tap any pad to paste (16steps)}
 			ColorPad sel_step, 3
 			if mgen_device_id=mgen_sel_dev
 				SendMIDINoteOn 15, sel_step+led_index, 3 //LED FEEDBACK
@@ -2611,9 +2611,9 @@
 				copy_mode=1  //# copy pattn. allows switch scene b4 paste
 			endif
 		elseif mode=9
-			LabelPad i, {COPY/PASTE }, {STEP }, sel_step+1
+			LabelPad 6, {COPY/PASTE }, {STEP }, sel_step+1
 		elseif mode=11
-			LabelPad i, {COPY/PASTE }, {SEQ CH}, seq_ch+1
+			LabelPad 6, {COPY/PASTE }, {SEQ CH}, seq_ch+1
 		endif
 		if (mode>=8 or mode<=1)
 			LabelPad 7, {DELETE  }

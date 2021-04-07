@@ -683,7 +683,7 @@
 			endif
 		elseif (copy_paste_status=1) and return_to_mode=11
 			//# CP activated for seq mode
-			LabelPads {SEQ COPY: Copied Scene}, current_scene+1, { Pattern}, current_pattn+1, { CH}, seq_ch+1, {. Select a Channel then hit pad to paste (16steps)}
+			LabelPads {SEQ COPY: Copied Scene}, current_scene+1, { Pattern}, current_pattn+1, { CH}, seq_ch+1, {. Select a Channel then tap any pad to paste (16steps)}
 			ColorPad sel_step, 3
 			if mgen_device_id=mgen_sel_dev
 				SendMIDINoteOn 15, sel_step+led_index, 3
