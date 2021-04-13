@@ -81,10 +81,9 @@
 	//Store your layout info here
 	//Pads from top left to bottom right
 	
-	// Layout to use with each keyboard.
-	layouts =        [0,1,2,3, 4,4,15,15, 5,6,7,8, 9,10,11,12]
-	keybd_channels = [2,2,2,3, 4,5,6,7, 8,9,10,11, 6,6,6,6]
-	kntrl_keyboard_selection=[0,0,0,3, 4,5,6,7, 8,8,8,8, 0,0,0,0] //on KNTRL Instr. channel change - select a keyboard 
+	layouts =        [0,1,2,3, 7,7,7,7, 5,5,5,5, 4,4,4,4] // Layout to use with each keyboard
+	keybd_channels = [2,2,2,3, 4,5,6,7, 8,9,10,11, 8,9,10,11] //default channel
+	kntrl_keyboard_selection=[0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15] //on KNTRL Instr. channel change - select a keyboard 
 	
 	for i = 0 to number_of_keyboards
 		keyboard_to_build = i 
@@ -99,22 +98,24 @@
 	// Usage: the first layout shows everything you can override.
 	// Only add what you need to override. See @InitKnobVariables FillArray's for default values
 	kb2b = keyboard_to_build
-	if layouts[kb2b] = 0 //name: 3CH DRUMS & PERCS
-		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 1,2,3,4,5,6,7,15]	
-		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2, 0,0,1,1,1,1,1,1]
-		notes[kb2b*16] = [60,61,62,63, 64,65,66,67, 48,49,50,51, 52,53,54,55]
-		colors[kb2b*16] = [5,5,5,5,5,5,5,5, 1,1,2,2,2,2,2,2]
-	elseif layouts[kb2b] = 1 //name: SLICED LOOP#1
-		labels[kb2b*16] = [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]
-		notes[kb2b*16] = [60,61,62,63, 64,65,66,67, 68,69,70,71, 72,73,74,75]
-		colors[kb2b*16] = [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3]
-	elseif layouts[kb2b] = 2 //name: SLICED LOOP#2
-		labels[kb2b*16] = [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]	
-		notes[kb2b*16] = [85,86,87,88, 89,90,91,92, 93,94,95,96, 97,98,99,100]
-		colors[kb2b*16] = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
-	elseif layouts[kb2b] = 3 //name: TEXTURE
+	if layouts[kb2b] = 0 //name: KICK and DRUMS
+		labels[kb2b*16] = [3,4,5,6,7,15,7,7, 1,1,2,2,1,1,1,1]	
+		pad_channels[kb2b*16] = [1,1,1,1,1,1,1,1, 0,0,0,0,0,0,0,0]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
+		colors[kb2b*16] = [2,2,2,2,2,2,2,2, 1,1,1,1,1,1,1,1]
+	elseif layouts[kb2b] = 1 // DRUMS AND PERCS
+		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 3,4,5,6,7,15,7,7]	
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
+		colors[kb2b*16] = [6,6,6,6,6,6,6,6, 2,2,2,2,2,2,2,2]
+		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2, 1,1,1,1,1,1,1,1]
+	elseif layouts[kb2b] = 2 //name: PERCS AND FX/LOOPS
+		labels[kb2b*16] = [11,13,12,29, 14,14,14,14, 8,8,9,9,9,9,9,9]	
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
+		colors[kb2b*16] = [4,4,4,4,4,4,4,4, 6,6,6,6,6,6,6,6]
+		pad_channels[kb2b*16] = [3,3,3,3,3,3,3,3, 2,2,2,2,2,2,2,2]
+	elseif layouts[kb2b] = 3 //name: FX / LOOPS and COMBO
 		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 11,13,12,29, 14,14,14,14]	
-		notes[kb2b*16] = [60,61,62,63, 64,65,66,67, 48,49,50,51, 52,53,54,55]
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
 		colors[kb2b*16] = [0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,6]
 		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2]
 	elseif layouts[kb2b] = 4 //name: KORDS:MELODY CHANNEL KEYBOARD
@@ -166,6 +167,14 @@
 		labels[kb2b*16] = [24,25,26,27,24,25,26,27, 24,25,26,27,24,25,26,27]
 		notes[kb2b*16] = [60,64,67,71, 72,76,79,83,  36,40,43,47, 48,52,55,59]
 		colors[kb2b*16] = [4,3,3,3, 4,3,3,3, 4,3,3,3, 4,3,3,3]
+	elseif layouts[kb2b] = 16 //name: SLICED LOOP#1
+		labels[kb2b*16] = [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]
+		notes[kb2b*16] = [60,61,62,63, 64,65,66,67, 68,69,70,71, 72,73,74,75]
+		colors[kb2b*16] = [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3]
+	elseif layouts[kb2b] = 17 //name: SLICED LOOP#2
+		labels[kb2b*16] = [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]	
+		notes[kb2b*16] = [85,86,87,88, 89,90,91,92, 93,94,95,96, 97,98,99,100]
+		colors[kb2b*16] = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
 	else //name: default keyboard
 		labels[kb2b*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]	
 		notes[kb2b*16] = [56,57,58,59, 60,61,62,63,48,49,50,51, 52,53,54,55]
@@ -177,13 +186,13 @@
 	// Set your layout names here. 
 	layout_num=layouts[keyboard] 
 	if layout_num=0
-		LabelPads keyboard+1, { - }, {3CH DRUMS & PERCS}
+		LabelPads keyboard+1, { - }, {KICK & DRUMS}
 	elseif layout_num=1
-	  LabelPads keyboard+1, { - }, {SLICED LOOP#1}
+	  LabelPads keyboard+1, { - }, {DRUMS & PERCS}
 	elseif layout_num=2
-		LabelPads keyboard+1, { - }, {SLICED LOOP#2}
+		LabelPads keyboard+1, { - }, {PERCS & FX}
 	elseif layout_num=3
-		LabelPads keyboard+1, { - }, {TEXTURE}
+		LabelPads keyboard+1, { - }, {FX & PERCS}
 	elseif layout_num=4
 		LabelPads keyboard+1, { - }, {KORDS:MELODY KEYBOARD CH:}, keybd_channels[keyboard]+1
 	elseif layout_num=5
@@ -208,6 +217,10 @@
 		LabelPads keyboard+1, { - }, {BLUES MAJOR}
 	elseif layout_num=15
 		LabelPads keyboard+1, { - }, {KORDS: MELODY CHORD NOTES ONLY}
+	elseif layout_num=16
+	  LabelPads keyboard+1, { - }, {SLICED LOOP#1}
+	elseif layout_num=17
+		LabelPads keyboard+1, { - }, {SLICED LOOP#2}
 	else
 	  LabelPads keyboard+1, { - }, {ANOTHER LAYOUT}
 	endif
@@ -302,8 +315,7 @@
 	note = Clip (notes[last_note_pad] + (oct_adjustments[keyboard]*12) + txpose_adjustments[keyboard]), 0, 127
 	rnd_vel_amt = Random 0, random_vel_amts[keyboard]
 	if global_vel=0 //THRU
-		velo = MIDIByte3
-		Log {using thru velocity}
+		velo = MIDIByte3 or 100 //if note on velocity is 0 then use 100
 	else
 	  velo = Clip (global_velo + rnd_vel_amt), 0, 127
 	endif

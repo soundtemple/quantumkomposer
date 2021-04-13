@@ -976,7 +976,7 @@
 		len_data=1
 		Call @SendSysex 
 		
-		SendMIDICC 15, 109+current_scene, 127//go to scene on stop
+		SendMIDICC 14, 109+current_scene, 127//go to scene on stop
 		if songmode = 0 // in song mode
 			SendMIDICC 15, 22, 127 //make sure QK devices are in song mode too
 		endif
@@ -1000,7 +1000,7 @@
   elseif (current_scene = 7) //# End of song. Loop back to beginning
     current_scene = 0 
 		if not loop_song_mode
-			SendMIDICC 15, 109, 127 // Pattern change
+			SendMIDICC 14, 109, 127 // Scene change
 			msg_type=sx_scene_change //sysex scene change
 			msg_data=[0] 
 			len_data=1
@@ -1011,7 +1011,7 @@
   	//# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
 		if not loop_song_mode
-			SendMIDICC 15, 109, 127 // Pattern change
+		SendMIDICC 14, 109, 127 // Scene change
 			msg_type=sx_scene_change //sysex scene change
 			msg_data=[0] 
 			len_data=1
@@ -1022,9 +1022,9 @@
 		current_scene = current_scene + 1 //# Going to next
   endif
 	if send_cc21_for_spa
-		SendMIDICC 15, 21, current_scene // Pattern change for StepPolyArpUnit
+		SendMIDICC 14, 21, current_scene // Pattern change for StepPolyArpUnit
 	endif
-	SendMIDICC 15, current_scene+109, 127 // Scene change non QK devices
+	SendMIDICC 14, current_scene+109, 127 // Scene change non QK devices
   scene_beat_count = 0
   Log {----- SCENE CHANGE -----}, {S}, current_scene+1
 	if mode=0
@@ -1939,7 +1939,7 @@
 		def_vals[16*1]   = [64,64,127,0,64,64,127,0,64,64,127,0,64,64,127,0]
 		def_labels[16*2] = [0,22,29,79,0,22,29,79,0,22,29,79,0,22,29,79] //Pad control x4
 		def_colors[16*2] = [5,5,5,5,6,6,6,6,7,7,7,7,4,4,4,4]
-		def_vals[16*2]   = [64,64,127,0,64,64,127,0,64,64,127,0,64,64,127,0]
+		def_vals[16*2]   = [64,64,127,0,64,64,127,0, 64,64,127,0,64,64,127,0]
 		def_labels[16*3] = [64,64,64,64,64,64,64,64,123,123,123,123,123,123,123,123] //Mutes & triggers
 		def_colors[16*3] = [0,0,0,0,0,0,0,0, 1,2,3,4,5,6,7,4]
 		def_vals[16*3]   = [0,0,0,0,0,0,0,0, 48,49,50,51, 52,53,54,55]
@@ -1953,12 +1953,12 @@
 		def_labels[16*1] = [106,40,44,79,106,40,44,79,106,40,44,79,106,40,44,79] //OSC Layers
 		def_colors[16*1] = [4,4,4,4,5,5,5,5,6,6,6,6,7,7,7,7]
 		def_vals[16*1]   = [127,64,64,0,127,64,64,0,127,64,64,0,127,64,64,0]
-		def_labels[16*2] = [34,27,24,25, 28,29,30,31, 88,40,40,40, 43,34,34,39] //Filter, Amp env
-		def_colors[16*2] = [6,2,4,1, 3,3,3,3, 6,2,4,1, 5,5,5,5]
-		def_vals[16*2]   = [30,0,20,0, 10,64,0,20, 0,0,40,0, 64,64,64,64]
-		def_labels[16*3] = [88,49,53,46,51,34,47,52,85,85,85,85,85,85,85,85] //FX & Macros
-		def_colors[16*3] = [1,2,2,3,3,3,4,4,0,0,0,0,0,0,0,0]
-		def_vals[16*3]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		def_labels[16*2] = [90,27,24,25, 28,29,30,31, 88,40,40,40, 43,34,34,39] //Filter, Amp env
+		def_colors[16*2] = [6,2,4,1, 3,3,3,3, 7,2,4,1, 5,5,5,5]
+		def_vals[16*2]   = [30,0,64,0, 10,64,64,20, 0,64,64,64, 64,64,64,0]
+		def_labels[16*3] = [27,46,51,34,47,52,53,68, 85,85,85,85,85,85,85,85] //FX & Macros
+		def_colors[16*3] = [1,3,3,3,4,4,2,2, 0,0,0,0,0,0,0,0]
+		def_vals[16*3]   = [0,127,64,24,127,64,64,64, 0,0,0,0,0,0,0,0]
 	elseif chan_layouts[edit_chan]=7
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Skaka}
 		def_vals[16*0]   = [64,127,0,0, 64,127,0,0, 64,127,0,0, 64,127,0,0]
@@ -2571,7 +2571,7 @@
 	elseif (label_num=89)
 		LabelPad pad_to_label, {FINE TUNE} //CUSTOM
 	elseif (label_num=90)
-		LabelPad pad_to_label, {ROUTING} //CUSTOM
+		LabelPad pad_to_label, {F.ENV} //CUSTOM
 	elseif (label_num=91)
 		LabelPad pad_to_label, {MASTER} //CUSTOM
 	elseif (label_num=92)
@@ -2611,7 +2611,7 @@
 	elseif (label_num=109)
 		LabelPad pad_to_label, {FM AMT} //CUSTOM	
 	elseif (label_num=110)
-		LabelPad pad_to_label, {DRIVE} //CUSTOM	
+		LabelPad pad_to_label, {FREE} //CUSTOM	
 	elseif (label_num=111)
 		LabelPad pad_to_label, {LEVEL} //CUSTOM	
 	elseif (label_num=112)
