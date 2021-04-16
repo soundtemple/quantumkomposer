@@ -94,13 +94,15 @@
 	pgreen=20
 	blue=45
 	pblue=41
+	bblue=90
 	purple=69
 	mauve=81
 	pink=53
+	yellow=14
 	//messages from KNTRL will send a color 0-9 as value MIDIBYTE3. Map to controller colours here:
 	to_pad_col = [off, ddred, orange, pgreen, pblue, purple, mauve, pink, white, beige, pred, grey] 
 	
-	colors[91] = [off,		off,		ddred,	dgreen, 	pgreen, grey, 	grey, 	grey,		off] //drambo, transport, mode
+	colors[91] = [yellow,	off,		ddred,	dgreen, 	pgreen, grey, 	grey, grey,		off] //drambo, transport, mode
 	colors[81] = [orange, orange, orange, orange, orange, orange, orange, orange,	off] //mgen select
 	colors[71] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
 	colors[61] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
@@ -108,7 +110,7 @@
 	colors[41] = [orange, orange, orange, orange, orange, orange, orange, grey,		off] //channel select
 	colors[31] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //kntrl pads
 	colors[21] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //kntrl pads
-	colors[11] = [off, 		white, 	white, 	off,		off,		grey,		grey,		grey,		off] //shifts mixer select
+	colors[11] = [off, 		white, 	white, 	off,		grey,		off, 		off, 		off,		off] //shifts mixer select
 @End
 
 @SetupControllerToQKMappings
@@ -184,59 +186,41 @@
 
 @OnMidiCC
 	//handle all incoming cc messages to Launchpad for LED illumination
+	//Log MIDIChannel,{-},MIDIByte2,{-},MIDIByte3
 	if MIDIChannel=in_ch //messages coming from QK:KNTRL.. send to Controller
 		if MIDIByte2=24 and MIDIByte3<=15 // handle selected channel 24 vals 0-15
 			selected_channel=MIDIByte3
 			Call @UpdateSelectedChannel
-		elseif MIDIByte2=28
+		elseif MIDIByte2=32
 			// Toggle metro pulse
 			show_metro_pulse = not show_metro_pulse
 			if show_metro_pulse
-				colors[16]=90
+				colors[92]=bblue
 			else
-			  colors[16]=grey
+			  colors[92]=grey
 			endif
-			SendMIDINoteOn lp_ch, 16, colors[16] //light pad
-		elseif MIDIByte2=29
+			SendMIDINoteOn lp_ch, 92, colors[92] //light pad
+		elseif MIDIByte2=27
 			// Toggle KNTRL mode layout (inverse lights)
 			led_layout1 = not led_layout1
 			if led_layout1
-				colors[17]=grey
+				colors[15]=grey
 			else
-			  colors[17]=90
+			  colors[15]=bblue
 			endif
 			Call @UpdateAllPads
 			for i=0 to 15
 				SendMIDINoteOn lp_ch, mgen_seq_pads[i], off //wipe pads when layout uses blank
 				SendMIDINoteOn lp_ch, kntrl_pads[i], off
 			endfor
-		elseif MIDIByte2=30
-			// Toggle lower mode btn3 bottom row - not in use
-			lmode_btn3 = not lmode_btn3
-			if lmode_btn3
-				colors[18]=90
-			else
-			  colors[18]=grey
+		elseif MIDIByte2>=28 and MIDIByte2<=30
+			// User buttons 1,2,3
+			color=off
+			if MIDIByte3=127
+				color=bblue
 			endif
-			SendMIDINoteOn lp_ch, 18, colors[18] //light pad
-		elseif MIDIByte2=31
-			// LP Top row btn 1 - not in use
-			tmode_btn1 = not tmode_btn1
-			if tmode_btn1
-				colors[91]=blue
-			else
-			  colors[91]=off
-			endif
-			SendMIDINoteOn lp_ch, 16, colors[16] //light pad
-		elseif MIDIByte2=32
-			// LP Top row btn 2 - not in use
-			tmode_btn2 = not tmode_btn2
-			if tmode_btn2
-				colors[92]=blue
-			else
-			  colors[92]=off
-			endif
-			SendMIDINoteOn lp_ch, 16, colors[16] //light pad
+			colors[MIDIByte2-12]=color
+			SendMIDINoteOn lp_ch, (MIDIByte2-12), color //light pad
 		elseif MIDIByte2>=40 and MIDIByte2<=43 //mgen knob for selected mgen device
 			SendMIDICC in_ch, MIDIByte2, MIDIByte3 // sends feedback back to Twister for LED update
 		elseif MIDIByte2=88 //handle stuck note button LED (in Chan. pads slot 16)
@@ -244,10 +228,11 @@
 		elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
 			selected_mgen=MIDIByte2-91
 		  Call @UpdateSelectedMgen
-		elseif MIDIByte2>=109 and MIDIByte2<=116 and MIDIByte3>0
-		  selected_scene=MIDIByte2-109
-			Call @UpdateSelectedScene
 		endif
+	endif
+	if MIDIChannel=14 and MIDIByte2>=109 and MIDIByte2<=116 and MIDIByte3>0
+	  selected_scene=MIDIByte2-109
+		Call @UpdateSelectedScene 
 	endif
 @End
 
