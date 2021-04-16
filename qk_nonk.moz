@@ -82,7 +82,7 @@
 	//Pads from top left to bottom right
 	
 	layouts =        [0,1,2,3, 7,7,7,7, 5,5,5,5, 4,4,4,4] // Layout to use with each keyboard
-	keybd_channels = [2,2,2,3, 4,5,6,7, 8,9,10,11, 8,9,10,11] //default channel
+	keybd_channels = [2,2,2,3, 4,5,6,7, 8,9,10,11, 8,9,10,11] //default midi channel use if not specified in layout
 	kntrl_keyboard_selection=[0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15] //on KNTRL Instr. channel change - select a keyboard 
 	
 	for i = 0 to number_of_keyboards
@@ -95,8 +95,8 @@
 @BuildKeyboardLayout
 	// Build a keyboard layout. You can add as many layouts as you like. Also update @SetLayoutName
 	// Select them in the GUI or add default in layouts array above
-	// Usage: the first layout shows everything you can override.
-	// Only add what you need to override. See @InitKnobVariables FillArray's for default values
+	// Usage: the first layout shows everything you need to build a layout.
+	// See @InitKnobVariables FillArray's for default values
 	kb2b = keyboard_to_build
 	if layouts[kb2b] = 0 //name: KICK and DRUMS
 		labels[kb2b*16] = [3,4,5,6,7,15,7,7, 1,1,2,2,1,1,1,1]	
@@ -117,11 +117,12 @@
 		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 11,13,12,29, 14,14,14,14]	
 		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
 		colors[kb2b*16] = [0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,6]
-		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2]
+		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2, 3,3,3,3,3,3,3,3]
 	elseif layouts[kb2b] = 4 //name: KORDS:MELODY CHANNEL KEYBOARD
 		labels[kb2b*16] = [24,28,25,28,26,28,27,24,24,28,25,28,26,28,27,24]
 		notes[kb2b*16] = [60,62,64,65,67,69,71,72, 48,50,52,53, 55,57,59,60]
 		colors[kb2b*16] = [4,0,4,0, 4,0,4,4, 4,0,4,0, 4,0,4,4]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch 
 	elseif layouts[kb2b] = 5 //name: KORDS:HARMONY CHANNELS KEYBOARD
 		labels[kb2b*16] = [20,20,20,20, 21,21,21,21, 22,22,22,22, 23,23,23,23]	
 		notes[kb2b*16] = [36,48,60,72, 37,49,61,73, 38,50,62,74, 39,51,63,75]
@@ -131,54 +132,67 @@
 		labels[kb2b*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]	
 		notes[kb2b*16] = [60,62,64,65,67,69,71,72, 48,50,52,53, 55,57,59,60]
 		colors[kb2b*16] = [4,0,0,0, 0,0,0,4, 4,0,0,0, 0,0,0,4]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 7 //name: NATURAL MINOR
 		labels[kb2b*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]	
 		notes[kb2b*16] = [60,62,63,65,67,68,70,72, 48,50,51,53, 55,56,58,60]
 		colors[kb2b*16] = [4,0,0,0, 0,0,0,4, 4,0,0,0, 0,0,0,4]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 8 //name: HARMONIC MINOR
 		labels[kb2b*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]	
 		notes[kb2b*16] = [60,62,63,65,67,68,71,72, 48,50,51,53, 55,56,59,60]
 		colors[kb2b*16] = [4,0,0,0, 0,0,0,4, 4,0,0,0, 0,0,0,4]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 9 //name: CHROMATIC w/ MAJOR HIGHLIGHTS
 		labels[kb2b*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]	
 		notes[kb2b*16] = [56,57,58,59, 60,61,62,63, 48,49,50,51, 52,53,54,55]
 		colors[kb2b*16] = [0,4,0,4,4,0,4,0,4,0,4,0,4,4,0,4]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 10 //name: CHROMATIC w/ NAT MINOR HIGHLIGHTS
 		labels[kb2b*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]	
 		notes[kb2b*16] = [56,57,58,59, 60,61,62,63, 48,49,50,51, 52,53,54,55]
 		colors[kb2b*16] = [4,0,4,0,4,0,4,4,4,0,4,4,0,4,0,4]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 11 //name: CHROMATIC w/ HAR MINOR HIGHLIGHTS
 		labels[kb2b*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]	
 		notes[kb2b*16] = [56,57,58,59, 60,61,62,63, 48,49,50,51, 52,53,54,55]
 		colors[kb2b*16] = [4,0,0,4,4,0,4,4,4,0,4,4,0,4,0,4]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 12 //name: MAJOR PENTATONIC [0,2,4,7,9]
 		labels[kb2b*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]	
 		notes[kb2b*16] = [55,57,60,62,64,67,69,72,36,38,40,43,45,48,50,52]
 		colors[kb2b*16] = [0,0,5,0,0,0,0,5,5,0,0,0,0,5,0,0]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 13 //name: MINOR PENTATONIC [0,3,5,7,10]
 		labels[kb2b*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]	
 		notes[kb2b*16] = [55,58,60,63,65,67,70,72,36,39,41,43,46,48,51,53]
 		colors[kb2b*16] = [0,0,5,0,0,0,0,5,5,0,0,0,0,5,0,0]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 14 //name: BLUES MAJOR [0,2,3,4,8,8,10] 
 		labels[kb2b*16] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]	
 		notes[kb2b*16] = [63,64,68,70,72,74,75,76,48,50,52,52,56,58,60,62]
 		colors[kb2b*16] = [0,0,0,0,5,0,0,0,5,0,0,0,0,0,5,0]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 15 //name: KORDS:MELODY CHANNEL CHORD NOTES ONLY
 		labels[kb2b*16] = [24,25,26,27,24,25,26,27, 24,25,26,27,24,25,26,27]
 		notes[kb2b*16] = [60,64,67,71, 72,76,79,83,  36,40,43,47, 48,52,55,59]
 		colors[kb2b*16] = [4,3,3,3, 4,3,3,3, 4,3,3,3, 4,3,3,3]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 16 //name: SLICED LOOP#1
 		labels[kb2b*16] = [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]
 		notes[kb2b*16] = [60,61,62,63, 64,65,66,67, 68,69,70,71, 72,73,74,75]
 		colors[kb2b*16] = [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 17 //name: SLICED LOOP#2
 		labels[kb2b*16] = [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]	
 		notes[kb2b*16] = [85,86,87,88, 89,90,91,92, 93,94,95,96, 97,98,99,100]
 		colors[kb2b*16] = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	else //name: default keyboard
 		labels[kb2b*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]	
-		notes[kb2b*16] = [56,57,58,59, 60,61,62,63,48,49,50,51, 52,53,54,55]
+		notes[kb2b*16] = [56,57,58,59,60,61,62,63, 48,49,50,51,52,53,54,55]
 		colors[kb2b*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	endif	
 @End
 
