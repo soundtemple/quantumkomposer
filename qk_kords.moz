@@ -1274,6 +1274,11 @@
 				Exit
 			endif
 		endfor
+	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
+		last_pad = MIDINote-20
+		if (MIDICommand=0x90 and MIDIByte3=0) or MIDICommand=0x80 //Note off
+			Call @OnPadUp2
+		endif
 	endif
 @End
 
