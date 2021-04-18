@@ -901,7 +901,7 @@
 	else
 	  SetKnobValue 2, TranslateScale a_cc, 0, 127, 0, 127
 	endif
-	SetKnobValue 3, TranslateScale a_col, 0, 6, 0, 127
+	SetKnobValue 3, TranslateScale a_col, 0, 7, 0, 127
 	Call @LabelAutomationPads
 @End
 
@@ -955,7 +955,7 @@
 		endif
 	endif
   if last_knob = 3
-		automation_cols[sel_autom_pad] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 6
+		automation_cols[sel_autom_pad] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 7
 		LabelKnob 3, {Color }, automation_cols[sel_autom_pad]
 		LatchPad sel_autom_pad, NO 
 	endif
