@@ -549,16 +549,16 @@
 	//# handle scene/chord change xopds
   if (last_pad >= 0 and last_pad <= 7)
   	//# Scene change
-  	//Log { SCENE CHANGE REQUESTED }
-	  scene_change_requested = last_pad
+  	scene_change_requested = last_pad
+		songmode=1 //locked to scene. User pressed scene pad
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
 	elseif (last_pad >= 8 and last_pad <= 15) 	
   	//# User Chord change 
-  	//Log { CHORD CHANGE REQUESTED }
   	chord_change_requested = last_pad - 8 //# chrd 0-7
-  	if NOT HostRunning //# immediate change else newbeat/bar handles
+  	songmode=2 //lockt to chord. User pressed chord pad
+		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleChordChange 
   	endif
   endif

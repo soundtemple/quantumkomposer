@@ -164,7 +164,7 @@
 	fixed_notesets[5*50] = [36,38,39,42,43,46, 47, 50] //# [EG Pulse]
 	fixed_notesets[6*50] = [48,49,50,51,52,53,54,55, 56,57,58,59,60,61,62,63] // [Digistix]
 	fixed_notesets[7*50] = [36,37,38,39,40,41,42,43, 44,45,46,47,48,49,50,51] // Beathawk 
-	fixed_notesets[8*50] = [60,61,62,63,64,65,66,67] //[DrPERCS]
+	fixed_notesets[8*50] = [48,49,50,51, 52,53,54,55] //[DrPERCS]
 	fixed_notesets[9*50] = [48,51,49,50, 52,53,54,55] //# [SEEKBEATS]
 	fixed_notesets[10*50]= [48,49,50,51, 52,53,54,55] //# [DrDRUMS]
 	//# Single noteset (always 4 notes long, 1 for each channel)
@@ -813,15 +813,17 @@
   //pass
 @End
 
-@OnPadDown_ScenePatternChange //# handle scene/pattn change xopds
+@OnPadDown_ScenePatternChange //# handle scene/pattn change
   if (last_pad >= 0 and last_pad <= 7)
 		scene_change_requested = last_pad
+		songmode=1 //locked to scene. User pressed scene pad
   	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
 	elseif (last_pad >= 8 and last_pad <= 15) 	
 		pattn_change_requested = last_pad - 8 //# chrd 0-7
-  	if NOT HostRunning //# immediate change else newbeat/bar handles
+		songmode=2 //lockt to pattn. User pressed pattn pad
+		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandlePatternChange 
   	endif
   endif

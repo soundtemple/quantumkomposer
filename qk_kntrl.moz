@@ -1661,7 +1661,7 @@
 	LabelKnob 1, {Color }, mgen_colors[sel_mgen_dev]
 	LabelKnob 2, {GUI CC }, mgen_guis[sel_mgen_dev]
 	LabelKnob 3, { }
-	SetKnobValue 0, TranslateScale mgen_labels[sel_mgen_dev], 0, 20, 0, 127
+	SetKnobValue 0, TranslateScale mgen_labels[sel_mgen_dev], 0, 22, 0, 127
 	SetKnobValue 1, TranslateScale mgen_colors[sel_mgen_dev], 0, 7, 0, 127
 	SetKnobValue 2, TranslateScale mgen_guis[sel_mgen_dev], 0, 127, 0, 127 
 	SetKnobValue 3, 0	
@@ -1670,7 +1670,7 @@
 @KnobChangeSet8
 	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
 	if last_knob=0 and sel_mgen_dev<=9
-		mgen_labels[sel_mgen_dev] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 20
+		mgen_labels[sel_mgen_dev] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 22
 		pad_to_label=sel_mgen_dev
 		mgen_pad=sel_mgen_dev // settings mode labels pad7 diff loc.
 		Call @LabelMGENPad
@@ -2336,7 +2336,11 @@
 	elseif (label_num=19)
 		LabelPad pad_to_label, {__MGEN__ }, {>LK }	
 	elseif (label_num=20)
-		LabelPad pad_to_label, {__MGEN__ }, {>KB-1 }	
+		LabelPad pad_to_label, {__MGEN__ }, {>NONK }	
+	elseif (label_num=21)
+		LabelPad pad_to_label, {__MGEN__ }, {>HELIUM }	
+	elseif (label_num=22)
+		LabelPad pad_to_label, {__MGEN__ }, {>ATOM }	
 	endif
 @End
 
