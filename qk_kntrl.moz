@@ -109,10 +109,9 @@
 	chan_pgm=[]
 	FillArray chan_pgm_max, 127, 16
 	// Default setup for Channels - midi chs are fixed
-	chan_labels =  [16,1,2,15,3,3,5,5,8,6,10,11,20,21,22,23]
-	chan_colors =  [2,2,6,6,4,4,4,4,3,3,3,3,5,5,5,0]
+	chan_labels =  [16,1,2,13,3,4,5,5,8,6,10,9,20,21,22,23]
+	chan_colors =  [2,2,2,2,4,4,4,4,3,3,3,3,5,5,5,0]
 	chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	chan_layouts =  [5,5,5,5,6,6,6,6,6,6,6,6,2,16,17,0]
 	chan_layouts =  [5,5,5,5,6,6,6,6,6,6,6,6,2,16,17,0]
 	FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
@@ -164,8 +163,8 @@
 	endfor
 	//# MIDI GEN KONTROL SECTION
 	mgen_vals=[]
-	mgen_labels =  [20,2,3,12,15,16,17,18,19,14,1,15,0,0,0,0]
-	mgen_colors =  [7,2,2,2,7,4,3,5,2,0,0,0,2,0,1,3]
+	mgen_labels =  [2,3,12,20,15,16,17,18,19,14,1,15,0,0,0,0]
+	mgen_colors =  [2,2,2,6,7,4,3,5,2,0,0,0,2,0,1,3]
 	mgen_guis = [91,92,93,94,95,96,97,98,99,0,0,0,0,0,0,0]
 	mgen_ccs=[40,41,42,43]	
 	//Ruismaker instruments per channel 
@@ -209,11 +208,6 @@
 		in_mode_select=FALSE
 		last_pad = MIDIByte3
 		mode=1
-		if (last_pad=curr_chan) or drambo_layout_active  
-			//user hit goto channel pad twice or Drambo layout so select pad 
-			curr_chan = last_pad
-			SendMIDICC chan_midi_chs[curr_chan], 124, 127 //toggle instrument GUI
-		endif
 		Call @PadDownChannelsMode
 		
 	elseif MIDIByte2=25
@@ -709,6 +703,11 @@
 @PadDownChannelsMode
 	if last_pad=15
 		Exit
+	endif
+	if (last_pad=curr_chan) or drambo_layout_active  
+		//user hit goto channel pad twice or Drambo layout so select pad 
+		curr_chan = last_pad
+		SendMIDICC chan_midi_chs[curr_chan], 124, 127 //toggle instrument GUI
 	endif
 	edit_chan = last_pad 
 	if edit_mode_active
@@ -1304,26 +1303,32 @@
 @KnobChangeSet1
 	//# channels Setup - 12MIXBUS, 13RETURNS, 14MASTER, 15KNTRL are fixed
 	if last_knob=0 and edit_chan<12
-		chan_labels[edit_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 22
+		kval = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 22
+		if kval <> chan_labels[edit_chan]
+			chan_labels[edit_chan]=kval
+			Call @SetupKnobset1
+		endif
 		pad_to_label=edit_chan
 		chan_pad=edit_chan //settings mode label and pad pos. diff
 		Call @LabelChanPad
 	endif
 	if last_knob=1 
-		chan_colors[edit_chan] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
+		kval = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 6
+		if kval <> chan_colors[edit_chan]
+			chan_colors[edit_chan]=kval
+			Call @SetupKnobset1
+		endif
 		LatchPad edit_chan, NO 
 		ColorPad edit_chan, chan_colors[edit_chan]
 	endif
 	if last_knob=3 and edit_chan<12
-		chan_layouts[edit_chan] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 20
-		Call @BuildLayoutPages 
-		SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 32, 0, 127
-		SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 7, 0, 127
-		SetKnobValue 2, TranslateScale chan_midi_chs[edit_chan], 0, 15, 0, 127
+		kval = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 20
+		if kval <> chan_layouts[edit_chan]
+			chan_layouts[edit_chan]=kval
+			Call @BuildLayoutPages 
+			Call @SetupKnobset1
+		endif
 	endif
-	LabelKnob 0, {Label }, chan_labels[edit_chan]
-	LabelKnob 1, {Color }, chan_colors[edit_chan]
-	LabelKnob 2, {MidiCH }, chan_midi_chs[edit_chan]+1
 @End
 
 @LabelInstrumentKnobs
@@ -1893,9 +1898,9 @@
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
 			clr=i+1 
-			def_labels[16*i] = [0,1,3,125,     4,5,61,94,   85,85,10,11, 61,64,65,66]
-			def_colors[16*i] = [clr,clr,clr,0, clr,clr,5,5,   clr,clr,3,3,     2,0,0,0]
-			def_vals[16*i]   = [90,64,64,0,    0,0,0,64, 0,0,20,127,  0,0,0,0]
+			def_labels[16*i] = [0,1,3,125,     4,5,10,11,   85,85,85,85, 61,64,65,66]
+			def_colors[16*i] = [clr,clr,clr,0, 1,2,4,4,   clr,clr,clr,clr,     5,0,0,0]
+			def_vals[16*i]   = [90,64,64,0,    0,0,0,127, 0,0,0,0,  0,0,0,0]
 			def_ccs[(16*i)+3] = mixbuseq_gui[i]
 			def_ccs[(16*i)+8] = mixbusfx[i]
 		endfor	
