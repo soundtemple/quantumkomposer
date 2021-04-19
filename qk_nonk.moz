@@ -5,7 +5,7 @@
 //# To build your layouts populate the data in @BuildLayouts, @BuildKeyboardLayout and @SetLayoutName
 
 @OnLoad
-	mgen_device_id=1 //used for midi control of pads. each mgen instance is assigned a number
+	mgen_device_id=4 //used for midi control of pads. each mgen instance is assigned a number
 	mgen_sel_dev=0 //used for midi control of pads	
 	log_notes=FALSE //setting to log notes (sent to instruments) as played
   ShowLayout 4

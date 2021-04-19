@@ -216,16 +216,16 @@
 			FillArray seq3_notes, 6, 1024
 		elseif sel_scale=8 // DrPERCS
 			notes_in_set=8
-			midi_out_chs=[2,2,2,2]
-			mgen_device_id=3
+			midi_out_chs=[1,1,1,1]
+			mgen_device_id=2
 			FillArray seq0_notes, 0, 1024
 			FillArray seq1_notes, 2, 1024
 			FillArray seq2_notes, 2, 1024
 			FillArray seq3_notes, 4, 1024
 		elseif sel_scale=9 or sel_scale=10 // SeekBeats or DrDRUMS
 			notes_in_set=8
-			midi_out_chs=[0,1,1,1]
-			mgen_device_id=2
+			midi_out_chs=[0,0,0,0]
+			mgen_device_id=1
 			FillArray seq0_notes, 0, 1024
 			FillArray seq1_notes, 0, 1024
 			FillArray seq2_notes, 4, 1024
