@@ -81,7 +81,7 @@
 	//Store your layout info here
 	//Pads from top left to bottom right
 	
-	layouts =        [0,1,2,3, 7,7,7,7, 5,5,5,5, 4,4,4,4] // Layout to use with each keyboard
+	layouts =        [0,0,2,3, 7,7,7,7, 5,5,5,5, 4,4,4,4] // Layout to use with each keyboard
 	keybd_channels = [2,2,2,3, 4,5,6,7, 8,9,10,11, 8,9,10,11] //default midi channel use if not specified in layout
 	kntrl_keyboard_selection=[0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15] //on KNTRL Instr. channel change - select a keyboard 
 	
@@ -99,10 +99,10 @@
 	// See @InitKnobVariables FillArray's for default values
 	kb2b = keyboard_to_build
 	if layouts[kb2b] = 0 //name: KICK and DRUMS
-		labels[kb2b*16] = [3,4,5,6,7,15,7,7, 1,1,2,2,1,1,1,1]	
-		pad_channels[kb2b*16] = [1,1,1,1,1,1,1,1, 0,0,0,0,0,0,0,0]
+		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 1,2,3,4,5,6,7,15]	
+		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2, 0,0,1,1, 1,1,1,1]
 		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
-		colors[kb2b*16] = [2,2,2,2,2,2,2,2, 1,1,1,1,1,1,1,1]
+		colors[kb2b*16] = [6,6,6,6,6,6,6,6, 1,1,2,2,2,2,2,2]
 	elseif layouts[kb2b] = 1 // DRUMS AND PERCS
 		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 3,4,5,6,7,15,7,7]	
 		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
