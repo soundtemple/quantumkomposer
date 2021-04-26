@@ -1466,8 +1466,8 @@
 	  	step_val=seq3_notes[step_slot]
 	  endif
   elseif seq_type=1 //# oct val 0 to 6
-  	seq_type_min=0
-  	seq_type_max=6
+  	seq_type_min=-1
+  	seq_type_max=7
 		if seq_ch=0
 	  	step_val=seq0_octs[step_slot]
 	  elseif seq_ch=1
@@ -1899,7 +1899,7 @@
   elseif euc_type=3 and euc_vals[euc_slot + euc_type]=3
   	LabelKnob 2, {1/2Notes}
   elseif euc_type=3 and euc_vals[euc_slot + euc_type]=4
-	LabelKnob 2, {1/1Notes}
+		LabelKnob 2, {1/1Notes}
   else
   	LabelKnob 2, {Val }, euc_vals[euc_slot + euc_type]
   endif
@@ -1920,7 +1920,7 @@
   endif
   if last_knob = 1 //# type to edit
   	euc_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
-	SetKnobValue 2, TranslateScale euc_vals[euc_slot+euc_type], k2min, k2max, 0, 127
+		SetKnobValue 2, TranslateScale euc_vals[euc_slot+euc_type], k2min, k2max, 0, 127
 	if euc_type=0 //#notes
 	  	k2min=0
 	  	k2max=16
@@ -1993,7 +1993,7 @@
   sel_pad = sel_step
 @End
 
-@GetEuclideanSteps //# calc euc steps based on 3 inputs xges
+@GetEuclideanSteps //# calc euc steps based on 3 inputs
 	new_notes = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
   width = num_notes / num_steps
   prev_step = 1
