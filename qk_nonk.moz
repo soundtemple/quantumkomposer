@@ -81,8 +81,8 @@
 	//Store your layout info here
 	//Pads from top left to bottom right
 	
-	layouts =        [0,0,2,3, 7,7,7,7, 5,5,5,5, 4,4,4,4] // Layout to use with each keyboard
-	keybd_channels = [2,2,2,3, 4,5,6,7, 8,9,10,11, 8,9,10,11] //default midi channel use if not specified in layout
+	layouts =        [1,1,2,2, 7,7,7,7, 5,5,5,5, 4,4,4,4] // Layout to use with each keyboard
+	keybd_channels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 8,9,10,11] //default midi channel use if not specified in layout
 	kntrl_keyboard_selection=[0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15] //on KNTRL Instr. channel change - select a keyboard 
 	
 	for i = 0 to number_of_keyboards
@@ -100,24 +100,24 @@
 	kb2b = keyboard_to_build
 	if layouts[kb2b] = 0 //name: KICK and DRUMS
 		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 1,2,3,4,5,6,7,15]	
-		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2, 0,0,1,1, 1,1,1,1]
 		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
-		colors[kb2b*16] = [6,6,6,6,6,6,6,6, 1,1,2,2,2,2,2,2]
+		colors[kb2b*16] = [5,5,6,6,7,7,1,1, 1,1,2,2,3,3,4,4]
+		pad_channels[kb2b*16] = [1,1,1,1, 1,1,1,1, 0,0,0,0, 0,0,0,0]
 	elseif layouts[kb2b] = 1 // DRUMS AND PERCS
-		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 3,4,5,6,7,15,7,7]	
+		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 1,2,3,4,5,6,7,15]	
 		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
-		colors[kb2b*16] = [6,6,6,6,6,6,6,6, 2,2,2,2,2,2,2,2]
-		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2, 1,1,1,1,1,1,1,1]
+		colors[kb2b*16] = [4,5,6,7,1,2,3,4, 1,1,2,2,3,3,4,4]
+		pad_channels[kb2b*16] = [1,1,1,1, 1,1,1,1, 0,0,0,0, 0,0,0,0]
 	elseif layouts[kb2b] = 2 //name: PERCS AND FX/LOOPS
 		labels[kb2b*16] = [11,13,12,29, 14,14,14,14, 8,8,9,9,9,9,9,9]	
 		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
-		colors[kb2b*16] = [4,4,4,4,4,4,4,4, 6,6,6,6,6,6,6,6]
-		pad_channels[kb2b*16] = [3,3,3,3,3,3,3,3, 2,2,2,2,2,2,2,2]
+		colors[kb2b*16] = [2,4,1,5,3,3,3,3, 4,5,6,7,1,2,3,4]
+		pad_channels[kb2b*16] = [2,2,2,2,2,2,2,2, 1,1,1,1,1,1,1,1]
 	elseif layouts[kb2b] = 3 //name: FX / LOOPS and COMBO
 		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 11,13,12,29, 14,14,14,14]	
 		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
-		colors[kb2b*16] = [0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,6]
-		pad_channels[kb2b*16] = [2,2,2,2, 2,2,2,2, 3,3,3,3,3,3,3,3]
+		colors[kb2b*16] = [1,2,3,4,5,6,7,4, 1,2,3,4,5,6,7,4]
+		pad_channels[kb2b*16] = [1,1,1,1,1,1,1,1, 2,2,2,2,2,2,2,2]
 	elseif layouts[kb2b] = 4 //name: KORDS:MELODY CHANNEL KEYBOARD
 		labels[kb2b*16] = [24,28,25,28,26,28,27,24,24,28,25,28,26,28,27,24]
 		notes[kb2b*16] = [60,62,64,65,67,69,71,72, 48,50,52,53, 55,57,59,60]
