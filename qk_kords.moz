@@ -1266,14 +1266,9 @@
 				Exit	
 			endif
 		endfor
-	elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY Notes off (chs9-12 display)	  
-		for i = 5 to 8 // gated chord notes turned on an off by incoming note
-			if MIDIChannel = midi_channels_used[i]
-				ch=MIDIChannel
-				Call @TurnOffChordNotes
-				Exit
-			endif
-		endfor
+	elseif (MIDIChannel>=8 and MIDIChannel<=11) and (MIDINote%12 <= 3)  //HARMONY Notes off (chs9-12 display)	  
+		ch=(MIDINote%12)+8
+		Call @TurnOffChordNotes
 	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
 		last_pad = MIDINote-20
 		if (MIDICommand=0x90 and MIDIByte3=0) or MIDICommand=0x80 //Note off
