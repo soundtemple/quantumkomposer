@@ -296,9 +296,6 @@
 				FlashPad curr_steps[seq_ch]
 			endif	
 		endif	
-		//# if ch=0 //# Log some info....
-			//#Log {EUCSLOT:}, euc_slot, { curr_rate:16/}, curr_rate, { curr_seq_len:}, curr_seq_len, { curr_step:}, curr_steps[ch], { mid_step:}, in_mid_step[ch], { CMP:}, CurrentMetroPulse+1, { CPP:},curr_pattn_pulses[ch]+1
-		//# endif
 		//# increment the pattern pulse
 		curr_pattn_pulses[ch] = curr_pattn_pulses[ch] + 1
 		if in_mid_step[ch] = curr_rate-1 //# last pulse b4
@@ -317,14 +314,14 @@
 				else
 					mutate_step[ch] = -1
 				endif
-				if in_seq_mode					
-					for i = 0 to 15
-						sel_pad = i
-						step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
-						Call @ColorSequencePad
-						LatchPad i, NO
-					endfor
-				endif
+				//if in_seq_mode
+					//for i = 0 to 15
+						//sel_pad = i
+						//step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
+						//Call @ColorSequencePad
+						//LatchPad i, NO
+					//endfor
+				//endif
 			else
 				curr_steps[ch] = curr_steps[ch] + 1
 			endif
