@@ -821,7 +821,6 @@
 		sc_harm_mode = scene_bank[(current_scene * sc_size) + (MIDIChannel-1)]
 		midi_note = MidiNote
 		midi_channel = MIDIChannel
-		Log {sc_harm_mode }, sc_harm_mode
 		Call @ConvertToHarmonyNotes
 	elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY trigger/gate notes coming in  
 		//can come on any channel 8-11 but C=>8 C#=>9 D=>10 D#=>11
@@ -1096,14 +1095,12 @@
 				HAR_NOTE_OUT = chord_root - 1
 			endif
 		endif
-		Log {HAR_NOTE }, HAR_NOTE_OUT
 		if (HAR_NOTE_OUT > 0) 		
 			//# Apply octave adj + scn transpose calculated above
 			HAR_NOTE_OUT = HAR_NOTE_OUT + scn_txpose_amount 
 		
 			//# save calculated harmony note to locker for note off recall
 			SetNoteState MIDIChannel, midi_note, HAR_NOTE_OUT
-			Log {HAR NOTE SENT}
 			//# send note out
 			Call @HumanizeVelocity
 			if NOT incoming_is_chord_note
@@ -1264,7 +1261,7 @@
 @HumanizeVelocity
 	// #Velocity handling
   humanize_velocity = 80 // #50-100 Lower = more variation
-  	dip_velocity_pct = 60 // #50-100 Reduce velocity by %
+  dip_velocity_pct = 60 // #50-100 Reduce velocity by %
 	humanize_pct = (Random humanize_velocity, 100 ) / 100
 	inputVelocity = MidiVelocity
 	if NOT MidiVelocity
