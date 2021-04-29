@@ -817,24 +817,12 @@
 	if mode=3 and  MIDIChannel=midi_channels_used[0] // records mode 
 		Call @HandleRecordNotes
 	elseif MIDIChannel>=4 and MIDIChannel<=7 //MELODY Notes coming in
-		for i = 1 to 4
-			if MIDIChannel = midi_channels_used[i] and not (mode = 3)
-				if i <= 4
-					//# What is the scene harm. mode for this channel scene array slot 4-7
-					sc_harm_mode = scene_bank[(current_scene * sc_size) + i + 2]
-				else
-					//# ch's 5-8 no mode select so default to 
-					sc_harm_mode = 2 //# +NonChord = All Scale notes get harmonized
-				endif
-				//# Log {sc_harm_mode for harmony note is: }, sc_harm_mode, { Call CHN}
-				//# Need to be able to call ConvertToHNotes to switch held notes 
-				//# over chord change where there in no MidiNote
-				midi_note = MidiNote
-				midi_channel = MIDIChannel
-				Call @ConvertToHarmonyNotes
-				Exit
-			endif
-		endfor
+		//# What is the scene harm. mode for this channel scene array slot 3-6 (starting from 0)
+		sc_harm_mode = scene_bank[(current_scene * sc_size) + (MIDIChannel-1)]
+		midi_note = MidiNote
+		midi_channel = MIDIChannel
+		Log {sc_harm_mode }, sc_harm_mode
+		Call @ConvertToHarmonyNotes
 	elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY trigger/gate notes coming in  
 		//can come on any channel 8-11 but C=>8 C#=>9 D=>10 D#=>11
 		//so midi for all 4 harmony channels can come in on 1 midi channel
@@ -945,6 +933,13 @@
 @End
 
 @ConvertToHarmonyNotes
+	if (sc_harm_mode = 7) 
+		//# ignore conversion in thru mode
+		SetNoteState MIDIChannel, midi_note, midi_note
+		SendMIDINoteOn MIDIChannel, midi_note, MidiVelocity
+	elseif (sc_harm_mode = -1)
+		Exit // MODE OFF
+	endif
 	//# Convert incoming midi note to a harmony note based on current chord
 	//# Handles scene harmonization mode for the midi in channel also
 	//# chord = [note1, note2, note3, note4, duration, inv, bass]
@@ -1101,14 +1096,14 @@
 				HAR_NOTE_OUT = chord_root - 1
 			endif
 		endif
-		
+		Log {HAR_NOTE }, HAR_NOTE_OUT
 		if (HAR_NOTE_OUT > 0) 		
 			//# Apply octave adj + scn transpose calculated above
 			HAR_NOTE_OUT = HAR_NOTE_OUT + scn_txpose_amount 
 		
 			//# save calculated harmony note to locker for note off recall
 			SetNoteState MIDIChannel, midi_note, HAR_NOTE_OUT
-			
+			Log {HAR NOTE SENT}
 			//# send note out
 			Call @HumanizeVelocity
 			if NOT incoming_is_chord_note
@@ -1117,11 +1112,6 @@
 	    SendMIDINoteOn MIDIChannel, HAR_NOTE_OUT, velocity  
 			//Log {Melody note sent CH},MIDIChannel, { - }, HAR_NOTE_OUT, { HBEAT:}, HostBeat, { HBAR:}, HostBar
 		endif
-	elseif (sc_harm_mode = 7) 
-		//# ignore scn_txpose and octave adj in thru mode
-		SetNoteState MIDIChannel, midi_note, midi_note
-		SendMIDINoteOn MIDIChannel, midi_note, MidiVelocity
-		//# Log {Midi sent through in mode 8}
 	endif
 		 
 @End
@@ -1287,15 +1277,9 @@
 @OnMidiNoteOff  
   // #handle midi notes for harmonizing note OFF
 	if MIDIChannel>=4 and MIDIChannel<=7 //MELODY Notes OFF (chs5-8 display)  
-		for i = 1 to 4
-			if MIDIChannel = midi_channels_used[i] 
-				// #retrieve the harmony_note sent from note locker
-	    	harmony_note = GetNoteState MIDIChannel, MIDINote  
-	    	SendMIDINoteOff MIDIChannel, harmony_note, MIDIVelocity  
-	    	SetNoteState MIDIChannel, MIDINote, FALSE
-				Exit	
-			endif
-		endfor
+		harmony_note = GetNoteState MIDIChannel, MIDINote  
+  	SendMIDINoteOff MIDIChannel, harmony_note, MIDIVelocity  
+  	SetNoteState MIDIChannel, MIDINote, FALSE
 	elseif (MIDIChannel>=8 and MIDIChannel<=11) and (MIDINote%12 <= 3)  //HARMONY Notes off (chs9-12 display)	  
 		ch=(MIDINote%12)+8
 		Call @TurnOffChordNotes
@@ -1314,7 +1298,6 @@
 	if (mode = 3) and (rec_chord_note_count <= 3)
   	//# In record mode and chord selected for updating
     //Log {Chord note recieved num: }, rec_chord_note_count
-    
     if rec_chord_note_count = 0
 	    //# Recording is happening so reset the current notes
 	    chord_slot = (current_scene * 100) + (current_chord * 10)
