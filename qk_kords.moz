@@ -18,7 +18,7 @@
 	  scene_change_chord_reset = TRUE //# Goto chord 0 when user changes scene
 	  in_mode_select = FALSE //# Toggle for changing modes mode
 	  number_of_modes = 16 //# Change in operational mode 
-	  chords_out_octave = 3 //# base octave(3) for chords out (not harmony)
+	  chords_out_octave = 2 //# base octave(3) for chords out (not harmony)
 	  allow_mode_chg_playbk = TRUE //# Mode change during playback
 	  return_to_song_mode_requested = FALSE //# used for switching on new bar 
 	  rec_chord_note_count = 0 //# recording notes in chord slot
@@ -88,7 +88,7 @@
 	
 	//# Midi channel options Mozaic uses 0-15 - we display 1-16
 	//# Record Chords Ch [0]. MELODY A CH's [1-4]. HARMONY CH's' [5-8] for outgoing chords. 
-	midi_channels_used = [4, 4,5,6,7, 8,9,10,11]
+	midi_channels_used = [4, 4,5,6,7, 8,9,10,11] //These need to stay fixed
 	
 	//# enable chords to be saved 
   FillArray sort_list, 0 //# empty array for sorting chord notes as arrive
@@ -111,6 +111,12 @@
 	c3rd_intervals = [2, 3, 4, 5] //# sus2, min, maj, sus4
 	c5th_intervals = [6, 7, 8] //# dim (b5), P5, aug (#5)
 	c7th_intervals = [-1, 8, 9, 10, 11] //# min6 (b6), maj6, min7 (b7), maj7	
+	
+	//keeping track of held notes over chord changes
+	//When a chrd chgs. Turn off all held notes and replace with notes of new chord
+	update_held_notes_on_chord_change=TRUE
+	held_chord_notes = [FALSE, FALSE, FALSE, FALSE] //
+	held_chord_oct_adj = [0,0,0,0] 	
 @End
 
 @SetupChordsScenes
@@ -235,6 +241,10 @@
   Call @ResetBeatCounts
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
   Call @SetupLayout
+	for i = 5 to 8
+		ch = midi_channels_used[i]
+		Call @TurnOffChordNotes
+	endfor
 @End 
 
 @ResetBeatCounts
@@ -371,6 +381,21 @@
     current_chord = current_chord + 1
   endif
   chord_beat_count = 0 //# reset chord beat count on new chord
+	
+	if update_held_notes_on_chord_change
+		for i = 5 to 8
+			ch = midi_channels_used[i]
+			Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
+		endfor
+		for i = 0 to 3
+			if held_chord_notes[i]
+				ch=i+8
+				trigger_note_oct_adj = held_chord_oct_adj[i]  //notes 48-59 no change
+				Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
+			endif
+		endfor
+	endif
+	
   //# Label pads
   if not in_mode_select
 	  LabelPads {[ KORDS ]  Scene: }, current_scene+1, { Chord: }, current_chord+1
@@ -815,9 +840,14 @@
 		//so midi for all 4 harmony channels can come in on 1 midi channel
 		if (MIDINote%12)<=3
 			ch=(MIDINote%12)+8
+			Call @TurnOffChordNotes // can only have one chord note per channel playing at any one time
 			trigger_note_octave = Div MIDINote, 12 //note in influences octave out
 			trigger_note_oct_adj = (trigger_note_octave - 4) * 12  //notes 48-59 no change
 			Call @SendOutChordNotes
+			if update_held_notes_on_chord_change //held note tracking for update on chord change
+				held_chord_notes[ch-8] = TRUE
+				held_chord_oct_adj[ch-8] = trigger_note_oct_adj
+			endif
 		endif
 	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
 		// notes 20-36 on channel 16  used to trigger MGEN pads 0-15
@@ -1269,6 +1299,8 @@
 	elseif (MIDIChannel>=8 and MIDIChannel<=11) and (MIDINote%12 <= 3)  //HARMONY Notes off (chs9-12 display)	  
 		ch=(MIDINote%12)+8
 		Call @TurnOffChordNotes
+		held_chord_notes[ch-8] = FALSE
+		held_chord_oct_adj[ch-8] = 0
 	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
 		last_pad = MIDINote-20
 		if (MIDICommand=0x90 and MIDIByte3=0) or MIDICommand=0x80 //Note off
