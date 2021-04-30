@@ -242,7 +242,7 @@
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
   Call @SetupLayout
 	for i = 5 to 8
-		ch = midi_channels_used[i]
+		chord_note_ch = midi_channels_used[i]
 		Call @TurnOffChordNotes
 	endfor
 @End 
@@ -384,12 +384,12 @@
 	
 	if update_held_notes_on_chord_change
 		for i = 5 to 8
-			ch = midi_channels_used[i]
+			chord_note_ch = midi_channels_used[i]
 			Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
 		endfor
 		for i = 0 to 3
 			if held_chord_notes[i]
-				ch=i+8
+				chord_note_ch=i+8
 				trigger_note_oct_adj = held_chord_oct_adj[i]  //notes 48-59 no change
 				Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
 			endif
@@ -494,7 +494,7 @@
   	endif
   	if NOT HostRunning and (last_pad >= 8)
 			for i = 5 to 8
-				ch = midi_channels_used[i]
+				chord_note_ch = midi_channels_used[i]
 				trigger_note_oct_adj = 0 //pad down trigger uses default octave
 	  		Call @SendOutChordNotes
 			endfor
@@ -510,7 +510,7 @@
 @OnPadUp2
 	if NOT HostRunning and (last_pad >= 8)
 		for i = 5 to 8
-			ch = midi_channels_used[i]
+			chord_note_ch = midi_channels_used[i]
   		Call @TurnOffChordNotes
 		endfor
   endif
@@ -820,20 +820,21 @@
 		//# What is the scene harm. mode for this channel scene array slot 3-6 (starting from 0)
 		sc_harm_mode = scene_bank[(current_scene * sc_size) + (MIDIChannel-1)]
 		midi_note = MidiNote
-		midi_channel = MIDIChannel
+		melody_note_ch = MIDIChannel
+		melody_note_velo = MIDIVelocity
 		Call @ConvertToHarmonyNotes
 	elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY trigger/gate notes coming in  
 		//can come on any channel 8-11 but C=>8 C#=>9 D=>10 D#=>11
 		//so midi for all 4 harmony channels can come in on 1 midi channel
 		if (MIDINote%12)<=3
-			ch=(MIDINote%12)+8
+			chord_note_ch=(MIDINote%12)+8
 			Call @TurnOffChordNotes // can only have one chord note per channel playing at any one time
 			trigger_note_octave = Div MIDINote, 12 //note in influences octave out
 			trigger_note_oct_adj = (trigger_note_octave - 4) * 12  //notes 48-59 no change
 			Call @SendOutChordNotes
 			if update_held_notes_on_chord_change //held note tracking for update on chord change
-				held_chord_notes[ch-8] = TRUE
-				held_chord_oct_adj[ch-8] = trigger_note_oct_adj
+				held_chord_notes[chord_note_ch-8] = TRUE
+				held_chord_oct_adj[chord_note_ch-8] = trigger_note_oct_adj
 			endif
 		endif
 	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
@@ -902,7 +903,7 @@
 	endif
 	
 	//# Get per scene Midi Out channel On/Off settings (ch=8-11 => slots 7-10)
-	out_type = scene_bank[(current_scene * sc_size) + ch-1] //!!! relies on FIXED midi ch's see sc_har1_slot=7
+	out_type = scene_bank[(current_scene * sc_size) + chord_note_ch-1] //!!! relies on FIXED midi ch's see sc_har1_slot=7
 	
 	//# make a dummy scale to represent chord degrees saved in cno_degrees
 	chord_scale = [chord_bass, chord_root, chord_root, chord_3rd, chord_3rd, chord_5th, chord_5th, chord_7th, chord_7th]
@@ -912,8 +913,8 @@
 		//# send out chord notes
 		if (ch_degree >=0) and chord_formed
 			if chord_scale[ch_degree] > 0
-				SendMIDINoteOn ch, chord_scale[ch_degree], velocity
-				SetNoteState ch, i, chord_scale[ch_degree]
+				SendMIDINoteOn chord_note_ch, chord_scale[ch_degree], velocity
+				SetNoteState chord_note_ch, i, chord_scale[ch_degree]
 				// Log {Chord Note sent curr_chord}, current_chord, { note: }, chord_scale[ch_degree]
 			endif
 		endif
@@ -924,9 +925,9 @@
 	//# channels. requires a ch variable to be set before calling
 	for i = 0 to 3
 		//# stored in 1st 4 note slots (0-3) on each channel
-		if (GetNoteState ch, i)
-			SendMIDINoteOff ch, (GetNoteState ch, i), 127
-	  	SetNoteState ch, i, FALSE
+		if (GetNoteState chord_note_ch, i)
+			SendMIDINoteOff chord_note_ch, (GetNoteState chord_note_ch, i), 127
+	  	SetNoteState chord_note_ch, i, FALSE
   	endif
   endfor
 @End
@@ -934,8 +935,8 @@
 @ConvertToHarmonyNotes
 	if (sc_harm_mode = 7) 
 		//# ignore conversion in thru mode
-		SetNoteState MIDIChannel, midi_note, midi_note
-		SendMIDINoteOn MIDIChannel, midi_note, MidiVelocity
+		SetNoteState melody_note_ch, midi_note, midi_note
+		SendMIDINoteOn melody_note_ch, midi_note, melody_note_velo
 	elseif (sc_harm_mode = -1)
 		Exit // MODE OFF
 	endif
@@ -1100,13 +1101,13 @@
 			HAR_NOTE_OUT = HAR_NOTE_OUT + scn_txpose_amount 
 		
 			//# save calculated harmony note to locker for note off recall
-			SetNoteState MIDIChannel, midi_note, HAR_NOTE_OUT
+			SetNoteState melody_note_ch, midi_note, HAR_NOTE_OUT
 			//# send note out
 			Call @HumanizeVelocity
 			if NOT incoming_is_chord_note
 				velocity = velocity_dipped
 			endif
-	    SendMIDINoteOn MIDIChannel, HAR_NOTE_OUT, velocity  
+	    SendMIDINoteOn melody_note_ch, HAR_NOTE_OUT, velocity  
 			//Log {Melody note sent CH},MIDIChannel, { - }, HAR_NOTE_OUT, { HBEAT:}, HostBeat, { HBAR:}, HostBar
 		endif
 	endif
@@ -1278,10 +1279,10 @@
   	SendMIDINoteOff MIDIChannel, harmony_note, MIDIVelocity  
   	SetNoteState MIDIChannel, MIDINote, FALSE
 	elseif (MIDIChannel>=8 and MIDIChannel<=11) and (MIDINote%12 <= 3)  //HARMONY Notes off (chs9-12 display)	  
-		ch=(MIDINote%12)+8
+		chord_note_ch=(MIDINote%12)+8
 		Call @TurnOffChordNotes
-		held_chord_notes[ch-8] = FALSE
-		held_chord_oct_adj[ch-8] = 0
+		held_chord_notes[chord_note_ch-8] = FALSE
+		held_chord_oct_adj[chord_note_ch-8] = 0
 	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
 		last_pad = MIDINote-20
 		if (MIDICommand=0x90 and MIDIByte3=0) or MIDICommand=0x80 //Note off
