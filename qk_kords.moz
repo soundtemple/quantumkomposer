@@ -114,9 +114,11 @@
 	
 	//keeping track of held notes over chord changes
 	//When a chrd chgs. Turn off all held notes and replace with notes of new chord
-	update_held_notes_on_chord_change=TRUE
-	held_chord_notes = [FALSE, FALSE, FALSE, FALSE] //
-	held_chord_oct_adj = [0,0,0,0] 	
+	update_held_notes_on_chord_change=TRUE //FALSE will allow held notes to continue as originally triggered
+	FillArray mel_note_voices, -1, 16
+	num_mel_voices=2 //MAX4! melody chans max polyphony. for tracking notes over chord changes we limit for CPU reasons
+	held_chord_notes = [FALSE, FALSE, FALSE, FALSE] //Tracking the chord note chans. 1 note per chan max IN.
+	held_chord_oct_adj = [0,0,0,0] 	//Harmony note octave in effect octave chord notes are sent out on
 @End
 
 @SetupChordsScenes
@@ -383,16 +385,27 @@
   chord_beat_count = 0 //# reset chord beat count on new chord
 	
 	if update_held_notes_on_chord_change
-		for i = 5 to 8
-			chord_note_ch = midi_channels_used[i]
+		//turn off held notes over chord change and re-trigger melody and harmony channel notes
+		for c = 0 to 3 //channels melody 4-7 & harmony 5-8 
+			chord_note_ch = midi_channels_used[c+5]
+			melody_note_ch = midi_channels_used[c+1]
 			Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
-		endfor
-		for i = 0 to 3
-			if held_chord_notes[i]
-				chord_note_ch=i+8
-				trigger_note_oct_adj = held_chord_oct_adj[i]  //notes 48-59 no change
+			if held_chord_notes[c]
+				trigger_note_oct_adj = held_chord_oct_adj[c]  //notes 48-59 no change
 				Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
 			endif
+			for v = 0 to (num_mel_voices-1)
+				if mel_note_voices[v+(c*4)] > -1 //ch1
+					//turn off the existing melody ch note
+					harmony_note = GetNoteState melody_note_ch, mel_note_voices[v+(c*4)]  
+					SendMIDINoteOff melody_note_ch, harmony_note, 64
+					//retrigger the melody channel voice	
+					sc_harm_mode = scene_bank[(current_scene * sc_size) + 3 + c]
+					midi_note = mel_note_voices[v+(c*4)]
+					melody_note_velo = mel_note_velos[midi_note] //retrieve save 
+					Call @ConvertToHarmonyNotes 
+				endif
+			endfor
 		endfor
 	endif
 	
@@ -817,12 +830,19 @@
 	if mode=3 and  MIDIChannel=midi_channels_used[0] // records mode 
 		Call @HandleRecordNotes
 	elseif MIDIChannel>=4 and MIDIChannel<=7 //MELODY Notes coming in
-		//# What is the scene harm. mode for this channel scene array slot 3-6 (starting from 0)
-		sc_harm_mode = scene_bank[(current_scene * sc_size) + (MIDIChannel-1)]
-		midi_note = MidiNote
-		melody_note_ch = MIDIChannel
-		melody_note_velo = MIDIVelocity
-		Call @ConvertToHarmonyNotes
+		for i = 0 to (num_mel_voices-1)
+			voice = ((MidiChannel-4)*4)+i //Check if their is a voice available
+			if mel_note_voices[voice]=-1 //A free voice has a value of -1
+				mel_note_voices[voice] = MidiNote
+				mel_note_velos[MIDINote] = MIDIVelocity
+				//# What is the scene harm. mode for this channel scene array slot 4-7
+				sc_harm_mode = scene_bank[(current_scene * sc_size) + MIDIChannel - 1] //scene array slot 3-6 (starting from 0)
+				midi_note = MidiNote
+				melody_note_ch = MIDIChannel
+				Call @ConvertToHarmonyNotes //Convert and send the note
+				Exit
+			endif
+		endfor
 	elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY trigger/gate notes coming in  
 		//can come on any channel 8-11 but C=>8 C#=>9 D=>10 D#=>11
 		//so midi for all 4 harmony channels can come in on 1 midi channel
@@ -1278,6 +1298,13 @@
 		harmony_note = GetNoteState MIDIChannel, MIDINote  
   	SendMIDINoteOff MIDIChannel, harmony_note, MIDIVelocity  
   	SetNoteState MIDIChannel, MIDINote, FALSE
+		for i = 0 to (num_mel_voices-1) //release the voice
+			voice = ((MidiChannel-4)*4)+i
+			if mel_note_voices[voice]=MIDINote
+				mel_note_voices[voice]=-1
+				Exit
+			endif
+		endfor
 	elseif (MIDIChannel>=8 and MIDIChannel<=11) and (MIDINote%12 <= 3)  //HARMONY Notes off (chs9-12 display)	  
 		chord_note_ch=(MIDINote%12)+8
 		Call @TurnOffChordNotes
