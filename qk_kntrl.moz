@@ -26,7 +26,6 @@
 		number_of_modes = 16 //# Change in operational mode 
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		curr_chan=0 //# 0-15 KNTRL channels + Channel Select + M-Kontrol Channel
-		print_preset=TRUE
 		send_midi_feedback = 1 //send feedabck to update controller state. 0=off
 		midi_controller=[15,36,37,38,39] //midi controller channel then 4 ccs for kntrl of kntrl knobs
 		scene_copied=FALSE
@@ -109,10 +108,10 @@
 	chan_pgm=[]
 	FillArray chan_pgm_max, 127, 16
 	// Default setup for Channels - midi chs are fixed
-	chan_labels =  [1,2,14,0,3,4,5,5,8,6,10,9,20,21,22,23]
-	chan_colors =  [2,2,2,0,4,4,4,4,3,3,3,3,5,5,5,0]
+	chan_labels =  [1,2,13,15,3,4,5,5,8,6,10,9,20,21,22,23]
+	chan_colors =  [2,2,2,2,4,4,4,4,3,3,3,3,5,5,5,0]
 	chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	chan_layouts =  [18,19,20,19, 21,21,21,21, 21,21,21,21, 2,16,17,0]
+	chan_layouts =  [18,19,20,22,21,21,21,21,21,21,21,21,2,16,17,0]
 	FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
 	FillArray chan_arm, FALSE, 16
@@ -484,10 +483,10 @@
 			Call @SetupKnobset7
 		endif
 		Call @UpdateCurrentKnobset
-	else //not in mode select
+	else //Enter settings
 		Call @SetupSettingsLayout
 		Call @UpdateCurrentKnobset
-		//LabelPads {KNTRL : [ SETTINGS ]}
+		LabelKnobs { }
 	endif
 @End
 
@@ -582,10 +581,8 @@
 		elseif last_pad=14
 			layouts_locked = NOT layouts_locked
 			Call @SetupSettingsLayout	
-		elseif last_pad>=13
-			if print_preset and NOT HostRunning
+		elseif last_pad=13 and NOT HostRunning 
 				Call @PrintPreset
-			endif
 		endif
 	elseif NOT in_mode_select
 		Call @ModeSetup
@@ -1053,7 +1050,17 @@
 	LabelPads {KNTRL : [ SETTINGS ]}
 	LabelPad 0, {SCENES}
 	LabelPad 1, { __MGEN__ }, { KONTROL }
-	LabelPad 2, {EDIT}
+	if edit_mode_active
+		LabelPad 2, {<= EDIT =>}
+		p1=col_mode_edit
+		p2=col_mode_edit
+		p3=col_mode_edit
+	else
+	  LabelPad 2, {EDIT}
+		p1=3
+		p2=0
+		p3=3
+	endif
 	LabelPad 3, { ___ALL___ }, {CHANNELS}
 	LabelPad 4, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[INSTR]}
 	LabelPad 5, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[EQ]}
@@ -1073,7 +1080,15 @@
 	LabelPad 10,{ __MIXER__ }, {EQ}
 	LabelPad 11,{ __MIXER__ }, {FX}
 	LabelPad 12,{ __MIXER__ }, {MUTE SOLO} //mute solo
-	settings_cols = [4,3,0,3, 5,5,5,5, 2,2,2,2, 2,0,0,1]
+	LabelPad 13, {LOG PRESET}
+	if layouts_locked
+		LabelPad 14, { ___INST___ }, {LAYOUTS 🔒}
+		p14=0
+	else
+	  LabelPad 14, { ___EDIT___ }, { LAYOUTS }
+		p14=col_mode_edit
+	endif
+	settings_cols = [4,p1,p2,p3, 5,5,5,5, 2,2,2,2, 2,0,p14,1]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
@@ -1081,21 +1096,6 @@
 			SendMIDINoteOn 15, i, settings_cols[i] // LED FEEDBACK
 		endif
 	endfor
-	LabelPad 13, {LOG PRESET} 
-	if layouts_locked
-		LabelPad 14, { ___INST___ }, {LAYOUTS 🔒}
-	else
-	  LabelPad 14, { ___INST___ }, { LAYOUTS }
-	endif
-	if edit_mode_active
-		LabelPad 2, {<= EDIT =>}
-			for i = 1 to 3
-				ColorPad i, col_mode_edit
-				if send_midi_feedback
-					SendMIDINoteOn 15, i, col_mode_edit //LED FEEDBACK
-				endif
-		endfor
-	endif
 @End
 
 @OnKnobChange
@@ -1137,15 +1137,10 @@
 @UpdateCurrentKnobset
 	//# On entering select mode the following need knobsets selected
 	if in_mode_select	//# disable knobs in_mode_select
-		if send_midi_feedback
-			LabelKnob 0, {ON}
-		else 
-			LabelKnob 0, {OFF}
-		endif
+		LabelKnob 0, { }
 		LabelKnob 1, { }
 		LabelKnob 2, { }
 		LabelKnob 3, { }
-		SetKnobValue 0, TranslateScale send_midi_feedback, 0, 1, 0, 127
 		knob_set = 99 //# dummy number to disable
 	else
 		if knob_set = 0 
@@ -1302,11 +1297,13 @@
 		LabelKnob 3, {DR.LOOPS}
 	elseif layout = 21
 		LabelKnob 3, {DR.SYNTH}
+	elseif layout = 22
+		LabelKnob 3, {DR.TXTRS}
 	endif
 	SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 22, 0, 127
 	SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 6, 0, 127
 	SetKnobValue 2, TranslateScale chan_midi_chs[edit_chan], 0, 15, 0, 127
-	SetKnobValue 3, TranslateScale chan_layouts[edit_chan], 0, 21, 0, 127 
+	SetKnobValue 3, TranslateScale chan_layouts[edit_chan], 0, 22, 0, 127 
 @End
 
 @KnobChangeSet1
@@ -1331,7 +1328,7 @@
 		ColorPad edit_chan, chan_colors[edit_chan]
 	endif
 	if last_knob=3 and edit_chan<12
-		kval = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 21
+		kval = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 22
 		if kval <> chan_layouts[edit_chan]
 			chan_layouts[edit_chan]=kval
 			Call @BuildLayoutPages 
@@ -1461,6 +1458,7 @@
 	endif
 	Call @LabelInstrumentKnobs
 @End
+
 @SetupKnobset4
 	//# INTRUMENT KONTROL MODE with locked layouts active
 	knob_set=4
@@ -1893,17 +1891,15 @@
 	elseif chan_layouts[edit_chan]=2
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Bus A-D}
 		mixbuseq_gui=[124,125,126,127]
-		mixbusfx=[117,118,119,120]
 		for i = 0 to 3
 			for p = 0 to 15
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
 			clr=i+1 
-			def_labels[16*i] = [0,1,3,125,     4,5,10,11,   85,85,85,85, 61,64,65,66]
-			def_colors[16*i] = [clr,clr,clr,0, 1,2,4,4,   clr,clr,clr,clr,     5,0,0,0]
-			def_vals[16*i]   = [90,64,64,0,    0,0,0,127, 0,0,0,0,  0,0,0,0]
+			def_labels[16*i] = [0,1,77,61, 4,5,10,11, 85,85,71,72, 73,64,65,66]
+			def_colors[16*i] = [clr,clr,clr,0, 6,6,4,4,     5,5,clr,clr,clr,0,0,0]
+			def_vals[16*i]   = [90,64,127,0,    0,0,0,127, 0,0,64,64,  64,0,0,0]
 			def_ccs[(16*i)+3] = mixbuseq_gui[i]
-			def_ccs[(16*i)+8] = mixbusfx[i]
 		endfor	
 	elseif chan_layouts[edit_chan]=3
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Ruismkr}
@@ -2107,50 +2103,50 @@
 		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,1,2,3,4,5,124,92,93]
 	elseif chan_layouts[edit_chan]=16
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Returns}
-		mixbusfx_gui=[124,125,126,127]
+		fx_param_name=[52,51,52,51]
 		for i = 0 to 3
 			for p = 0 to 15
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
 			clr=i+1 
-			def_labels[16*i] = [0,1,3,125,     10,11,72,73,  85,85,85,126,       127,64,65,66]
-			def_colors[16*i] = [clr,clr,clr,0, 3,3,clr,clr,        clr,clr,clr,4,   4,0,0,0]
-			def_vals[16*i]   = [90,64,64,0,    20,127,64,64,      0,0,0,0,         0,0,0,0]
-			def_ccs[(16*i)+11] = mixbusfx_gui[i] 	
+			def_labels[16*i] = [0,1,88,125, 126,127,10,11, 85,fx_param_name[i],71,72, 73,64,65,66]
+			def_colors[16*i] = [clr,clr,clr,0, 0,0,clr,clr,        5,5,clr,clr,   clr,0,0,0]
+			def_vals[16*i]   = [90,64,0,0,    0,0,0,127,      0,30,64,64,         64,0,0,0] 	
 		endfor
 	elseif chan_layouts[edit_chan]=17
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Master}
-		def_labels[16*0] = [0,2,1,-1,125,101,100,124,-1,-1,-1,-1,-1,64,65,66]
-		def_colors[16*0] = [2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_vals[16*0]   = [90,64,64,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_ccs[16*0]    = [7,8,6,33,125,126,127,124,38,39,40,41,42,121,122,123]
-		def_labels[16*1] = [115,1,114,10, 115,1,114,11, 115,1,114,25, 115,1,114,25]
-		def_colors[16*1] = [4,4,4,3,6,6,6,3,1,1,1,3,5,5,5,3]
-		def_vals[16*1]   = [48,64,64,0,61,64,64,127,84,64,64,62,98,64,64,64]
+		def_labels[16*0] = [0,1,-1,-1, 4,5,10,11, 71,72,73,125, -1,64,65,66]
+		def_colors[16*0] = [2,2,0,0,   6,6,4,4,   2,2,2,7,      0,0,0,0]
+		def_vals[16*0]   = [90,64,0,0, 0,0,0,127, 64,64,64,0,   0,0,0,0]
+		def_ccs[16*0]    = [7,8,32,33, 4,5,10,11, 38,39,40,125, 42,121,122,123]
+		
+		def_labels[16*1] = [46,51,34,47, 52,-1,22,12, 49,53,68,88, 10,25,11,25]
+		def_colors[16*1] = [4,4,4,6,     6,0,2,2,     5,5,5,1,     3,3,3,3]
+		def_vals[16*1]   = [0,40,25,0,   64,0,64,0,   0,64,80,0,   0,10,127,10]
+		
 		def_labels[16*2] = [116,116,116,116,116,116,18,101,  53,54,117,28,31,1,18,100]
 		def_colors[16*2] = [6,4,3,5,1,4,0,0,     4,4,4,4,4,4,4,0]
 		def_ccs[16*2] = 	 [63,64,65,66,67,68,69,126, 71,72,73,74,75,76,77,127]
 		def_vals[16*2]   = [64,64,64,64,64,64,64,0,111,20,15,12,112,64,0,0]
-		def_labels[16*3] = [1,117,28,31,-1,111,-1,124,-1,-1,-1,-1,-1,-1,-1,-1]
+		
+		def_labels[16*3] = [1,117,28,31,-1,111,-1,124,126,12,13,-1,127,14,15,-1]
 		def_colors[16*3] = [1,4,4,4,0,4,0,0,0,0,0,0,0,0,0,0]
 		def_vals[16*3]   = [0,5,37,51,0,127,0,0,0,0,0,0,0,0,0,0]
 		def_ccs[16*3]    = [78,79,80,81,82,83,84,124,86,87,88,89,90,91,92,93]
-		def_maxs[16*3]   = [48,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 	elseif chan_layouts[edit_chan]=18 //DR DRUMS
 		drambo_layout_active=TRUE
-		def_labels[16*0] = [0,2,1,71,72,73,10,11,35,36,12,14,4,5,64,65] //Mixer, Mod, FX, Mute, Solo
-		def_colors[16*0] = [2,2,2,3,3,3,4,4,6,6,4,4,5,5,0,0]
-		def_vals[16*0]   = [127,64,64,64,64,64,0,127,0,0,0,0,0,0,0,0]
-		def_ccs[16*0]    = [7,8,6,14,9,15,16,17,1,2,117,119,10,11,121,122]
-		def_labels[16*1] = [1,22,29,79,1,22,29,79,1,22,29,79,1,22,29,79] //Pad control x4
-		def_colors[16*1] = [1,6,6,6, 1,6,6,6, 2,6,6,6, 2,6,6,6]
-		def_vals[16*1]   = [64,64,127,0,64,64,127,0,64,64,127,0,64,64,127,0]
-		def_labels[16*2] = [1,22,29,79,1,22,29,79,1,22,29,79,1,22,29,79] //Pad control x4
-		def_colors[16*2] = [3,6,6,6, 3,6,6,6, 4,6,6,6, 4,6,6,6]
-		def_vals[16*2]   = [64,64,127,0,64,64,127,0,64,64,127,0,64,64,127,0]
-		def_labels[16*3] = [64,64,64,64,64,64,64,64,123,123,123,123,123,123,123,123] //Mutes & triggers
-		def_colors[16*3] = [0,0,0,0,0,0,0,0, 1,1,2,2,3,3,4,4]
-		def_vals[16*3]   = [0,0,0,0,0,0,0,0, 48,49,50,51, 52,53,54,55]
+		def_labels[16*0] = [0,22,29,18,18,13,64,65,0,22,29,18,18,13,64,65] //Drambo drum rack layout
+		def_colors[16*0] = [1,1,1,1,1,1,0,0, 2,2,2,2,2,2,0,0]
+		def_vals[16*0]   = [127,64,127,64,64,0,0,0, 127,64,127,64,64,0,0,0]
+		def_labels[16*1] = [0,22,29,18,18,13,64,65,0,22,29,18,18,13,64,65] //Drambo drum rack layout
+		def_colors[16*1] = [3,3,3,3,3,3,0,0, 4,4,4,4,4,4,0,0]
+		def_vals[16*1]   = [127,64,127,64,64,0,0,0, 127,64,127,64,64,0,0,0]
+		def_labels[16*2] = [0,22,29,18,18,13,64,65,0,22,29,18,18,13,64,65] //Drambo drum rack layout
+		def_colors[16*2] = [5,5,5,5,5,5,0,0, 6,6,6,6,6,6,0,0]
+		def_vals[16*2]   = [127,64,127,64,64,0,0,0, 127,64,127,64,64,0,0,0]
+		def_labels[16*3] = [0,22,29,18,18,13,64,65,0,22,29,18,18,13,64,65] //Drambo drum rack layout
+		def_colors[16*3] = [7,7,7,7,7,7,0,0, 5,5,5,5,5,5,0,0]
+		def_vals[16*3]   = [127,64,127,64,64,0,0,0, 127,64,127,64,64,0,0,0]
 	elseif chan_layouts[edit_chan]=19 //DR PERCS
 		drambo_layout_active=TRUE
 		def_labels[16*0] = [0,2,1,71,72,73,10,11,35,36,12,14,4,5,64,65] //Mixer, Mod, FX, Mute, Solo
@@ -2173,7 +2169,7 @@
 		def_vals[16*0]   = [127,64,64,64,64,64,0,127,0,0,0,0,0,0,0,0]
 		def_ccs[16*0]    = [7,8,6,14,9,15,16,17,1,2,117,119,10,11,121,122]
 		def_labels[16*1] = [1,22,29,11, 1,10,40,11, 1,0,0,0, 1,10,29,11] //Pad control x4
-		def_colors[16*1] = [2,2,2,2, 4,4,4,4, 1,1,1,1, 5,5,5,5] //xyz
+		def_colors[16*1] = [2,2,2,2, 4,4,4,4, 1,1,1,1, 5,5,5,5] 
 		def_vals[16*1]   = [64,64,127,127, 64,0,0,127, 64,64,64,64, 64,64,127,127]
 		def_labels[16*2] = [1,78,110,11, 1,78,110,11, 1,78,110,11, 1,78,110,11] //Pad control x4
 		def_colors[16*2] = [3,5,5,5, 3,5,5,5, 3,5,5,5, 3,5,5,5]
@@ -2197,6 +2193,21 @@
 		def_labels[16*3] = [27,46,51,34,47,52,53,68, 85,85,85,85,85,85,85,85] //FX & Macros
 		def_colors[16*3] = [1,3,3,3,4,4,2,2, 0,0,0,0,0,0,0,0]
 		def_vals[16*3]   = [0,127,64,24,127,64,64,64, 0,0,0,0,0,0,0,0]		
+	elseif chan_layouts[edit_chan]=22 //DR TEXTURES
+		drambo_layout_active=TRUE
+		def_labels[16*0] = [0,2,1,71,72,73,10,11,35,36,12,14,4,5,64,65] //Mixer, Mod, FX, Mute, Solo
+		def_colors[16*0] = [2,2,2,3,3,3,4,4,6,6,4,4,5,5,0,0]
+		def_vals[16*0]   = [127,64,64,64,64,64,0,127,0,0,0,0,0,0,0,0]
+		def_ccs[16*0]    = [7,8,6,14,9,15,16,17,1,2,117,119,10,11,121,122]
+		def_labels[16*1] = [1,22,29,11, 1,10,40,11, 1,0,0,0, 1,10,29,11] //??
+		def_colors[16*1] = [2,2,2,2, 4,4,4,4, 1,1,1,1, 5,5,5,5] 
+		def_vals[16*1]   = [64,64,127,127, 64,0,0,127, 64,64,64,64, 64,64,127,127]
+		def_labels[16*2] = [1,78,110,11, 1,78,110,11, 1,78,110,11, 1,78,110,11] //??
+		def_colors[16*2] = [3,5,5,5, 3,5,5,5, 3,5,5,5, 3,5,5,5]
+		def_vals[16*2]   = [64,127,0,127,64,127,0,127,64,127,0,127,64,127,0,127]
+		def_labels[16*3] = [64,64,64,64,64,64,64,64,123,123,123,123,123,123,123,123] //??
+		def_colors[16*3] = [0,0,0,0,0,0,0,0, 2,4,1,5,3,3,3,3]
+		def_vals[16*3]   = [0,0,0,0,0,0,0,0, 48,49,50,51, 52,53,54,55]
 	endif	
 	pad_slot = (64*edit_chan)
 	CopyArray def_labels, inst_labels[pad_slot], 64 //4pages of 16pads
@@ -2515,8 +2526,6 @@
 		LabelPad pad_to_label, {SIZE} //FX
 	elseif (label_num=53) and chan_layouts[curr_chan]=3
 		LabelPad pad_to_label, {DELAY TIME} //FX
-	elseif (label_num=53) and chan_layouts[edit_chan]=17
-		LabelPad pad_to_label, {THRESHOLD} //FX
 	elseif (label_num=53) 
 		LabelPad pad_to_label, {RATE} //FX
 	elseif (label_num=54)
@@ -2628,7 +2637,7 @@
 	elseif (label_num=98)
 		LabelPad pad_to_label, {PITCH ENV} //CUSTOM
 	elseif (label_num=99)
-		LabelPad pad_to_label, {MODE} //CUSTOM
+		LabelPad pad_to_label, {THRESHOLD} //CUSTOM
 	elseif (label_num=100)
 		LabelPad pad_to_label, {[CMPRSR]} //CUSTOM
 	elseif (label_num=101)
