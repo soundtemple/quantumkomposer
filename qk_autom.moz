@@ -30,9 +30,11 @@
 		Call @GetAutoRamps
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SysexMessageSetup
+		autom_preset=0
+		Call @InitPresetVals
 		Call @SetupSettingsLayout
 		knob_set=1
-		Call @SetupKnobset1
+		Call @SetupKnobset1	
 	endif
 @End
 
@@ -106,11 +108,30 @@
 	
 	FillArray automation_chs,-1,16 //# knobs used to store and locate the param to automate
 	FillArray automation_pads,-1,16 //# knobs used to store and locate the param to automate
-	
-	automation_labels = [42,43,44,45,  42,43,44,45,  42,43,44,45,  42,43,44,45]
-	automation_chs    = [12,12,12,12,  12,12,12,12,  12,12,12,12,  12,12,12,12]
-	automation_ccs    = [40,41,117,39, 56,57,118,55, 72,73,119,71, 88,89,120,87]
-	automation_cols   = [2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5]
+@End
+
+@InitPresetVals
+	if autom_preset=1 //Master-Drums-percs-bass
+		automation_labels = [32,36,5,6,    46,6,47,6,    48,6,49,6,    50,6,50,6]
+		automation_chs    = [15,15,15,15,  0,0,1,1,      1,1,2,2,      4,4,5,5,5]
+		automation_ccs    = [46,47,58,60,  1,17,99,99,   1,17,1,17,    1,17,1,17]
+		automation_cols   = [6,6,6,6,      1,1,2,2,      2,2,2,2,      4,4,4,4]
+	elseif autom_preset=2 //Lead-scaps-rizer-harmony
+		automation_labels = [51,6,51,6,    56,6,55,40,   52,6,54,6,    53,6,57,6]
+		automation_chs    = [6,6,7,7,      3,3,3,3,      8,8,9,9,      10,10,11,11]
+		automation_ccs    = [1,17,1,17,    1,17,99,99,   1,17,1,17,    1,17,1,17]
+		automation_cols   = [4,4,4,4,      6,6,6,6,      3,3,3,3,      3,3,3,3]
+	elseif autom_preset=3 //Mixbus1-4: HPF-LPF-FX1-FX2
+		automation_labels = [42,43,44,45,  42,43,44,45,  42,43,44,45,  42,43,44,45]
+		automation_chs    = [12,12,12,12,  12,12,12,12,  12,12,12,12,  12,12,12,12]
+		automation_ccs    = [40,41,117,39, 56,57,118,55, 72,73,119,71, 88,89,120,87]
+		automation_cols   = [2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5]
+	else //empty template
+		FillArray automation_labels, 0, 16
+		FillArray automation_chs, 0, 16
+		FillArray automation_ccs, 0, 16
+		FillArray automation_cols, 0, 16
+	endif  
 @End
 
 @ResetAutomToPosition
@@ -432,7 +453,11 @@
 			Call @SetupKnobset4 //# AUTOM and thru to editing
 			LatchPad sel_autom_pad, YES
 		elseif last_pad=6
-			interpolate_autom = not interpolate_autom
+			autom_preset = autom_preset+1
+			if autom_preset > 3
+				autom_preset=0 //0empty; 1drums/bass; 2lead/harm; 3mixbus
+			endif
+			Call @InitPresetVals
 			Call @SetupSettingsLayout	
 		elseif last_pad=7
 			send_automation_data_enabled = not send_automation_data_enabled
@@ -695,11 +720,17 @@
 		pad_cols[4]=7
 	endif 
 	LabelPad 5, {AUTOM EDITOR}
-	if interpolate_autom
-		LabelPad 6, {SMOOTH AUTOM ON}
+	if autom_preset=1
+		LabelPad 6, {__PRESET__ }, {>MSTR-DRMS }
 		pad_cols[6]=2
+	elseif autom_preset=2
+	  LabelPad 6, {__PRESET__ }, {LEAD/HRMNY}
+		pad_cols[6]=3
+	elseif autom_preset=3
+	  LabelPad 6, {__PRESET__ }, {MIXBUS}
+		pad_cols[6]=6
 	else
-	  LabelPad 6, {SMOOTH AUTOM OFF}
+	  LabelPad 6, {__PRESET__ }, {EMPTY}
 		pad_cols[6]=0
 	endif
 	if send_automation_data_enabled
@@ -892,7 +923,7 @@
 		SetKnobValue 1, TranslateScale max_vals_rec_cont[sel_autom_pad], 0, 127, 0, 127
 	else
 	  SetKnobValue 0, TranslateScale a_ch, 0, 15, 0, 127
-		SetKnobValue 1, TranslateScale a_lbl, 0, 48, 0, 127
+		SetKnobValue 1, TranslateScale a_lbl, 0, 57, 0, 127
 	endif
 	if record_autom_on
 		SetKnobValue 2, TranslateScale rec_val, min_vals_rec_cont[sel_autom_pad], max_vals_rec_cont[sel_autom_pad], 0, 127
@@ -931,7 +962,7 @@
 			LabelKnob 0, {ch }, automation_chs[sel_autom_pad]+1
 	  endif
 	  if last_knob = 1
-	    automation_labels[sel_autom_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 48
+	    automation_labels[sel_autom_pad] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 57
 			LabelKnob 1, {Label }, automation_labels[sel_autom_pad]
 		endif
 	endif
@@ -1570,17 +1601,17 @@
 	elseif (label_num=35)
 		LabelPad pad_to_label, {PHASER}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=36)
-		LabelPad pad_to_label, {BASS TONE}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {FEEDBACK}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=37)
-		LabelPad pad_to_label, {ARP TONE}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {SIZE}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=38)
-		LabelPad pad_to_label, {LEAD TONE}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {AMOUNT}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=39)
-		LabelPad pad_to_label, {PADS TONE}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {RATE}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=40)
-		LabelPad pad_to_label, {PLUCK TONE}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {COLOR}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=41)
-		LabelPad pad_to_label, {BASS2 TONE}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {AMOUNT}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=42)
 		LabelPad pad_to_label, {BUS},(Div pad_slot,4)+1, {-HPF}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=43)
@@ -1588,13 +1619,31 @@
 	elseif (label_num=44)
 		LabelPad pad_to_label, {BUS},(Div pad_slot,4)+1, {-FX1}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=45)
-	LabelPad pad_to_label, {BUS},(Div pad_slot,4)+1, {-FX2}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {BUS},(Div pad_slot,4)+1, {-FX2}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=46)
-		LabelPad pad_to_label, {DISTORT}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {DRUMS FX}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=47)
-		LabelPad pad_to_label, {DRIVE}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {SHAKER FX}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=48)
-		LabelPad pad_to_label, {GRAIN}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {PERCS FX}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=49)
+		LabelPad pad_to_label, {LOOPS FX}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=50)
+		LabelPad pad_to_label, {BASS FX}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=51)
+		LabelPad pad_to_label, {LEAD FX}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=52)
+		LabelPad pad_to_label, {PADS FX}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=53)
+		LabelPad pad_to_label, {ARP FX}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=54)
+		LabelPad pad_to_label, {PLUCK FX}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=55)
+		LabelPad pad_to_label, {RIZER FX}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=56)
+		LabelPad pad_to_label, {SCAPES FX}, { __________ }, { ch},ch, { cc}, cc
+	elseif (label_num=57)
+		LabelPad pad_to_label, {SWELL FX}, { __________ }, { ch},ch, { cc}, cc
 	else
 	  LabelPad pad_to_label, { ??? }, { __________ }, { ch},ch, { cc#}, cc
 	endif
