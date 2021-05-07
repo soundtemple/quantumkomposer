@@ -13,6 +13,7 @@
 		edit_chan=0 // selected channel for editing
 		edit_pad=0 //selected pad in a channel for editing
 		use_instr_knobset_a=TRUE //used to toggle between two kntrl knobsets. Edit mode cant access
+		drambo_4mixbus_mode=TRUE
 		drambo_layout_active=FALSE //layouts 5 & 6 at present. Update padDownChannels mode if layouts change
 		SetMetroPPQN 4
 		ppqn = 4
@@ -532,14 +533,14 @@
 			endif
 			LatchPad curr_chan, YES
 			LabelPads {KNTRL : [ INSTRUMENT CHANNELS ]}
-		elseif last_pad=4
-			SendMIDICC chan_midi_chs[curr_chan], 124, 127 // show / hide INSTR
-		elseif last_pad=5
-			SendMIDICC chan_midi_chs[curr_chan], 125, 127 // show / hide EQ
-		elseif last_pad=6
-			SendMIDICC chan_midi_chs[curr_chan], 126, 127 // show / hide FX1
-		elseif last_pad=7
-			SendMIDICC chan_midi_chs[curr_chan], 127, 127 // show / hide FX2
+		elseif last_pad>=4 and last_pad<=7
+		  mch=chan_midi_chs[curr_chan]
+			ccs=[124,125,126,127] // GUI - Instr, EQ, FX1, FX2,
+			if drambo_4mixbus_mode
+				mch=last_pad-4
+				ccs=[127,127,127,127] // GUI - Drambo mixbusses Drums, Percs, Bass, Synths
+			endif
+			SendMIDICC mch, ccs[last_pad-4], 127 // show/hide GUI
 		elseif last_pad=15
 			if chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=16 or chan_layouts[curr_chan]=17 //mixbus, rtns or master 
 				// reset all values to default params for busses 1-4 or all sends 1-4
@@ -699,11 +700,6 @@
 @PadDownChannelsMode
 	if last_pad=15
 		Exit
-	endif
-	if drambo_layout_active
-		Log {DRAMBO LAYOUT ACTIVE}
-	else
-	  Log {NOT DR ACTIVE}
 	endif
 	if (last_pad=curr_chan) or drambo_layout_active  
 		//user hit goto channel pad twice or Drambo layout so select pad 
@@ -1062,10 +1058,17 @@
 		p3=3
 	endif
 	LabelPad 3, { ___ALL___ }, {CHANNELS}
-	LabelPad 4, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[INSTR]}
-	LabelPad 5, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[EQ]}
-	LabelPad 6, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[FX1]}
-	LabelPad 7, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[FX2]}
+	if drambo_4mixbus_mode
+		LabelPad 4, { _DRAMBO_ }, { [DRUMS] }
+		LabelPad 5, { _DRAMBO_ }, { [PERCS] }
+		LabelPad 6, { _DRAMBO_ }, { [BASS] }
+		LabelPad 7, { _DRAMBO_ }, { [SYNTHS] }
+	else
+		LabelPad 4, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[INSTR]}
+		LabelPad 5, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[EQ]}
+		LabelPad 6, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[FX1]}
+		LabelPad 7, { ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {[FX2]}
+	endif
 	if chan_layouts[curr_chan]=2 //mixbus1-4
 		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {RESET MBx4}
 	elseif chan_layouts[curr_chan]=16 //returns
