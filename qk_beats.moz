@@ -160,7 +160,7 @@
 	fixed_notesets[1*50] = [36,38,39,42,45,46, 48, 50] //# [RuisGM]
 	fixed_notesets[2*50] = [24,30,36,42,48,54,60,66] //# [DC Note]
 	fixed_notesets[3*50] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15, 72,73,74,75,76,77,78,79,80,81,82,83] //# [DC Patt++]
-	fixed_notesets[4*50] = [60,62,64,65,67,69, 71, 72] //# [Patt'ng2]
+	fixed_notesets[4*50] = [48,49,50,51,52,53,54,55, 56,57,58,59] //# [Slammer]
 	fixed_notesets[5*50] = [36,38,39,42,43,46, 47, 50] //# [EG Pulse]
 	fixed_notesets[6*50] = [48,49,50,51,52,53,54,55, 56,57,58,59,60,61,62,63] // [Digistix]
 	fixed_notesets[7*50] = [36,37,38,39,40,41,42,43, 44,45,46,47,48,49,50,51] // Beathawk 
@@ -191,46 +191,35 @@
 		midi_out_chs=[0,0,0,0]
 		scale_slot = sel_scale*50
 		notes_in_set=8
-		FillArray seq0_notes, 0, 1024
-		FillArray seq1_notes, 2, 1024
-		FillArray seq2_notes, 4, 1024
-		FillArray seq3_notes, 6, 1024
+		ch_start_notes=[0,2,4,6]
 		if sel_scale=3 // DC Patt++
 			notes_in_set=28
 			mgen_device_id=2
-			FillArray seq0_notes, 0, 1024
-			FillArray seq1_notes, 16, 1024
-			FillArray seq2_notes, 0, 1024
-			FillArray seq3_notes, 0, 1024
+			ch_start_notes=[0,16,0,0]
+		elseif sel_scale=4 // Slammer
+			notes_in_set=12
+			ch_start_notes=[0,2,4,6]
 		elseif sel_scale=6 // Digistix
 			notes_in_set=16
-			FillArray seq0_notes, 0, 1024
-			FillArray seq1_notes, 1, 1024
-			FillArray seq2_notes, 2, 1024
-			FillArray seq3_notes, 4, 1024
+			ch_start_notes=[0,1,2,4]
 		elseif sel_scale=7 // Beathawk
 			notes_in_set=16
-			FillArray seq0_notes, 0, 1024
-			FillArray seq1_notes, 2, 1024
-			FillArray seq2_notes, 4, 1024
-			FillArray seq3_notes, 6, 1024
+			ch_start_notes=[0,2,4,6]
 		elseif sel_scale=8 // DrPERCS
 			notes_in_set=8
 			midi_out_chs=[1,1,1,1]
 			mgen_device_id=2
-			FillArray seq0_notes, 0, 1024
-			FillArray seq1_notes, 2, 1024
-			FillArray seq2_notes, 4, 1024
-			FillArray seq3_notes, 6, 1024
+			ch_start_notes=[0,2,4,6]
 		elseif sel_scale=9 or sel_scale=10 // SeekBeats or DrDRUMS
 			notes_in_set=8
 			midi_out_chs=[0,0,0,0]
 			mgen_device_id=1
-			FillArray seq0_notes, 0, 1024
-			FillArray seq1_notes, 2, 1024
-			FillArray seq2_notes, 4, 1024
-			FillArray seq3_notes, 6, 1024
+			ch_start_notes=[0,2,4,6]
 		endif
+		FillArray seq0_notes, ch_start_notes[0], 1024
+		FillArray seq1_notes, ch_start_notes[1], 1024
+		FillArray seq2_notes, ch_start_notes[2], 1024
+		FillArray seq3_notes, ch_start_notes[3], 1024
 		CopyArray fixed_notesets[scale_slot], curr_scale, notes_in_set
 		noteset_len=notes_in_set
 	elseif note_set_type=2 //# single note for each channel
@@ -1441,7 +1430,7 @@
 		elseif sel_scale=3
 	  	LabelPad 3, {NOTESET   [DC Patt++]}
 		elseif sel_scale=4
-	  	LabelPad 3, {NOTESET   [Patt'ing2]}
+	  	LabelPad 3, {NOTESET   [Slammer]}
 	  elseif sel_scale=5
 	  	LabelPad 3, {NOTESET   [EG Pulse]}
 	  elseif sel_scale=6
