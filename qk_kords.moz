@@ -1390,7 +1390,7 @@
 @End
 
 @CopyPaste
-	//# copy paste scenes and chords xcp
+	//# copy paste scenes and chords
 	if last_pad <=7
 		//Log {Pasting scene to }, current_scene+1 
 		LabelPads {Copied Scene }, copied_scene+1, { to Scene }, last_pad+1

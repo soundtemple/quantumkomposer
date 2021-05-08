@@ -15,6 +15,9 @@
 		use_instr_knobset_a=TRUE //used to toggle between two kntrl knobsets. Edit mode cant access
 		drambo_4mixbus_mode=TRUE
 		drambo_layout_active=FALSE //layouts 5 & 6 at present. Update padDownChannels mode if layouts change
+		qk_as_atom_launcher=TRUE
+		atom_instance_to_launch=[0,1,2,3, 4,5,6,7, 8,8,8,8, -1,-1,-1,-1] //config ATOM's to launch with selected channel
+		send_midi_feedback = 1 //send feedabck to update controller state. 0=off
 		SetMetroPPQN 4
 		ppqn = 4
 		edit_scene=0
@@ -27,7 +30,6 @@
 		number_of_modes = 16 //# Change in operational mode 
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		curr_chan=0 //# 0-15 KNTRL channels + Channel Select + M-Kontrol Channel
-		send_midi_feedback = 1 //send feedabck to update controller state. 0=off
 		midi_controller=[15,36,37,38,39] //midi controller channel then 4 ccs for kntrl of kntrl knobs
 		scene_copied=FALSE
 		loop_song_mode=TRUE
@@ -487,7 +489,6 @@
 	else //Enter settings
 		Call @SetupSettingsLayout
 		Call @UpdateCurrentKnobset
-		LabelKnobs { }
 	endif
 @End
 
@@ -582,8 +583,12 @@
 		elseif last_pad=14
 			layouts_locked = NOT layouts_locked
 			Call @SetupSettingsLayout	
-		elseif last_pad=13 and NOT HostRunning 
-				Call @PrintPreset
+		elseif last_pad=13 and (NOT HostRunning) and (NOT qk_as_atom_launcher) 
+			Call @PrintPreset
+		elseif last_pad=13 and qk_as_atom_launcher
+			if atom_instance_to_launch[curr_chan] >= 0
+				SendMIDICC atom_instance_to_launch[curr_chan], 89, 127 //launch ATOM GUI for channel
+			endif
 		endif
 	elseif NOT in_mode_select
 		Call @ModeSetup
@@ -1044,6 +1049,7 @@
 	in_mode_select = TRUE
 	ShowLayout 2
 	LabelPads {KNTRL : [ SETTINGS ]}
+	Call @LabelSettingsKnobs
 	LabelPad 0, {SCENES}
 	LabelPad 1, { __MGEN__ }, { KONTROL }
 	if edit_mode_active
@@ -1083,7 +1089,6 @@
 	LabelPad 10,{ __MIXER__ }, {EQ}
 	LabelPad 11,{ __MIXER__ }, {FX}
 	LabelPad 12,{ __MIXER__ }, {MUTE SOLO} //mute solo
-	LabelPad 13, {LOG PRESET}
 	if layouts_locked
 		LabelPad 14, { ___INST___ }, {LAYOUTS 🔒}
 		p14=0
@@ -1140,10 +1145,7 @@
 @UpdateCurrentKnobset
 	//# On entering select mode the following need knobsets selected
 	if in_mode_select	//# disable knobs in_mode_select
-		LabelKnob 0, { }
-		LabelKnob 1, { }
-		LabelKnob 2, { }
-		LabelKnob 3, { }
+		Call @LabelSettingsKnobs
 		knob_set = 99 //# dummy number to disable
 	else
 		if knob_set = 0 
@@ -1183,13 +1185,39 @@
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 1
 		if val <> send_midi_feedback
 			send_midi_feedback = val
-			if send_midi_feedback
-				LabelKnob 0, {ON}
-			else 
-				LabelKnob 0, {OFF}
-			endif
+			Call @LabelSettingsKnobs
+		endif
+	elseif last_knob = 2
+		val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 1
+		if val <> qk_as_atom_launcher
+			qk_as_atom_launcher = val
+			Call @LabelSettingsKnobs
 		endif
 	endif
+@End
+
+@LabelSettingsKnobs
+	LabelKnobs {Scene}, current_scene+1, { Channel}, curr_chan+1
+	if send_midi_feedback
+		LabelKnob 0, {MidiFB ON}
+	else 
+		LabelKnob 0, {MidiFB OFF}
+	endif
+	if qk_as_atom_launcher
+		LabelKnob 2, {AtomL. Y}
+		if atom_instance_to_launch[curr_chan]>=0
+			LabelPad 13, { ___ATOM___ }, {GUI# }, atom_instance_to_launch[curr_chan]+1
+		else
+			LabelPad 13, { ___ATOM___ }, {none}
+		endif
+	else 
+		LabelKnob 2, {AtomL. N}
+		LabelPad 13, {LOG PRESET}
+	endif
+	LabelKnob 1, { }
+	LabelKnob 3, { }
+	SetKnobValue 0, TranslateScale send_midi_feedback, 0, 1, 0, 127
+	SetKnobValue 2, TranslateScale qk_as_atom_launcher, 0, 1, 0, 127
 @End
 
 @SetupKnobset0
