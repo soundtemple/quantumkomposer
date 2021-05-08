@@ -138,8 +138,8 @@
   sc_har3_slot = 9
   sc_har4_slot = 10
   sc_size = 15 //# ^ above slots + duration = 11 + 4 spare for even sizing 
-  rnd_scene_chg=FALSE //# will select rnd scene on (auto) change not user change
-  
+  rnd_scn_chance=0 //% chance scene change will be to a random one
+	rnd_chrd_chance=0 //% chance chord change will be to a random one
 	//# chord = [note1, note2, note3, note4, duration, inv, bass, suggestion]
   dur_slot = 4 //# fixed location for duration
   inv_slot = 5
@@ -338,12 +338,7 @@
   	//# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
   else
-		rnd_scene = Random 0,7 //# only move to rnd scene if it has a duration
-    if rnd_scene_chg and scene_bank[rnd_scene*sc_size]>0
-			current_scene = rnd_scene
-		else
-			current_scene = current_scene + 1 //# Going to next
-		endif
+		current_scene = current_scene + 1 //# Going to next
   endif
   
   Call @ResetBeatCounts
@@ -623,6 +618,8 @@
 		else
 			Call @SetupKnobset1
 		endif
+	elseif in_mode_select
+	  Call @SetupKnobset99 //settings knobset
 	endif
 	Call @SendMidiCCBackToKnobs
 @End
@@ -1472,6 +1469,52 @@
 	Call @LabelChordPad
 @End
 
+@SetupKnobset99
+	knob_set = 99
+	SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
+	SetKnobValue 0, 0
+	SetKnobValue 2, TranslateScale rnd_scn_chance, 0, 100, 0, 127
+	SetKnobValue 3, TranslateScale rnd_chrd_chance, 0, 100, 0, 127
+	Call @LabelSettingsKnobs
+@End
+@KnobChangeSet99 //settings knobs
+	if last_knob = 0
+	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 9
+		if val <> mgen_device_id
+			mgen_device_id=val
+			if mgen_device_id
+				LabelKnob 0, {mgen# }, mgen_device_id
+			else
+				LabelKnob 0, {mgen# -}
+			endif
+		endif
+	elseif last_knob = 2
+	  val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 100
+	  if val <> rnd_scn_chance 	
+		  rnd_scn_chance = val
+			Call @LabelSettingsKnobs
+	  endif
+  elseif last_knob = 3
+	  val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
+	  if val <> rnd_chrd_chance 	
+		  rnd_chrd_chance = val
+			Call @LabelSettingsKnobs
+	  endif
+	endif
+@End
+@LabelSettingsKnobs
+	if mgen_device_id
+		LabelKnob 0, {mgen# }, mgen_device_id
+	else
+		LabelKnob 0, {mgen# -}
+		endif
+	LabelKnob 1, { }
+	LabelKnob 2, {RndScn}, rnd_scn_chance
+	LabelKnob 3, {RndChrd}, rnd_chrd_chance
+	LabelKnobs { }
+	LabelPads {KORDS : [ SETTINGS ]}
+@End
+
 @SetupKnobset0
 	//# Scene settings
 	knob_set = 0
@@ -2103,18 +2146,8 @@
 		elseif (mode = 12)
 			Call @SetupKnobset9
 		else
-			//# disable knobs in_mode_select
-			LabelKnobs { }
-			SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
-			if mgen_device_id
-				LabelKnob 0, {mgen# }, mgen_device_id
-			else
-				LabelKnob 0, {mgen# -}
-			endif
-			LabelKnob 1, { }
-			LabelKnob 2, { }
-			LabelKnob 3, { }
-			knob_set = 99 //# dummy number to disable
+
+			Call @SetupKnobset99 //settings knobs
 		endif
 	endif
 	Call @SendMidiCCBackToKnobs
@@ -2145,17 +2178,7 @@
 	elseif knob_set = 9
   	Call @KnobChangeSet9	//# HARMONY modes
 	elseif knob_set = 99 //settings layout
-    if last_knob = 0
-		  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 9
-			if val <> mgen_device_id
-				mgen_device_id=val
-				if mgen_device_id
-					LabelKnob 0, {mgen# }, mgen_device_id
-				else
-					LabelKnob 0, {mgen# -}
-				endif
-			endif
-		endif
+		Call @KnobChangeSet99 
 	endif 
 @End 
 		

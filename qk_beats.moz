@@ -69,7 +69,8 @@
   step_val=0
   copy_paste_status=0 //# Copy paste 0=off; 1=Copied; 2=Paste
   return_to_mode=0 //# Copy paste on completion
-	rnd_scene_chg=FALSE //# will select rnd scene on (auto) change not user change
+	rnd_scn_chance=0 //% chance scene change will be to a random one
+	rnd_ptn_chance=0 //% chance pattern change will be to a random one
 	rot_dir=1
 	move_all=0 //boolean to move all or move 1 in step edit
 	move_all_dir=0 //direction for all to move in step edit mode
@@ -473,12 +474,7 @@
   	//# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
   else
-    rnd_scene = Random 0,7 //# only move to rnd scene if it has a duration
-    if rnd_scene_chg and scene_durs[rnd_scene]>0
-			current_scene = rnd_scene
-		else
-			current_scene = current_scene + 1 //# Going to next
-		endif
+		current_scene = current_scene + 1 //# Going to next
   endif
   scene_beat_count = 0
 	pattn_beat_count = 0
@@ -849,6 +845,8 @@
       Call @SetupKnobset2 //# MIDI OUT CHS
     elseif last_pad = 5
     	Call @SetupKnobset4 //# CC# VALS
+		else
+		  Call @SetupKnobset99 //settings knobset
     endif
   endif
   Call @SendMidiCCBackToKnobs
@@ -1230,6 +1228,51 @@
 	endif
 @End
 
+@SetupKnobset99
+	SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
+	SetKnobValue 0, 0
+	SetKnobValue 2, TranslateScale rnd_scn_chance, 0, 100, 0, 127
+	SetKnobValue 3, TranslateScale rnd_ptn_chance, 0, 100, 0, 127
+	Call @LabelSettingsKnobs
+@End
+@KnobChangeSet99 //settings knobs
+	if last_knob = 0
+	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 9
+		if val <> mgen_device_id
+			mgen_device_id=val
+			if mgen_device_id
+				LabelKnob 0, {mgen# }, mgen_device_id
+			else
+				LabelKnob 0, {mgen# -}
+			endif
+		endif
+	elseif last_knob = 2
+	  val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 100
+	  if val <> rnd_scn_chance 	
+		  rnd_scn_chance = val
+			Call @LabelSettingsKnobs
+	  endif
+  elseif last_knob = 3
+	  val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
+	  if val <> rnd_ptn_chance 	
+		  rnd_ptn_chance = val
+			Call @LabelSettingsKnobs
+	  endif
+	endif
+@End
+@LabelSettingsKnobs
+	if mgen_device_id
+		LabelKnob 0, {mgen# }, mgen_device_id
+	else
+		LabelKnob 0, {mgen# -}
+		endif
+	LabelKnob 1, { }
+	LabelKnob 2, {RndScn}, rnd_scn_chance
+	LabelKnob 3, {RndPtn}, rnd_ptn_chance
+	LabelKnobs { }
+	LabelPads {Settings}
+@End
+
 @SetupKnobset0 //# Scene settings
 	knob_set = 0
 	LabelKnobs {Scene }, current_scene+1, { setup}
@@ -1237,14 +1280,10 @@
 	LabelKnob 0, {Duration}
 	LabelKnob 1, {Swing }, scene_swing[current_scene], {%}
 	LabelKnob 2, { }
-	if rnd_scene_chg = 0
-		LabelKnob 3, {RndScOFF} 
-	else
-		LabelKnob 3, {RndScON}
-	endif
+	LabelKnob 3, { }
 	SetKnobValue 0, TranslateScale scene_durs[current_scene], 0, 32, 0, 127
 	SetKnobValue 1, TranslateScale scene_swing[current_scene], 0, 100, 0, 127
-	SetKnobValue 3, TranslateScale rnd_scene_chg, 0, 1, 0, 127
+	SetKnobValue 3, 0
 @End
 
 @KnobChangeSet0 //# scene settings xs0
@@ -1263,14 +1302,6 @@
 	  	SetMetroSwing scene_swing[current_scene]
 	  endif
   endif
-	if last_knob = 3
-	  rnd_scene_chg = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
-		if rnd_scene_chg = 0
-				LabelKnob 3, {RndScOFF} 
-			else
-				LabelKnob 3, {RndScON}
-		endif
-	endif
   scn_to_label = current_scene
   Call @LabelScenePad
 @End
@@ -2407,18 +2438,7 @@
   elseif knob_set = 9
     Call @KnobChangeSet9 //# ROTATION
 	elseif knob_set = 99 //settings layout
-    if last_knob = 0
-		  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 9
-			if val <> mgen_device_id
-				mgen_device_id=val
-				Log {mgen device id updated to: }, mgen_device_id
-				if mgen_device_id
-					LabelKnob 0, {mgen# }, mgen_device_id
-				else
-					LabelKnob 0, {mgen# -}
-				endif
-			endif
-		endif
+		Call @KnobCHangeSet99
 	endif
 @End  
 
@@ -2444,19 +2464,8 @@
 		endif
 		copy_paste_status=0 //# In case COPYPASTE aborted
 		LabelPads {SETTINGS:      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
-		//# disable knobs on entry to settings to prevent overwrite
 		knob_set=99
-		LabelKnobs { }
-		SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
-		LabelPads {Settings}
-		if mgen_device_id
-			LabelKnob 0, {mgen# }, mgen_device_id
-		else
-			LabelKnob 0, {mgen# -}
-		endif
-		LabelKnob 1, { }
-		LabelKnob 2, { }
-		LabelKnob 3, { }
+		Call @SetupKnobset99 //settings knobs
 		if (songmode = 0)
 			LabelPad 0, {PLAYSONG: Active }
 		elseif (songmode = 1)
