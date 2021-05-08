@@ -22,14 +22,14 @@
 @End
 
 @Description
-  QUANTUM:KEYBOARD or NONK is a keyboard for non-players.
-	It's used to trigger multiple instruments across many channels
-	Each of the 16 keyboards has a layout and transpose controls
-	It should be routed in (only) one of two ways:
-	1. Directly to your instruments OR
-	2. via KORDS for current chord triggering
-	When NONK	is routed via KORDS drum channels wont receive notes
-	Layouts are configurable. See @BuildKeyboardLayout in this script.
+  QUANTUM:KEYBOARD (aka NONK) is a NON-Keyboard for NON-Keyboard players.
+	Setup NONK's 16 keyboards to trigger sounds on all channels in your session. 
+	Use the SHIFT button to toggle 3 Knob modes:
+	1. Select: 16 keyboards each with a layout, velo & txpose controls
+	2. Setup: Change keyboard layout (eg: Drums or scale type) & default midi channel
+	3. Edit: Color, Label, Note, Ch on each pad in selected keyboard. (SaveAs to keep)
+	NB: Re-assigning a layout will wipe edits, so choose layout first then edit
+	Layouts are user configurable. See @BuildKeyboardLayout in this script.
 	>>>Press SHIFT to start NONKING
 @End
 
@@ -45,16 +45,17 @@
 
 @InitKnobVariables
 	keyboard=0 //current keyboard
-	number_of_keyboards=17 //number of keyboards
+	number_of_keyboards=16 //number of keyboards
+	number_of_layouts=16 //Each keyboard can have a generic layout assigned
 	last_note_pad=0 //the last pad hit in a keyboard layout
 	note=60 //the note number to play on pad press after oct_adj and txpose
 	chan=0 // the midi channel to send note on pad press
 	velo=100 // the velocity to send with pad press. 0 for Vel thru
-	FillArray layouts, 0, number_of_keyboards //the layout to apply to the keyboard
-	use_knobset0=TRUE
+	knob_set=2 //initial knobs layout to use
 	led_index=20 // notes 20-46 used for updating LED feedback on 16pads
 	send_cc_back_to_knobs = TRUE
   knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
+	last_pad=0
 	
 	//Arrays used for curent keyboard info
 	FillArray labels, 0, 1024 //index to labels
@@ -321,32 +322,37 @@
 
 @OnPadDown2
   last_note_pad = (keyboard*16)+last_pad //access ch, note, label for last pad hit in a layout
-	if pad_channels[last_note_pad]>=0
-		chan = pad_channels[last_note_pad]
-	else
-		chan = keybd_channels[keyboard]
+	if knob_set=2 //dont send notes - in pad setup mode
+		Call @UnlatchAllPads
+		Call @SetupKnobSet 
+	else 
+		if pad_channels[last_note_pad]>=0
+			chan = pad_channels[last_note_pad]
+		else
+			chan = keybd_channels[keyboard]
+		endif
+		note = Clip (notes[last_note_pad] + (oct_adjustments[keyboard]*12) + txpose_adjustments[keyboard]), 0, 127
+		rnd_vel_amt = Random 0, random_vel_amts[keyboard]
+		if global_vel=0 //THRU
+			velo = MIDIByte3 or 100 //if note on velocity is 0 then use 100
+		else
+		  velo = Clip (global_velo + rnd_vel_amt), 0, 127
+		endif
+		// SEND THE NOTE and store note data for note off msg
+		SendMIDINoteOn chan, note, velo
+		note_on_store[last_pad] = note
+		chan_on_store[last_pad] = chan
+		
+		//color held pad white
+		pad_to_label=last_pad
+		pad_color=8
+		Call @UpdateSinglePad
+		
+		if log_notes
+			Log {Pad: }, last_pad, { Ch: }, chan, { Note: }, (NoteName note, YES), { Velo: }, velo, { Keyboard: }, Keyboard, { Layout: }, layouts[keyboard]
+		endif
+		Call @SetupKnobSet
 	endif
-	note = Clip (notes[last_note_pad] + (oct_adjustments[keyboard]*12) + txpose_adjustments[keyboard]), 0, 127
-	rnd_vel_amt = Random 0, random_vel_amts[keyboard]
-	if global_vel=0 //THRU
-		velo = MIDIByte3 or 100 //if note on velocity is 0 then use 100
-	else
-	  velo = Clip (global_velo + rnd_vel_amt), 0, 127
-	endif
-	// SEND THE NOTE and store note data for note off msg
-	SendMIDINoteOn chan, note, velo
-	note_on_store[last_pad] = note
-	chan_on_store[last_pad] = chan
-	
-	//color held pad white
-	pad_to_label=last_pad
-	pad_color=8
-	Call @UpdateSinglePad
-	
-	if log_notes
-		Log {Pad: }, last_pad, { Ch: }, chan, { Note: }, (NoteName note, YES), { Velo: }, velo, { Keyboard: }, Keyboard, { Layout: }, layouts[keyboard]
-	endif
-	Call @SetupKnobSet
 @End
 
 @OnPadUp
@@ -357,14 +363,17 @@
 
 
 @OnPadUp2
-  // SEND NOTE OFF
-	SendMIDINoteOff chan_on_store[last_pad], note_on_store[last_pad], 127
-	
-	//re-color white pad back to pad color
-	LatchPad last_pad, FALSE
-	pad_to_label=last_pad
-	pad_color=colors[(keyboard*16)+last_pad]
-	Call @UpdateSinglePad
+	if knob_set=2 //dont send notes - in pad setup mode
+		Exit
+	else
+	  // SEND NOTE OFF
+		SendMIDINoteOff chan_on_store[last_pad], note_on_store[last_pad], 127
+		//re-color white pad back to pad color
+		LatchPad last_pad, FALSE
+		pad_to_label=last_pad
+		pad_color=colors[(keyboard*16)+last_pad]
+		Call @UpdateSinglePad
+	endif
 @End
 
 @OnShiftDown
@@ -373,16 +382,38 @@
 
 @OnShiftDown2
 	ShowLayout 2
-  use_knobset0 = not use_knobset0	
-	Call @SetupKnobSet
+	knob_set = knob_set+1
+	if knob_set > 2
+		knob_set = 0
+	endif
+	Call @UnlatchAllPads
+  Call @SetupKnobSet
 	Call @SendMidiCCBackToKnobs
 @End
 
 @SetupKnobSet
-	if use_knobset0
-		Call @SetupKnobSet0
+	if knob_set=1
+		Call @SetupKnobSet1 //keyboards and layouts
+	elseif knob_set=2
+	  Call @SetupKnobSet2 //pad layouts
 	else
-	  Call @SetupKnobSet1
+	  Call @SetupKnobSet0 //default
+	endif
+	Call @SendMidiCCBackToKnobs
+@End
+
+@OnKnobChange
+  last_knob=LastKnob
+	Call @OnKnobChange2
+@End
+
+@OnKnobChange2
+  if knob_set=1
+		Call @HandleKnobChange1
+	elseif knob_set=2
+	  Call @HandleKnobChange2
+	else 
+		Call @HandleKnobChange0
 	endif
 	Call @SendMidiCCBackToKnobs
 @End
@@ -390,7 +421,7 @@
 @SetupKnobSet0
 	//# Default Knobs
 	knob_set=0
-	LabelKnobs {SETUP}
+	LabelKnobs {KEYBOARD SELECT}
 	LabelKnob 0, {Keybrd }, keyboard+1
 	if global_velo=0
 		LabelKnob 1, {vTHRU}
@@ -404,42 +435,13 @@
 	SetKnobValue 2, TranslateScale oct_adjustments[keyboard], -2, 2, 0, 127
 	SetKnobValue 3, TranslateScale txpose_adjustments[keyboard], -12, 12, 0, 127 
 @End
-
-@SetupKnobset1
-	//# Shifted knobset
-	knob_set=1
-	LabelKnobs {SETUP2}
-	LabelKnob 0, {Keybrd }, keyboard+1
-	LabelKnob 1, {Layout }, layouts[keyboard]
-	LabelKnob 2, {RndV+/- }, random_vel_amts[keyboard]
-	LabelKnob 3, {DefCh }, keybd_channels[keyboard]+1
-	SetKnobValue 0, TranslateScale keyboard, 0, number_of_keyboards-1, 0, 127
-	SetKnobValue 1, TranslateScale layouts[keyboard], 0, 15, 0, 127
-	SetKnobValue 2, TranslateScale random_vel_amts[keyboard], 0, 64, 0, 127
-	SetKnobValue 3, TranslateScale keybd_channels[keyboard], 0, 15, 0, 127 
-@End
-
-@OnKnobChange
-  last_knob=LastKnob
-	Call @OnKnobChange2
-@End
-
-@OnKnobChange2
-  if use_knobset0
-		Call @HandleKnobChange0
-	else
-	  Call @HandleKnobChange1
-	endif
-	Call @SendMidiCCBackToKnobs
-@End
-
 @HandleKnobChange0
 	if last_knob=0
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, number_of_keyboards-1
 		if val <> keyboard
 			keyboard = val
 			keyboard_to_build=keyboard
-			Call @BuildKeyboardLayout
+			//Call @BuildKeyboardLayout
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
@@ -455,7 +457,7 @@
 		if val <> oct_adjustments[keyboard]
 			oct_adjustments[keyboard] = val
 			keyboard_to_build=keyboard
-			Call @BuildKeyboardLayout
+			//Call @BuildKeyboardLayout
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
@@ -464,20 +466,33 @@
 		if val <> txpose_adjustments[keyboard]
 			txpose_adjustments[keyboard] = val
 			keyboard_to_build=keyboard
-			Call @BuildKeyboardLayout
+			//Call @BuildKeyboardLayout
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
 	endif
 @End
 
+@SetupKnobset1
+	//# Shifted knobset
+	knob_set=1
+	LabelKnobs {KEYBOARD SETUP}
+	LabelKnob 0, {Keybrd }, keyboard+1
+	LabelKnob 1, {Layout }, layouts[keyboard]
+	LabelKnob 2, {RndV+/- }, random_vel_amts[keyboard]
+	LabelKnob 3, {DefCh }, keybd_channels[keyboard]+1
+	SetKnobValue 0, TranslateScale keyboard, 0, number_of_keyboards-1, 0, 127
+	SetKnobValue 1, TranslateScale layouts[keyboard], 0, 15, 0, 127
+	SetKnobValue 2, TranslateScale random_vel_amts[keyboard], 0, 64, 0, 127
+	SetKnobValue 3, TranslateScale keybd_channels[keyboard], 0, 15, 0, 127 
+@End
 @HandleKnobChange1
 	if last_knob=0
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, number_of_keyboards-1
 		if val <> keyboard
 			keyboard = val
 			keyboard_to_build=keyboard
-			Call @BuildKeyboardLayout
+			//Call @BuildKeyboardLayout
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
@@ -501,11 +516,73 @@
 		if val <> keybd_channels[keyboard]
 			keybd_channels[keyboard] = val
 			keyboard_to_build=keyboard
-			Call @BuildKeyboardLayout
+			//Call @BuildKeyboardLayout
 			Call @LabelLayout
 			Call @SetupKnobSet
 		endif
 	endif
+@End
+
+@SetupKnobset2
+	//# Pad setup
+	knob_set=2
+	last_note_pad = (keyboard*16)+last_pad
+	LatchPad last_pad, TRUE
+	SetKnobValue 0, TranslateScale colors[last_note_pad], 0, 7, 0, 127
+	SetKnobValue 1, TranslateScale pad_channels[last_note_pad], -1, 15, 0, 127
+	SetKnobValue 2, TranslateScale notes[last_note_pad], 0, 127, 0, 127
+	SetKnobValue 3, TranslateScale labels[last_note_pad], 0, 15, 0, 127
+	Call @LabelSet2Knobs	
+@End
+@HandleKnobChange2
+	last_note_pad = (keyboard*16)+last_pad
+	pad_to_label=last_pad
+	if last_knob=0
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		if val <> colors[last_note_pad]
+			colors[last_note_pad]=val
+			Call @LabelNotePad
+			Call @LabelSet2Knobs
+		endif
+	elseif last_knob=1
+	  val = Round TranslateScale (GetKnobValue 1), 0, 127, -1, 15
+		if val <> pad_channels[last_note_pad]
+			pad_channels[last_note_pad]=val
+			Call @LabelNotePad
+			Call @LabelSet2Knobs
+		endif
+	elseif last_knob=2
+	  val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
+		if val <> notes[last_note_pad]
+			notes[last_note_pad]=val
+			Call @LabelNotePad
+			Call @LabelSet2Knobs
+		endif
+	elseif last_knob=3
+	  val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 15
+		if val <> labels[last_note_pad]
+			labels[last_note_pad]=val
+			Call @LabelNotePad
+			Call @LabelSet2Knobs
+		endif
+	endif
+@End
+@LabelSet2Knobs
+	LabelKnobs {EDIT PAD# }, last_pad+1
+	LabelKnob 0, {Color }, colors[last_note_pad]
+	if pad_channels[last_note_pad]>=0
+		LabelKnob 1, {Ch }, pad_channels[last_note_pad]+1
+	else
+	  LabelKnob 1, {Ch DEF.}
+	endif	
+	LabelKnob 2, {Note }, notes[last_note_pad] 
+	LabelKnob 3, {Label }, labels[last_note_pad]
+@End
+
+@UnlatchAllPads
+	for i = 0 to 15
+		LatchPad i, FALSE
+	endfor
 @End
 
 @LabelLayout
@@ -526,87 +603,87 @@
 	note = notes[note_pad_to_label] + (oct_adjustments[keyboard]*12) + txpose_adjustments[keyboard]
 	label = labels[note_pad_to_label]
 	if label=0 // lll
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, { }
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, { }
 	elseif label=1
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {KICK}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {KICK}
 	elseif label=2
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {LO_TOM}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {LO_TOM}
 	elseif label=3
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {SNARE}
-	elseif label=4
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {CLAP}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {SNARE}
+	elseif label=4 
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {CLAP}
 	elseif label=5
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HHC}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HHC}
 	elseif label=6
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HHO}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HHO}
 	elseif label=7
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HIHAT}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HIHAT}
 	elseif label=8
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {SHAKER}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {SHAKER}
 	elseif label=9
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {PERC}, pad_to_label+1
-	elseif label=10
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {LOOP SLICE}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {PERC}, pad_to_label+1
+	elseif label=10 
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {LOOP SLICE}
 	elseif label=11
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {CRASH}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {CRASH}
 	elseif label=12
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {SCAPES}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {SCAPES}
 	elseif label=13
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {RIZER}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {RIZER}
 	elseif label=14	
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {SYNC LOOP}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {SYNC LOOP}
 	elseif label=15
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {RIDE}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {RIDE}
 	elseif label=16
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {BASS}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {BASS}
 	elseif label=17
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {PAD BASS}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {PAD BASS}
 	elseif label=18
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {LEAD}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {LEAD}
 	elseif label=19
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {PAD}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {PAD}
 	elseif label=20
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HARM1}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HARM1}
 	elseif label=21
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HARM2}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HARM2}
 	elseif label=22
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HARM3}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HARM3}
 	elseif label=23
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HARM4}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {HARM4}
 	elseif label=24
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {ROOT}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {ROOT}
 	elseif label=25
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {3RD}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {3RD}
 	elseif label=26
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {5TH}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {5TH}
 	elseif label=27
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {7TH}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {7TH}
 	elseif label=28
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {NON CHORD}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {NON CHORD}
 	elseif label=29
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {  FX  }
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {  FX  }
 	elseif label=30
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER1}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER1}
 	elseif label=31
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER2}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER2}
 	elseif label=32
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER3}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER3}
 	elseif label=33
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER4}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER4}
 	elseif label=34
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER5}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER5}
 	elseif label=35
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER6}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER6}
 	elseif label=36
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER7}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER7}
 	elseif label=37
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER9}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER9}
 	elseif label=38
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER10}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER10}
 	elseif label=39
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER11}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {USER11}
 	else
-		LabelPad pad_to_label, {Ch}, chan+1, {           }, (NoteName note, YES), { (}, note, {)}, { ________ }, {NOTE PAD}
+		LabelPad pad_to_label, {Ch}, chan+1, {            }, (NoteName note, YES), { (}, note, {)}, { ________ }, {NOTE PAD}
 	endif
 	pad_color=colors[note_pad_to_label]
 	Call @UpdateSinglePad
