@@ -15,7 +15,7 @@
 		use_instr_knobset_a=TRUE //used to toggle between two kntrl knobsets. Edit mode cant access
 		drambo_4mixbus_mode=TRUE
 		drambo_layout_active=FALSE //layouts 5 & 6 at present. Update padDownChannels mode if layouts change
-		qk_as_atom_launcher=TRUE
+		qk_as_atom_launcher=FALSE //provides button for launching Atom instance for selected channel
 		atom_instance_to_launch=[0,1,2,3, 4,5,6,7, 8,8,8,8, -1,-1,-1,-1] //config ATOM's to launch with selected channel
 		send_midi_feedback = 1 //send feedabck to update controller state. 0=off
 		SetMetroPPQN 4
