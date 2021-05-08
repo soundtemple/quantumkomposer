@@ -21,7 +21,6 @@
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		use_turn_around = TRUE //# last pattn as turn around on last bar of scene
-		//# used for LED feedback
 		mgen_device_id=0 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
@@ -57,8 +56,7 @@
 	//# Any knobset knob should have a setting here
 	scn_duration = 0 
 	pattn_duration = 0
-	//# select 0-15 -- display 1-16 so 9 shows as 10
-	seq_ch=0 //# the sequence lane 0-3
+	seq_ch=0 //# the sequence lane 0-3 
 	seq_type=4 //# sequence lane to edit. Step, Note, Velo, CC
 	euc_type=0
 	rot_type=0
@@ -168,8 +166,7 @@
 	fixed_notesets[8*50] = [48,49,50,51, 52,53,54,55] //[DrPERCS]
 	fixed_notesets[9*50] = [48,51,49,50, 52,53,54,55] //# [SEEKBEATS]
 	fixed_notesets[10*50]= [48,49,50,51, 52,53,54,55] //# [DrDRUMS]
-	//# Single noteset (always 4 notes long, 1 for each channel)
-	s_noteset=[48,49,50,51]
+	s_noteset=[48,49,50,51] //# Single noteset (always 4 notes long, 1 for each channel)
 	Call @GetMidiINPUTScale //# set up init scale for midi input	
 @End
 
@@ -304,14 +301,6 @@
 				else
 					mutate_step[ch] = -1
 				endif
-				//if in_seq_mode
-					//for i = 0 to 15
-						//sel_pad = i
-						//step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
-						//Call @ColorSequencePad
-						//LatchPad i, NO
-					//endfor
-				//endif
 			else
 				curr_steps[ch] = curr_steps[ch] + 1
 			endif
@@ -332,21 +321,18 @@
 	elseif ch=3
 		step_type = seq3_steps[step_slot]
 	endif
-	if step_mutation[(current_scene*4) + ch]>=1 and (mutate_step[ch] = curr_steps[ch])
-		//# mutate this step
+	if step_mutation[(current_scene*4) + ch]>=1 and (mutate_step[ch] = curr_steps[ch]) //# mutate this step
 		if step_type=0
 			mutated_step=1 //# turn on steps
 		elseif step_type>0 and step_mutation[(current_scene*4) + ch]>=51 
 			mutated_step=0 //# only turn off steps if step_mut>50
 		endif
 		step_type=mutated_step
-	endif
-		
+	endif	
 	if (step_type<2) and playing_notes[ch]>=0 //# turn off old note
 	  SendMIDINoteOff midi_out_chs[ch], playing_notes[ch], 127
 	  playing_notes[ch]=-1
 	endif 
-	
 	if ch=0 
 		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
 			note_val=curr_scale[seq0_notes[step_slot]]
@@ -395,7 +381,6 @@
 	if cc_val >= 0 //# send cc message FIRST, so note plays at cc val setting
 		if cc_mutation[(current_scene*4) + ch]>=1 //# mutate cc
 			cc_mutate_val = Random -cc_mutation[(current_scene*4) + ch], cc_mutation[(current_scene*4) + ch]
-			//#Log {MUTATTION RANGE: }, -cc_mutation[(current_scene*4) + ch], { to }, cc_mutation[(current_scene*4) + ch], { B4CCVAL }, cc_val, { MUTVAL}, cc_mutate_val, { SUM }, Clip (cc_val+mutate_val), 0, 127
 			cc_val = Clip (cc_val+cc_mutate_val), 0, 127
 		endif
 		SendMIDICC midi_out_chs[ch], cc_vals[ch], cc_val
@@ -410,10 +395,6 @@
 	endif
 @End
 
-@OnNewBar
-	//Log {--- new bar ---}
-@End 
-
 @OnNewBeat //# Handle Scene and Pattern changes
 	scene_beat_count = scene_beat_count + 1
 	pattn_beat_count = pattn_beat_count + 1
@@ -421,9 +402,7 @@
 	pattn_slot = (current_scene * 8) + (current_pattn)
 	current_pattn_duration = pattn_durs[pattn_slot]
 	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
-	//# Log {Scene beats left: }, current_scene_duration - scene_beat_count
-	//# Log {Pattern beats left: }, current_pattn_duration - pattn_beat_count
-  time_for_turnaround = FALSE
+	time_for_turnaround = FALSE
   if use_turn_around
   	Call @TimeForTurnaround
   endif
@@ -451,8 +430,6 @@
 	//# Mode must be in song or scene lock and must be 1 bar before scene ends
 	pattn6 = pattn_durs[(current_scene * 8) + 6]
 	pattn7 = pattn_durs[(current_scene * 8) + 7]
-	//# Log {SBC: }, scene_beat_count, { SC_DUR: }, current_scene_duration, { HBPM: }, HostBeatsPerMeasure
-	//# Log scene_beat_count, { === }, (current_scene_duration - HostBeatsPerMeasure)
 	if (songmode <= 1) and (pattn6 = 0) and (pattn7 = 4) and (current_pattn <= 5) and (scene_beat_count = current_scene_duration - HostBeatsPerMeasure)
 		time_for_turnaround = TRUE
 	endif
@@ -470,8 +447,7 @@
   	current_scene = current_scene
   elseif (current_scene = 7) //# End of song 
     current_scene = 0 //# TODO: Handle end of song
-  elseif (scene_durs[current_scene+1] <= 0)
-  	//# also song end
+  elseif (scene_durs[current_scene+1] <= 0) //# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
   else
 		current_scene = current_scene + 1 //# Going to next
@@ -505,8 +481,7 @@
   elseif (current_pattn = 7) //# Wrap playback
     current_pattn = 0
   elseif (time_for_turnaround)
-  	//# play last pattn for one bar as a turn around before scene change
-  	current_pattn = 7
+		current_pattn = 7 //# play last pattn for one bar as a turn around before scene change
   elseif (pattn_durs[pattn_slot+1] <= 0)
   	current_pattn = 0 //# no duration no next pattn (pattn_slot + 10)
   else
@@ -1285,7 +1260,6 @@
 	SetKnobValue 1, TranslateScale scene_swing[current_scene], 0, 100, 0, 127
 	SetKnobValue 3, 0
 @End
-
 @KnobChangeSet0 //# scene settings xs0
 	if last_knob = 0
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
@@ -1323,7 +1297,6 @@
   LabelKnob 0, { }
   LabelKnob 1, { }
 @End
-
 @KnobChangeSet1 //# PATTN SETUP KNOBS
   pattn_slot = (current_scene * 8) + current_pattn
   if last_knob = 2
@@ -1365,7 +1338,6 @@
   LabelKnob 3, {CH4: }, midi_out_chs[3]+1
   LabelPads {Set midi out channels}
 @End
-
 @KnobChangeSet2 //# MIDI OUT CHANNELS xs2
   ch = Round TranslateScale (GetKnobValue last_knob), 0, 127, 0, 15
 	midi_out_chs[last_knob] = ch  
@@ -1375,7 +1347,6 @@
   LabelKnob 3, {CH4: }, midi_out_chs[3]+1	
   LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]         [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
 @End
-
 
 @SetupKnobset3 //# NOTE SET
   knob_set = 3
@@ -1396,7 +1367,6 @@
   	SetKnobValue 2, TranslateScale s_noteset[seq_ch], 24, 96, 0, 127
   endif
 @End
-
 @KnobChangeSet3 //# NOTE SET
   if last_knob = 0
   	ns_type = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 2
@@ -1446,7 +1416,6 @@
 	Call @GetMidiINPUTScale
   Call @LabelSet3
 @End
-
 @LabelSet3 //Notesets
 	if note_set_type=0
   	LabelPad 3, {NOTESET       }, (NoteName scale_root), { Chromatic}
@@ -1512,7 +1481,6 @@
   LabelKnob 3, {CH4: }, cc_vals[3]
   LabelPads {Set the CC value to send with each channel }
 @End
-
 @KnobChangeSet4 //# CC VALS
   cc = Round TranslateScale (GetKnobValue last_knob), 0, 127, 0, 127
   cc_vals[last_knob] = cc 
@@ -1664,7 +1632,6 @@
   SetKnobValue 3, TranslateScale move_all, 0, 1, 0, 127
   Call @LabelSet5Knobs
 @End
-
 @KnobChangeSet5 //# PATTERN EDIT currently selected step/pad (out of 16) in a pattern
 	step_slot=(current_scene*128)+(current_pattn*16)+sel_step
 	pattn_slot = (current_scene * 8) + current_pattn
@@ -1879,7 +1846,6 @@
 	// Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]
 	Call @LabelAllSequencePads
 @end
-
 @LabelSet5Knobs
 	if move_all=1
 	  LabelPads {STEP EDIT ALL: Knob sets a value for all pads. Increment with <<PAD15 PAD16>>}
@@ -1989,7 +1955,6 @@
 		LabelKnob 3, {RecOFF}
 	endif
 @End
-
 @KnobChangeSet6 //# EUCLIDEAN STEP SEQ and PRESETSxs6
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { STEPS}
 	euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
@@ -2121,7 +2086,6 @@
   LabelKnob 2, {VEL +/-}, velo_mutation[(current_scene*4) + seq_ch]
 	LabelKnob 3, {CC +/-}, cc_mutation[(current_scene*4) + seq_ch]
 @End
-
 @KnobChangeSet7 //# MUTATION
   if last_knob = 0
     new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
@@ -2169,7 +2133,6 @@
   endif
 	Call @LabelSeqGenKnobs
 @End
-
 @KnobChangeSet8 //# SEQ GEN
   if last_knob = 0
     new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
@@ -2271,7 +2234,6 @@
 	log kiks[160]
 	if sg_type[seq_ch]=1 //# kik pattern
 		CopyArray kiks[loc], p, 16 
-		//Log {A KIK Sequence has been generated}
 	elseif sg_type[seq_ch]=2 //# snr pattern
 		CopyArray snrs[sg_gen[seq_ch] * 16], p, 16
 	elseif sg_type[seq_ch]=3 //# hat pattern
@@ -2295,8 +2257,7 @@
 				step=1
 				v=sg_lo
 			endif
-			//# paste depending on seq_ch
-			if seq_ch=0
+			if seq_ch=0 //# paste depending on seq_ch
 				seq0_steps[p_slot+i] = step
 				seq0_velos[p_slot+i] = Clip v, 0, 127
 			elseif seq_ch=1
@@ -2316,7 +2277,6 @@
 		for i = 0 to 15
 			//# Get the right value to paste
 			v = (Round (p[i]/15 * range)) + sg_lo //# velo
-			//# paste depending on seq_ch
 			if seq_ch=0
 				seq0_velos[p_slot+i] = Clip v, 0, 127 
 			elseif seq_ch=1
@@ -2333,7 +2293,6 @@
 		for i = 0 to 15
 			//# Get the right value to paste
 			v = (Round (p[i]/16 * range)) + sg_lo //# velo
-			//# paste depending on seq_ch
 			if seq_ch=0
 				seq0_ccs[p_slot+i] = Clip v, 0, 127 
 			elseif seq_ch=1
@@ -2379,7 +2338,6 @@
 	FlashPad 14 //attention use these to rotate
 	FlashPad 15 
 @End
-
 @KnobChangeSet9
   //# ROTATION xs9
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { ROTATE}
@@ -2447,7 +2405,6 @@
 @End
 
 @OnShiftDown2
-	//# xosd
 	if in_mode_select
 		in_mode_select = FALSE
 		if mode>=8
@@ -2615,7 +2572,7 @@
 @End
 
 @SetupSeqLayout
-	//# sequence mode layout xssl
+	//# sequence mode layout
 	if mode = 8
 	  Call @SetupKnobset6 //# SEQUENCE STEPS EDIT
 	  label_style=4
@@ -2702,8 +2659,7 @@
 @LabelSequencePad //# label sequence pads xlsp
 	euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
 	pattn_length = (16 - euc_vals[euc_slot+2])
-	//# Pad labeling notes, velo, cc etc
-  x=15
+	x=15
   if note_set_type=0
   	o0=seq0_octs[step_slot]+1
   	o1=seq1_octs[step_slot]+1
@@ -2772,7 +2728,6 @@ endif
 @End
 
 @LoadDrumPatterns
-	//Log {--- LOADING DRUM PATTERNS ---}
 	//# Instant Haus HOUSE patterns 0-15. Instant Haus Breaks patterns 16-31
 	//# 0=off; 1=Loud 2=Soft 3=Loud OHH; 4=Soft OHH
 	kiks[0*16]  = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
