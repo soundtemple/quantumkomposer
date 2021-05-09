@@ -386,7 +386,7 @@
 	if ((Random 1,99) < rnd_chrd_chance) and songmode<2 //%chance of random chord change if not chord locked
     rnd_chrd = (Random 0, num_chrds_with_dur) //get random chord with duration
 		if chord_bank[(current_scene * 100) + (rnd_chrd * 10) + dur_slot]>0
-			current_pattn=rnd_chrd //if rnd_chrd has duration
+			current_chord=rnd_chrd //if rnd_chrd has duration
 		endif
 	endif
   chord_beat_count = 0 //# reset chord beat count on new chord
@@ -793,11 +793,9 @@
 		chord_bank[chord_slot + bass_slot] =  chrd_bass
 		bass_updated = FALSE
 	endif	
-	
-	//# Update chord pads
-	//Log {Chord notes }, chord_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th, { 7th VAL: }, chord_bank[chord_slot + 3], { BASS VAL: }, chord_bank[chord_slot + bass_slot]
 	chrd_to_label = current_chord+8
 	Call @LabelChordPad
+	Call @UpdateChordsWithDuration
 @End
 
 @SaveConstructedChordPad
@@ -824,10 +822,10 @@
 	chord_bank[chord_slot + 2] = chord_5th
 	chord_bank[chord_slot + 3] = chord_7th
 	chord_bank[chord_slot + bass_slot] = constructed_root
-
 	//Log {Root: }, (NoteName constructed_root), { 3rd: }, c3rd_intervals[constructed_3rd], { 5th: }, c5th_intervals[constructed_5th], { 7th: }, c7th_intervals[constructed_7th], { Chord notes }, constructed_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th, { 7th: }, chord_bank[chord_slot + 3], { BASS: }, chord_bank[chord_slot + bass_slot]
 	chrd_to_label = current_chord+8
 	Call @LabelChordPad
+	Call @UpdateChordsWithDuration
 @End
 
 @OnMidiNoteOn
@@ -1358,6 +1356,7 @@
     chrd_to_label = current_chord+8
     Call @LabelChordPad
     Call @SetupLayout
+		Call @UpdateChordsWithDuration
   endif
 @End
 
@@ -1410,6 +1409,8 @@
 		//# Exit copy paste
 		songmode = 1
 		mode=0
+		Call @UpdateScenesWithDuration
+		Call @UpdateChordsWithDuration
 	elseif last_pad >= 8
 		//Log {pasting to chord }, last_pad-8
 		LabelPads	{Copied S}, copied_scene+1, { Chord }, copied_chord+1, { to }, {S}, current_scene+1, { Chord }, last_pad-7
@@ -1419,6 +1420,7 @@
 		//# Exit copy paste
 		songmode = 2
 		mode=0
+		Call @UpdateChordsWithDuration
 	endif
 	copied_scene = -1 //# reset
 	copied_chord = -1
@@ -1556,13 +1558,7 @@
 	  if scn_duration <> scene_bank[current_scene * sc_size] 	
 		  scene_bank[current_scene * sc_size] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
-			for s = 0 to 7 //Update number of scenes with duration for random selection
-				if scene_bank[s * sc_size] > 0
-					num_scns_with_dur=s
-				else
-				  Exit
-				endif	
-			endfor
+			Call @UpdateScenesWithDuration
 	  endif
   endif
   if last_knob = 1
@@ -1577,6 +1573,8 @@
 	  scene_bank[(current_scene * sc_size) + sc_preset_slot] = scn_preset
 	  LabelKnob 2, scn_preset
   	Call @ChangeScenePreset
+		Call @UpdateScenesWithDuration
+		Call @UpdateChordsWithDuration
   endif
   if last_knob = 3
 	  txpose_val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
@@ -1631,13 +1629,7 @@
 		  dur_bars = Div chrd_duration, 4
 			dur_beats = (chrd_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
 	  	LabelKnob 0 , {Dur }, dur_bars, {.}, dur_beats
-			for c = 0 to 7 //Update number of chords in scene with duration for random selection
-				if chord_bank[(current_scene * 100) + (c * 10) + dur_slot] > 0
-					num_chrds_with_dur[current_scene]=c
-				else
-				  Exit
-				endif	
-			endfor
+			Call @UpdateChordsWithDuration
   	endif
   endif
   if (mode = 3)
@@ -1676,6 +1668,24 @@
   //# Knob 1 not used in this set
   chrd_to_label = current_chord+8
   Call @LabelChordPad
+@End
+@UpdateScenesWithDuration
+	for s = 0 to 7 //Update number of scenes with duration for random selection
+		if scene_bank[s * sc_size] > 0
+			num_scns_with_dur=s
+		else
+		  Exit
+		endif	
+	endfor
+@End
+@UpdateChordsWithDuration
+	for c = 0 to 7 //Update number of chords in scene with duration for random selection
+		if chord_bank[(current_scene * 100) + (c * 10) + dur_slot] > 0
+			num_chrds_with_dur[current_scene]=c
+		else
+		  Exit
+		endif	
+	endfor
 @End
 
 @SetupKnobset2

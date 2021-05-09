@@ -473,7 +473,7 @@
 	if ((Random 1,99) < rnd_ptn_chance) and songmode<2 //%chance of random pattn change if not pattn locked
     rnd_ptn = (Random 0, num_ptns_with_dur) //get random pattn with duration
 		if pattn_durs[(current_scene * 8) + rnd_ptn]>0
-			current_pattn=rnd_scn //if rnd_ptn has duration
+			current_pattn=rnd_ptn //if rnd_ptn has duration
 		endif
 	endif
   pattn_beat_count = 0 //# reset pattn beat count on new pattn 
@@ -1113,6 +1113,8 @@
 		euc_copy_slot=(copied_scene*128)
 		euc_paste_slot=(current_scene*128)			
 		CopyArray euc_vals[euc_copy_slot], euc_vals[euc_paste_slot], (4*4*8)
+		Call @UpdateScenesWithDuration
+		Call @UpdatePattnsWithDuration
 	elseif last_pad >= 8 and not in_seq_mode
 		//# handle copy pasting a pattern
 		LabelPads	{Copied S}, copied_scene+1, { Pattern }, copied_pattn+1, { to }, { S}, current_scene+1, { Pattern }, last_pad-7
@@ -1134,6 +1136,7 @@
 		euc_copy_slot=(copied_scene*128)+(copied_pattn*16)
 		euc_paste_slot=(current_scene*128)+((last_pad-8)*16)
 		CopyArray euc_vals[euc_copy_slot], euc_vals[euc_paste_slot], 16
+		Call @UpdatePattnsWithDuration
 	elseif in_seq_mode and return_to_mode=9 //# edit mode copy single pads
 		//# handle copypaste a single seq_pad
 		copy_slot=(current_scene*128)+(current_pattn*16)+copied_seq_pad
@@ -1297,13 +1300,7 @@
 	  if scn_duration <> scene_durs[current_scene] 	
 		  scene_durs[current_scene] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
-			for s = 0 to 7 //Update number of scenes with duration for random selection
-				if scene_durs[s] > 0
-					num_scns_with_dur=s
-				else
-				  Exit
-				endif	
-			endfor
+			Call @UpdateScenesWithDuration
 	  endif
   endif
   if last_knob = 1
@@ -1345,13 +1342,7 @@
 		  dur_bars = Div pattn_duration, 4
 			dur_beats = (pattn_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
 	  	LabelKnob 2 , {Dur }, dur_bars, {.}, dur_beats
-			for p = 0 to 7 //Update number of patterns in scene with duration for random selection
-				if pattn_durs[(current_scene * 8) + p] > 0
-					num_ptns_with_dur[current_scene]=p
-				else
-				  Exit
-				endif	
-			endfor
+			Call @UpdatePattnsWithDuration
   	endif
   endif
   if last_knob = 3
@@ -1369,6 +1360,25 @@
   endif
   pattn_to_label = current_pattn+8
   Call @LabelPatternPad
+@End
+
+@UpdateScenesWithDuration
+	for s = 0 to 7 //Update number of scenes with duration for random selection
+		if scene_durs[s] > 0
+			num_scns_with_dur=s
+		else
+		  Exit
+		endif	
+	endfor
+@End
+@UpdatePattnsWithDuration
+	for p = 0 to 7 //Update number of patterns in scene with duration for random selection
+		if pattn_durs[(current_scene * 8) + p] > 0
+			num_ptns_with_dur[current_scene]=p
+		else
+		  Exit
+		endif	
+	endfor
 @End
 
 @SetupKnobset2 //# MIDI OUT CHANNELS xs2
