@@ -336,13 +336,17 @@
   	current_scene = current_scene
   elseif (current_scene = 7) //# End of song 
     current_scene = 0 //# TODO: Handle end of song
-  elseif scene_bank[(current_scene * sc_size) + sc_size] <= 0
-  	//# also song end
+  elseif scene_bank[(current_scene * sc_size) + sc_size] <= 0 //# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
   else
 		current_scene = current_scene + 1 //# Going to next
   endif
-  
+  if ((Random 1,99) < rnd_scn_chance) and songmode=0 //%chance of random scene change if not scene locked
+    rnd_scn = (Random 0, num_scns_with_dur) //get random scene with duration
+		if scene_bank[rnd_scn * sc_size]>0 and chord_bank[(rnd_scn * 100) + dur_slot]>0
+			current_scene=rnd_scn //if rnd_scn has scene and first chord duration
+		endif
+	endif
   Call @ResetBeatCounts
   //Log {----- SCENE CHANGE -----}, {S}, current_scene+1
   Call @HandleChordChange //# Scene change effect chord change

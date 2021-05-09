@@ -447,13 +447,19 @@
 		scene_change_requested = -1
 	elseif (songmode > 0)
   	current_scene = current_scene
-  elseif (current_scene = 7) //# End of song 
+	elseif (current_scene = 7) //# End of song 
     current_scene = 0 //# TODO: Handle end of song
   elseif (scene_durs[current_scene+1] <= 0) //# also song end
   	current_scene = 0 //# no duration in next scene return to beginning
   else
 		current_scene = current_scene + 1 //# Going to next
   endif
+	if ((Random 1,99) < rnd_scn_chance) and songmode=0 //%chance of random scene change if not scene locked
+    rnd_scn = (Random 0, num_scns_with_dur) //get random scene with duration
+		if scene_durs[rnd_scn]>0 and pattn_durs[rnd_scn * 8]>0
+			current_scene=rnd_scn //if rnd_scn and first pattn have duration
+		endif
+	endif
   scene_beat_count = 0
 	pattn_beat_count = 0
   SetMetroSwing scene_swing[current_scene]
