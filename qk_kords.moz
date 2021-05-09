@@ -140,6 +140,8 @@
   sc_size = 15 //# ^ above slots + duration = 11 + 4 spare for even sizing 
   rnd_scn_chance=0 //% chance scene change will be to a random one
 	rnd_chrd_chance=0 //% chance chord change will be to a random one
+	num_scns_with_dur=0 //RND only selects scenes with duration
+	num_chrds_with_dur=[0,0,0,0, 0,0,0,0] //RND only selects chords with duration per scene
 	//# chord = [note1, note2, note3, note4, duration, inv, bass, suggestion]
   dur_slot = 4 //# fixed location for duration
   inv_slot = 5
@@ -1375,6 +1377,8 @@
 		chord_bank[(current_scene*100) + (c*10)] = [-1, -1, -1, -1, 0, 0, -1]
 	endfor
   Call @SetupLayout
+	num_scns_with_dur=last_pad-1 //RND only selects scenes before deleted scn
+	num_chrds_with_dur[current_scene]=0 //del scene also deletes chords
   //Log {Scene }, last_pad +1, { reset. All chords for scene reset}
 @End
 
@@ -1382,6 +1386,7 @@
 	chord_slot = (current_scene * 100) + ((last_pad - 8) * 10)
   //# 4 chord notes, duration, inv, bass, pattern_msg 
   chord_bank[chord_slot] = [-1,-1,-1,-1,0,0,-1,-1]
+	num_chrds_with_dur[current_scene]=last_pad-8-1
   //Log {Chord }, last_pad+1, { reset}
   Call @SetupLayout
 @End
@@ -1542,6 +1547,13 @@
 	  if scn_duration <> scene_bank[current_scene * sc_size] 	
 		  scene_bank[current_scene * sc_size] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
+			for s = 0 to 7 //Update number of scenes with duration for random selection
+				if scene_bank[s * sc_size] > 0
+					num_scns_with_dur=s
+				else
+				  Exit
+				endif	
+			endfor
 	  endif
   endif
   if last_knob = 1
@@ -1610,6 +1622,13 @@
 		  dur_bars = Div chrd_duration, 4
 			dur_beats = (chrd_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
 	  	LabelKnob 0 , {Dur }, dur_bars, {.}, dur_beats
+			for c = 0 to 7 //Update number of chords in scene with duration for random selection
+				if chord_bank[(current_scene * 100) + (c * 10) + dur_slot] > 0
+					num_chrds_with_dur[current_scene]=c
+				else
+				  Exit
+				endif	
+			endfor
   	endif
   endif
   if (mode = 3)

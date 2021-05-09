@@ -88,6 +88,8 @@
   return_to_mode=0 //# Copy paste on completion
 	rnd_scn_chance=0 //% chance scene change will be to a random one
 	rnd_ptn_chance=0 //% chance pattern change will be to a random one
+	num_scns_with_dur=0 //RND only selects scenes with duration
+	num_ptns_with_dur=[0,0,0,0, 0,0,0,0] //RND only selects patterns with duration per scene
 @End
 
 @SetupSequences
@@ -1041,6 +1043,8 @@
 		//# Also RESET euclidean info 4types, 4chs, 8patts
 		euc_reset_slot=(current_scene*128)			
 		FillArray euc_vals[euc_reset_slot], 0, (4*4*8)	
+		num_scns_with_dur=last_pad-1 //RND only selects scenes before deleted scn
+		num_ptns_with_dur[current_scene]=0 //del scene also dels pattns
 	elseif reset_type=1 //# reset pattern
 		pattn_slot = (current_scene * 8) + (last_pad - 8) 
   	pattn_durs[pattn_slot] = 0
@@ -1050,6 +1054,7 @@
 		//# Also RESET euclidean info 4types, 4chs = 16steps to copy
 		euc_reset_slot=(current_scene*128)+((last_pad-8)*16)
 		FillArray euc_vals[euc_reset_slot], 0, 16
+		num_ptns_with_dur[current_scene]=last_pad-8-1 //RND RND only selects pattns before deleted pattn
  	elseif reset_type=2 //# reset seq step
  		paste_slot=(current_scene*128)+(current_pattn*16)+last_pad
 		steps_to_copy=1
@@ -1280,6 +1285,13 @@
 	  if scn_duration <> scene_durs[current_scene] 	
 		  scene_durs[current_scene] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
+			for s = 0 to 7 //Update number of scenes with duration for random selection
+				if scene_durs[s] > 0
+					num_scns_with_dur=s
+				else
+				  Exit
+				endif	
+			endfor
 	  endif
   endif
   if last_knob = 1
@@ -1312,7 +1324,7 @@
   LabelKnob 1, { }
 @End
 
-@KnobChangeSet1 //# PATTN SETUP KNOBS xs1
+@KnobChangeSet1 //# PATTN SETUP KNOBS
   pattn_slot = (current_scene * 8) + current_pattn
   if last_knob = 2
 	  pattn_duration = (Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127)+1
@@ -1321,6 +1333,13 @@
 		  dur_bars = Div pattn_duration, 4
 			dur_beats = (pattn_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
 	  	LabelKnob 2 , {Dur }, dur_bars, {.}, dur_beats
+			for p = 0 to 7 //Update number of patterns in scene with duration for random selection
+				if pattn_durs[(current_scene * 8) + p] > 0
+					num_ptns_with_dur[current_scene]=p
+				else
+				  Exit
+				endif	
+			endfor
   	endif
   endif
   if last_knob = 3
