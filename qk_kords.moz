@@ -383,8 +383,13 @@
   else
     current_chord = current_chord + 1
   endif
+	if ((Random 1,99) < rnd_chrd_chance) and songmode<2 //%chance of random chord change if not chord locked
+    rnd_chrd = (Random 0, num_chrds_with_dur) //get random chord with duration
+		if chord_bank[(current_scene * 100) + (rnd_chrd * 10) + dur_slot]>0
+			current_pattn=rnd_chrd //if rnd_chrd has duration
+		endif
+	endif
   chord_beat_count = 0 //# reset chord beat count on new chord
-	
 	if update_held_notes_on_chord_change
 		//turn off held notes over chord change and re-trigger melody and harmony channel notes
 		for c = 0 to 3 //channels melody 4-7 & harmony 5-8 

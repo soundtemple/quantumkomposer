@@ -470,6 +470,12 @@
   else
     current_pattn = current_pattn + 1
   endif
+	if ((Random 1,99) < rnd_ptn_chance) and songmode<2 //%chance of random pattn change if not pattn locked
+    rnd_ptn = (Random 0, num_ptns_with_dur) //get random pattn with duration
+		if pattn_durs[(current_scene * 8) + rnd_ptn]>0
+			current_pattn=rnd_scn //if rnd_ptn has duration
+		endif
+	endif
   pattn_beat_count = 0 //# reset pattn beat count on new pattn 
   //# SEQUENCE MODE RESETS.	..
   curr_pattn_pulses=[0,0,0,0] //# reset metroPulse count for each seq.
