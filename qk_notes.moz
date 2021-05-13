@@ -285,14 +285,6 @@
 				else
 					mutate_step[ch] = -1
 				endif
-				//if in_seq_mode
-					//for i = 0 to 15
-						//sel_pad = i
-						//step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
-						//Call @ColorSequencePad
-						//LatchPad i, NO
-					//endfor
-				//endif
 			else
 				curr_steps[ch] = curr_steps[ch] + 1
 			endif

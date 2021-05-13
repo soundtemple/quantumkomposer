@@ -285,10 +285,8 @@
 				FlashPad curr_steps[seq_ch]
 			endif	
 		endif	
-		//# increment the pattern pulse
-		curr_pattn_pulses[ch] = curr_pattn_pulses[ch] + 1
-		if in_mid_step[ch] = curr_rate-1 //# last pulse b4
-			//# increment pattern or reset
+		curr_pattn_pulses[ch] = curr_pattn_pulses[ch] + 1 //increment the pattern pulse
+		if in_mid_step[ch] = curr_rate-1 //# last pulse b4 increment pattern or reset
 			if curr_steps[ch] >= curr_seq_len-1
 				curr_pattn_pulses[ch]=0
 				curr_steps[ch]=0
