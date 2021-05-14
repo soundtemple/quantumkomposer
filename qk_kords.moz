@@ -1010,7 +1010,7 @@
 		outgoing_note_canceled = TRUE //# chord setup incomplete
 	elseif (incoming_scale_degree >= 5) and (chord_5th = -1)
 		outgoing_note_canceled = TRUE //# chord setup incomplete
-	elseif (incoming_scale_degree = 7) and (chord_7th = -1) and (sc_harm_mode <> 2)
+	elseif (incoming_scale_degree = 7) and (chord_7th = -1) and (sc_harm_mode=0)
 		outgoing_note_canceled = TRUE //# triads dont play 7th notes  
 		//# but in +NonChord we will play it like a non_scale note
 		//# Log {Chord is triad. Incoming scale degree is 7th, so no output}
@@ -1082,7 +1082,7 @@
 				HAR_NOTE_OUT = chord_3rd
 			elseif (incoming_scale_degree = 5)
 				HAR_NOTE_OUT = chord_5th
-			elseif (incoming_scale_degree = 7)
+			elseif (incoming_scale_degree = 7) and not (chord_7th = -1)
 				HAR_NOTE_OUT = chord_7th
 			elseif (incoming_scale_degree = 2) and (sc_harm_mode = 1)
 				//# passing notes get converted to chord notes in round to chord mode
@@ -1093,6 +1093,9 @@
 			elseif (incoming_scale_degree = 6) and (sc_harm_mode = 1)
 				//# passing notes get converted to chord notes in round to chord mode
 				HAR_NOTE_OUT = chord_5th 
+			elseif (incoming_scale_degree = 7) and (sc_harm_mode = 1) and (chord_7th = -1)
+				//# triad where no 7th we still want to round so play the chord root
+				HAR_NOTE_OUT = chord_root + 12 //The B is in the octave below. So compensate
 			elseif (sc_harm_mode = 2) and (incoming_scale_degree = 2)
 				//# eg: D(passing note) is +2st above C(chord root)
 				HAR_NOTE_OUT = chord_root + 2 
@@ -1117,9 +1120,9 @@
 			elseif (sc_harm_mode = 2) and (non_scale_note = 5)
 				//# eg: A# is 1st below chord_7th
 				HAR_NOTE_OUT = chord_5th + 3 //# in case 7th not assigned
-			elseif (sc_harm_mode <> 2) and (incoming_scale_degree = 7) and (chord_7th = -1)
+			elseif (sc_harm_mode = 2) and (incoming_scale_degree = 7) and (chord_7th = -1)
 				//# rare case in +NonChord but the 7th chord note not assigned we allow but nee to make a note for this
-				HAR_NOTE_OUT = chord_root - 1
+				HAR_NOTE_OUT = (chord_root - 1) + 12 //compensate for the B being in the octave below
 			endif
 		endif
 		if (HAR_NOTE_OUT > 0) 		
