@@ -5,7 +5,7 @@
 	LabelPads {[ QK:ATOM PATTERN LAUNCHER ]}
 	SetShortName {APL}
 	if unassigned scene_durs
-		//in the code a pattern refers to what is called a section in the GUI
+		//in the code a pattern refers to what is called a Sequence in the GUI
 		//in the code a sequence step contains an Atom pattern to trigger
 		//legacy naming from porting the QK:BEATS app
 		ResetNoteStates FALSE // #reset the locker with the value FALSE!
@@ -19,7 +19,7 @@
 		scene_changed = FALSE
 		in_mode_select = FALSE //# Toggle for changing modes mode
 		number_of_modes = 16 //# Change in operational mode 
-		in_seq_mode = FALSE //# editing pattern steps mode
+		in_seq_mode = FALSE //# editing pattern steps mode+
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		use_turn_around = FALSE //# last pattn as turn around on last bar of scene
@@ -79,7 +79,7 @@
 @SetupSequences
   midi_out_chs=[0,1,2,3,4,5,6,7]
   cc_vals=[1,2,3,4]
-  scene_durs = [1,0,0,0,0,0,0,0]
+  scene_durs = [8,0,0,0,0,0,0,0]
   in_seq_mode = FALSE
 	current_scene = 0 // #0-7 Pads 0-7
   current_pattn = 0 // #0-7 Pads 8-15
@@ -109,7 +109,7 @@
 	FillArray seq3_ccs, -1, 1024
 	//# sequence_num=(current_scene*128)+(current_pattn*16)+(seq_ch)
 	FillArray sequence_lengths, 16, 1024 //A number between 1 and 16
- 	FillArray sequence_rates, 4, 1024 //The length of each step
+ 	FillArray sequence_rates, 1, 1024 //The length of each step
 	def_sequence_length=16 //16 steps
 	def_sequence_rate=4 //index to pulses_per_note ie 1 bar per step 
 	//initial values
@@ -121,8 +121,8 @@
 	//# MetroPulse settings
 	curr_steps=[0,0,0,0] //# current note 
 	in_mid_step=[0,0,0,0] //# for slow rates metroPulse can be between steps
-	pulses_per_note = [1,2,4,8,16] //# a divisor to give metroPulses per note
-	//# curr_rate = pulses_per_note[sequence_rates[sequence_num]. For now hard coded to 16
+	pulses_per_note = [4,16] //# a divisor to give metroPulses per note beat or bar
+	//# curr_rate = pulses_per_note[sequence_rates[sequence_num]
 	curr_pattn_pulses=[0,0,0,0] //# one for each seq_ch. relative to MetroPulse
 	//# stored midi note num for current playing note. for sending OFF notes
 	//# stored at time midi note on is sent. see @OnMetroPulse
@@ -181,7 +181,7 @@
 	//# Play notes/Update counts - pulses and step positions all seq_chs xomp
 	for ch = 0 to 3
 		sequence_num=(current_scene*128) + (current_pattn*16) + ch
-		curr_rate = pulses_per_note[4] //hard coding to 1 bar for Atom Pattern Launching
+		curr_rate = pulses_per_note[sequence_rates[sequence_num]] //Beat or bar
 		curr_seq_len = sequence_lengths[sequence_num]
 		in_mid_step[ch] = (curr_pattn_pulses[ch]) % curr_rate
 		if not in_mid_step[ch]
@@ -449,6 +449,8 @@
 		Call @SetupLayout
 		Call @HandleCopyPasteStateLabelling
 	//# NOT IN MODE SELECT......
+	elseif (NOT in_mode_select and mode=1) //Scenes mode
+		Call @SetupKnobset0
 	elseif (NOT in_mode_select and NOT in_seq_mode)
 		Call @HandleModeActions //process that happen in settings mode
   elseif (NOT in_mode_select and in_seq_mode)
@@ -1013,12 +1015,12 @@
   patt_dur = pattn_durs[pattn_slot]
 	SetKnobValue 0, TranslateScale scene_durs[current_scene], 0, 32, 0, 127
 	SetKnobValue 1, 0
-	SetKnobValue 2, TranslateScale patt_dur, 0, 32, 0, 127
+	SetKnobValue 2, TranslateScale patt_dur, 0, 16, 0, 127
 	SetKnobValue 3, 0
 	Call @LabelKnobset0
 @End
 @KnobChangeSet0 
-	// scene / section durations
+	// scene / sequence durations
 	if last_knob = 0
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_durs[current_scene] 	
@@ -1030,12 +1032,11 @@
 		Call @LabelScenePad
   endif
 	if last_knob = 2
-	  pattn_duration = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 32
+	  pattn_duration = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 16
 		if pattn_duration <> pattn_durs[pattn_slot] 
 		  pattn_durs[pattn_slot] = pattn_duration
-			sequence_slot=(current_scene*128) //Sequences must match pattern durations
-			FillArray sequence_lengths[sequence_slot], pattn_duration, 128
-		  Call @LabelKnobset0
+			Call @SetSequenceLength //based on sequence_rate and pattn_dur
+			Call @LabelKnobset0
 			scene_to_check=current_scene
 			Call @UpdatePattnsWithDuration
   	endif
@@ -1045,10 +1046,22 @@
 @End
 @LabelKnobset0
 	LabelKnobs {DURATIONS }
-	LabelKnob 0, {SCENE }, current_scene+1
+	LabelKnob 0, {SCN}, current_scene+1, { }, scene_durs[current_scene], {b}
 	LabelKnob 1, { }
-	LabelKnob 2, {SECTION }, current_pattn+1
+	LabelKnob 2, {SEQ}, current_pattn+1, { },  pattn_durs[pattn_slot], {b}
 	LabelKnob 3, { }
+@End
+
+@SetSequenceLength
+	//number of steps in a sequence
+	sequence_num=(current_scene*128) + (current_pattn*16) + seq_ch
+	seq_rate = pulses_per_note[sequence_rates[sequence_num]] // 4 or 16
+	pattn_slot = (current_scene * 8) + (current_pattn)
+	if seq_rate = 16
+		sequence_lengths[sequence_num] = Clip pattn_durs[pattn_slot], 0, 16
+	elseif seq_rate = 4
+	 	sequence_lengths[sequence_num] = Clip (pattn_durs[pattn_slot] * 4), 0, 16
+	endif
 @End
 
 @UpdateScenesWithDuration
@@ -1150,7 +1163,7 @@
 	//# The pattern number associated with this step
 	sel_pad_type=1 //# set so visible when editing. not saved
 	seq_type_min=-1
-	seq_type_max=atom_max_patterns[seq_ch]
+	seq_type_max=atom_max_patterns[seq_ch]-1
 	if seq_ch=0
   	step_val=seq0_ccs[step_slot]
   elseif seq_ch=1
@@ -1180,25 +1193,33 @@
 	//# PATTERN EDIT MODE
   knob_set = 5
   step_slot=(current_scene*128)+(current_pattn*16)+sel_step
-	pattn_slot = (current_scene * 8) + current_pattn
+	sequence_num=(current_scene*128) + (current_pattn*16) + seq_ch
 	Call @GetStepVal //# the pattern number associated with this step
 	if Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3 <> seq_ch
 	  SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
   endif	
-  SetKnobValue 1, 0
+	SetKnobValue 1, TranslateScale sequence_rates[sequence_num], 0, 1, 0, 127
   SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
   SetKnobValue 3, TranslateScale move_all, 0, 1, 0, 127
   Call @LabelSet5Knobs
 @End
 @KnobChangeSet5 //# PATTERN EDIT currently selected step/pad (out of 16) in a pattern
 	step_slot=(current_scene*128)+(current_pattn*16)+sel_step
-	pattn_slot = (current_scene * 8) + current_pattn
+	sequence_num=(current_scene*128) + (current_pattn*16) + seq_ch
   if last_knob = 0 //# SEQ_CH
     seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
 		Call @GetStepVal
     SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
 		Call @SetupLayout
   endif
+	if (last_knob=1) //# PATTERN STEP RATE - Bar or Beat
+    val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 1
+  	if sequence_rates[sequence_num] <> val
+  		sequence_rates[sequence_num]=val
+			Call @SetSequenceLength
+			Call @LabelAllSequencePads
+		endif	
+	endif
   if (last_knob=2) //# STEP VAL FOR SEQ
     step_val = Round TranslateScale (GetKnobValue 2), 0, 127, seq_type_min, seq_type_max
     if move_all
@@ -1231,7 +1252,11 @@
 	endif
 	LabelKnobs {SEL STEP}, sel_step+1
 	LabelKnob 0, {CH: }, seq_ch+1
-	LabelKnob 1, { }
+	if sequence_rates[sequence_num]
+		LabelKnob 1, {Rate: Bar}
+	else // beat_pulse
+	  LabelKnob 1, {Rate: Beat}
+	endif
 	if (step_val=-1)
 	  LabelKnob 2, {Off}
 	else
@@ -1409,7 +1434,7 @@
 			LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
 			copy_mode=0 //# copy scene
 		else
-			LabelPad 6, {COPY/PASTE }, {SECTION }, current_pattn+1
+			LabelPad 6, {COPY/PASTE }, {SEQUENCE }, current_pattn+1
 			copy_mode=1  //# copy pattn. allows switch scene b4 paste
 		endif
 	elseif mode=9
@@ -1462,7 +1487,7 @@
 
 @LabelPatternPad //# Set pattn_to_label var before calling 
 	pattn_slot = (current_scene * 8) + (pattn_to_label-8)
-	LabelPad pattn_to_label, { Section }, pattn_to_label-8+1, {    }, {[}, pattn_durs[pattn_slot], { bars]}
+	LabelPad pattn_to_label, { Sequence }, pattn_to_label-8+1, {    }, {[}, pattn_durs[pattn_slot], { bars]}
 	ColorPad pattn_to_label, 2
 	if mgen_device_id=mgen_sel_dev
 		SendMIDINoteOn 15, pattn_to_label+led_index, 2
@@ -1624,53 +1649,53 @@
 	//Label pads and pad8 in settings mode with the assigned name of the ATOM instance
 	// if adding to this list update num_atom_names in @InitKnobVariables
 	if atom_names[label_atom]=0
-		LabelPads {ATOM: KICK/LO-TOM}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: KICK/LO-TOM}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=1
-		LabelPads {ATOM: SNARE/CLAP}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: SNARE/CLAP}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=2
-		LabelPads {ATOM: HATS}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: HATS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=3
-		LabelPads {ATOM: HAT2/RIDE}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: HAT2/RIDE}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=4
-		LabelPads {ATOM: PERCS}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: PERCS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=5
-		LabelPads {ATOM: DRUMS}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: DRUMS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=6
-		LabelPads {ATOM: BASS}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: BASS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=7
-		LabelPads {ATOM: LEAD}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: LEAD}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=8
-		LabelPads {ATOM: PADS}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: PADS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=9
-		LabelPads {ATOM: PLUCK}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: PLUCK}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=10
-		LabelPads {ATOM: ARP1}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: ARP1}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=11
-		LabelPads {ATOM: ARP2}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: ARP2}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=12
-		LabelPads {ATOM: MELODY}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: MELODY}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=13
-		LabelPads {ATOM: HARMONY}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: HARMONY}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=14
-		LabelPads {ATOM: KEYS}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: KEYS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=15
-		LabelPads {ATOM: DRONE}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: DRONE}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=16
-		LabelPads {ATOM: SWELL}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: SWELL}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=17
-		LabelPads {ATOM: KEYS}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: KEYS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=18
-		LabelPads {ATOM: FX}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: FX}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=19
-		LabelPads {ATOM: DRUM COMP.}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: DRUM COMP.}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=20
-		LabelPads {ATOM: SKAKA}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: SKAKA}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=21
-		LabelPads {ATOM: ROZETTA BASSLINE}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: ROZETTA BASSLINE}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=21
-		LabelPads {ATOM: SLAMMER}	, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: SLAMMER}	, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=22
-		LabelPads {ATOM: TING}, {  Scene: }, current_scene+1, { Section: }, current_pattn+1
+		LabelPads {ATOM: TING}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	endif
 @End
 
