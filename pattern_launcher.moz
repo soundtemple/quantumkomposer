@@ -18,7 +18,6 @@
 		scene_change_pattn_reset = TRUE //# Goto pattn 0 when user changes scene
 		scene_changed = FALSE
 		in_mode_select = FALSE //# Toggle for changing modes mode
-		number_of_modes = 16 //# Change in operational mode 
 		in_seq_mode = FALSE //# editing pattern steps mode+
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
@@ -33,7 +32,6 @@
 		Call @InitKnobVariables //# All knob settings on load
 		Call @SysexMessageSetup
 		Call @SetupSequences
-		Call @SetupNoteset
 		Call @SetupKnobset0
 		Call @SetupLayout
 	endif 
@@ -87,26 +85,14 @@
 	sel_step = 0 
   //# All sequences 8scenes x 8patterns x 16 steps. Each 1024 cells
 	//# slot = (sel_scene*128) + (sel_pattn*16) + sel_step 
-	FillArray seq0_steps, 0, 1024 //# STEPS
-	FillArray seq1_steps, 0, 1024
-	FillArray seq2_steps, 0, 1024
-	FillArray seq3_steps, 0, 1024
-	FillArray seq0_notes, 0, 1024 //# NOTES as index to curr_scale
-	FillArray seq1_notes, 0, 1024
-	FillArray seq2_notes, 0, 1024
-	FillArray seq3_notes, 0, 1024
-	FillArray seq0_octs, 3, 1024 //# OCTS
-	FillArray seq1_octs, 3, 1024
-	FillArray seq2_octs, 3, 1024
-	FillArray seq3_octs, 3, 1024
-	FillArray seq0_velos, -1, 1024 //# VELO
-	FillArray seq1_velos, -1, 1024
-	FillArray seq2_velos, -1, 1024
-	FillArray seq3_velos, -1, 1024
-	FillArray seq0_ccs, -1, 1024 //# CC
-	FillArray seq1_ccs, -1, 1024
-	FillArray seq2_ccs, -1, 1024
-	FillArray seq3_ccs, -1, 1024
+	FillArray a1_pattns, -1, 1024 //# pattern triggered at each possible step 8scn, 32bars, 4beats per bar 
+	FillArray a2_pattns, -1, 1024
+	FillArray a3_pattns, -1, 1024
+	FillArray a4_pattns, -1, 1024
+	FillArray a5_pattns, -1, 1024
+	FillArray a6_pattns, -1, 1024
+	FillArray a7_pattns, -1, 1024
+	FillArray a8_pattns, -1, 1024
 	//# sequence_num=(current_scene*128)+(current_pattn*16)+(seq_ch)
 	FillArray sequence_lengths, 16, 1024 //A number between 1 and 16
  	FillArray sequence_rates, 1, 1024 //The length of each step
@@ -116,7 +102,8 @@
 	pattn_durs[0]=4 //# Pattern durations in beats
   FillArray sequence_lengths, 4, 16 //sequence lengths for all channels (using4 cater for16) must match pattern
 	FillArray atom_max_patterns, 16, 16
-	FillArray pattern_trigger_modes, 3, 16 //default to trigger using cc
+	FillArray atom_mute_states, 0, 16 //default state for an Atom instance is unmuted 0
+	FillArray atom_launch_states, 1, 16 //default state for an Atom instance is launched 1
 	trigger_by_velo_notes = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] //A single note is used for each channel
 	//# MetroPulse settings
 	curr_steps=[0,0,0,0] //# current note 
@@ -127,21 +114,6 @@
 	//# stored midi note num for current playing note. for sending OFF notes
 	//# stored at time midi note on is sent. see @OnMetroPulse
 	pattn_length=16
-@End
-
-@SetupNoteset
-	note_set_type=1
-	notes_in_set=32
-	ch_start_notes=[0,0,0,0]
-	mgen_device_id=5
-	FillArray seq0_notes, 0, 1024
-	FillArray seq1_notes, 0, 1024
-	FillArray seq2_notes, 0, 1024
-	FillArray seq3_notes, 0, 1024
-	for i = 0 to 32
-		curr_scale[i]=i-1 
-	endfor
-	noteset_len=33 
 @End
 		
 @OnHostStart 
@@ -185,7 +157,7 @@
 		curr_seq_len = sequence_lengths[sequence_num]
 		in_mid_step[ch] = (curr_pattn_pulses[ch]) % curr_rate
 		if not in_mid_step[ch]
-			Call @PlayCurrentNotes
+			Call @TriggerPatterns
 			if in_seq_mode and (ch=seq_ch)
 				FlashPad curr_steps[seq_ch]
 			endif	
@@ -202,40 +174,8 @@
 	endfor
 @End
 
-@PlayCurrentNotes //# Play current notes & send CC data. All seq_ch's
-	//# handle turn off old and sending new note
-	step_slot=(current_scene*128)+(current_pattn*16)+curr_steps[ch]
-	sus_prev_note = FALSE //# check sus_prev on new step per ch 
-	if ch=0
-		step_type = seq0_steps[step_slot]
-	elseif ch=1
-		step_type = seq1_steps[step_slot]
-	elseif ch=2
-		step_type = seq2_steps[step_slot]
-	elseif ch=3
-		step_type = seq3_steps[step_slot]
-	endif
-	
-	if ch=0 
-		velo_val = seq0_velos[step_slot]
-		cc_val = seq0_ccs[step_slot]
-	elseif ch=1
-		velo_val = seq1_velos[step_slot]
-		cc_val = seq1_ccs[step_slot]
-	elseif ch=2
-		velo_val = seq2_velos[step_slot]
-		cc_val = seq2_ccs[step_slot]
-	elseif ch=3
-		velo_val = seq3_velos[step_slot]
-		cc_val = seq3_ccs[step_slot]
-	endif
-	if cc_val >= 0 //# send cc message FIRST, so note plays at cc val setting
-		SendMIDICC midi_out_chs[ch], cc_vals[ch], cc_val
-	endif
-	if step_type=1 //# turn on new note
-		SendMIDINoteOn midi_out_chs[ch], note_val, velo_val
-		SendMIDINoteOff midi_out_chs[ch], note_val, 64, 100
-	endif
+@TriggerPatterns 
+	step_slot=(current_scene*128)+(current_pattn*16)+curr_steps[ch]	
 @End
 
 @OnNewBeat //# Handle Scene and Pattern changes
@@ -359,21 +299,27 @@
 @End
 
 @OnPadDown2 //# Splitting this event into separate handlers
-	if in_mode_select and (last_pad <= (number_of_modes - 1))
+	if in_mode_select 
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
+		elseif (HostRunning and last_pad=0)
+			Call @HandleReturnToSongMode
+	  elseif last_pad=1
+			mode = last_pad //scenes mode
+			in_mode_select=FALSE
+			Log {in scenes mode}
+			Call @SetupLayout
+			Call @SetupKnobset0
+			Call @OnPadDown_KnobSetSelect
 		elseif last_pad=2
-			Log {NOT IN USE ATM!}
 			Exit //# Not in use
+		elseif (last_pad>=3 and last_pad<=5) or (last_pad=14 or last_pad=15)
+    	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
+			Call @HandleSettingsModeActions
 		elseif (last_pad=6) and not (mode=9 or mode=11 or mode<=1)
 			Exit //# COPY PASTE not allowed
 		elseif (last_pad=7) and not (mode<=1 or mode>=8)
 			Exit //# DELETE not allowed
-		elseif last_pad=1
-			mode = last_pad //scenes mode
-			in_mode_select=FALSE
-			Call @SetupLayout
-			Call @SetupKnobset0
 		elseif last_pad=8 or last_pad=9 or last_pad=10
 			Call @HandleAtomGuiRequest // Show/Hide GUI, Mute, Launch
 		elseif (last_pad=11 or last_pad=12 or last_pad=13)
@@ -389,48 +335,7 @@
 	    endif
 	    in_mode_select = FALSE
     	in_seq_mode = TRUE
-		elseif (last_pad>=3 and last_pad<=5) or (last_pad=14 or last_pad=15)
-    	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
-    	LabelPad 6, { } //# CopyPaste not allowed
-    	LabelPad 7, { } //# Delete not allowed here
-    	for i = 0 to 15
-    		LatchPad mode, NO
-    	endfor
-			if last_pad=15 //# toggle label view mode
-				if label_view_mode=5
-					label_view_mode=4
-				else
-					label_view_mode=5
-				endif
-				label_style=label_view_mode
-				Call @SetupSettingsLayout
-				FlashPad 15
-			elseif last_pad=14
-				Call @ReverseSequence
-				in_mode_select=FALSE
-				in_seq_mode=TRUE
-				Call @SetupLayout
-				mode=9
-				Call @OnPadDown_KnobSetSelect
-			else
-				mode = last_pad
-	    	Call @OnPadDown_KnobSetSelect
-			endif
-			for i = 0 to (number_of_modes - 1)
-				ColorPad i, settings_pad_cols[i]
-				if mgen_device_id=mgen_sel_dev
-					if i=mode
-						SendMIDINoteOn 15, i+led_index, 8
-					else
-						SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
-					endif
-				endif
-				LatchPad i, NO 
-			endfor
-			LatchPad mode, YES
-		elseif (HostRunning and last_pad=0)
-			Call @HandleReturnToSongMode
-	  elseif last_pad=6 and ((mode=9) or (mode=11) or (mode<=1))//# COPY PASTE
+		elseif last_pad=6 and ((mode=9) or (mode=11) or (mode<=1))//# COPY PASTE
 			Call @HandleCopyPasteActions
 		elseif (last_pad=7) //# reset mode
 			Call @HandleResetActions
@@ -450,12 +355,61 @@
 		Call @HandleCopyPasteStateLabelling
 	//# NOT IN MODE SELECT......
 	elseif (NOT in_mode_select and mode=1) //Scenes mode
+		Call @OnPadDown_ScenePatternChange
 		Call @SetupKnobset0
 	elseif (NOT in_mode_select and NOT in_seq_mode)
 		Call @HandleModeActions //process that happen in settings mode
   elseif (NOT in_mode_select and in_seq_mode)
 		Call @HandleSeqModeActions
   endif
+@End
+
+@UpdateSettingPadColors
+	//Update GUI pad colors and LP colors in settings mode
+	for i = 0 to 15
+		ColorPad i, settings_pad_cols[i]
+		if mgen_device_id=mgen_sel_dev
+			if i=mode
+				SendMIDINoteOn 15, i+led_index, 8
+			else
+				SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
+			endif
+		endif
+		LatchPad i, NO 
+	endfor
+	LatchPad mode, YES
+@End
+
+@HandleSettingsModeActions
+	if last_pad=3
+		LabelPad last_pad,{FIX ME}
+	endif
+	LabelPad 6, { } //# CopyPaste not allowed
+	LabelPad 7, { } //# Delete not allowed here
+	for i = 0 to 15
+		LatchPad mode, NO
+	endfor
+	if last_pad=15 //# toggle label view mode
+		if label_view_mode=5
+			label_view_mode=4
+		else
+			label_view_mode=5
+		endif
+		label_style=label_view_mode
+		Call @SetupSettingsLayout
+		FlashPad 15
+	elseif last_pad=14
+		Call @ReverseSequence
+		in_mode_select=FALSE
+		in_seq_mode=TRUE
+		Call @SetupLayout
+		mode=9
+		Call @OnPadDown_KnobSetSelect
+	else
+		mode = last_pad
+		Call @OnPadDown_KnobSetSelect
+	endif
+	Call @UpdateSettingPadColors
 @End
 
 @HandleReturnToSongMode
@@ -557,9 +511,7 @@
   	double_tap=FALSE
 	endif
 	sel_pad=last_pad
-	if mode=8//# Step sequence mode
-		Call @UpdateSelStepType //# 0=off; 1=on;
-	elseif (mode=9 and move_all)
+	if (mode=9 and move_all)
 		if last_pad=14
 			move_all_dir=-1
 			Call @MoveAllSteps
@@ -579,20 +531,7 @@
 				rot_dir=0
 			endif
 			Call @RotateSequence
-		else
-			Call @UpdateSelStepType //# 0=off; 1=on;
 		endif 
-	elseif mode=8
-		step_slot=(current_scene*128)+(current_pattn*16)
-		if seq_ch=0
-			seq0_steps[step_slot + curr_steps[seq_ch]] = 1 
-		elseif seq_ch=1
-			seq1_steps[step_slot + curr_steps[seq_ch]] = 1
-		elseif seq_ch=2
-			seq2_steps[step_slot + curr_steps[seq_ch]] = 1
-		elseif seq_ch=3
-			seq3_steps[step_slot + curr_steps[seq_ch]] = 1
-		endif
 	elseif (mode = 6) //# COPY/PASTE
   	copy_paste_status=2 //# PASTE
   	Call @CopyPaste
@@ -809,12 +748,12 @@
 		steps_to_copy=16 //# Copy all 16 steps to temp arrays
 		copy_slot=(current_scene*128)+(current_pattn*16)
 		Call @CopySequencePad
-		temp_ccs=[]		
-		CopyArray copied_seq_ccs, temp_ccs, 16
+		temp_patts=[]		
+		CopyArray copied_seq_patts, temp_patts, 16
 		steps_to_copy=1
 		for i = 0 to 15 //# Paste steps in reverse one by one
 			paste_slot=(current_scene*128)+(current_pattn*16) + (15-i)	
-			copied_seq_ccs = [temp_ccs[i]]
+			copied_seq_patts = [temp_patts[i]]
 			Call @PasteSequencePad
 		endfor
 	endfor
@@ -822,13 +761,6 @@
 
 @ResetScenePatternSequence //# handle reset of a scene, pattern or sequence step
 	//# reset sequence single channel use ALL knob in edit mode. notes to reset to per seq_ch		
-	if note_set_type=0 //# scale mode
-		reset_note_vals=[0,3,6,10]
-	elseif note_set_type=1 //# fixed note set
-		reset_note_vals=[0,1,5,2]
-	elseif note_set_type=1 //# kit 4 notes only
-		reset_note_vals=[0,1,2,3]
-	endif
 	reset_all_channels=TRUE
  	if reset_type=0 //# Reset scene
 	  //# Reset scene: Duration, Txpose, Preset, modes for ch's 1-4, out ch's ON1-4, pgm_chg_msg
@@ -940,28 +872,28 @@
 
 @CopySequencePad //# Copy part of COPY/PASTE sequence pad
 	//# Separate so user can switch ch between copy and paste
-	copied_seq_ccs=[]
+	copied_seq_patts=[]
 	if copy_seq_ch=0 //# copy...
-		CopyArray seq0_ccs[copy_slot], copied_seq_ccs, steps_to_copy
+		CopyArray a1_pattns[copy_slot], copied_seq_patts, steps_to_copy
 	elseif copy_seq_ch=1 //# copy...
-		CopyArray seq1_ccs[copy_slot], copied_seq_ccs, steps_to_copy
+		CopyArray a2_pattns[copy_slot], copied_seq_patts, steps_to_copy
 	elseif copy_seq_ch=2 //# copy...
-		CopyArray seq2_ccs[copy_slot], copied_seq_ccs, steps_to_copy
+		CopyArray a3_pattns[copy_slot], copied_seq_patts, steps_to_copy
 	elseif copy_seq_ch=3 //# copy...
-		CopyArray seq3_ccs[copy_slot], copied_seq_ccs, steps_to_copy
+		CopyArray a4_pattns[copy_slot], copied_seq_patts, steps_to_copy
 	endif
 @End
 
 @PasteSequencePad //# PASTE portion of copy/paste sequence pad
 	sequence_num=(current_scene*128)+(current_pattn*16)+(paste_seq_ch)
 	if paste_seq_ch=0
-		CopyArray copied_seq_ccs, seq0_ccs[paste_slot], steps_to_copy
+		CopyArray copied_seq_patts, a1_pattns[paste_slot], steps_to_copy
 	elseif paste_seq_ch=1
-		CopyArray copied_seq_ccs, seq1_ccs[paste_slot], steps_to_copy
+		CopyArray copied_seq_patts, a2_pattns[paste_slot], steps_to_copy
 	elseif paste_seq_ch=2
-		CopyArray copied_seq_ccs, seq2_ccs[paste_slot], steps_to_copy
+		CopyArray copied_seq_patts, a3_pattns[paste_slot], steps_to_copy
 	elseif paste_seq_ch=3
-		CopyArray copied_seq_ccs, seq3_ccs[paste_slot], steps_to_copy
+		CopyArray copied_seq_patts, a4_pattns[paste_slot], steps_to_copy
 	endif
 @End
 
@@ -1165,13 +1097,13 @@
 	seq_type_min=-1
 	seq_type_max=atom_max_patterns[seq_ch]-1
 	if seq_ch=0
-  	step_val=seq0_ccs[step_slot]
+  	step_val=a1_pattns[step_slot]
   elseif seq_ch=1
-  	step_val=seq1_ccs[step_slot]
+  	step_val=a2_pattns[step_slot]
   elseif seq_ch=2
-  	step_val=seq2_ccs[step_slot]
+  	step_val=a3_pattns[step_slot]
   elseif seq_ch=3
-  	step_val=seq3_ccs[step_slot]
+  	step_val=a4_pattns[step_slot]
 	endif
 @End
 
@@ -1179,13 +1111,13 @@
 	//# The pattern number associated with this step	
   sel_pad_type=1 //# set so visible when editing.
   if seq_ch=0
-  	seq0_ccs[step_slot]=step_val
+  	a1_pattns[step_slot]=step_val
   elseif seq_ch=1
-  	seq1_ccs[step_slot]=step_val
+  	a2_pattns[step_slot]=step_val
   elseif seq_ch=2
-  	seq2_ccs[step_slot]=step_val
+  	a3_pattns[step_slot]=step_val
   elseif seq_ch=3
-  	seq3_ccs[step_slot]=step_val
+  	a4_pattns[step_slot]=step_val
 	endif
 @End
 
@@ -1274,13 +1206,13 @@
 	for i = 0 to 15
 		slot=(current_scene*128)+(current_pattn*16)+i
 		if seq_ch=0
-			seq0_ccs[slot] = Clip (seq0_ccs[slot]+ move_all_dir), -1, 127
+			a1_pattns[slot] = Clip (a1_pattns[slot]+ move_all_dir), -1, 127
 		elseif seq_ch=1
-			seq1_ccs[slot] = Clip (seq1_ccs[slot]+ move_all_dir), -1, 127
+			a2_pattns[slot] = Clip (a2_pattns[slot]+ move_all_dir), -1, 127
 		elseif seq_ch=2
-			seq2_ccs[slot] = Clip (seq2_ccs[slot]+ move_all_dir), -1, 127
+			a3_pattns[slot] = Clip (a3_pattns[slot]+ move_all_dir), -1, 127
 		elseif seq_ch=3
-			seq3_ccs[slot] = Clip (seq3_ccs[slot]+ move_all_dir), -1, 127
+			a4_pattns[slot] = Clip (a4_pattns[slot]+ move_all_dir), -1, 127
 		endif
 	endfor
 	label_style=seq_type
@@ -1289,16 +1221,16 @@
 
 @RotateSequence //# rotate a selected sequence. requires args rotation(-1 or +1), old_seq
 	step_slot=(current_scene*128)+(current_pattn*16)
-	FillArray old_ccs, 0, 16
-	FillArray new_ccs, 0, 16
+	FillArray old_patts, 0, 16
+	FillArray new_patts, 0, 16
 	if seq_ch=0
-		CopyArray seq0_ccs[step_slot], old_ccs, 16
+		CopyArray a1_pattns[step_slot], old_patts, 16
 	elseif seq_ch=1
-		CopyArray seq1_ccs[step_slot], old_ccs, 16
+		CopyArray a2_pattns[step_slot], old_patts, 16
 	elseif seq_ch=2
-		CopyArray seq2_ccs[step_slot], old_ccs, 16
+		CopyArray a3_pattns[step_slot], old_patts, 16
 	elseif seq_ch=3
-		CopyArray seq3_ccs[step_slot], old_ccs, 16
+		CopyArray a4_pattns[step_slot], old_patts, 16
 	endif
 	for i = 0 to 15
 		if rot_dir=-1
@@ -1309,16 +1241,16 @@
 				old_index=15
 			endif
 		endif
-		new_ccs[i]   = old_ccs[old_index]
+		new_patts[i]   = old_patts[old_index]
 	endfor
 	if seq_ch=0
-		CopyArray new_ccs, seq0_ccs[step_slot], 16
+		CopyArray new_patts, a1_pattns[step_slot], 16
 	elseif seq_ch=1
-		CopyArray new_ccs, seq1_ccs[step_slot], 16
+		CopyArray new_patts, a2_pattns[step_slot], 16
 	elseif seq_ch=2
-		CopyArray new_ccs, seq2_ccs[step_slot], 16
+		CopyArray new_patts, a3_pattns[step_slot], 16
 	elseif seq_ch=3
-		CopyArray new_ccs, seq3_ccs[step_slot], 16
+		CopyArray new_patts, a4_pattns[step_slot], 16
 	endif
 	CopyArray new_steps, n, 16
 	// Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]
@@ -1463,7 +1395,7 @@
 		LabelPad 15, {PROCESS     }, {  CH#}, seq_ch+1
 	endif
 	settings_pad_cols=[7,4,0,5,5,5,4,1, 0,3,0,4,4,2,1,2]	
-	for i = 0 to (number_of_modes - 1)
+	for i = 0 to 15
 		ColorPad i, settings_pad_cols[i]
 		if mgen_device_id=mgen_sel_dev
 			SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
@@ -1577,20 +1509,6 @@
 	Call @LabelAllSequencePads
 @End
 
-@UpdateSelStepType //# change a seq pad from on to off
-	step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
-	if seq_ch=0
-		seq0_steps[step_slot] = (seq0_steps[step_slot]+1)%2
-	elseif seq_ch=1
-		seq1_steps[step_slot] = (seq1_steps[step_slot]+1)%2
-	elseif seq_ch=2
-		seq2_steps[step_slot] = (seq2_steps[step_slot]+1)%2
-	elseif seq_ch=3
-		seq3_steps[step_slot] = (seq3_steps[step_slot]+1)%2
-	endif
-	Call @LabelSequencePad
-@End
-
 @LabelAllSequencePads //# label all sequence pads xlasp
 	for i = 0 to 15
 		sel_pad = i
@@ -1603,7 +1521,7 @@
 
 @ColorSequencePad //# ColorPad Is the selected pad off - on - sustain prev.
 	padColor=0
-	if cc[seq_ch]>=0
+	if ap[seq_ch]>=0
 		padColor=4	
 	endif
 	if sel_pad_type=0 //# stored value
@@ -1629,13 +1547,13 @@
 @LabelSequencePad //# label sequence pads 
 	sequence_num=(current_scene*128) + (current_pattn*16) + seq_ch
 	pattn_length = sequence_lengths[sequence_num]
-	cc0=seq0_ccs[step_slot]
-	cc1=seq1_ccs[step_slot]
-	cc2=seq2_ccs[step_slot]
-	cc3=seq3_ccs[step_slot]
-	cc=[cc0,cc1,cc2,cc3]	
-	if cc[seq_ch] >= 0 and pattern_trigger_modes[seq_ch]=3 //trigger by CC Value
-		LabelPad sel_pad, {___P}, cc[seq_ch]+1, {____  }, {cc}, midi_out_chs[seq_ch]+1, { - },cc[seq_ch]
+	ap1=a1_pattns[step_slot]
+	ap2=a2_pattns[step_slot]
+	ap3=a3_pattns[step_slot] 
+	ap4=a4_pattns[step_slot]
+	ap=[ap1, ap2, ap3, ap4]	
+	if ap[seq_ch] >= 0
+		LabelPad sel_pad, {___P}, ap[seq_ch]+1, {____  }, {cc}, midi_out_chs[seq_ch]+1, { - },ap[seq_ch]
 	else
 	  LabelPad sel_pad, {_____}, {X_____  }, {     No Trigger    }
 	endif
