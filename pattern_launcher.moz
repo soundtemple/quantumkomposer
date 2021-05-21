@@ -22,8 +22,8 @@
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		use_turn_around = FALSE //# last pattn as turn around on last bar of scene
-		mgen_device_id=0 //used for midi control of pads. each mgen instance is assigned a number
-		mgen_sel_dev=0 //used for midi control of pads
+		mgen_device_id=0 //used for midi control of pads on LP. This instances id
+		mgen_sel_dev=0 //used for midi control of pads on LP. The currently selected instance
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id)
@@ -75,7 +75,7 @@
 @End
 
 @SetupSequences
-  midi_out_chs=[0,1,2,3,4,5,6,7]
+  atom_for_ch=[0,1,2,3,4,5,6,7] //aka the Atom instance to trigger patterns for on each of the 8 seq. ch's
   cc_vals=[1,2,3,4]
   scene_durs = [8,0,0,0,0,0,0,0]
   in_seq_mode = FALSE
@@ -99,11 +99,12 @@
 	def_sequence_length=16 //16 steps
 	def_sequence_rate=4 //index to pulses_per_note ie 1 bar per step 
 	//initial values
+	quick_config=0 //see @QuickConfig
 	pattn_durs[0]=4 //# Pattern durations in beats
   FillArray sequence_lengths, 4, 16 //sequence lengths for all channels (using4 cater for16) must match pattern
 	FillArray atom_max_patterns, 16, 16
-	FillArray atom_mute_states, 0, 16 //default state for an Atom instance is unmuted 0
-	FillArray atom_launch_states, 1, 16 //default state for an Atom instance is launched 1
+	FillArray atom_mute_states, FALSE, 16 //default state for an Atom instance is unmuted 0
+	FillArray atom_launch_states, TRUE, 16 //default state for an Atom instance is launched 1
 	trigger_by_velo_notes = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] //A single note is used for each channel
 	//# MetroPulse settings
 	curr_steps=[0,0,0,0] //# current note 
@@ -150,7 +151,7 @@
 @End 
 
 @OnMetroPulse
-	//# Play notes/Update counts - pulses and step positions all seq_chs xomp
+	//# Update counts - pulses and step positions all seq_chs. Trigger patterns if moving to new step
 	for ch = 0 to 3
 		sequence_num=(current_scene*128) + (current_pattn*16) + ch
 		curr_rate = pulses_per_note[sequence_rates[sequence_num]] //Beat or bar
@@ -382,7 +383,7 @@
 
 @HandleSettingsModeActions
 	if last_pad=3
-		LabelPad last_pad,{FIX ME}
+		Call @QuickConfig
 	endif
 	LabelPad 6, { } //# CopyPaste not allowed
 	LabelPad 7, { } //# Delete not allowed here
@@ -410,6 +411,24 @@
 		Call @OnPadDown_KnobSetSelect
 	endif
 	Call @UpdateSettingPadColors
+@End
+
+@QuickConfig
+	//cycle through configurations of selected 8 Atoms 
+	quick_config = quick_config+1
+	if quick_config > 3
+		quick_config=0
+	endif
+	if quick_config=0
+		atom_for_ch=[0,1,2,3, 4,5,6,7]
+	elseif quick_config=1
+		atom_for_ch=[4,5,6,7, 8,9,10,11]
+	elseif quick_config=2
+		atom_for_ch=[4,5,8,10, 12,13,14,15]
+	elseif quick_config=3
+		atom_for_ch=[0,1,2,3, 5,8,10,12]
+	endif	
+	Call @SetupSettingsLayout
 @End
 
 @HandleReturnToSongMode
@@ -608,8 +627,27 @@
 @End
 
 @HandleAtomGuiRequest
+	if last_pad=8 //GUI TOGGLE
+		SendMIDICC atom_for_ch[seq_ch], 101, 127
+	elseif last_pad=9 //LAUNCH MODE TOGGLE
+		atom_launch_states[seq_ch] = not atom_launch_states[seq_ch]
+		if atom_launch_states[seq_ch]
+			val=127
+		else
+		  val=0
+		endif
+		SendMIDICC atom_for_ch[seq_ch], 102, val
+	elseif last_pad=10 //MUTE TOGGLE
+		atom_mute_states[seq_ch] = not atom_mute_states[seq_ch]
+		if atom_mute_states[seq_ch]
+			val=127
+		else
+		  val=0
+		endif
+		SendMIDICC atom_for_ch[seq_ch], 103, val
+	endif
 	FlashPad last_pad
-	LabelPad last_pad, {FIX ME}
+	Call @SetupSettingsLayout
 @End
 
 @OnMidiNote
@@ -899,7 +937,7 @@
 
 @SetupKnobset99
 	SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
-	SetKnobValue 0, 0
+	SetKnobValue 1, TranslateScale seq_ch, 0, 7, 0, 127
 	SetKnobValue 2, TranslateScale rnd_scn_chance, 0, 100, 0, 127
 	SetKnobValue 3, TranslateScale rnd_ptn_chance, 0, 100, 0, 127
 	Call @LabelSettingsKnobs
@@ -915,6 +953,12 @@
 				LabelKnob 0, {mgen# -}
 			endif
 		endif
+	elseif last_knob = 1
+	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 7
+	  if val <> seq_ch	
+		  seq_ch = val
+			Call @SetupSettingsLayout
+	  endif
 	elseif last_knob = 2
 	  val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 100
 	  if val <> rnd_scn_chance 	
@@ -935,7 +979,7 @@
 	else
 		LabelKnob 0, {mgen# -}
 		endif
-	LabelKnob 1, { }
+	LabelKnob 1, {Atom# }, seq_ch+1
 	LabelKnob 2, {RndScn}, rnd_scn_chance
 	LabelKnob 3, {RndPtn}, rnd_ptn_chance
 	LabelKnobs { }
@@ -1020,7 +1064,7 @@
   knob_set = 2
 	Call @LabelKnobSet2
   SetKnobValue 0, TranslateScale edit_atom, 0, 7, 0, 127
-  SetKnobValue 1, TranslateScale midi_out_chs[edit_atom], 0, 15, 0, 127
+  SetKnobValue 1, TranslateScale atom_for_ch[edit_atom], 0, 15, 0, 127
   SetKnobValue 2, 0
   SetKnobValue 3, 0
 @End
@@ -1031,15 +1075,15 @@
 		if val <> edit_atom
 			edit_atom = val
 			Call @LabelKnobSet2
-			label_atom=midi_out_chs[edit_atom]
+			label_atom=atom_for_ch[edit_atom]
 			Call @LabelAtom
 		endif
 	elseif last_knob = 1 
     val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
-		if val <> midi_out_chs[edit_atom]
-			midi_out_chs[edit_atom] = val
+		if val <> atom_for_ch[edit_atom]
+			atom_for_ch[edit_atom] = val
 			Call @LabelKnobSet2
-			label_atom=midi_out_chs[edit_atom]
+			label_atom=atom_for_ch[edit_atom]
 			Call @LabelAtom
 		endif
 	endif	
@@ -1047,10 +1091,10 @@
 @LabelKnobSet2
 	LabelKnobs {SELECT ATOMS} 
   LabelKnob 0, {ATOM: }, edit_atom+1
-  LabelKnob 1, {CH: }, midi_out_chs[edit_atom]+1
+  LabelKnob 1, {CH: }, atom_for_ch[edit_atom]+1
   LabelKnob 2, { }
   LabelKnob 3, { }
-  CopyArray  midi_out_chs, moc, 8
+  CopyArray  atom_for_ch, moc, 8
 	LabelPads {Select 8 Atom instances to be sequenced from the bank of 16}
 	LabelPad 4, {__SELECT__ }, { [}, moc[0]+1,{-}, moc[1]+1,{-}, moc[2]+1,{-}, moc[3]+1,{] }, { [}, moc[4]+1,{-}, moc[5]+1,{-}, moc[6]+1,{-}, moc[7]+1,{] }  
 @End
@@ -1357,7 +1401,7 @@
 	endif
 	LabelPad 1, {SCENES}
 	LabelPad 2, { }
-	LabelPad 3, {QUICK CONFIG}
+	LabelPad 3, {QUICK CONFIG #}, quick_config+1
 	Call @LabelKnobSet2
 	LabelPad 5, {SETUP ATOMS}
 	LabelPad 6, { }
@@ -1377,9 +1421,21 @@
 	if (mode>=8 or mode<=1)
 		LabelPad 7, {DELETE  }
 	endif
-	LabelPad 8, {  >GUI }
-	LabelPad 9, {  >LAUNCH }
-	LabelPad 10, {  >MUTE }
+	LabelPad 8, { __ATOM}, seq_ch+1, {__ }, {  >GUI }
+	if atom_launch_states[seq_ch]
+		ls=1	
+		LabelPad 9, { __ATOM}, seq_ch+1, {__ }, {  >STOP }
+	else
+		ls=3
+		LabelPad 9, { __ATOM}, seq_ch+1, {__ }, {  >LAUNCH }		
+	endif
+	if atom_mute_states[seq_ch]
+		ms=2
+		LabelPad 10, { __ATOM}, seq_ch+1, {__ }, {  >UNMUTE }
+	else
+	  ms=0
+		LabelPad 10, { __ATOM}, seq_ch+1, {__ }, {  >MUTE }
+	endif
 	LabelPad 11, {EDIT}
 	LabelPad 12, {PERFORM}
 	LabelPad 13, {ROTATE PATTERNS}
@@ -1394,7 +1450,7 @@
 	elseif label_view_mode=4
 		LabelPad 15, {PROCESS     }, {  CH#}, seq_ch+1
 	endif
-	settings_pad_cols=[7,4,0,5,5,5,4,1, 0,3,0,4,4,2,1,2]	
+	settings_pad_cols=[7,4,0,5,5,5,4,1, 0,ls,ms,4,4,2,1,2]	
 	for i = 0 to 15
 		ColorPad i, settings_pad_cols[i]
 		if mgen_device_id=mgen_sel_dev
@@ -1403,9 +1459,8 @@
 		LatchPad i, NO 
 	endfor
 	Call @SetupKnobset99 //settings knobs
-	atom_to_label=seq_ch
+	label_atom=seq_ch
 	Call @LabelAtom
-	LatchPad mode, YES
 @End
 
 @LabelScenePad //# Set scn_to_label var before calling
@@ -1553,7 +1608,7 @@
 	ap4=a4_pattns[step_slot]
 	ap=[ap1, ap2, ap3, ap4]	
 	if ap[seq_ch] >= 0
-		LabelPad sel_pad, {___P}, ap[seq_ch]+1, {____  }, {cc}, midi_out_chs[seq_ch]+1, { - },ap[seq_ch]
+		LabelPad sel_pad, {___P}, ap[seq_ch]+1, {____  }, {cc}, atom_for_ch[seq_ch]+1, { - },ap[seq_ch]
 	else
 	  LabelPad sel_pad, {_____}, {X_____  }, {     No Trigger    }
 	endif
@@ -1567,53 +1622,53 @@
 	//Label pads and pad8 in settings mode with the assigned name of the ATOM instance
 	// if adding to this list update num_atom_names in @InitKnobVariables
 	if atom_names[label_atom]=0
-		LabelPads {ATOM: KICK/LO-TOM}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: KICK/LO-TOM}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=1
-		LabelPads {ATOM: SNARE/CLAP}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: SNARE/CLAP}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=2
-		LabelPads {ATOM: HATS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: HATS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=3
-		LabelPads {ATOM: HAT2/RIDE}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: HAT2/RIDE}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=4
-		LabelPads {ATOM: PERCS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: PERCS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=5
-		LabelPads {ATOM: DRUMS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: DRUMS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=6
-		LabelPads {ATOM: BASS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: BASS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=7
-		LabelPads {ATOM: LEAD}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: LEAD}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=8
-		LabelPads {ATOM: PADS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: PADS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=9
-		LabelPads {ATOM: PLUCK}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: PLUCK}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=10
-		LabelPads {ATOM: ARP1}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: ARP1}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=11
-		LabelPads {ATOM: ARP2}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: ARP2}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=12
-		LabelPads {ATOM: MELODY}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: MELODY}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=13
-		LabelPads {ATOM: HARMONY}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: HARMONY}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=14
-		LabelPads {ATOM: KEYS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: KEYS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=15
-		LabelPads {ATOM: DRONE}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: DRONE}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=16
-		LabelPads {ATOM: SWELL}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: SWELL}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=17
-		LabelPads {ATOM: KEYS}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: KEYS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=18
-		LabelPads {ATOM: FX}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: FX}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=19
-		LabelPads {ATOM: DRUM COMP.}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: DRUM COMP.}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=20
-		LabelPads {ATOM: SKAKA}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: SKAKA}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=21
-		LabelPads {ATOM: ROZETTA BASSLINE}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: ROZETTA BASSLINE}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=21
-		LabelPads {ATOM: SLAMMER}	, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: SLAMMER}	, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif atom_names[label_atom]=22
-		LabelPads {ATOM: TING}, {  Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  ATOM}, label_atom+1, {: TING}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	endif
 @End
 
