@@ -348,7 +348,6 @@
 	  elseif last_pad=1
 			mode = last_pad //scenes mode
 			in_mode_select=FALSE
-			Log {in scenes mode}
 			Call @SetupLayout
 			Call @SetupKnobset0
 			Call @OnPadDown_KnobSetSelect
@@ -790,7 +789,7 @@
 			copy_slot=(copied_scene*128)
 			paste_slot=((MIDIByte3-8)*128)
 			steps_to_copy=(16*8)
-			for i = 0 to 3
+			for i = 0 to 7
 				copy_seq_ch=i
 				Call @CopySequencePad
 				paste_seq_ch=i
@@ -857,8 +856,8 @@
 		temp_patts=[]		
 		CopyArray copied_seq_patts, temp_patts, 16
 		steps_to_copy=1
-		for i = 0 to 15 //# Paste steps in reverse one by one
-			paste_slot=(current_scene*128)+(current_pattn*16) + (15-i)	
+		for i = 0 to sequence_lengths[copy_slot]-1 //# Paste steps in reverse one by one
+			paste_slot=(current_scene*128)+(current_pattn*16) + (sequence_lengths[copy_slot]-1-i)	
 			copied_seq_patts = [temp_patts[i]]
 			Call @PasteSequencePad
 		endfor
@@ -869,8 +868,7 @@
 	//# reset sequence single channel use ALL knob in edit mode. notes to reset to per seq_ch		
 	reset_all_channels=TRUE
  	if reset_type=0 //# Reset scene
-	  //# Reset scene: Duration, Txpose, Preset, modes for ch's 1-4, out ch's ON1-4, pgm_chg_msg
-	  scene_durs[last_pad] = 0
+		scene_durs[last_pad] = 0
 	  pattn_slot = (last_pad * 8)
 		pattn_durs[current_scene*8] = [0,0,0,0,0,0,0,0]
 		paste_slot=(last_pad*128)
@@ -891,11 +889,21 @@
 		num_ptns_with_dur[current_scene]=last_pad-8-1 //RND only selects pattns before deleted pattn
  	elseif reset_type=2 //# reset seq step
  		paste_slot=(current_scene*128)+(current_pattn*16)+last_pad
+		reset_slot=(current_scene*128)+(current_pattn*16)+last_pad
 		steps_to_copy=1
 		if label_view_mode=4 //#copypaste seq_ch only
 			reset_all_channels=FALSE
 		endif
- 	endif 	
+ 	endif
+	//reset the pattern trigger sequence slots...
+	FillArray a0_pattns[reset_slot], -1, steps_to_copy 
+	FillArray a1_pattns[reset_slot], -1, steps_to_copy
+	FillArray a2_pattns[reset_slot], -1, steps_to_copy
+	FillArray a3_pattns[reset_slot], -1, steps_to_copy
+	FillArray a4_pattns[reset_slot], -1, steps_to_copy
+	FillArray a5_pattns[reset_slot], -1, steps_to_copy
+	FillArray a6_pattns[reset_slot], -1, steps_to_copy
+	FillArray a7_pattns[reset_slot], -1, steps_to_copy
 	Call @SetupLayout
 @End
 
@@ -909,7 +917,7 @@
 		copy_slot=(copied_scene*128)
 		paste_slot=(last_pad*128)
 		steps_to_copy=(16*8)
-		for i = 0 to 3
+		for i = 0 to 7
 			copy_seq_ch=i
 			Call @CopySequencePad
 			paste_seq_ch=i
@@ -928,7 +936,7 @@
 		copy_slot=(copied_scene*128)+(copied_pattn*16)
 		paste_slot=(current_scene*128)+((last_pad-8)*16)
 		steps_to_copy=16
-		for i = 0 to 3
+		for i = 0 to 7
 			copy_seq_ch=i
 			Call @CopySequencePad
 			paste_seq_ch=i
@@ -948,7 +956,7 @@
 			paste_seq_ch=seq_ch
 			Call @PasteSequencePad
 		elseif label_view_mode=5 //# copypaste all seq_chs
-			for i = 0 to 3
+			for i = 0 to 7
 				copy_seq_ch=i
 				Call @CopySequencePad
 				paste_seq_ch=i
@@ -987,6 +995,14 @@
 		CopyArray a2_pattns[copy_slot], copied_seq_patts, steps_to_copy
 	elseif copy_seq_ch=3 //# copy...
 		CopyArray a3_pattns[copy_slot], copied_seq_patts, steps_to_copy
+	elseif copy_seq_ch=4 //# copy...
+		CopyArray a4_pattns[copy_slot], copied_seq_patts, steps_to_copy
+	elseif copy_seq_ch=5 //# copy...
+		CopyArray a5_pattns[copy_slot], copied_seq_patts, steps_to_copy
+	elseif copy_seq_ch=6 //# copy...
+		CopyArray a6_pattns[copy_slot], copied_seq_patts, steps_to_copy
+	elseif copy_seq_ch=7 //# copy...
+		CopyArray a7_pattns[copy_slot], copied_seq_patts, steps_to_copy
 	endif
 @End
 
@@ -1000,6 +1016,14 @@
 		CopyArray copied_seq_patts, a2_pattns[paste_slot], steps_to_copy
 	elseif paste_seq_ch=3
 		CopyArray copied_seq_patts, a3_pattns[paste_slot], steps_to_copy
+	elseif paste_seq_ch=4
+		CopyArray copied_seq_patts, a4_pattns[paste_slot], steps_to_copy
+	elseif paste_seq_ch=5
+		CopyArray copied_seq_patts, a5_pattns[paste_slot], steps_to_copy
+	elseif paste_seq_ch=6
+		CopyArray copied_seq_patts, a6_pattns[paste_slot], steps_to_copy
+	elseif paste_seq_ch=7
+		CopyArray copied_seq_patts, a7_pattns[paste_slot], steps_to_copy
 	endif
 @End
 
