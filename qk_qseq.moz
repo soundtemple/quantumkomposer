@@ -97,10 +97,10 @@
 	pattn_durs[0]=4 //# Pattern durations in beats
 	FillArray t_note_offsets, 0, 8  //Switching between Atom and Helium as destinations per channel
 	tn_offset_val=[0,60,0] //Atom from note0, Helium from note60, DComp from note0
-  FillArray sequence_lengths, 4, 16 //sequence lengths for all channels (using4 cater for16) must match pattern
-	FillArray chan_max_patterns, 16, 16
-	FillArray chan_mute_states, FALSE, 16 //default state for a channel is unmuted 0
-	FillArray chan_launch_states, TRUE, 16 //default state for a channel is launched 1
+  FillArray sequence_lengths, 4, 8 //sequence lengths for all channels 
+	FillArray chan_max_patterns, 16, 8
+	FillArray chan_mute_states, FALSE, 8 //default state for a channel is unmuted 0
+	FillArray chan_launch_states, TRUE, 8 //default state for a channel is launched 1
 	quick_config=4 //see @QuickConfig
 	Call @QuickConfig
 	
@@ -1152,6 +1152,11 @@
    	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
 		if val <> t_note_offsets[seq_ch]
 			t_note_offsets[seq_ch] = val
+			if t_note_offsets[seq_ch] = 1 //helium only 12 remote loops
+				chan_max_patterns[seq_ch] = 12
+			else
+			  chan_max_patterns[seeq_ch] = 16
+			endif
 			Call @LabelKnobSet2
 		endif
 	endif	
