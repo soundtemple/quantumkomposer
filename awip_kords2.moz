@@ -219,6 +219,7 @@
 	//# In AUM getting HostBeat to start on 0 seems flaky
 	//# Fixed by BramBos in June2020
 	//Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
+	Call @SetChordScale 
 	if (HostBeat = 0) and (HostBar = 0)
 		//# starting playback from beginning		
 		chord_beat_count = -1
@@ -395,6 +396,7 @@
 			current_chord=rnd_chrd //if rnd_chrd has duration
 		endif
 	endif
+	Call @SetChordScale
   chord_beat_count = 0 //# reset chord beat count on new chord
 	if update_held_notes_on_chord_change
 		//turn off held notes over chord change and re-trigger melody and harmony channel notes
@@ -895,7 +897,8 @@
 	//note_to_send=oct_out+note_out
 @End
 @SetChordScale
-	CopyArray all_chord_scales[chord_slot], current_chord_scale, 12
+	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
+	CopyArray all_chord_scales[chord_scale_slot], current_chord_scale, 12
 @End
 
 @OnMidiNoteOn
@@ -953,7 +956,12 @@
 @End
 
 @SendOutChordNotes
-	//# Send out chord notes based on Midi OUT Channel settings
+	//# Send out all 4 chord notes when midi_chan_mode = 2 //CHORD 
+	cn1=current_chord_scale[0]
+	cn2=current_chord_scale[4]
+	cn3=current_chord_scale[7]
+	cn4=current_chord_scale[11]
+
 	//# Also send out chord notes if chord pad pressed when HostStopped
 	chord_slot = (current_scene * 100) + (current_chord * 10)
 	
@@ -1012,6 +1020,7 @@
 			endif
 		endif
 	endfor	
+	Log {Compare Old: [}, chord_root,{-},chord_3rd,{-},chord_5th,{-},chord_7th,{] New: [},cn1,{-},cn2,{-},cn3,{-},cn4,{]}, {DIFF: [},chord_root-cn1,{-},chord_3rd-cn2,{-},chord_5th-cn3,{-},chord_7th-cn4,{]}
 @End
 
 @TurnOffChordNotes
@@ -1026,7 +1035,21 @@
 @End
 
 @ConvertToHarmonyNotes
-	
+	//convet to harmony notes using current chord scale
+	if midi_chan_modes[MIDIChannel]=0 //MUTE
+		note_to_send=-1 
+	elseif midi_chan_modes[MIDIChannel]=1 //HARMONIZE
+		note_in=MIDINote%12
+		oct_in=Div MIDINote, 12
+		note_out=current_chord_scale[note_in]
+		oct_out=(oct_in*12)-60
+		note_to_send=oct_out+note_out
+	elseif midi_chan_modes[MIDIChannel]=2	//MUTE
+		note_to_send=1234
+	elseif midi_chan_modes[MIDIChannel]=3	//THRU
+		note_to_send=MIDINote
+	endif 
+
 	if (sc_harm_mode = 7) 
 		//# ignore conversion in thru mode
 		SetNoteState melody_note_ch, midi_note, midi_note
@@ -1203,6 +1226,7 @@
 			endif
 	    SendMIDINoteOn melody_note_ch, HAR_NOTE_OUT, velocity  
 			//Log {Melody note sent CH},MIDIChannel, { - }, HAR_NOTE_OUT, { HBEAT:}, HostBeat, { HBAR:}, HostBar
+			Log {MakeScale: }, note_to_send, { Old: }, HAR_NOTE_OUT, { DIFF: }, note_to_send - HAR_NOTE_OUT
 		endif
 	endif
 @End
@@ -2018,7 +2042,7 @@
 	//Midi channel modes - MUTE-HARMONIZE-CHORD-THRU
 	knob_set = 3
 	SetKnobValue 0, TranslateScale midi_channel, 0, 15, 0, 127
-	SetKnobValue 1, TranslateScale midi_chan_modes, 0, 3, 0, 127
+	SetKnobValue 1, TranslateScale midi_chan_modes[midi_channel], 0, 3, 0, 127
 	SetKnobValue 2, TranslateScale set_all_mc_to, 0, 4, 0, 127
 	Call @LabelKnobset3
 @End
@@ -2029,6 +2053,7 @@
   	if val <> midi_channel
 			midi_channel = val
 			Call @LabelKnobset3
+			SetKnobValue 1, TranslateScale midi_chan_modes[midi_channel], 0, 3, 0, 127
 		endif
   elseif last_knob = 1
   	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
