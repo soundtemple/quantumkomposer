@@ -75,6 +75,7 @@
 	move_all=0 //boolean to move all or move 1 in step edit
 	move_all_dir=0 //direction for all to move in step edit mode
 	last_pad=0
+	sel_pad_type=1 //for labelling and colouring sequence pads
 @End
 
 @SetupSequences
@@ -1880,7 +1881,7 @@
 			CopyArray new_steps, seq3_steps[step_slot], 16	
 		endif
 	endif
-	CopyArray new_steps, n, 16
+	// CopyArray new_steps, n, 16
 	// Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]
 	Call @LabelAllSequencePads
 @end

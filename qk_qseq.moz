@@ -54,9 +54,7 @@
 	pattn_duration = 0
 	seq_ch=0 //# the sequence lane 0-3 
 	seq_type=3 //# sequence lane to edit. Step, Note, Velo, CC
-	label_style=4 //#0-3 seq_types, 4 all_seq_type_sel_ch, 5_all_ch's_al_seq's
-	label_view_mode=4 //# A toggle for the settings pad. 4 or 5. Updates label_style also
-  num_ch_names=23 //the number of labels we have for nameing a channel
+	num_ch_names=23 //the number of labels we have for nameing a channel
 	step_val=0
   copy_paste_status=0 //# Copy paste 0=off; 1=Copied; 2=Paste
   return_to_mode=0 //# Copy paste on completion
@@ -68,6 +66,7 @@
 	move_all=0 //boolean to move all or move 1 in step edit
 	move_all_dir=0 //direction for all to move in step edit mode
 	last_pad=0
+	sel_pad_type=1 //for labelling and colouring sequence pads
 @End
 
 @SetupSequences
@@ -95,11 +94,12 @@
 	def_sequence_rate=4 //index to pulses_per_note ie 1 bar per step 
 	//initial values
 	pattn_durs[0]=4 //# Pattern durations in beats
-	FillArray t_note_offsets, 0, 8  //Switching between Atom and Helium as destinations per channel
-	tn_offset_val=[0,60,0] //Atom from note0, Helium from note60, DComp from note0
+	FillArray destinations, 0, 8  //Switching between LK, DC, Atom and Helium as destinations per channel
+	trig_note_offset=[0,0,60,0] //LK from note0, Atom from note0, Helium from note60, DComp from note0
   FillArray sequence_lengths, 4, 8 //sequence lengths for all channels 
 	FillArray chan_max_patterns, 16, 8
 	FillArray chan_mute_states, FALSE, 8 //default state for a channel is unmuted 0
+	FillArray chan_solo_states, FALSE, 8 //default state for a channel is unmuted 0
 	FillArray chan_launch_states, TRUE, 8 //default state for a channel is launched 1
 	quick_config=4 //see @QuickConfig
 	Call @QuickConfig
@@ -175,46 +175,46 @@
 
 @TriggerPattern
 	step_slot=(current_scene*128)+(current_pattn*16)+curr_steps[ch]
-	offset = tn_offset_val[t_note_offsets[ch]]
+	offset = trig_note_offset[destinations[ch]]
 	if ch=0
 		if a0_pattns[step_slot] >= 0
-			SendMIDINoteOn 0, a0_pattns[step_slot] + offset, 127
-			SendMIDINoteOff 0, a0_pattns[step_slot] + offset, 64, 100
+			SendMIDINoteOn ch, a0_pattns[step_slot] + offset, 127
+			SendMIDINoteOff ch, a0_pattns[step_slot] + offset, 64, 100
 		endif
 	elseif ch=1
 		if a1_pattns[step_slot] >= 0
-			SendMIDINoteOn 0, a1_pattns[step_slot] + offset, 127
-			SendMIDINoteOff 0, a1_pattns[step_slot] + offset, 64, 100
+			SendMIDINoteOn ch, a1_pattns[step_slot] + offset, 127
+			SendMIDINoteOff ch, a1_pattns[step_slot] + offset, 64, 100
 		endif
 	elseif ch=2
 		if a2_pattns[step_slot] >= 0
-			SendMIDINoteOn 0, a2_pattns[step_slot] + offset, 127
-			SendMIDINoteOff 0, a2_pattns[step_slot] + offset, 64, 100
+			SendMIDINoteOn ch, a2_pattns[step_slot] + offset, 127
+			SendMIDINoteOff ch, a2_pattns[step_slot] + offset, 64, 100
 		endif
 	elseif ch=3
 		if a3_pattns[step_slot] >= 0
-			SendMIDINoteOn 0, a3_pattns[step_slot] + offset, 127
-			SendMIDINoteOff 0, a3_pattns[step_slot] + offset, 64, 100
+			SendMIDINoteOn ch, a3_pattns[step_slot] + offset, 127
+			SendMIDINoteOff ch, a3_pattns[step_slot] + offset, 64, 100
 		endif
 	elseif ch=4
 		if a4_pattns[step_slot] >= 0
-			SendMIDINoteOn 0, a4_pattns[step_slot] + offset, 127
-			SendMIDINoteOff 0, a4_pattns[step_slot] + offset, 64, 100
+			SendMIDINoteOn ch, a4_pattns[step_slot] + offset, 127
+			SendMIDINoteOff ch, a4_pattns[step_slot] + offset, 64, 100
 		endif
 	elseif ch=5
 		if a5_pattns[step_slot] >= 0
-	  	SendMIDINoteOn 0, a5_pattns[step_slot] + offset, 127
-			SendMIDINoteOff 0, a5_pattns[step_slot] + offset, 64, 100
+	  	SendMIDINoteOn ch, a5_pattns[step_slot] + offset, 127
+			SendMIDINoteOff ch, a5_pattns[step_slot] + offset, 64, 100
 		endif
 	elseif ch=6
 		if a6_pattns[step_slot] >= 0
-		  SendMIDINoteOn 0, a6_pattns[step_slot] + offset, 127
-			SendMIDINoteOff 0, a6_pattns[step_slot] + offset, 64, 100
+		  SendMIDINoteOn ch, a6_pattns[step_slot] + offset, 127
+			SendMIDINoteOff ch, a6_pattns[step_slot] + offset, 64, 100
 		endif
 	elseif ch=7
 		if a7_pattns[step_slot] >= 0
-			SendMIDINoteOn 0, a7_pattns[step_slot] + offset, 127
-			SendMIDINoteOff 0, a7_pattns[step_slot] + offset, 64, 100
+			SendMIDINoteOn ch, a7_pattns[step_slot] + offset, 127
+			SendMIDINoteOff ch, a7_pattns[step_slot] + offset, 64, 100
 		endif
 	endif	
 @End
@@ -351,9 +351,9 @@
 			Call @SetupLayout
 			Call @SetupKnobset0
 			Call @OnPadDown_KnobSetSelect
-		elseif last_pad=2 or last_pad=5
+		elseif last_pad=2 or last_pad=5 or last_pad=12 or last_pad=13
 			Exit //# Not in use
-		elseif (last_pad>=3 and last_pad<=5) or (last_pad=14 or last_pad=15)
+		elseif (last_pad>=3 and last_pad<=5) or (last_pad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
 			Call @HandleSettingsModeActions
 		elseif (last_pad=6) and not (mode=9 or mode=11 or mode<=1)
@@ -362,15 +362,12 @@
 			Exit //# DELETE not allowed
 		elseif last_pad=8 or last_pad=9 or last_pad=10
 			Call @HandleGuiRequest // Show/Hide GUI, Mute, Launch
-		elseif (last_pad=11 or last_pad=12 or last_pad=13)
+		elseif (last_pad=11 or last_pad=14)
 			if last_pad = 11
 				mode=9 
 	      Call @SetupKnobset5 //# SEQUENCE STEPS EDIT
-			elseif last_pad = 12
-	    	mode=10  //PERFORM TRIGGER PATTERNS IN SEQUENCE MODE 
-				LabelPads {IMPLEMENT ME} 
-			elseif last_pad = 13
-				mode=12
+			elseif last_pad = 14
+				mode=14
 	      Call @SetupKnobset9 //# ROTATION
 	    endif
 	    in_mode_select = FALSE
@@ -429,16 +426,7 @@
 	for i = 0 to 15
 		LatchPad mode, NO
 	endfor
-	if last_pad=15 //# toggle label view mode
-		if label_view_mode=5
-			label_view_mode=4
-		else
-			label_view_mode=5
-		endif
-		label_style=label_view_mode
-		Call @SetupSettingsLayout
-		FlashPad 15
-	elseif last_pad=14
+	if last_pad=15
 		Call @ReverseSequence
 		in_mode_select=FALSE
 		in_seq_mode=TRUE
@@ -478,7 +466,7 @@
 	rbl=21
 	slm=22
 	tng=23
-	//t_note_offsets: atom=0 heliumm=1 drum computer=2
+	//destinations: lk=0 atom=1 helium=2 drum computer=3
 	//Channel name for each of the ATOMS to be sequenced	 
 	quick_config = quick_config+1
 	if quick_config > 3
@@ -486,16 +474,16 @@
 	endif
 	if quick_config=0
 		ch_names=[kit, ska, fxs, bss,   led, arp, plk, har]
-		t_note_offsets=[2,0,0,0, 0,0,0,0]
+		destinations=[3,0,0,0, 0,0,0,0]
 	elseif quick_config=1
 		ch_names=[kik, snr, hat, cym,   ska, tng, prc, fxs]
-		t_note_offsets=[0,0,0,0, 0,0,0,0]
+		destinations=[0,0,0,0, 0,0,0,0]
 	elseif quick_config=2
 		ch_names=[bss, bss, led, led,   pad, plk, arp, key]
-		t_note_offsets=[0,0,0,0, 0,0,0,0]
+		destinations=[0,0,0,0, 0,0,0,0]
 	elseif quick_config=3
 		ch_names=[kit, ska, bss, bss,   led, led, plk, har]
-		t_note_offsets=[2,0,0,0, 0,0,0,0]
+		destinations=[3,0,0,0, 0,0,0,0]
 	endif	
 	Call @SetupSettingsLayout
 @End
@@ -609,17 +597,15 @@
 		else 
 			move_all_dir=0
 		endif
-	elseif (mode>=10 and mode<=13)
-		if mode=12 //rotate sequence
-			if last_pad=14
-				rot_dir=-1
-			elseif last_pad=15
-				rot_dir=1
-			else 
-				rot_dir=0
-			endif
-			Call @RotateSequence
-		endif 
+	elseif mode=14
+		if last_pad=14
+			rot_dir=-1
+		elseif last_pad=15
+			rot_dir=1
+		else 
+			rot_dir=0
+		endif
+		Call @RotateSequence	
 	elseif (mode = 6) //# COPY/PASTE
   	copy_paste_status=2 //# PASTE
   	Call @CopyPaste
@@ -665,7 +651,7 @@
   elseif (NOT in_mode_select) and in_seq_mode
 		if mode=9
   		Call @SetupKnobset5
-		elseif mode=12
+		elseif mode=14
   		Call @SetupKnobset9 //# ROTATION
   	elseif mode=6 and return_to_mode=9
   		Call @SetupKnobset5 //# EDIT
@@ -674,7 +660,7 @@
   		Call @SetupKnobset5 //# EDIT
   	endif
   elseif in_mode_select
-		if last_pad = 4
+		if last_pad=3 or last_pad=4
       Call @SetupKnobset2 //# SETUP CHANNELS
 		else
 		  Call @SetupKnobset99 //settings knobset
@@ -695,8 +681,12 @@
 
 @HandleGuiRequest
 	if last_pad=8 //GUI TOGGLE
-		SendMIDICC seq_ch, 101, 127
-	elseif last_pad=9 //LAUNCH MODE TOGGLE
+		if destinations[seq_ch]=0 or destinations[seq_ch]=3 //LK or D.Comp	
+			SendMIDICC 0, 101, 127 //only one gui for all sequence channels
+		else
+		  SendMIDICC seq_ch, 101, 127
+		endif
+	elseif last_pad=9 and destinations[seq_ch]=1 or last_pad=9 and destinations[seq_ch]=2 //LAUNCH MODE TOGGLE
 		chan_launch_states[seq_ch] = not chan_launch_states[seq_ch]
 		if chan_launch_states[seq_ch]
 			val=127
@@ -704,7 +694,15 @@
 		  val=0
 		endif
 		SendMIDICC seq_ch, 102, val
-	elseif last_pad=10 //MUTE TOGGLE
+	elseif last_pad=9 and destinations[seq_ch] = 0//SOLO MODE TOGGLE LK
+		chan_solo_states[seq_ch] = not chan_solo_states[seq_ch]
+		if chan_solo_states[seq_ch]
+			val=127
+		else
+		  val=0
+		endif
+		SendMIDICC seq_ch, 102, val
+	elseif last_pad=10 and destinations[seq_ch] <> 3 //MUTE TOGGLE except D.Comp
 		chan_mute_states[seq_ch] = not chan_mute_states[seq_ch]
 		if chan_mute_states[seq_ch]
 			val=127
@@ -841,33 +839,24 @@
 @End
 
 @ReverseSequence //# reverse a sequence
-	start_ch=0
-	end_ch=3
-	if label_style=4 //# only reverse current channel
-		start_ch=seq_ch
-		end_ch=seq_ch
-	endif
-	for ch = start_ch to end_ch
-		copy_seq_ch=ch
-		paste_seq_ch=ch
-		steps_to_copy=16 //# Copy all 16 steps to temp arrays
-		copy_slot=(current_scene*128)+(current_pattn*16)
-		Call @CopySequencePad
-		temp_patts=[]		
-		CopyArray copied_seq_patts, temp_patts, 16
-		steps_to_copy=1
-		for i = 0 to sequence_lengths[copy_slot]-1 //# Paste steps in reverse one by one
-			paste_slot=(current_scene*128)+(current_pattn*16) + (sequence_lengths[copy_slot]-1-i)	
-			copied_seq_patts = [temp_patts[i]]
-			Call @PasteSequencePad
-		endfor
+	copy_seq_ch=seq_ch
+	paste_seq_ch=seq_ch
+	steps_to_copy=16 //# Copy all 16 steps to temp arrays
+	copy_slot=(current_scene*128)+(current_pattn*16)
+	Call @CopySequencePad
+	temp_patts=[]		
+	CopyArray copied_seq_patts, temp_patts, 16
+	steps_to_copy=1
+	for i = 0 to sequence_lengths[copy_slot]-1 //# Paste steps in reverse one by one
+		paste_slot=(current_scene*128)+(current_pattn*16) + (sequence_lengths[copy_slot]-1-i)	
+		copied_seq_patts = [temp_patts[i]]
+		Call @PasteSequencePad
 	endfor
 @End
 
 @ResetScenePatternSequence //# handle reset of a scene, pattern or sequence step
 	//# reset sequence single channel use ALL knob in edit mode. notes to reset to per seq_ch		
-	reset_all_channels=TRUE
- 	if reset_type=0 //# Reset scene
+	if reset_type=0 //# Reset scene
 		scene_durs[last_pad] = 0
 	  pattn_slot = (last_pad * 8)
 		pattn_durs[current_scene*8] = [0,0,0,0,0,0,0,0]
@@ -891,9 +880,6 @@
  		paste_slot=(current_scene*128)+(current_pattn*16)+last_pad
 		reset_slot=(current_scene*128)+(current_pattn*16)+last_pad
 		steps_to_copy=1
-		if label_view_mode=4 //#copypaste seq_ch only
-			reset_all_channels=FALSE
-		endif
  	endif
 	//reset the pattern trigger sequence slots...
 	FillArray a0_pattns[reset_slot], -1, steps_to_copy 
@@ -950,19 +936,10 @@
 		copy_slot=(current_scene*128)+(current_pattn*16)+copied_seq_pad
 		paste_slot=(current_scene*128)+(current_pattn*16)+last_pad
 		steps_to_copy=1
-		if label_view_mode=4 //#copypaste seq_ch only
-			copy_seq_ch=copied_ch
-			Call @CopySequencePad
-			paste_seq_ch=seq_ch
-			Call @PasteSequencePad
-		elseif label_view_mode=5 //# copypaste all seq_chs
-			for i = 0 to 7
-				copy_seq_ch=i
-				Call @CopySequencePad
-				paste_seq_ch=i
-				Call @PasteSequencePad
-			endfor
-		endif
+		copy_seq_ch=copied_ch
+		Call @CopySequencePad
+		paste_seq_ch=seq_ch
+		Call @PasteSequencePad
 	elseif in_seq_mode and return_to_mode=11 //# Seq mode copy all 16 steps
 		copy_slot=(current_scene*128)+(current_pattn*16)
 		paste_slot=(current_scene*128)+(current_pattn*16)
@@ -1158,30 +1135,36 @@
 @End
 @KnobChangeSet2
 	// SETUP 8 SEQUENCE CHANNELS
-	if last_knob = 0 
+	if last_knob = 0 //the sequence channel to edit
     val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
 		if val <> seq_ch
 			seq_ch = val
 			Call @LabelKnobSet2
 			label_chan=seq_ch
 			Call @LabelChannel
+			Call @LabelDestinationInfoPads
+			Call @UpdateSettingsPadColors
 		endif
 	elseif last_knob = 1 
    	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_ch_names
 		if val <> ch_names[seq_ch]
 			ch_names[seq_ch] = val
 			Call @LabelKnobSet2
+			label_chan=seq_ch
+			Call @LabelChannel
 		endif
-	elseif last_knob = 2
-   	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
-		if val <> t_note_offsets[seq_ch]
-			t_note_offsets[seq_ch] = val
-			if t_note_offsets[seq_ch] = 1 //helium only 12 remote loops
+	elseif last_knob = 2 //the destination the note trigger will go to
+   	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 3
+		if val <> destinations[seq_ch]
+			destinations[seq_ch] = val
+			if destinations[seq_ch] = 1 //helium only 12 remote loops
 				chan_max_patterns[seq_ch] = 12
 			else
-			  chan_max_patterns[seeq_ch] = 16
+			  chan_max_patterns[seq_ch] = 16
 			endif
 			Call @LabelKnobSet2
+			Call @LabelDestinationInfoPads
+			Call @UpdateSettingsPadColors
 		endif
 	endif	
 @End
@@ -1189,17 +1172,19 @@
 	LabelKnobs {SETUP CHANNELS} 
   LabelKnob 0, {CH: }, seq_ch+1
   LabelKnob 1, {NAME: }, ch_names[seq_ch]+1
-	if t_note_offsets[seq_ch]=1
-	  LabelKnob 2, {TO: Helium} 
-	elseif t_note_offsets[seq_ch]=2
+	if destinations[seq_ch]=1
+	  LabelKnob 2, {TO: Atom} 
+	elseif destinations[seq_ch]=2
+	  LabelKnob 2, {TO: Helium}
+	elseif destinations[seq_ch]=3
 	  LabelKnob 2, {TO: DComp}
 	else
-	  LabelKnob 2, {TO: Atom}
+	  LabelKnob 2, {TO: LK}
 	endif
   LabelKnob 3, { }
 	SetKnobValue 0, TranslateScale seq_ch, 0, 7, 0, 127
   SetKnobValue 1, TranslateScale ch_names[seq_ch], 0, num_ch_names, 0, 127
-  SetKnobValue 2, TranslateScale t_note_offsets[seq_ch], 0, 2, 0, 127
+  SetKnobValue 2, TranslateScale destinations[seq_ch], 0, 3, 0, 127
   SetKnobValue 3, 0
   CopyArray  ch_names, n, 8
 	LabelPads {Select a name for each channel...}
@@ -1344,53 +1329,77 @@
 			a2_pattns[slot] = Clip (a2_pattns[slot]+ move_all_dir), -1, 127
 		elseif seq_ch=3
 			a3_pattns[slot] = Clip (a3_pattns[slot]+ move_all_dir), -1, 127
+		elseif seq_ch=4
+			a4_pattns[slot] = Clip (a4_pattns[slot]+ move_all_dir), -1, 127
+		elseif seq_ch=5
+			a5_pattns[slot] = Clip (a5_pattns[slot]+ move_all_dir), -1, 127
+		elseif seq_ch=6
+			a6_pattns[slot] = Clip (a6_pattns[slot]+ move_all_dir), -1, 127
+		elseif seq_ch=7
+			a7_pattns[slot] = Clip (a7_pattns[slot]+ move_all_dir), -1, 127
 		endif
 	endfor
-	label_style=seq_type
 	Call @LabelAllSequencePads
 @End
 
 @RotateSequence //# rotate a selected sequence. requires args rotation(-1 or +1), old_seq
 	step_slot=(current_scene*128)+(current_pattn*16)
-	FillArray old_patts, 0, 16
-	FillArray new_patts, 0, 16
+	seq_length = sequence_lengths[step_slot + seq_ch]
+	FillArray old_patts, 0, seq_length
+	FillArray new_patts, 0, seq_length
 	if seq_ch=0
-		CopyArray a0_pattns[step_slot], old_patts, 16
+		CopyArray a0_pattns[step_slot], old_patts, seq_length
 	elseif seq_ch=1
-		CopyArray a1_pattns[step_slot], old_patts, 16
+		CopyArray a1_pattns[step_slot], old_patts, seq_length
 	elseif seq_ch=2
-		CopyArray a2_pattns[step_slot], old_patts, 16
+		CopyArray a2_pattns[step_slot], old_patts, seq_length
 	elseif seq_ch=3
-		CopyArray a3_pattns[step_slot], old_patts, 16
+		CopyArray a3_pattns[step_slot], old_patts, seq_length
+	elseif seq_ch=4
+		CopyArray a4_pattns[step_slot], old_patts, seq_length
+	elseif seq_ch=5
+		CopyArray a5_pattns[step_slot], old_patts, seq_length
+	elseif seq_ch=6
+		CopyArray a6_pattns[step_slot], old_patts, seq_length
+	elseif seq_ch=7
+		CopyArray a7_pattns[step_slot], old_patts, seq_length
 	endif
-	for i = 0 to 15
+	for i = 0 to seq_length-1
 		if rot_dir=-1
-			old_index=(i+1)%16
+			old_index=(i+1)%seq_length
 		elseif rot_dir=1
 			old_index=i-1
 			if old_index<0
-				old_index=15
+				old_index=seq_length-1
 			endif
 		endif
-		new_patts[i]   = old_patts[old_index]
+		new_patts[i] = old_patts[old_index]
 	endfor
 	if seq_ch=0
-		CopyArray new_patts, a0_pattns[step_slot], 16
+		CopyArray new_patts, a0_pattns[step_slot], seq_length
 	elseif seq_ch=1
-		CopyArray new_patts, a1_pattns[step_slot], 16
+		CopyArray new_patts, a1_pattns[step_slot], seq_length
 	elseif seq_ch=2
-		CopyArray new_patts, a2_pattns[step_slot], 16
+		CopyArray new_patts, a2_pattns[step_slot], seq_length
 	elseif seq_ch=3
-		CopyArray new_patts, a3_pattns[step_slot], 16
+		CopyArray new_patts, a3_pattns[step_slot], seq_length
+	elseif seq_ch=4
+		CopyArray new_patts, a4_pattns[step_slot], seq_length
+	elseif seq_ch=5
+		CopyArray new_patts, a5_pattns[step_slot], seq_length
+	elseif seq_ch=6
+		CopyArray new_patts, a6_pattns[step_slot], seq_length
+	elseif seq_ch=7
+		CopyArray new_patts, a7_pattns[step_slot], seq_length
 	endif
-	CopyArray new_steps, n, 16
-	// Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]
+	//CopyArray new_steps, n, seq_length
+	//Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]
 	Call @LabelAllSequencePads
 @end
 
 @SetupKnobset9 //# ROTATION
   knob_set = 9
-  SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
+  SetKnobValue 0, TranslateScale seq_ch, 0, 7, 0, 127
   SetKnobValue 1, 0
   SetKnobValue 2, TranslateScale rot_dir, -1, 1, 0, 127
   SetKnobValue 3, 0
@@ -1401,7 +1410,7 @@
 @KnobChangeSet9
   //# ROTATION xs9
   if last_knob = 0
-    new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
+    new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
 		if new_seq_ch <> seq_ch
 			seq_ch=new_seq_ch
 			Call @LabelAllSequencePads
@@ -1426,6 +1435,7 @@
   else
   	LabelKnob 2, {ROT >>>}
 	endif
+	LabelKnob 1, { } //# not in use
 	LabelKnob 3, { } //# not in use
 @End
 
@@ -1506,36 +1516,68 @@
 	if (mode>=8 or mode<=1)
 		LabelPad 7, {DELETE  }
 	endif
-	LabelPad 8, { ___CH}, seq_ch+1, {___ }, {  >GUI }
-	if chan_launch_states[seq_ch]
-		ls=1	
-		LabelPad 9, { ___CH}, seq_ch+1, {___ }, {  >STOP }
-	else
-		ls=3
-		LabelPad 9, { ___CH}, seq_ch+1, {___ }, {  >LAUNCH }		
+	Call @LabelDestinationInfoPads //8,9,10
+	LabelPad 11, {SEQUENCE}
+	LabelPad 12, { } //not in use
+	LabelPad 13, { }
+	LabelPad 14, {ROTATE}
+	LabelPad 15, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
+	Call @UpdateSettingsPadColors
+	Call @SetupKnobset99 //settings knobs
+	label_chan=seq_ch
+	Call @LabelChannel
+@End
+
+@LabelDestinationInfoPads
+	if destinations[seq_ch]=1
+		LabelPad 8, { ___CH}, seq_ch+1, {___ }, {  >ATOM }, seq_ch+1
+		ds=3
+	elseif destinations[seq_ch]=2
+	  LabelPad 8, { ___CH}, seq_ch+1, {___ }, {  >HELIUM }, seq_ch+1
+		ds=1
+	elseif destinations[seq_ch]=3
+	  LabelPad 8, { ___GUI___ }, {  >D.COMP }
+		ds=6
+	else 
+		LabelPad 8, { ___GUI___ }, {  >LK }
+		ds=2
 	endif
-	if chan_mute_states[seq_ch]
-		ms=2
-		LabelPad 10, { ___CH}, seq_ch+1, {___ }, {  >UNMUTE }
-	else
-	  ms=0
-		LabelPad 10, { ___CH}, seq_ch+1, {___ }, {  >MUTE }
+	if destinations[seq_ch]=1 or destinations[seq_ch]=1 // launch state for Atom and Helium 
+		if chan_launch_states[seq_ch]
+			ls=1	
+			LabelPad 9, { ___CH}, seq_ch+1, {___ }, {  >STOP }
+		else
+			ls=3
+			LabelPad 9, { ___CH}, seq_ch+1, {___ }, {  >LAUNCH }		
+		endif
+	elseif destinations[seq_ch]=0 //show solo for LK
+		if chan_solo_states[seq_ch]
+			ls=4	
+			LabelPad 9, { ___CH}, seq_ch+1, {___ }, {  >UNSOLO }
+		else
+			ls=0
+			LabelPad 9, { ___CH}, seq_ch+1, {___ }, {  >SOLO }		
+		endif
+	else //drum computer
+		ls=0
+		LabelPad 9, { }
 	endif
-	LabelPad 11, {EDIT}
-	LabelPad 12, {PERFORM}
-	LabelPad 13, {ROTATE PATTERNS}
-	if label_view_mode=4
-		LabelPad 14, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
-	elseif label_view_mode=5
-		LabelPad 14, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CHS1-4}
+	if destinations[seq_ch]=3 // no mute for DCOMP
+		labelPad 10, { }
+		ms=0
+	else 
+		if chan_mute_states[seq_ch]
+			ms=2
+			LabelPad 10, { ___CH}, seq_ch+1, {___ }, {  >UNMUTE }
+		else
+		  ms=0
+			LabelPad 10, { ___CH}, seq_ch+1, {___ }, {  >MUTE }
+		endif
 	endif
-	LabelPad 15, { }
-	if label_view_mode=5
-		LabelPad 15, {PROCESS     }, {  ALL CH's}
-	elseif label_view_mode=4
-		LabelPad 15, {PROCESS     }, {  CH#}, seq_ch+1
-	endif
-	settings_pad_cols=[7,4,0,5,5,0,4,1, 0,ls,ms,4,4,2,1,2]	
+@End
+
+@UpdateSettingsPadColors
+	settings_pad_cols=[7,4,0,5,5,0,4,1, ds,ls,ms,4,0,0,2,1]	
 	for i = 0 to 15
 		ColorPad i, settings_pad_cols[i]
 		if mgen_device_id=mgen_sel_dev
@@ -1543,9 +1585,6 @@
 		endif
 		LatchPad i, NO 
 	endfor
-	Call @SetupKnobset99 //settings knobs
-	label_chan=seq_ch
-	Call @LabelChannel
 @End
 
 @LabelScenePad //# Set scn_to_label var before calling
@@ -1639,10 +1678,8 @@
 @SetupSeqLayout
 	//# sequence mode layout
 	if mode = 9
-		label_style=4
 	  Call @SetupKnobset5 //# SEQUENCE EDIT ALL TYPES
 	elseif mode = 12
-    label_style=4
 	  Call @SetupKnobset9 //# ROTATE
 	  LabelPads {ROTATE SEQUENCE: Select CH. Tap  <<pad15 or pad16>> to rotate.}
 	endif 
@@ -1672,7 +1709,7 @@
 	endif
 	//# Off pads past pattn length
 	if sel_pad >= pattn_length
-		padColor = 5
+		padColor = 6
 	endif
 	//# Selected step
 	if (sel_pad=sel_step) and mode=9 and seq_type<4
@@ -1696,7 +1733,7 @@
 	ap6=a6_pattns[step_slot]
 	ap7=a7_pattns[step_slot]
 	ap=[ap0, ap1, ap2, ap3, ap4, ap5, ap6, ap7]
-	nn=ap[seq_ch] + tn_offset_val[t_note_offsets[seq_ch]]
+	nn=ap[seq_ch] + trig_note_offset[destinations[seq_ch]]
 	if ap[seq_ch] >= 0
 		LabelPad sel_pad, { ___P}, ap[seq_ch]+1, {___ }, { ch}, seq_ch+1, { }, (NoteName nn, TRUE), { (}, nn, {)}
 	else

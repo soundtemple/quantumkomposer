@@ -90,6 +90,7 @@
 	rnd_ptn_chance=0 //% chance pattern change will be to a random one
 	num_scns_with_dur=0 //RND only selects scenes with duration
 	num_ptns_with_dur=[0,0,0,0, 0,0,0,0] //RND only selects patterns with duration per scene
+	sel_pad_type=1 //for labelling and colouring sequence pads
 @End
 
 @SetupSequences
@@ -1859,7 +1860,7 @@
 			CopyArray new_steps, seq3_steps[step_slot], 16	
 		endif
 	endif
-	CopyArray new_steps, n, 16
+	//CopyArray new_steps, n, 16
 	//# Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]
 	Call @LabelAllSequencePads
 @end
