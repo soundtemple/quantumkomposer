@@ -74,7 +74,7 @@
 	//# modes: Off, ChordOnly, Round2Chord,  NonChord, Bass, Root, 3rd, 5th, Thru
 	chrd_duration = 0
 	chrd_inversion = 0
-	chrd_bass = -1
+	chrd_bass = -1 //no longer used
 	slct_chord_root = 0 //# Select chord mode only
   slct_chord_type = 0 //# Select chord mode only
   slct_chord_inversion = 0 //# Select chord mode only
@@ -549,7 +549,7 @@
 		Call @SetupKnobset1
 		songmode = 0
 	elseif mode = 1
-		LabelPads {+CHORDS SELECT: Select chord, THEN set root, type, bass note}
+		LabelPads {+CHORDS SELECT: Select chord, THEN set root and type}
 		songmode = 2 //# Lock to chord
 		Call @SetupKnobset2
 	elseif mode = 2
@@ -801,11 +801,6 @@
 		chord_bank[chord_slot + inv_slot] = chrd_inversion
 		inv_updated = FALSE
 	endif
-	if bass_updated
-		chrd_bass = slct_chord_bass_note
-		chord_bank[chord_slot + bass_slot] =  chrd_bass
-		bass_updated = FALSE
-	endif	
 	chrd_to_label = current_chord+8
 	Call @LabelChordPad
 	Call @UpdateChordsWithDuration
@@ -814,8 +809,7 @@
 
 @SaveConstructedChordPad
 	//# save to pad in construct mode  			
-	chord_slot = (current_scene * 100) + ((current_chord) * 10) //# chord to be updated
-	
+	chord_slot = (current_scene * 100) + ((current_chord) * 10) //# chord to be updated	
 	//# Set fields not updated here. Default if new else saved
 	chrd_duration = 4 //# default value for new chord
 	if chord_bank[chord_slot + dur_slot] > 0
@@ -835,13 +829,13 @@
 	chord_bank[chord_slot + 1] = chord_3rd
 	chord_bank[chord_slot + 2] = chord_5th
 	chord_bank[chord_slot + 3] = chord_7th
-	chord_bank[chord_slot + bass_slot] = constructed_root
-	//Log {Root: }, (NoteName constructed_root), { 3rd: }, c3rd_intervals[constructed_3rd], { 5th: }, c5th_intervals[constructed_5th], { 7th: }, c7th_intervals[constructed_7th], { Chord notes }, constructed_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th, { 7th: }, chord_bank[chord_slot + 3], { BASS: }, chord_bank[chord_slot + bass_slot]
+	//Log {Root: }, (NoteName constructed_root), { 3rd: }, c3rd_intervals[constructed_3rd], { 5th: }, c5th_intervals[constructed_5th], { 7th: }, c7th_intervals[constructed_7th], { Chord notes }, constructed_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th, { 7th: }, chord_bank[chord_slot + 3]
 	chrd_to_label = current_chord+8
 	Call @LabelChordPad
 	Call @UpdateChordsWithDuration
 	Call @MakeChordScale
 @End
+
 @MakeChordScaleForWholeScene
 	real_current_chord=current_chord
 	for i = 0 to 7
@@ -850,6 +844,7 @@
 	endfor
 	current_chord=real_current_chord
 @End
+
 @MakeChordScale
 	//create a "chord scale" to make transposing incoming notes to chord notes and chords faster
 	chord_slot = (current_scene * 100) + ((current_chord) * 10) //# chord to be updated
@@ -857,7 +852,7 @@
 	chord_3rd = chord_bank[chord_slot + 1]
 	chord_5th = chord_bank[chord_slot + 2]
 	chord_7th = chord_bank[chord_slot + 3]
-	chord_bass = chord_root //not required but following functions need it
+	chord_bass = chord_root //not used anymore but following functions need it
 	Call @MakeChordNotesRawOctave
 	chrd_inversion = chord_bank[chord_slot + inv_slot]
 	inv_adj=0 //keeps A and A# notes in a relevant octave to rest of chord_scale
@@ -890,9 +885,8 @@
 	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
 	CopyArray chord_scale, all_chord_scales[chord_scale_slot], 12
 	CopyArray chord_scale, c, 12 //just for logging here
-	Log {TXPOSE AMT:}, scn_txpose
 	Log{Root:},c[0],{-},c[1],{-},c[2],{  3rd:},c[3],{-},c[4],{-},c[5],{  5th:},c[6],{-},c[7],{-},c[8],{  R9+:},c[9],{-},c[10],{  7th:},c[11]
-	
+		
 	//example note to send on incoming
 	//note_in=MIDINote%12
 	//oct_in=Div MIDINote, 12
@@ -948,7 +942,7 @@
 		else
 			last_pad = MIDINote-20
 			if MIDICommand=0x90 and MIDIByte3>0 //noteOn
-				Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mosaic
+				Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mozaic
 			elseif MIDICommand=0x90 and MIDIByte3=0
 				Call @OnPadUp2
 			elseif MIDICommand=0x80 //Note off
@@ -961,7 +955,6 @@
 @SendOutChordNotes
 	//# Send out chord notes based on Midi OUT Channel settings
 	//# Also send out chord notes if chord pad pressed when HostStopped
-	//# Basically send out chord notes when a chord changes
 	chord_slot = (current_scene * 100) + (current_chord * 10)
 	
 	//# Use a standardised octave for chord notes out
@@ -1033,6 +1026,7 @@
 @End
 
 @ConvertToHarmonyNotes
+	
 	if (sc_harm_mode = 7) 
 		//# ignore conversion in thru mode
 		SetNoteState melody_note_ch, midi_note, midi_note
@@ -1211,7 +1205,6 @@
 			//Log {Melody note sent CH},MIDIChannel, { - }, HAR_NOTE_OUT, { HBEAT:}, HostBeat, { HBAR:}, HostBar
 		endif
 	endif
-		 
 @End
 
 @GetIncomingNoteType
@@ -1254,10 +1247,8 @@
 @End
 
 @HandleInversionSetting
-	// +/- octaves to chord notes but keep positions aka root, 3rd, 5th, 7th. So incoming C always triggers chord root
-	//# the current inversion
+	//handle +/- octaves to chord notes and order by fixed R357 or ascending chord notes order
 	chrd_inversion = chord_bank[chord_slot + inv_slot]
-	
 	//# add octave in case inverting down goes below zero
 	cn1 = chord_root + 12
 	cn2 = chord_3rd + 12
@@ -1267,7 +1258,24 @@
 	else
 		cn4 = chord_7th
 	endif
-		
+	
+	if chord_notes_ascending
+		Call @HandleInversionSettingAscending
+	else
+		Call @HandleInversionSettingFixed
+	endif
+	//# Re-define chord notes based on inverted status
+	//# remove octave added above
+	chord_root = c_notes[0] - 12
+	chord_3rd = c_notes[1] - 12
+	chord_5th = c_notes[2] - 12
+	if chord_7th >= 0
+		chord_7th = c_notes[3] - 12
+	endif
+@End
+
+@HandleInversionSettingFixed
+	// CEGB correspond to R357 regardless of inversion		
 	if chrd_inversion = 1
 		cn1=cn1+12
 	elseif chrd_inversion = 2
@@ -1320,15 +1328,61 @@
 			cn1=cn1-12
 		endif
 	endif
-	//# Re-define chord notes based on inverted status
-	//# remove octave added above
-	chord_root = cn1 - 12
-	chord_3rd = cn2 - 12
-	chord_5th = cn3 - 12
-	if chord_7th >= 0
-		chord_7th = cn4 - 12
+	c_notes = [cn1, cn2, cn3, cn4]
+@End
+
+@HandleInversionSettingAscending
+	//# Harmony notes get re-ordered by inversion, so that the 'root' is the lowest note of the chord (say E) but not the chort root (say C) in CEG 1st inv. 
+	if chrd_inversion = 1
+		c_notes = [cn2, cn3, cn4, cn1+12]
+		if chord_7th = -1
+			c_notes = [cn2, cn3, cn1+12, cn4]
+		endif
+	endif
+	if chrd_inversion = 2
+		c_notes = [cn3, cn4, cn1+12, cn2+12]
+		if chord_7th = -1
+			c_notes = [cn3, cn1+12, cn2+12, cn4]
+		endif
+	endif
+	if chrd_inversion = 3
+		c_notes = [cn4, cn1+12, cn2+12, cn3+12]
+		if chord_7th = -1
+			c_notes = [cn1+12, cn2+12, cn3+12, cn4]
+		endif
+	endif
+	if chrd_inversion = 4
+		c_notes = [cn1+12, cn2+12, cn3+12, cn4+12]
+		if chord_7th = -1
+			c_notes = [cn1+12, cn2+12, cn3+12, cn4]
+		endif
+	endif
+	if chrd_inversion = -1
+		c_notes = [cn4-12, cn1, cn2, cn3]
+		if chord_7th = -1
+			c_notes = [cn3-12, cn1, cn2, cn4]
+		endif
+	endif
+	if chrd_inversion = -2
+		c_notes = [cn3-12, cn4-12, cn1, cn2]
+		if chord_7th = -1
+			c_notes = [cn2-12, cn3-12, cn1, cn4]
+		endif
+	endif
+	if chrd_inversion = -3
+		c_notes = [cn2-12, cn3-12, cn4-12, cn1]
+		if chord_7th = -1
+			c_notes = [cn1-12, cn2-12, cn3-12, cn4]
+		endif
+	endif
+	if chrd_inversion = -4
+		c_notes = [cn1-12, cn2-12, cn3-12, cn4-12]
+		if chord_7th = -1
+			c_notes = [cn1-12, cn2-12, cn3-12, cn4]
+		endif
 	endif
 @End
+
 
 @MakeChordNotesRawOctave
 	//# Set variabes chord_root, 3rd, 5th and 7th.
@@ -1671,11 +1725,7 @@
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	chrd_duration = chord_bank[chord_slot + dur_slot]
 	chrd_inversion = chord_bank[chord_slot + inv_slot]
-	chrd_bass = chord_bank[chord_slot + bass_slot]
 	chrd_sugg = chord_bank[chord_slot + sugg_slot]
-	if chrd_bass >= 0 //# leave -1 if not set
-		chrd_bass = chord_bank[chord_slot + bass_slot] % 12
-	endif
 	if mode = 3
 		LabelKnob 1, {REC CH }, midi_channels_used[0] + 1
 		SetKnobValue 1, TranslateScale midi_channels_used[0], 4, 11, 0, 127
@@ -1685,14 +1735,9 @@
 	endif
 	LabelKnob 0, {Duration}	
 	LabelKnob 2, {Inv }, chrd_inversion
-	if chrd_bass >= 0
-		LabelKnob 3, {Bass }, (NoteName chrd_bass)
-	else
-		LabelKnob 3, {Bass }, {Off}
-	endif
 	SetKnobValue 0, TranslateScale chrd_duration, 0, 127, 0, 127
 	SetKnobValue 2, TranslateScale chrd_inversion, -4, 4, 0, 127
-	SetKnobValue 3, TranslateScale chrd_bass, -1, 11, 0, 127
+	SetKnobValue 3, 0
 @End
 @KnobChangeSet1
 //# chord settings
@@ -1730,17 +1775,6 @@
 		  LabelKnob 2, {Inv }, chrd_inversion
 			Call @MakeChordScale
 	  endif 
-  endif
-  if last_knob = 3
-	  chrd_bass = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 11
-	 	if chrd_bass <> chord_bank[chord_slot + bass_slot] 
-		  chord_bank[chord_slot + bass_slot] = chrd_bass
-		  if chrd_bass >= 0
-			  LabelKnob 3, {Bass }, (NoteName chrd_bass)
-  		else
-  			LabelKnob 3, {Bass }, {Off}
-  		endif
-  	endif
   endif
   //# Knob 1 not used in this set
   chrd_to_label = current_chord+8
@@ -1780,28 +1814,24 @@
 	LabelKnob 0, {Root }, (NoteName slct_chord_root)
 	LabelKnob 1, {Type}
 	LabelKnob 2, {Inv }, slct_chord_inversion 
-	LabelKnob 3, {Bass }, (NoteName slct_chord_bass_note)
+	LabelKnob 3, { }
 	SetKnobValue 0, TranslateScale slct_chord_root, 0, 11, 0, 127
 	SetKnobValue 1, TranslateScale slct_chord_type, 0, num_chord_types-1, 0, 127
 	SetKnobValue 2, TranslateScale slct_chord_inversion, -4, 4, 0, 127
-	SetKnobValue 3, TranslateScale slct_chord_bass_note, -1, 11, 0, 127
+	SetKnobValue 3, 0
 	//# prevent updating values not changed
 	root_updated = FALSE
 	type_updated = FALSE
-	bass_updated = FALSE
 	inv_updated = FALSE
 @End
 @KnobChangeSet2
-	bass_updated = FALSE
 	inv_updated = FALSE
 	if last_knob = 0
 	  slct_chord_root = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
   	LabelKnob last_knob, {Root }, (NoteName slct_chord_root)
   	root_updated = TRUE
-		bass_updated = TRUE
 		slct_chord_bass_note = slct_chord_root
-		LabelKnob 3, {Bass }, (NoteName slct_chord_bass_note)
-  	Call @SaveSelectedChordPad
+		Call @SaveSelectedChordPad
   elseif last_knob = 1
   	slct_chord_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_chord_types-1
   	if slct_chord_type = 0
@@ -1834,11 +1864,6 @@
 	  LabelKnob last_knob, {Inv: }, slct_chord_inversion
 	  inv_updated = TRUE
 	  Call @SaveSelectedChordPad
-  elseif last_knob = 3
-	  slct_chord_bass_note = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 11
-  	LabelKnob last_knob, {Bass }, (NoteName slct_chord_bass_note)
-  	bass_updated = TRUE
-  	Call @SaveSelectedChordPad 
 	endif
 @End
 
@@ -2225,17 +2250,11 @@
 	cd_bars = Div cd, 4
 	lc_beats = (cd % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
 	ci = chord_bank[chord_slot + inv_slot]
-	if chord_bank[chord_slot + bass_slot] >= 0
-		cb = (chord_bank[chord_slot + bass_slot] + 12 + sta) % 12
-	else
-		cb = chord_bank[chord_slot + bass_slot] //# ie -1
-	endif
-	
 	Call @ReorderNoteLabelsForInversion
 	if cn4 >= 0 //# A tetrad witha a note i cn4 
-		LabelPad chrd_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}, { Inv:}, 	ci, {     Root:}, (NoteName cn1), {     Bass:}, (NoteName cb), {      }, (NoteName invo[0]), (NoteName invo[1]), (NoteName invo[2]), (NoteName invo[3])  
+		LabelPad chrd_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}, { Inv:}, 	ci, {     Root:}, (NoteName cn1), {      }, (NoteName invo[0]), (NoteName invo[1]), (NoteName invo[2]), (NoteName invo[3])  
 	else
-		LabelPad chrd_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}, { Inv:}, 	ci, {     Root:}, (NoteName cn1), {     Bass:}, (NoteName cb), {      }, (NoteName invo[0]), (NoteName invo[1]), (NoteName invo[2])
+		LabelPad chrd_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}, { Inv:}, 	ci, {     Root:}, (NoteName cn1), {      }, (NoteName invo[0]), (NoteName invo[1]), (NoteName invo[2])
 	endif
 @End
 
