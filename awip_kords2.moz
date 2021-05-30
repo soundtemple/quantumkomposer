@@ -23,14 +23,12 @@
 	  return_to_song_mode_requested = FALSE //# used for switching on new bar 
 	  rec_chord_note_count = 0 //# recording notes in chord slot
 	  use_turn_around = TRUE //# last chord as turn around on last bar of scene
-		allow_mel_harm_midi_ch_chg=FALSE //dangerous see sc_har1_slot see SendOutChordNotes
-	  //# used for LED feedback
+		//# used for LED feedback
 		last_pad=0 
 		mgen_device_id=8 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 	  led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
-		midi_channel_conflict = FALSE //# allowing midi OUT channel conflicts
-	  send_cc_back_to_knobs = TRUE
+		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
 		txpose_w_circle_fifths=FALSE
 		copy_mode=-1
@@ -860,6 +858,8 @@
 	inv_adj=0 //keeps A and A# notes in a relevant octave to rest of chord_scale
 	if chrd_inversion=1 or chrd_inversion=2 or chrd_inversion=-2 or chrd_inversion=-3
 		inv_adj=-12
+	elseif chrd_inversion=-1 and chord_7th<0
+	  inv_adj=-12
 	endif
 	if (chrd_inversion <> 0)
 		Call @HandleInversionSetting //# re-define chord notes to inverted order
@@ -878,6 +878,7 @@
 	chord_scale[8]=chord_5th+1 + scn_txpose //5th+1 eg:G#
 	chord_scale[9]=chord_root+9 + scn_txpose + inv_adj //root-2 eg: A. ????????????
 	chord_scale[10]=chord_root+10 + scn_txpose +inv_adj //root-1 eg: A# ????????????
+	chord_scale[11]=chord_7th //7th eg: B
 	if chord_7th<0
 		chord_scale[11]=chord_root+11 //7th eg: B 
 	else
@@ -887,8 +888,9 @@
 	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
 	CopyArray chord_scale, all_chord_scales[chord_scale_slot], 12
 	CopyArray chord_scale, c, 12 //just for logging here
-	Log{Root:},c[0],{-},c[1],{-},c[2],{  3rd:},c[3],{-},c[4],{-},c[5],{  5th:},c[6],{-},c[7],{-},c[8],{  R9+:},c[9],{-},c[10],{  7th:},c[11]
-		
+	Log {CHORD SCALE: [}, c[0],{-},c[4],{-},c[7],{-},c[11],{] [}, (NoteName c[0], YES),{-},(NoteName c[4], YES),{-},(NoteName c[7], YES),{-},(NoteName c[11], YES), {]}
+	//Log {CHORD SCALE: [}, (NoteName c[0], YES),{-},(NoteName c[4], YES),{-},(NoteName c[7], YES),{-},(NoteName c[11], YES), {] Root:},c[0],{-},c[1],{-},c[2],{  3rd:},c[3],{-},c[4],{-},c[5],{  5th:},c[6],{-},c[7],{-},c[8],{  R9+:},c[9],{-},c[10],{  7th:},c[11]
+	
 	//example note to send on incoming
 	//note_in=MIDINote%12
 	//oct_in=Div MIDINote, 12
@@ -957,10 +959,10 @@
 
 @SendOutChordNotes
 	//# Send out all 4 chord notes when midi_chan_mode = 2 //CHORD 
-	cn1=current_chord_scale[0]
-	cn2=current_chord_scale[4]
-	cn3=current_chord_scale[7]
-	cn4=current_chord_scale[11]
+	csn1=current_chord_scale[0]
+	csn2=current_chord_scale[4]
+	csn3=current_chord_scale[7]
+	csn4=current_chord_scale[11]
 
 	//# Also send out chord notes if chord pad pressed when HostStopped
 	chord_slot = (current_scene * 100) + (current_chord * 10)
@@ -1019,8 +1021,9 @@
 				// Log {Chord Note sent curr_chord}, current_chord, { note: }, chord_scale[ch_degree]
 			endif
 		endif
-	endfor	
-	Log {Compare Old: [}, chord_root,{-},chord_3rd,{-},chord_5th,{-},chord_7th,{] New: [},cn1,{-},cn2,{-},cn3,{-},cn4,{]}, {DIFF: [},chord_root-cn1,{-},chord_3rd-cn2,{-},chord_5th-cn3,{-},chord_7th-cn4,{]}
+	endfor
+	Log {NEW: [}, (NoteName csn1, YES),{-},(NoteName csn2, YES),{-},(NoteName csn3, YES),{-},(NoteName csn4, YES), {]}, {  OLD: [},(NoteName chord_root, YES),{-},(NoteName chord_3rd, YES),{-},(NoteName chord_5th, YES),{-},(NoteName chord_7th, YES), {]}, { DIFF: [},chord_root-csn1,{-},chord_3rd-csn2,{-},chord_5th-csn3,{-},chord_7th-csn4,{]}
+	//Log {Compare Old: [}, chord_root,{-},chord_3rd,{-},chord_5th,{-},chord_7th,{] New: [},csn1,{-},csn2,{-},csn3,{-},csn4,{]}, {DIFF: [},chord_root-csn1,{-},chord_3rd-csn2,{-},chord_5th-csn3,{-},chord_7th-csn4,{]}
 @End
 
 @TurnOffChordNotes
@@ -1851,43 +1854,52 @@
 @KnobChangeSet2
 	inv_updated = FALSE
 	if last_knob = 0
-	  slct_chord_root = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
-  	LabelKnob last_knob, {Root }, (NoteName slct_chord_root)
-  	root_updated = TRUE
-		slct_chord_bass_note = slct_chord_root
-		Call @SaveSelectedChordPad
+	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
+  	if val <> slct_chord_root
+			slct_chord_root = val
+			LabelKnob last_knob, {Root }, (NoteName slct_chord_root)
+  		root_updated = TRUE
+			slct_chord_bass_note = slct_chord_root
+			Call @SaveSelectedChordPad
+		endif
   elseif last_knob = 1
-  	slct_chord_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_chord_types-1
-  	if slct_chord_type = 0
-  		LabelKnob 1, {Major}
-  	elseif slct_chord_type = 1
-  		LabelKnob 1, {Minor}
-  	elseif slct_chord_type = 2
-  		LabelKnob 1, {Diminished}
-  	elseif slct_chord_type = 3
-  		LabelKnob 1, {Augmented}
-  	elseif slct_chord_type = 4
-  		LabelKnob 1, {Sus2}
-  	elseif slct_chord_type = 5
-  		LabelKnob 1, {Sus4}
-  	elseif slct_chord_type = 6
-  		LabelKnob 1, {Minor 6th}
-  	elseif slct_chord_type = 7
-  		LabelKnob 1, {Major 6th}
-  	elseif slct_chord_type = 8
-  		LabelKnob 1, {Minor 7th}
-  	elseif slct_chord_type = 9
-  		LabelKnob 1, {Dom 7th}
-  	elseif slct_chord_type = 10
-  		LabelKnob 1, {Major 7th}
-  	endif
-  	type_updated = TRUE
-  	Call @SaveSelectedChordPad
+  	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_chord_types-1
+		if val <> slct_chord_type
+			slct_chord_type = val
+	  	if slct_chord_type = 0
+	  		LabelKnob 1, {Major}
+	  	elseif slct_chord_type = 1
+	  		LabelKnob 1, {Minor}
+	  	elseif slct_chord_type = 2
+	  		LabelKnob 1, {Diminished}
+	  	elseif slct_chord_type = 3
+	  		LabelKnob 1, {Augmented}
+	  	elseif slct_chord_type = 4
+	  		LabelKnob 1, {Sus2}
+	  	elseif slct_chord_type = 5
+	  		LabelKnob 1, {Sus4}
+	  	elseif slct_chord_type = 6
+	  		LabelKnob 1, {Minor 6th}
+	  	elseif slct_chord_type = 7
+	  		LabelKnob 1, {Major 6th}
+	  	elseif slct_chord_type = 8
+	  		LabelKnob 1, {Minor 7th}
+	  	elseif slct_chord_type = 9
+	  		LabelKnob 1, {Dom 7th}
+	  	elseif slct_chord_type = 10
+	  		LabelKnob 1, {Major 7th}
+	  	endif
+	  	type_updated = TRUE
+	  	Call @SaveSelectedChordPad
+		endif
   elseif last_knob = 2
-  	slct_chord_inversion = Round TranslateScale (GetKnobValue 2), 0, 127, -4, 4
-	  LabelKnob last_knob, {Inv: }, slct_chord_inversion
-	  inv_updated = TRUE
-	  Call @SaveSelectedChordPad
+  	val = Round TranslateScale (GetKnobValue 2), 0, 127, -4, 4
+	  if val <> slct_chord_inversion
+			slct_chord_inversion = val
+			LabelKnob last_knob, {Inv: }, slct_chord_inversion
+	  	inv_updated = TRUE
+	  	Call @SaveSelectedChordPad
+		endif
 	endif
 @End
 
@@ -1976,31 +1988,37 @@
 	SetKnobValue 1, TranslateScale constructed_3rd, 0, 3, 0, 127
 	SetKnobValue 2, TranslateScale constructed_5th, 0, 2, 0, 127
 	SetKnobValue 3, TranslateScale constructed_7th, 0, 4, 0, 127
-	//# prevent updating values not changed
-	root_updated = FALSE
-	third_updated = FALSE
-	fifth_updated = FALSE
-	seventh_updated = FALSE
 @End
 @KnobChangeSet6
 	if last_knob = 0
-	  constructed_root = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
-  	LabelKnob 0, {Root }, (NoteName constructed_root)
-  	root_updated = TRUE
+	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
+  	if val <> constructed_root
+			constructed_root = val
+			LabelKnob 0, {Root }, (NoteName constructed_root)
+  		Call @SaveConstructedChordPad
+		endif
   elseif last_knob = 1
-  	constructed_3rd = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
-  	Call @LabelConstructed3rd
-  	third_updated = TRUE
+  	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
+  	if val <> constructed_3rd
+			constructed_3rd = val
+			Call @LabelConstructed3rd
+  		Call @SaveConstructedChordPad
+		endif
   elseif last_knob = 2
-  	constructed_5th = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
-	  Call @LabelConstructed5th 
-	  fifth_updated = TRUE
+  	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
+	  if val <> constructed_5th
+			constructed_5th = val
+			Call @LabelConstructed5th 
+	  	Call @SaveConstructedChordPad
+		endif
   elseif last_knob = 3
-	  constructed_7th = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 4
-  	Call @LabelConstructed7th
-  	seventh_updated = TRUE 
+	  val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 4
+  	if val <> constructed_7th
+			constructed_7th = val
+			Call @LabelConstructed7th
+  		Call @SaveConstructedChordPad
+		endif	
 	endif
-	Call @SaveConstructedChordPad
 @End
 @LabelConstructed3rd
 	if constructed_3rd = 0
