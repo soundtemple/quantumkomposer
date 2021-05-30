@@ -59,36 +59,19 @@
 	scn_duration = 0 
 	scn_txpose = 0 
 	scn_preset = 1
-	scn_mel1_mode = 0
-	scn_mel2_mode = 0
-	scn_mel3_mode = 0 
-	scn_mel4_mode = 0
-	scn_out1_on = 1 //# 0 for off default ON
-	scn_out2_on = 1
-	scn_out3_on = 1
 	scn_out4_on = 1
 	num_sc_presets = 13
-	num_mel_modes = 8 //# Harmonization rules for incoming midi
-	//# modes: Off, ChordOnly, Round2Chord,  NonChord, Bass, Root, 3rd, 5th, Thru
 	chrd_duration = 0
 	chrd_inversion = 0
-	chrd_bass = -1 //no longer used
 	slct_chord_root = 0 //# Select chord mode only
   slct_chord_type = 0 //# Select chord mode only
   slct_chord_inversion = 0 //# Select chord mode only
-	slct_chord_bass_note = -1 //# Select chord mode only
-	
 	//# Construct chords
 	constructed_root = 0
 	constructed_3rd = 2
 	constructed_5th = 1
-	constructed_7th = 3
-	
-	//# Midi channel options Mozaic uses 0-15 - we display 1-16
-	//# Record Chords Ch [0]. MELODY A CH's [1-4]. HARMONY CH's' [5-8] for outgoing chords. 
-	midi_channels_used = [4, 4,5,6,7, 8,9,10,11] //These need to stay fixed
-	
-	//# enable chords to be saved 
+	constructed_7th = 3	
+	record_notes_channel=4
   FillArray sort_list, 0 //# empty array for sorting chord notes as arrive
 
   //# Selecting chords from types mode
@@ -169,6 +152,7 @@
 	midi_channel=0 //editing the midi channel mode
 	midi_chan_modes=[0,0,0,0, 1,1,1,1, 2,2,2,2, 0,0,0,0] //default mode is harmonize incoming notes MUTE-HARMZE-CHORD-THRU
 	set_all_mc_to=4 //Setting all midi channels to x harmonization style
+	FillArray mel_note_velos, 100, 127 //default value for stored velocity when re-trig mel notes on chord change 
 	
   //# Scale definitions for midi in key, scale handling
   //# Allowed scales for midi in
@@ -250,8 +234,8 @@
   Call @ResetBeatCounts
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
   Call @SetupLayout
-	for i = 5 to 8
-		chord_note_ch = midi_channels_used[i]
+	for i = 0 to 15
+		chord_note_ch = i
 		Call @TurnOffChordNotes
 	endfor
 @End 
@@ -398,26 +382,29 @@
   chord_beat_count = 0 //# reset chord beat count on new chord
 	if update_held_notes_on_chord_change
 		//turn off held notes over chord change and re-trigger melody and harmony channel notes
-		for c = 0 to 3 //channels melody 4-7 & harmony 5-8 
-			chord_note_ch = midi_channels_used[c+5]
-			melody_note_ch = midi_channels_used[c+1]
-			Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
-			if held_chord_notes[c]
-				trigger_note_oct_adj = held_chord_oct_adj[c]  //notes 48-59 no change
-				Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
-			endif
-			for v = 0 to (num_mel_voices-1)
-				if mel_note_voices[v+(c*4)] > -1 //ch1
-					//turn off the existing melody ch note
-					harmony_note = GetNoteState melody_note_ch, mel_note_voices[v+(c*4)]  
-					SendMIDINoteOff melody_note_ch, harmony_note, 64
-					//retrigger the melody channel voice	
-					sc_harm_mode = scene_bank[(current_scene * sc_size) + 3 + c]
-					midi_note = mel_note_voices[v+(c*4)]
-					melody_note_velo = mel_note_velos[midi_note] //retrieve save 
-					Call @ConvertToHarmonyNotes 
+		for c = 0 to 15 //channels melody 4-7 & harmony 5-8 
+			chord_note_ch =  c
+			melody_note_ch = c
+			if midi_chan_modes[c]=2
+				Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
+				if held_chord_notes[c]
+					trigger_note_oct_adj = held_chord_oct_adj[c]  //notes 48-59 no change
+					Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
 				endif
-			endfor
+			elseif midi_chan_modes[c]=1  //Harmonize 
+	 			for v = 0 to (num_mel_voices-1)
+					if mel_note_voices[v+(c*4)] > -1 //ch1
+						//turn off the existing melody ch note
+						harmony_note = GetNoteState melody_note_ch, mel_note_voices[v+(c*4)]  
+						SendMIDINoteOff melody_note_ch, harmony_note, 64
+						//retrigger the melody channel voice	
+						sc_harm_mode = scene_bank[(current_scene * sc_size) + 3 + c]
+						midi_note = mel_note_voices[v+(c*4)]
+						melody_note_velo = mel_note_velos[midi_note] //retrieve save 
+						Call @ConvertToHarmonyNotes 
+					endif
+				endfor
+			endif 
 		endfor
 	endif
 	
@@ -519,10 +506,12 @@
     	Call @ResetChord
   	endif
   	if NOT HostRunning and (last_pad >= 8)
-			for i = 5 to 8
-				chord_note_ch = midi_channels_used[i]
-				trigger_note_oct_adj = 0 //pad down trigger uses default octave
-	  		Call @SendOutChordNotes
+			for i = 0 to 15
+				if midi_chan_modes[i] = 2 //send chords to channels set up with mode chords
+					chord_note_ch = i 
+					trigger_note_oct_adj = 0 //pad down trigger uses default octave
+	  			Call @SendOutChordNotes
+				endif
 			endfor
   	endif
 	endif
@@ -535,9 +524,11 @@
 
 @OnPadUp2
 	if NOT HostRunning and (last_pad >= 8)
-		for i = 5 to 8
-			chord_note_ch = midi_channels_used[i]
-  		Call @TurnOffChordNotes
+		for i = 0 to 15
+			if midi_chan_modes[i] = 2
+				chord_note_ch = i
+  			Call @TurnOffChordNotes
+			endif
 		endfor
   endif
 @End
@@ -908,11 +899,13 @@
 	//# Log {Midi received on CH: }, MIDIChannel, { note: }, MidiNote
 	//# -1Off 0Chord 1Round 2+NonChord 3Bass 4Root 5Third 6Fifth 7thru
 	//# Record chords from the channel set 
-	if mode=3 and  MIDIChannel=midi_channels_used[0] // records mode 
+	if mode=3 and  MIDIChannel=record_notes_channel // records mode 
 		Call @HandleRecordNotes
-	elseif MIDIChannel>=4 and MIDIChannel<=7 //MELODY Notes coming in
+	elseif midi_chan_modes[MIDIChannel]=0 //MUTE
+		Exit
+	elseif midi_chan_modes[MIDIChannel]=1  //HARMONIZE  Notes coming in
 		for i = 0 to (num_mel_voices-1)
-			voice = ((MidiChannel-4)*4)+i //Check if their is a voice available
+			voice = ((MIDIChannel-4)*4)+i //Check if their is a voice available
 			if mel_note_voices[voice]=-1 //A free voice has a value of -1
 				mel_note_voices[voice] = MidiNote
 				mel_note_velos[MIDINote] = MIDIVelocity
@@ -924,20 +917,19 @@
 				Exit
 			endif
 		endfor
-	elseif MIDIChannel>=8 and MIDIChannel<=11 //HARMONY trigger/gate notes coming in  
-		//can come on any channel 8-11 but C=>8 C#=>9 D=>10 D#=>11
-		//so midi for all 4 harmony channels can come in on 1 midi channel
-		if (MIDINote%12)<=3
-			chord_note_ch=(MIDINote%12)+8
-			Call @TurnOffChordNotes // can only have one chord note per channel playing at any one time
-			trigger_note_octave = Div MIDINote, 12 //note in influences octave out
-			trigger_note_oct_adj = (trigger_note_octave - 4) * 12  //notes 48-59 no change
-			Call @SendOutChordNotes
-			if update_held_notes_on_chord_change //held note tracking for update on chord change
-				held_chord_notes[chord_note_ch-8] = TRUE
-				held_chord_oct_adj[chord_note_ch-8] = trigger_note_oct_adj
-			endif
+	elseif midi_chan_modes[MIDIChannel]=2 //CHORD MODE SEND OUT NOTES1-4 OF CURRENT CHORD  
+		chord_note_ch=MIDIChannel
+		Call @TurnOffChordNotes // can only have one chord note per channel playing at any one time
+		trigger_note_octave = Div MIDINote, 12 //note in influences octave out
+		trigger_note_oct_adj = (trigger_note_octave - 4) * 12  //notes 48-59 no change
+		Call @SendOutChordNotes
+		if update_held_notes_on_chord_change //held note tracking for update on chord change
+			held_chord_notes[chord_note_ch-8] = TRUE
+			held_chord_oct_adj[chord_note_ch-8] = trigger_note_oct_adj
 		endif
+	elseif midi_chan_modes[MIDIChannel]=3 //THRU
+		SetNoteState MIDIChannel, MIDINote, MIDINote
+		SendMIDINoteOn MIDIChannel, MIDINote, MIDIVelocity
 	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
 		// notes 20-36 on channel 16  used to trigger MGEN pads 0-15
 		if MIDINote=36 //SHIFT
@@ -1754,8 +1746,8 @@
 	chrd_inversion = chord_bank[chord_slot + inv_slot]
 	chrd_sugg = chord_bank[chord_slot + sugg_slot]
 	if mode = 3
-		LabelKnob 1, {REC CH }, midi_channels_used[0] + 1
-		SetKnobValue 1, TranslateScale midi_channels_used[0], 4, 11, 0, 127
+		LabelKnob 1, {REC CH }, record_notes_channel + 1
+		SetKnobValue 1, TranslateScale record_notes_channel, 4, 11, 0, 127
 	else
 		LabelKnob 1, {Suggest}, chrd_sugg
 		SetKnobValue 1, TranslateScale chrd_sugg, 0, 16, 0, 127
@@ -1781,8 +1773,11 @@
   endif
   if (mode = 3)
 	  if last_knob = 1
-		  midi_channels_used[0] = Round TranslateScale (GetKnobValue 1), 0, 127, 4, 11
-			LabelKnob 1, {REC CH }, midi_channels_used[0] + 1
+		  val = Round TranslateScale (GetKnobValue 1), 0, 127, 4, 11
+			if val <> record_notes_channel
+				record_notes_channel = val
+				LabelKnob 1, {REC CH }, record_notes_channel + 1
+			endif
 	  endif
 	else
 		if last_knob = 1
@@ -1835,7 +1830,6 @@
 	//# if new chord default values from FillArray used here
 	slct_chord_root = chord_bank[chord_slot] % 12
 	slct_chord_inversion = chord_bank[chord_slot + inv_slot]
-	slct_chord_bass_note = chord_bank[chord_slot + bass_slot] % 12
 	
 	//# Knob setup
 	LabelKnob 0, {Root }, (NoteName slct_chord_root)
@@ -1859,7 +1853,6 @@
 			slct_chord_root = val
 			LabelKnob last_knob, {Root }, (NoteName slct_chord_root)
   		root_updated = TRUE
-			slct_chord_bass_note = slct_chord_root
 			Call @SaveSelectedChordPad
 		endif
   elseif last_knob = 1
