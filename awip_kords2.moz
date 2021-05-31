@@ -385,7 +385,7 @@
   chord_beat_count = 0 //# reset chord beat count on new chord
 	if update_held_notes_on_chord_change
 		//turn off held notes over chord change and re-trigger melody and harmony channel notes
-		for c = 0 to 15 //channels melody 4-7 & harmony 5-8 
+		for c = 0 to 15 //channels 
 			chord_note_ch =  c
 			melody_note_ch = c
 			if midi_chan_modes[c]=2
@@ -848,6 +848,7 @@
 	chord_3rd = chord_bank[chord_slot + 1]
 	chord_5th = chord_bank[chord_slot + 2]
 	chord_7th = chord_bank[chord_slot + 3]
+	Call @GetChordFlavour //chord_flavour is major or minor and influences chord_scale 0=major 1=minor
 	Call @MakeChordNotesRawOctave
 	chrd_inversion = chord_bank[chord_slot + inv_slot]
 	inv_adj=0 //keeps A and A# notes in a relevant octave to rest of chord_scale
@@ -855,30 +856,32 @@
 		if chrd_inversion=1 or chrd_inversion=2 or chrd_inversion=-1 or chrd_inversion=-2 or chrd_inversion=-3
 			inv_adj=-12
 		endif
-	endif	
+	endif
+	fourth_adj=0
+	if chrd_inversion=1
+		fourth_adj=-12
+	endif
 	if (chrd_inversion <> 0)
 		Call @HandleInversionSetting //# re-define chord notes to inverted order
 	endif
-	
-	//COULD SORT LIST HERE?
-	
+	apn=0 //allow passing notes 0=no ; 1=yes
 	txpose_index = scene_bank[(current_scene * sc_size) + sc_txp_slot]
 	scn_txpose = txpose_array[txpose_index] //# scene txpose amount
 	chord_scale[0]=chord_root + scn_txpose //root eg:C
-	chord_scale[1]=chord_root+1 + scn_txpose //root+1 eg:C#
-	chord_scale[2]=chord_root+2 + scn_txpose  //root+2 eg:D
-	chord_scale[3]=chord_3rd-1 + scn_txpose //3rd-1 eg:D#
+	chord_scale[1]=chord_root + scn_txpose + apn //root+1 eg:C#
+	chord_scale[2]=chord_root + 2 + scn_txpose  //root+2 eg:D
+	chord_scale[3]=chord_3rd + scn_txpose - apn//3rd-1 eg:D#
 	chord_scale[4]=chord_3rd + scn_txpose //3rd eg:E
-	chord_scale[5]=chord_3rd+1 + scn_txpose //3rd+1 eg: F
-	chord_scale[6]=chord_5th-1 + scn_txpose //5th-1 eg: F#
-	chord_scale[7]=chord_5th + scn_txpose //5th eg:G
-	chord_scale[8]=chord_5th+1 + scn_txpose //5th+1 eg:G#
-	chord_scale[9]=chord_root+9 + scn_txpose + inv_adj //root-2 eg: A. ????????????
-	chord_scale[10]=chord_root+10 + scn_txpose + inv_adj //root-1 eg: A# ????????????
+	chord_scale[5]=chord_root + 5 + scn_txpose + fourth_adj //3rd+1 eg: F aka 4th
+	chord_scale[6]=chord_5th + scn_txpose - apn//5th-1 eg: F#
+	chord_scale[7]=chord_5th + scn_txpose //5th eg:G 
+	chord_scale[8]=chord_5th + scn_txpose + apn //5th+1 eg:G#
+	chord_scale[9]=chord_root + 8 + chord_flavour + scn_txpose + inv_adj //root-3 eg: A. 
+	chord_scale[10]=chord_root + 10 + chord_flavour + scn_txpose + inv_adj - apn //root-2 eg: A# 
 	if chord_7th>=0
 		chord_scale[11]=chord_7th + scn_txpose //7th eg: B
-	else 
-		chord_scale[11]=chord_root+11 + scn_txpose
+	elseif chord_7th<0 //+10 minor flavor; +10major flavour
+		chord_scale[11]=chord_root + 10 + chord_flavour + scn_txpose
 	endif
 	c=[]
 	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
@@ -890,6 +893,17 @@
 @SetChordScale
 	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
 	CopyArray all_chord_scales[chord_scale_slot], current_chord_scale, 12
+@End
+
+@GetChordFlavour
+	chord_flavour=1 //major
+	if chord_3rd - chord_root = 3
+		chord_flavour=0 //minor
+	elseif chord_7th>0 and (chord_7th-chord_root=10) //minor7th
+	  chord_flavour=0 //minor
+	elseif chord_7th>0 and (chord_7th-chord_root=8) //minor6th
+		chord_flavour=0 //minor
+	endif
 @End
 
 @OnMidiNoteOn
