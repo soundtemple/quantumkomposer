@@ -109,15 +109,7 @@
   //# MG Modes determine how harmonization occurs per scene
   sc_txp_slot = 1
   sc_preset_slot = 2
-  sc_mel1_slot = 3 //# MELODY MODE slots in the scene bank
-  sc_mel2_slot = 4
-  sc_mel3_slot = 5
-  sc_mel4_slot = 6
-  sc_har1_slot = 7 //# HARMONY MODE slots in the scene bank
-  sc_har2_slot = 8
-  sc_har3_slot = 9
-  sc_har4_slot = 10
-  sc_size = 15 //# ^ above slots + duration = 11 + 4 spare for even sizing 
+	sc_size = 15 //# ^ above slots + duration = 11 + 4 spare for even sizing 
   rnd_scn_chance=0 //% chance scene change will be to a random one
 	rnd_chrd_chance=0 //% chance chord change will be to a random one
 	num_scns_with_dur=0 //RND only selects scenes with duration
@@ -150,9 +142,9 @@
 	FillArray current_chord_scale, -1, 12 //the active chord_scale copied from all_chord_scales
 	midi_channel=0 //editing the midi channel mode
 	midi_chan_modes=[0,0,0,0, 1,1,1,1, 2,2,2,2, 0,0,0,0] //default mode is harmonize incoming notes MUTE-HARMZE-CHORD-THRU
-	set_all_mc_to=4 //Setting all midi channels to x harmonization style
+	set_all_mc_to=9 //Setting all midi channels to x harmonization style
 	FillArray mel_note_velos, 100, 127 //default value for stored velocity when re-trig mel notes on chord change 
-	
+	apn=FALSE //apn allow passing notes bool yes/no
   //# Scale definitions for midi in key, scale handling
   //# Allowed scales for midi in
 	num_scale_types = 2
@@ -165,20 +157,6 @@
 	midi_in_scales[30] = [0,2,3,5,7,9,10]  // #minor_mel
 	midi_in_scales[40] = [0,2,3,5,7,9,11]  // #minor_har
 	Call @GetMidiInScale
-	//# Setup Chord notes out - Options for how notes sent out
-	cno_labels = [-1,0,1,3,5,7,15,135,1357,150,1350]
-	cno_choices = 10 //# len(cno_labels) - 1
-	cno_degrees[0] = [-1,-1,-1,-1]
-	cno_degrees[4] = [0,-1,-1,-1]
-	cno_degrees[8] = [1,-1,-1,-1]
-	cno_degrees[12] = [3,-1,-1,-1]
-	cno_degrees[16] = [5,-1,-1,-1]
-	cno_degrees[20] = [7,-1,-1,-1]
-	cno_degrees[24] = [1,5,-1,-1]
-	cno_degrees[28] = [1,3,5,-1]
-	cno_degrees[32] = [1,3,5,7]
-	cno_degrees[36] = [0,1,5,-1]
-	cno_degrees[40] = [0,1,3,5]
 @End
 
 @GetMidiInScale
@@ -383,38 +361,39 @@
 	endif
 	Call @SetChordScale
   chord_beat_count = 0 //# reset chord beat count on new chord
-	if update_held_notes_on_chord_change
-		//turn off held notes over chord change and re-trigger melody and harmony channel notes
-		for c = 0 to 15 //channels 
-			chord_note_ch =  c
-			melody_note_ch = c
-			if midi_chan_modes[c]=2
-				Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
-				if held_chord_notes[c]
-					trigger_note_oct_adj = held_chord_oct_adj[c]  //notes 48-59 no change
-					Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
+	//turn off notes over chord change and re-trigger melody and harmony channel notes
+	for c = 0 to 14 //channels 1-15. 16 is reserved for midi input and kntrl
+		chord_note_ch =  c
+		melody_note_ch = c
+		if midi_chan_modes[c]=1 and update_held_notes_on_chord_change //Harmonize 
+ 			for v = 0 to (num_mel_voices-1)
+				voice = (melody_note_ch*num_mel_voices)+v
+				if mel_note_voices[voice] > -1 //ch1
+					//turn off the existing melody ch note
+					harmony_note = (GetNoteState melody_note_ch, mel_note_voices[voice])
+					SendMIDINoteOff melody_note_ch, harmony_note, 64
+					Log {HCC Voice:}, v, { ch }, c+1, {mn voice in_note}, mel_note_voices[voice], { hnote: }, harmony_note 
+					//retrigger the melody channel voice	
+					midi_note = mel_note_voices[voice]
+					melody_note_velo = mel_note_velos[voice]  
+					Call @ConvertToHarmonyNotes
 				endif
-			elseif midi_chan_modes[c]=1  //Harmonize 
-	 			for v = 0 to (num_mel_voices-1)
-					voice = (melody_note_ch*num_mel_voices)+v
-					if mel_note_voices[voice] > -1 //ch1
-						//turn off the existing melody ch note
-						harmony_note = (GetNoteState melody_note_ch, mel_note_voices[voice])
-						SendMIDINoteOff melody_note_ch, harmony_note, 64
-						Log {HCC Voice:}, v, { ch }, c+1, {mn voice in_note}, mel_note_voices[voice], { hnote: }, harmony_note 
-						//retrigger the melody channel voice	
-						midi_note = mel_note_voices[voice]
-						melody_note_velo = mel_note_velos[voice]  
-						Call @ConvertToHarmonyNotes
-					endif
-					//Log {CHANGE Done with voice }, v+1
-				endfor
-			endif
-			//Log {CHANGE Done with CHANNEL }, c+1
-		endfor
-	endif
-	
-  //# Label pads
+				//Log {CHANGE Done with voice }, v+1
+			endfor
+		elseif midi_chan_modes[c]=2 and update_held_notes_on_chord_change
+			Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
+			if held_chord_notes[c]
+				trigger_note_oct_adj = held_chord_oct_adj[c]  //notes 48-59 no change
+				Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
+			endif		
+		elseif midi_chan_modes[c]>=3 and midi_chan_modes[c]>=7 //always on modes
+			trigger_note_oct_adj = 0
+			Call @TurnOffChordNotes //these modes always send note(s) of the current mode
+			Call @SendOutChordNotes
+		endif
+		//Log {CHANGE Done with CHANNEL }, c+1
+	endfor
+	//# Label pads
   if not in_mode_select
 	  LabelPads {[ KORDS ]  Scene: }, current_scene+1, { Chord: }, current_chord+1
   endif
@@ -439,27 +418,11 @@
 	if in_mode_select and (last_pad <= (number_of_modes - 1))
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
-		elseif (last_pad=5 or last_pad=11 or last_pad=14)
+		elseif (last_pad=5 or last_pad=13)
 			Exit //# Not in use
 		elseif (HostRunning and last_pad=8)
 			Exit //# Not allowed in playback
-		elseif (last_pad = 1)
-			in_mode_select = FALSE
-			mode = 0
-			knob_set = 1
-			Call @SetupLayout
-		elseif (last_pad = 7)
-			Call @LogCurrentSceneToPresetFormat
-			Exit
-		elseif (last_pad>=2 and last_pad<=4) //# +CHORDS MODES
-			mode = last_pad-1 //# shifting mode to add kontroller slave in menu
-			//Log {MODE:}, mode-1
-			in_mode_select = FALSE
-		elseif (last_pad>=8 and last_pad<=13)
-    	//# midi setup modes - dont exit in_select_mode
-    	mode = last_pad
-			Call @SetupSettingsLayout
-    elseif (HostRunning and last_pad=0)
+		elseif (HostRunning and last_pad=0)
     	//# Return to song mode requested
     	return_to_song_mode_requested = TRUE
     	scene_change_requested = current_scene
@@ -472,6 +435,34 @@
 				SendMIDINoteOn 15, 0+led_index, 3
 				SendMIDINoteOn 15, 8+led_index, 3
 			endif
+		elseif (last_pad = 1)
+			in_mode_select = FALSE
+			mode = 0
+			knob_set = 1
+			Call @SetupLayout
+		elseif (last_pad>=2 and last_pad<=4) //# +CHORDS MODES
+			mode = last_pad-1 //# shifting mode to add kontroller slave in menu
+			//Log {MODE:}, mode-1
+			in_mode_select = FALSE
+		elseif (last_pad>=8 and last_pad<=12)
+    	//# midi setup modes - dont exit in_select_mode
+    	mode = last_pad
+			if last_pad=11 //non scale chord notes
+				apn = not apn // toggle the allow passing notes setting
+			endif
+			Call @SetupSettingsLayout
+    elseif (last_pad = 14)
+			Call @LogCurrentSceneToPresetFormat
+			Exit
+		elseif (last_pad = 15) //All Notes off
+			mode=last_pad
+			for ch = 0 to 14
+				for n = 0 to 127
+					SendMIDINoteOn ch, n, 0
+					SendMIDINoteOff ch, n, 64 //handle stuck notes
+				endfor
+			endfor
+			LabelPad 15, {Done!}
 		else
 			mode = last_pad
 			//Log {MODE:}, mode
@@ -479,13 +470,13 @@
 		endif
 		Call @HandleModeChange
 		Call @SetupLayout
-		if (last_pad = 7)
+		if (last_pad = 14)
 			LabelPads {Scene preset data printed. Check log!}
 		endif
 	//# NOT IN MODE SELECT......
 	elseif NOT in_mode_select
 		//# handle mode actions if record or reset else do knob scene change
-		if not (mode=15 or copy_mode=2)
+		if not (mode=7 or copy_mode=2)
 			Call @OnPadDown_SceneChordChange //dont change if deleting or copy/pasting
 		endif	
 	 	Call @OnPadDown_KnobSetSelect
@@ -504,21 +495,24 @@
 	    elseif copy_mode=1 and last_pad>=8 
 	    	Call @CopyPaste //# copy paste chord
 	    endif
-		elseif (mode = 15) and (last_pad <= 7) //# reset mode
+		elseif (mode=7) and (last_pad <= 7) //# reset mode
     	//Log {Reset scene called}
     	Call @ResetScene   
- 	 	elseif (mode = 15) and (last_pad >= 7)
+ 	 	elseif (mode=7) and (last_pad >= 7)
     	//Log {Reset chord called}
     	Call @ResetChord
   	endif
-  	if NOT HostRunning and (last_pad >= 8)
-			for i = 0 to 15
-				if midi_chan_modes[i] = 2 //send chords to channels set up with mode chords
-					chord_note_ch = i 
-					trigger_note_oct_adj = 0 //pad down trigger uses default octave
-	  			Call @SendOutChordNotes
-				endif
-			endfor
+		if NOT HostRunning and (last_pad >= 8) 
+			current_chord_duration = chord_bank[chord_slot + dur_slot]
+			if current_chord_duration>0
+				for i = 0 to 14
+					if midi_chan_modes[i]>=2 and midi_chan_modes[i]<=7  //send chords to channels set up with mode chords
+						chord_note_ch = i 
+						trigger_note_oct_adj = 0 //pad down trigger uses default octave
+		  			Call @SendOutChordNotes
+					endif
+				endfor
+			endif
   	endif
 	endif
 @End
@@ -530,12 +524,15 @@
 
 @OnPadUp2
 	if NOT HostRunning and (last_pad >= 8)
-		for i = 0 to 15
-			if midi_chan_modes[i] = 2
-				chord_note_ch = i
-  			Call @TurnOffChordNotes
-			endif
-		endfor
+		current_chord_duration = chord_bank[chord_slot + dur_slot]
+		if current_chord_duration>0
+			for i = 0 to 14
+				if midi_chan_modes[i]>=2 and midi_chan_modes[i]<=7
+					chord_note_ch = i
+	  			Call @TurnOffChordNotes
+				endif
+			endfor
+		endif
   endif
 @End
 
@@ -570,27 +567,42 @@
 			//Log {Copied current chord }, current_chord+1
 			LabelPads {Current chord copied. Select a scene, then a chord slot to paste to}
 		endif
+	elseif mode = 7
+		LabelPads {DELETE: Select a scene or chord slot to reset}
 	elseif mode = 8
 		if NOT HostRunning
 			LabelPads {MIDI INPUT Scale: Maps scale degrees IN to chord notes OUT}
 			Call @SetupKnobset5
 		endif
-	elseif mode = 9
-		LabelPads {CHORD NOTE TRIGGERS: (Listed notes trigger chord Root, 3rd, 5th 7th in octave and midi channel sent}
-		Call @LabelChordTriggerMode 
-	elseif mode = 10
-		LabelPads {MIDI CHANNEL MODES: 0=MUTE  1=HARMONIZE  2=CHORD  3=THRU}
+	elseif mode=9 
+		LabelPads {CHORD NOTE TRIGGERS: Listed notes trigger chord Root, 3rd, 5th 7th in octave and midi channel sent}
+		Call @LabelChordTriggerModes 
+		Call @SetupKnobset5
+	elseif mode=10
+		LabelPads {CHORD NOTE TRIGGERS: Listed notes are not part of chord but form part of chord scale. Degrees 2,4,& 6}
+		Call @LabelChordTriggerModes 
+		Call @SetupKnobset5
+	elseif mode=11
+		LabelPads {CHORD NOTE TRIGGERS: Not part of chord or scale. Toggle round2chord or use as passing notes only}
+		Call @LabelChordTriggerModes 
+		Call @SetupKnobset5
+	elseif mode = 12
+		LabelPads {MODES: [1&2:Send note on to trigger]   *[3-7:Always on with chord]   [0:Mute 8:Thru]}
 		Call @SetupKnobset3
-	elseif mode = 15
-		LabelPads {DELETE: Select a scene or chord slot to reset}
 	endif
 	Call @SendMidiCCBackToKnobs
 @End
 
-@LabelChordTriggerMode
+@LabelChordTriggerModes
 	CopyArray midi_in_scale_notes, ms, 8
 	if in_mode_select
-		LabelPad 9, {__}, (NoteName ms[0]), (NoteName ms[2]), (NoteName ms[4]),(NoteName ms[6]),{__ },  {=R-3-5-7}
+		LabelPad 9,  (NoteName ms[0]), (NoteName ms[2]), (NoteName ms[4]),(NoteName ms[6]),{ _________ },{Chord notes R-3-5-7}
+		LabelPad 10, (NoteName ms[1]), (NoteName ms[3]), (NoteName ms[5]),{ _________ },  {Non-Chord scale degs}
+		if apn
+			LabelPad 11, { REST   }, { ________ }, {Non-Scale    Allow}
+		else
+		  LabelPad 11, { REST   } ,{ ________ }, {Non-Scale    Round2Chord}
+		endif
 	endif
 @End
 
@@ -621,8 +633,6 @@
 			Call @SetupKnobset2
 		elseif (mode = 2) //# Construct chords 4 knobs
 			Call @SetupKnobset6
-		elseif (mode = 7)
-			Call @SetupKnobset3 //# SCENE Midi IN Modes
 		else
 			Call @SetupKnobset0
 		endif
@@ -828,7 +838,7 @@
 	Call @MakeChordScale
 @End
 
-@MakeChordScaleForWholeScene
+@MakeChordScaleForScene
 	real_current_chord=current_chord
 	chord_slot = (current_scene * 100) + ((current_chord) * 10) //# chord to be updated	
 	for i = 0 to 7
@@ -857,6 +867,7 @@
 			inv_adj=-12
 		endif
 	endif
+	//adj 4th based on inversion
 	fourth_adj=0
 	if chrd_inversion=1
 		fourth_adj=-12
@@ -864,35 +875,53 @@
 	if (chrd_inversion <> 0)
 		Call @HandleInversionSetting //# re-define chord notes to inverted order
 	endif
-	apn=0 //allow passing notes 0=no ; 1=yes
+	//apn allow passing notes 0=no ; 1=yes
+	apn_adj=0
+	if apn
+		apn_adj=1
+	endif
 	txpose_index = scene_bank[(current_scene * sc_size) + sc_txp_slot]
 	scn_txpose = txpose_array[txpose_index] //# scene txpose amount
 	chord_scale[0]=chord_root + scn_txpose //root eg:C
-	chord_scale[1]=chord_root + scn_txpose + apn //root+1 eg:C#
+	chord_scale[1]=chord_root + scn_txpose + apn_adj //root+1 eg:C#
 	chord_scale[2]=chord_root + 2 + scn_txpose  //root+2 eg:D
-	chord_scale[3]=chord_3rd + scn_txpose - apn//3rd-1 eg:D#
+	chord_scale[3]=chord_3rd + scn_txpose - apn_adj //3rd-1 eg:D#
 	chord_scale[4]=chord_3rd + scn_txpose //3rd eg:E
 	chord_scale[5]=chord_root + 5 + scn_txpose + fourth_adj //3rd+1 eg: F aka 4th
-	chord_scale[6]=chord_5th + scn_txpose - apn//5th-1 eg: F#
+	chord_scale[6]=chord_5th + scn_txpose - apn_adj //5th-1 eg: F#
 	chord_scale[7]=chord_5th + scn_txpose //5th eg:G 
-	chord_scale[8]=chord_5th + scn_txpose + apn //5th+1 eg:G#
+	chord_scale[8]=chord_5th + scn_txpose + apn_adj //5th+1 eg:G#
 	chord_scale[9]=chord_root + 8 + chord_flavour + scn_txpose + inv_adj //root-3 eg: A. 
-	chord_scale[10]=chord_root + 10 + chord_flavour + scn_txpose + inv_adj - apn //root-2 eg: A# 
+	chord_scale[10]=chord_root + 10 + chord_flavour + scn_txpose + inv_adj - apn_adj //root-2 eg: A# 
 	if chord_7th>=0
 		chord_scale[11]=chord_7th + scn_txpose //7th eg: B
 	elseif chord_7th<0 //+10 minor flavor; +10major flavour
 		chord_scale[11]=chord_root + 10 + chord_flavour + scn_txpose
 	endif
+	//get lowest and highest notes after inversion
+	if chord_7th<0
+		sort_list = [chord_root, chord_3rd, chord_5th]
+		len_list = 3
+	else
+	  sort_list = [chord_root, chord_3rd, chord_5th, chord_7th]
+		len_list = 4
+	endif
+	Call @SortList
+	chord_scale[12]= sort_list[0] //Chord lowest notes
+	chord_scale[13]= sort_list[len_list-1]  //Chord highest note
+	
 	c=[]
 	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
-	CopyArray chord_scale, all_chord_scales[chord_scale_slot], 12
-	CopyArray chord_scale, c, 12 //just for logging here
-	Log {CHORD SCALE: [}, c[0],{-},c[4],{-},c[7],{-},c[11],{] [}, (NoteName c[0], YES),{-},(NoteName c[4], YES),{-},(NoteName c[7], YES),{-},(NoteName c[11], YES), {]}
+	CopyArray chord_scale, all_chord_scales[chord_scale_slot], 14
+	CopyArray chord_scale, c, 14 //just for logging here
+	Log {CHORD SCALE: [}, c[0],{-},c[4],{-},c[7],{-},c[11],{] [}, (NoteName c[0], YES),{-},(NoteName c[4], YES),{-},(NoteName c[7], YES),{-},(NoteName c[11], YES), {] LO:}, c[12], { HI:}, c[13] 
 	//Log {CHORD SCALE: [}, (NoteName c[0], YES),{-},(NoteName c[4], YES),{-},(NoteName c[7], YES),{-},(NoteName c[11], YES), {] Root:},c[0],{-},c[1],{-},c[2],{  3rd:},c[3],{-},c[4],{-},c[5],{  5th:},c[6],{-},c[7],{-},c[8],{  R9+:},c[9],{-},c[10],{  7th:},c[11]
 @End
 @SetChordScale
 	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
-	CopyArray all_chord_scales[chord_scale_slot], current_chord_scale, 12
+	CopyArray all_chord_scales[chord_scale_slot], current_chord_scale, 14
+	CopyArray current_chord_scale, c, 14 //just for logging here
+	Log {CURR CHORD SCALE: [}, c[0],{-},c[4],{-},c[7],{-},c[11],{] [}, (NoteName c[0], YES),{-},(NoteName c[4], YES),{-},(NoteName c[7], YES),{-},(NoteName c[11], YES), {] LO:}, c[12], { HI:}, c[13] 
 @End
 
 @GetChordFlavour
@@ -956,7 +985,7 @@
 			held_chord_notes[chord_note_ch] = TRUE
 			held_chord_oct_adj[chord_note_ch] = trigger_note_oct_adj
 		endif
-	elseif midi_chan_modes[MIDIChannel]=3 //THRU
+	elseif midi_chan_modes[MIDIChannel]=8 //THRU
 		SendMIDIThru 
 	endif
 @End
@@ -964,25 +993,39 @@
 @SendOutChordNotes
 	//# Send out all 4 chord notes when midi_chan_mode = 2 //CHORD 
 	//get notes from the current chord scale
+	curr_mode = midi_chan_modes[MIDIChannel]
 	chord_root = current_chord_scale[0]
 	chord_3rd = current_chord_scale[4]
 	chord_5th = current_chord_scale[7]
+	chord_lowest = current_chord_scale[12]
+	chord_highest = current_chord_scale[13]
 	if chord_bank[chord_slot + 3] >= 0
 		chord_7th=current_chord_scale[11] //We always have a note in the scale for the 7th slot
 	else
 	  chord_7th=-1 //but dont play that note from the scale if the chord is only a triad
 	endif
-	chord_notes_to_play = [chord_root, chord_3rd, chord_5th, chord_7th]
-	if chord_root>=0 and chord_3rd>=0 and chord_5th>=0 //aka chord_formed we can send chord notes	
-		for i = 0 to 3  
-			Call @HumanizeVelocity
-			if chord_notes_to_play[i] > 0
-				SendMIDINoteOn chord_note_ch, chord_notes_to_play[i] + trigger_note_oct_adj, velocity
-				SetNoteState chord_note_ch, i, chord_notes_to_play[i] + trigger_note_oct_adj
-			endif
-		endfor
-	endif
-	Log {NEW NOTES: [},(NoteName chord_root, YES),{-},(NoteName chord_3rd, YES),{-},(NoteName chord_5th, YES),{-},(NoteName chord_7th, YES), {]}
+	//based on mode we send out the notes
+	if curr_mode=2 or curr_mode=3 //CHORD or CHORD*
+		chord_notes_to_play = [chord_root, chord_3rd, chord_5th, chord_7th]
+		if chord_root>=0 and chord_3rd>=0 and chord_5th>=0 //aka chord_formed we can send chord notes	
+			for i = 0 to 3  
+				Call @HumanizeVelocity
+				if chord_notes_to_play[i] > 0
+					SendMIDINoteOn chord_note_ch, (chord_notes_to_play[i] + trigger_note_oct_adj), velocity
+					SetNoteState chord_note_ch, i, (chord_notes_to_play[i] + trigger_note_oct_adj)
+				endif
+			endfor
+		endif
+	elseif curr_mode>=4 and curr_mode<=7 //Send a single note of the chord based on mode
+		Call @HumanizeVelocity
+		mode_plays_chord_note = [chord_root, chord_5th, chord_lowest, chord_highest] //notes modes play
+		note_to_play = mode_plays_chord_note[curr_mode-4]
+		if note_to_play > 0
+			SendMIDINoteOn chord_note_ch, note_to_play, velocity
+			SetNoteState chord_note_ch, 0, note_to_play
+		endif
+	endif  
+	//Log {NEW NOTES: [},(NoteName chord_root, YES),{-},(NoteName chord_3rd, YES),{-},(NoteName chord_5th, YES),{-},(NoteName chord_7th, YES), {]}
 @End
 
 @TurnOffChordNotes
@@ -1123,7 +1166,7 @@
 			held_chord_notes[chord_note_ch] = FALSE
 			held_chord_oct_adj[chord_note_ch] = 0
 		endif
-	elseif midi_chan_modes[MIDIChannel]=3 //thru mode
+	elseif midi_chan_modes[MIDIChannel]=8 //thru mode
 		SendMIDIThru 
 	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
 		last_pad = MIDINote-20
@@ -1191,10 +1234,13 @@
   //# Reset scene: Duration, Txpose, Preset, modes for ch's 1-4, out ch's ON1-4, pgm_chg_msg
   scene_bank[last_pad * sc_size] = [-1,6,0,0,0,0,0,0,0,0,0,-1]
   chord_slot = (last_pad * 100)
-  for c = 0 to 7
+	for c = 0 to 7
 		chord_bank[(current_scene*100) + (c*10)] = [-1, -1, -1, -1, 0, 0, -1]
 	endfor
-  Call @SetupLayout
+  //reset chord scales
+	chord_scale_slot = (current_scene * 120)
+	FillArray all_chord_scales[chord_scale_slot], -1, (8*15)
+	Call @SetupLayout
 	num_scns_with_dur=last_pad-1 //RND only selects scenes before deleted scn
 	num_chrds_with_dur[current_scene]=0 //del scene also deletes chords
   //Log {Scene }, last_pad +1, { reset. All chords for scene reset}
@@ -1205,6 +1251,9 @@
   //# 4 chord notes, duration, inv, bass, pattern_msg 
   chord_bank[chord_slot] = [-1,-1,-1,-1,0,0,-1,-1]
 	num_chrds_with_dur[current_scene]=last_pad-8-1
+	//reset chord scales
+	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
+	FillArray all_chord_scales[chord_scale_slot], -1, 15
   //Log {Chord }, last_pad+1, { reset}
   Call @SetupLayout
 @End
@@ -1221,6 +1270,7 @@
 		mode=0
 		Call @UpdateScenesWithDuration
 		Call @UpdateChordsWithDuration
+		Call @MakeChordScaleForScene
 	elseif last_pad >= 8
 		//Log {pasting to chord }, last_pad-8
 		LabelPads	{Copied S}, copied_scene+1, { Chord }, copied_chord+1, { to }, {S}, current_scene+1, { Chord }, last_pad-7
@@ -1231,6 +1281,7 @@
 		songmode = 2
 		mode=0
 		Call @UpdateChordsWithDuration
+		Call @MakeChordScale
 	endif
 	copied_scene = -1 //# reset
 	copied_chord = -1
@@ -1376,7 +1427,7 @@
 	  if scn_txpose <> scene_bank[(current_scene * sc_size) + sc_txp_slot] 	
 		  scene_bank[(current_scene * sc_size) + sc_txp_slot] = scn_txpose
 		  Call @SetupLayout //# re-label all chord pads
-			Call @MakeChordScaleForWholeScene
+			Call @MakeChordScaleForScene
 		endif
   endif
   if last_knob = 2
@@ -1577,13 +1628,13 @@
 	  selected_midi_in_root = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
 	  LabelKnob last_knob, (NoteName selected_midi_in_root)
 	  Call @GetMidiInScale
-		Call @LabelChordTriggerMode
+		Call @LabelChordTriggerModes
   endif
   if last_knob = 1
 	  selected_midi_in_scale = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_scale_types-1
 	  LabelKnob last_knob, (ScaleName allowed_scales[selected_midi_in_scale])
 	  Call @GetMidiInScale
-		Call @LabelChordTriggerMode
+		Call @LabelChordTriggerModes
   endif
   LabelPad 8, {  MIDI INPUT  }, {   Key/Scale      }, (NoteName selected_midi_in_root), { }, (ScaleName allowed_scales[selected_midi_in_scale])
 @End
@@ -1656,26 +1707,26 @@
   	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
   	if val <> constructed_3rd
 			constructed_3rd = val
-			Call @LabelConstructed3rd
+			Call @LabelConstructedChord
   		Call @SaveConstructedChordPad
 		endif
   elseif last_knob = 2
   	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
 	  if val <> constructed_5th
 			constructed_5th = val
-			Call @LabelConstructed5th 
+			Call @LabelConstructedChord
 	  	Call @SaveConstructedChordPad
 		endif
   elseif last_knob = 3
 	  val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 4
   	if val <> constructed_7th
 			constructed_7th = val
-			Call @LabelConstructed7th
+			Call @LabelConstructedChord
   		Call @SaveConstructedChordPad
 		endif	
 	endif
 @End
-@LabelConstructed3rd
+@LabelConstructedChord
 	if constructed_3rd = 0
 		LabelKnob 1, {sus2}
 	elseif constructed_3rd = 1
@@ -1685,9 +1736,6 @@
 	elseif constructed_3rd = 3
 		LabelKnob 1, {sus4}
 	endif
-@End
-
-@LabelConstructed5th
 	if constructed_5th = 0
   	LabelKnob 2, {dim (b5)}
   elseif constructed_5th = 1
@@ -1695,9 +1743,6 @@
   elseif constructed_5th = 2
   	LabelKnob 2, {Aug (#5)}
   endif
-@End
-
-@LabelConstructed7th
 	if constructed_7th = 0
   	LabelKnob 3, {None}
   elseif constructed_7th = 1
@@ -1715,7 +1760,7 @@
 	//Midi channel modes - MUTE-HARMONIZE-CHORD-THRU
 	knob_set = 3
 	SetKnobValue 0, TranslateScale midi_channel, 0, 14, 0, 127
-	SetKnobValue 1, TranslateScale midi_chan_modes[midi_channel], 0, 3, 0, 127
+	SetKnobValue 1, TranslateScale midi_chan_modes[midi_channel], 0, 8, 0, 127
 	SetKnobValue 2, TranslateScale set_all_mc_to, 0, 4, 0, 127
 	Call @LabelKnobset3
 @End
@@ -1726,20 +1771,20 @@
   	if val <> midi_channel
 			midi_channel = val
 			Call @LabelKnobset3
-			SetKnobValue 1, TranslateScale midi_chan_modes[midi_channel], 0, 3, 0, 127
+			SetKnobValue 1, TranslateScale midi_chan_modes[midi_channel], 0, 8, 0, 127
 		endif
   elseif last_knob = 1
-  	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
+  	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 8
   	if val <> midi_chan_modes[midi_channel]
 			midi_chan_modes[midi_channel] = val
 			Call @LabelKnobset3
 		endif
 	elseif last_knob = 2
-  	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 4
+  	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 9
   	if val <> set_all_mc_to
 			set_all_mc_to = val
 			FillArray midi_chan_modes, set_all_mc_to, 16
-			if set_all_mc_to=4
+			if set_all_mc_to=9
 				midi_chan_modes=[0,0,0,0, 1,1,1,1, 2,2,2,2, 0,0,0,0]
 			endif
 			Call @LabelKnobset3
@@ -1757,6 +1802,16 @@
 	elseif midi_chan_modes[midi_channel] = 2
 		LabelKnob 1, {Chord}
 	elseif midi_chan_modes[midi_channel] = 3
+		LabelKnob 1, {*Chord}
+	elseif midi_chan_modes[midi_channel] = 4
+		LabelKnob 1, {*Root}
+	elseif midi_chan_modes[midi_channel] = 5
+		LabelKnob 1, {*Fifth}
+	elseif midi_chan_modes[midi_channel] = 6
+		LabelKnob 1, {*Lowest}
+	elseif midi_chan_modes[midi_channel] = 7
+		LabelKnob 1, {*Highest}
+	elseif midi_chan_modes[midi_channel] = 8
 		LabelKnob 1, {Thru}
 	endif
 	LabelKnob 2, {Set All:}, set_all_mc_to
@@ -1767,7 +1822,7 @@
 @LabelMidiChModesSettingsPad
 	CopyArray midi_chan_modes, m, 16
 	if in_mode_select
-		LabelPad 10, {[}, m[0],{-}, m[1],{-}, m[2],{-}, m[3],{] }, {[}, m[4],{-}, m[5],{-}, m[6],{-}, m[7],{] },  {[}, m[8],{-}, m[9],{-}, m[10],{-}, m[11],{] }, {[}, m[12],{-}, m[13],{-}, m[14],{-}, {X] } 
+		LabelPad 12, {[}, m[0],{-}, m[1],{-}, m[2],{-}, m[3],{] }, {[}, m[4],{-}, m[5],{-}, m[6],{-}, m[7],{] },  {[}, m[8],{-}, m[9],{-}, m[10],{-}, m[11],{] }, {[}, m[12],{-}, m[13],{-}, m[14],{-}, {X] } 
 	endif
 @End
 
@@ -1846,7 +1901,11 @@
 			LabelPad i, { } //# empty label to overwrite chord info
 			LatchPad i, NO 
 		endfor
-		settings_pad_cols=[8,4,7,7,7,0,4,3, 2,2,2,0,0,0,0,1]
+		apn_col=2
+		if apn
+			apn_col=1
+		endif
+		settings_pad_cols=[8,4,7,7,7,0,4,1, 2,2,2,apn_col,6,0,3,1]
 		if (songmode = 0)
 			LabelPad 0, {PLAYSONG: Active }
 		elseif (songmode = 1)
@@ -1868,21 +1927,16 @@
 			LabelPad 6, {COPY/PASTE }, {CHORD }, current_chord+1
 			copy_mode=1 
 		endif
-		LabelPad 7, { SAVE     }
+		LabelPad 7, {DELETE  }
 		LabelPad 8, { MIDI INPUT  }, {   Key/Scale      }, (NoteName selected_midi_in_root), { }, (ScaleName allowed_scales[selected_midi_in_scale])
-		Call @LabelChordTriggerMode
+		Call @LabelChordTriggerModes
 		Call @LabelMidiChModesSettingsPad
-		LabelPad 11,{ }
-		LabelPad 12,{ }
 		LabelPad 13,{ }
-		LabelPad 14,{ }
-		LabelPad 15, {DELETE  }
+		LabelPad 14, { SAVE     }
+		LabelPad 15, { ALL NOTES OFF }
 		if (mode>=1 and mode<=3)
 			LatchPad mode+1, YES //#shifted +Chords in menu
 			settings_pad_cols[mode+1]=8
-		else
-			LatchPad mode, YES
-			settings_pad_cols[mode]=8
 		endif
 		for i = 0 to (number_of_modes - 1)
 			ColorPad i, settings_pad_cols[i]
@@ -2011,7 +2065,7 @@
 	  		LabelPad i, { }
 	  	endif
 	    LatchPad i, NO
-	    if (scene_bank[i * sc_size] > 0) and (mode = 15) and NOT in_mode_select
+	    if (scene_bank[i * sc_size] > 0) and (mode=7) and NOT in_mode_select
 				scn_pad_cols[i]=1
 	    endif
 	  endfor		  
@@ -2029,7 +2083,7 @@
 	  	endif
 	    if (mode = 3) //del
 				scn_pad_cols[i]=1
-		  elseif (mode = 15) and (chord_bank[chord_slot] >= 0)
+		  elseif (mode=7) and (chord_bank[chord_slot] >= 0)
 				scn_pad_cols[i]=1
 		  endif
 	  endfor
@@ -2249,7 +2303,7 @@
  		LabelPads {Noodling the tonic - MINOR} 
  		Call @SetupLayout
   endif
-	Call @MakeChordScaleForWholeScene
+	Call @MakeChordScaleForScene
 @End
 
 @HandleChordBankPresetUpdate
