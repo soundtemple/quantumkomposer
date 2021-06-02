@@ -211,7 +211,7 @@
   Call @ResetBeatCounts
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
   Call @SetupLayout
-	for i = 0 to 15
+	for i = 0 to 14
 		chord_note_ch = i
 		Call @TurnOffChordNotes
 	endfor
