@@ -365,43 +365,48 @@
 	Call @SetChordScale
   chord_beat_count = 0 //# reset chord beat count on new chord
 	//turn off notes over chord change and re-trigger melody and harmony channel notes
-	for c = 0 to 14 //channels 1-15. 16 is reserved for midi input and kntrl
-		chord_note_ch =  c
-		melody_note_ch = c
-		if midi_chan_modes[c]=1 and update_held_notes_on_chord_change //Harmonize 
- 			for v = 0 to (num_mel_voices-1)
-				voice = (melody_note_ch*num_mel_voices)+v
-				if mel_note_voices[voice] > -1 //ch1
-					//turn off the existing melody ch note
-					harmony_note = (GetNoteState melody_note_ch, mel_note_voices[voice])
-					SendMIDINoteOff melody_note_ch, harmony_note, 64
-					Log {HCC Voice:}, v, { ch }, c+1, {mn voice in_note}, mel_note_voices[voice], { hnote: }, harmony_note 
-					//retrigger the melody channel voice	
-					midi_note = mel_note_voices[voice]
-					melody_note_velo = mel_note_velos[voice]  
-					Call @ConvertToHarmonyNotes
-				endif
-				//Log {CHANGE Done with voice }, v+1
-			endfor
-		elseif midi_chan_modes[c]=2 and update_held_notes_on_chord_change
-			Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
-			if held_chord_notes[c]
-				trigger_note_oct_adj = held_chord_oct_adj[c]  //notes 48-59 no change
-				Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
-			endif		
-		elseif midi_chan_modes[c]>=3 and midi_chan_modes[c]>=7 //always on modes
-			trigger_note_oct_adj = 0
-			Call @TurnOffChordNotes //these modes always send note(s) of the current mode
-			Call @SendOutChordNotes
-		endif
-		//Log {CHANGE Done with CHANNEL }, c+1
-	endfor
+	Call @HandleNotesHeldOverChordChange 
 	//# Label pads
   if not in_mode_select
 	  LabelPads {[ KORDS ]  Scene: }, current_scene+1, { Chord: }, current_chord+1
   endif
   //Log {----- CHORD CHANGE -----}, {C}, current_chord+1
   Call @SetupLayout
+@End
+
+@HandleNotesHeldOverChordChange
+	if HostRunning //turn off notes over chord change and re-trigger melody and harmony channel notes
+		for c = 0 to 14 //channels 1-15. 16 is reserved for midi input and kntrl
+			chord_note_ch =  c
+			melody_note_ch = c
+			if midi_chan_modes[c]=1 and update_held_notes_on_chord_change //Harmonize 
+	 			for v = 0 to (num_mel_voices-1)
+					voice = (melody_note_ch*num_mel_voices)+v
+					if mel_note_voices[voice] > -1 //ch1
+						//turn off the existing melody ch note
+						harmony_note = (GetNoteState melody_note_ch, mel_note_voices[voice])
+						SendMIDINoteOff melody_note_ch, harmony_note, 64
+						Log {HCC Voice:}, v, { ch }, c+1, {mn voice in_note}, mel_note_voices[voice], { hnote: }, harmony_note 
+						//retrigger the melody channel voice	
+						midi_note = mel_note_voices[voice]
+						melody_note_velo = mel_note_velos[voice]  
+						Call @ConvertToHarmonyNotes
+					endif
+					//Log {CHANGE Done with voice }, v+1
+				endfor
+			elseif midi_chan_modes[c]=2 and update_held_notes_on_chord_change
+				Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
+				if held_chord_notes[c]
+					trigger_note_oct_adj = held_chord_oct_adj[c]  //notes 48-59 no change
+					Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
+				endif		
+			elseif midi_chan_modes[c]>=3 and midi_chan_modes[c]>=7 //always on modes
+				trigger_note_oct_adj = 0
+				Call @TurnOffChordNotes //these modes always send note(s) of the current mode
+				Call @SendOutChordNotes
+			endif
+		endfor
+	endif
 @End
 
 @LogCurrentInfo
@@ -856,17 +861,17 @@
 @MakeChordScale
 	//create a "chord scale" to make transposing incoming notes to chord notes and chords faster
 	chord_slot = (current_scene * 100) + ((current_chord) * 10) //# chord to be updated
+	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
 	txpose_index = scene_bank[(current_scene * sc_size) + sc_txp_slot]
 	scn_txpose = txpose_array[txpose_index] //# scene txpose amount
 	
-	//We need these 4 notes to make the chord scale in raw octave and inverted order
+	//We need these 4 notes to make the chord scale in raw octave
 	chord_root = chord_bank[chord_slot]
 	chord_3rd = chord_bank[chord_slot + 1]
 	chord_5th = chord_bank[chord_slot + 2]
 	chord_7th = chord_bank[chord_slot + 3]
 	Call @GetChordFlavour //chord_flavour is major or minor and influences chord_scale 0=major 1=minor
 	Call @MakeChordNotesRawOctave
-	Call @HandleInversionSetting //# re-define chord notes to inverted order sets inverted_chord_name vars
 	apn_adj=0 //apn allow passing notes 0=no ; 1=yes
 	if apn
 		apn_adj=1
@@ -891,40 +896,43 @@
 	
 	//add chord notes to chord scale post inversion for send out chord notes
 	//get lowest and highest notes after inversion
+	Call @HandleInversionSetting //# re-define chord notes to inverted order sets inverted_chord_name vars
 	if chord_7th<0
-		sort_list = [inverted_chord_root, inverted_chord_3rd, inverted_chord_5th]
+		sort_list = [inv_chord_root, inv_chord_3rd, inv_chord_5th]
 		len_list = 3
 	else
-	  sort_list = [inverted_chord_root, inverted_chord_3rd, inverted_chord_5th, inverted_chord_7th]
+	  sort_list = [inv_chord_root, inv_chord_3rd, inv_chord_5th, inv_chord_7th]
 		len_list = 4
 	endif
 	Call @SortList
-	chord_notes_w_inv[chord_slot + 0] = sort_list[0] //Chord lowest notes
-	chord_notes_w_inv[chord_slot + 1] = inverted_chord_root + scn_txpose //chord root post inversion
-	chord_notes_w_inv[chord_slot + 2] = inverted_chord_3rd + scn_txpose //chord 3rd post inversion
-	chord_notes_w_inv[chord_slot + 3] = inverted_chord_5th + scn_txpose //chord 5th post inversion
+	chord_notes_w_inv[chord_slot + 0] = inv_chord_root + scn_txpose //chord root post inversion
+	chord_notes_w_inv[chord_slot + 1] = inv_chord_3rd + scn_txpose //chord 3rd post inversion
+	chord_notes_w_inv[chord_slot + 2] = inv_chord_5th + scn_txpose //chord 5th post inversion
 	if chord_7th>=0
-		chord_notes_w_inv[chord_slot + 4] = inverted_chord_7th + scn_txpose //chord 7th post inversion
+		chord_notes_w_inv[chord_slot + 3] = inv_chord_7th + scn_txpose //chord 7th post inversion
 	else
-	  chord_notes_w_inv[chord_slot + 4] = chord_7th
+	  chord_notes_w_inv[chord_slot + 3] = chord_7th
 	endif
+	chord_notes_w_inv[chord_slot + 4] = sort_list[0] //Chord lowest notes
 	chord_notes_w_inv[chord_slot + 5] = sort_list[len_list-1] //Chord highest note
 	CopyArray chord_notes_w_inv[chord_slot], curr_chord_notes, 6
+	CopyArray chord_scale, all_chord_scales[chord_scale_slot], 14
 	
 	//LOGGING!!!
 	cs=[]
-	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
-	CopyArray chord_scale, all_chord_scales[chord_scale_slot], 14
 	CopyArray chord_scale, cs, 14 //just for logging here
-	Log {CHORD SCALE: [}, cs[0],{-},cs[1],{-},cs[2],{-},cs[3],cs[4],{-},cs[5],{-},cs[6],cs[7],{-},cs[8],{-},cs[9],cs[1],{-},cs[10],{-},cs[11],{]} 
-	Log {CHORD NOTE W INV: [ LO:},curr_chord_notes[0],{-R:},curr_chord_notes[1],{-3rd:},curr_chord_notes[2],{-5th:},curr_chord_notes[3],{-7th:},curr_chord_notes[4],{-HI:},curr_chord_notes[5],{]}
+	Log {--- Made chord scale for s1}, current_scene+1, { chord }, current_chord+1, {---}
+	Log {MADE CHORD SCALE: [}, cs[0],{-},cs[1],{-},cs[2],{-},cs[3],{-},cs[4],{-},cs[5],{-},cs[6],{-},cs[7],{-},cs[8],{-},cs[9],{-},cs[1],{-},cs[10],{-},cs[11],{]} 
+	Log {MADE CHORD NOTE W INV: [R:},curr_chord_notes[0],{ 3rd:},curr_chord_notes[1],{ 5th:},curr_chord_notes[2],{  7th:},curr_chord_notes[3],{  LO:},curr_chord_notes[4],{  HI:},curr_chord_notes[5],{]}
+	Log {-----}
 @End
 
 @SetChordScale
 	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
-	CopyArray all_chord_scales[chord_scale_slot], current_chord_scale, 14
-	CopyArray current_chord_scale, c, 14 //just for logging here
-	Log {CURR CHORD SCALE: [}, c[0],{-},c[4],{-},c[7],{-},c[11],{] [}, (NoteName c[0], YES),{-},(NoteName c[4], YES),{-},(NoteName c[7], YES),{-},(NoteName c[11], YES), {] LO:}, c[12], { HI:}, c[13] 
+	chord_slot = (current_scene * 100) + ((current_chord) * 10) 
+	CopyArray all_chord_scales[chord_scale_slot], current_chord_scale, 14 
+	CopyArray chord_notes_w_inv[chord_slot], curr_chord_notes, 6
+	Log {SET CURRCHRD NOTES W INV: [ R:},curr_chord_notes[0],{  3rd:},curr_chord_notes[1],{  5th:},curr_chord_notes[2],{  7th:},curr_chord_notes[3],{  LO:},curr_chord_notes[4],{  HI:},curr_chord_notes[5],{]}
 @End
 
 @GetChordFlavour
@@ -998,9 +1006,12 @@
 	//get notes from the current chord scale
 	//curr_chord_notes=[lo, root, 3rd, 5th, 7th, hi] //post inversion, txpose, raw octave
 	//Modes 0:Off 1:Harmonize 2:GatedChord 3:*ChordOn 4:*RootOn 5:*5thOn 6:*Lo 7:*Hi 8:OFF
-	curr_mode = midi_chan_modes[MIDIChannel]
+	chord_slot = (current_scene * 100) + ((current_chord) * 10)
+	CopyArray chord_notes_w_inv[chord_slot], curr_chord_notes, 6 //make sure we have current chord notes
+	curr_mode = midi_chan_modes[chord_note_ch]
+	Log {C_CHRD: CH: }, chord_note_ch, { }, (NoteName curr_chord_notes[0]), (NoteName curr_chord_notes[1]), (NoteName curr_chord_notes[2]), (NoteName curr_chord_notes[3]) 
 	if curr_mode=2 or curr_mode=3 //GATED CHORDS or CHORD* always on
-		if curr_chord_notes[1]>=0 and curr_chord_notes[2]>=0 and curr_chord_notes[3]>=0 
+		if curr_chord_notes[0]>=0 and curr_chord_notes[1]>=0 and curr_chord_notes[2]>=0 
 		//aka chord_formed we can send chord notes	
 			for i = 0 to 3  
 				Call @HumanizeVelocity
@@ -1014,7 +1025,7 @@
 		//These fall into the always on category so no trigger note octave adj here
 		Call @HumanizeVelocity
 		//notes modes play 0:LO 1:ROOT 2:3RD 3:5TH 4:7TH 5:HI
-		index_to_curr_chord_notes = [curr_chord_notes[1], curr_chord_notes[3], curr_chord_notes[0], curr_chord_notes[5]]
+		index_to_curr_chord_notes = [curr_chord_notes[0], curr_chord_notes[2], curr_chord_notes[4], curr_chord_notes[5]]
 		note_to_play = index_to_curr_chord_notes[curr_mode-4] //4:root, 5:5th, 6:lowest, 7:highest
 		if note_to_play > 0
 			SendMIDINoteOn chord_note_ch, note_to_play, velocity
@@ -1051,54 +1062,54 @@
 @End
 
 @HandleInversionSetting
-	//only call from make chord scale
+	//only call from make chord scale where chord_root, chord_3rd, chord_5th, chord_7th are set
 	//handle +/- octaves to chord notes and order by fixed R357 or ascending chord notes order
 	chrd_inversion = chord_bank[chord_slot + inv_slot]
-	//# add octave in case inverting down goes below zero
-	cn1 = chord_root + 12
-	cn2 = chord_3rd + 12
-	cn3 = chord_5th + 12
-	cn4 = chord_7th + 12
-	
-	// CEGB correspond to R357 regardless of inversion		
+	inv_adj_amts=[0,0,0,0] //no inversion
 	if chrd_inversion = 1
-		c_notes=[cn1+12, cn2, cn3, cn4]
+		inv_adj_amts=[12,0,0,0]
 	elseif chrd_inversion = 2
-		c_notes=[cn1+12, cn2+12, cn3, cn4]
+		inv_adj_amts=[12,12,0,0]
 	elseif chrd_inversion = 3
-		c_notes=[cn1+12, cn2+12, cn3+12, cn4]
+		inv_adj_amts=[12,12,12,0]
 	elseif chrd_inversion = 4
-		c_notes=[cn1+12, cn2+12, cn3+12, cn4+12]
+		if chord_7th > -1
+			inv_adj_amts=[12,12,12,12]
+		else
+			inv_adj_amts=[12,12,12,0]
+		endif
 	elseif chrd_inversion = -1
 		if chord_7th > -1
-			c_notes=[cn1, cn2, cn3, cn4-12]
+			inv_adj_amts=[0,0,0,-12]
 		else
-			c_notes=[cn1, cn2, cn3-12, cn4-12]
+			inv_adj_amts=[0,0,-12,0]
 		endif
 	elseif chrd_inversion = -2
 		if chord_7th > -1
-			c_notes=[cn1, cn2, cn3-12, cn4-12]
+			inv_adj_amts=[0,0,-12,-12]
 		else
-			c_notes=[cn1, cn2-12, cn3-12, cn4-12]
+			inv_adj_amts=[0,-12,-12,0]
 		endif
 	elseif chrd_inversion = -3
 		if chord_7th > -1
-			c_notes=[cn1, cn2-12, cn3-12, cn4-12]
+			inv_adj_amts=[0,-12,-12,-12]
 		else
-			c_notes=[cn1-12, cn2-12, cn3-12, cn4-12]
+			inv_adj_amts=[-12,-12,-12,0]
 		endif
 	elseif chrd_inversion = -4
-		c_notes=[cn1-12, cn2-12, cn3-12, cn4-12]
+		if chord_7th > -1
+			inv_adj_amts=[-12,-12,-12,-12]
+		else
+			inv_adj_amts=[-12,-12,-12,0]
+		endif
 	endif
 	
 	//# Re-define chord notes based on inverted status
 	//# remove octave added above
-	inverted_chord_root = c_notes[0] - 12
-	inverted_chord_3rd = c_notes[1] - 12
-	inverted_chord_5th = c_notes[2] - 12
-	if chord_7th >= 0
-		inverted_chord_7th = c_notes[3] - 12
-	endif
+	inv_chord_root = chord_root + inv_adj_amts[0]
+	inv_chord_3rd = chord_3rd + inv_adj_amts[1]
+	inv_chord_5th = chord_5th + inv_adj_amts[2]
+	inv_chord_7th= chord_7th + inv_adj_amts[3]
 @End
 
 @MakeChordNotesRawOctave
