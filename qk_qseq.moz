@@ -87,6 +87,8 @@
 	FillArray a5_pattns, -1, 1024
 	FillArray a6_pattns, -1, 1024
 	FillArray a7_pattns, -1, 1024
+	FillArray current_playing_patterns, -1, 8 //the pattn number playing in each channel
+	FillArray trigger_pattn_change_requested_for_ch, -1, 8 //trigger mode handling requested patterns
 	//# sequence_num=(current_scene*128)+(current_pattn*16)+(seq_ch)
 	FillArray sequence_lengths, 16, 1024 //A number between 1 and 16
  	FillArray sequence_rates, 1, 1024 //The length of each step
@@ -145,6 +147,8 @@
 @OnHostStop
   scene_beat_count = 0
 	pattn_beat_count = 0
+	FillArray current_playing_patterns, -1, 8
+	FillArray trigger_pattn_change_requested_for_ch, -1, 8
   Call @SetupLayout
 @End 
 
@@ -176,47 +180,75 @@
 @TriggerPattern
 	step_slot=(current_scene*128)+(current_pattn*16)+curr_steps[ch]
 	offset = trig_note_offset[destinations[ch]]
-	if ch=0
+	ptn_triggered_for_ch=-1
+	if ch=0 and not trigger_pattn_change_requested_for_ch[ch]>=0 //trigger mode overrides seq mode
 		if a0_pattns[step_slot] >= 0
 			SendMIDINoteOn ch, a0_pattns[step_slot] + offset, 127
 			SendMIDINoteOff ch, a0_pattns[step_slot] + offset, 64, 100
+			current_playing_patterns[ch]=a0_pattns[step_slot]
+			ptn_triggered_for_ch=0
 		endif
-	elseif ch=1
+	elseif ch=1 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a1_pattns[step_slot] >= 0
 			SendMIDINoteOn ch, a1_pattns[step_slot] + offset, 127
 			SendMIDINoteOff ch, a1_pattns[step_slot] + offset, 64, 100
+			current_playing_patterns[ch]=a1_pattns[step_slot]
+			ptn_triggered_for_ch=1
 		endif
-	elseif ch=2
+	elseif ch=2 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a2_pattns[step_slot] >= 0
 			SendMIDINoteOn ch, a2_pattns[step_slot] + offset, 127
 			SendMIDINoteOff ch, a2_pattns[step_slot] + offset, 64, 100
+			current_playing_patterns[ch]=a2_pattns[step_slot]
+			ptn_triggered_for_ch=2
 		endif
-	elseif ch=3
+	elseif ch=3 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a3_pattns[step_slot] >= 0
 			SendMIDINoteOn ch, a3_pattns[step_slot] + offset, 127
 			SendMIDINoteOff ch, a3_pattns[step_slot] + offset, 64, 100
+			current_playing_patterns[ch]=a3_pattns[step_slot]
+			ptn_triggered_for_ch=3
 		endif
-	elseif ch=4
+	elseif ch=4 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a4_pattns[step_slot] >= 0
 			SendMIDINoteOn ch, a4_pattns[step_slot] + offset, 127
 			SendMIDINoteOff ch, a4_pattns[step_slot] + offset, 64, 100
+			current_playing_patterns[ch]=a4_pattns[step_slot]
+			ptn_triggered_for_ch=4
 		endif
-	elseif ch=5
+	elseif ch=5 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a5_pattns[step_slot] >= 0
 	  	SendMIDINoteOn ch, a5_pattns[step_slot] + offset, 127
 			SendMIDINoteOff ch, a5_pattns[step_slot] + offset, 64, 100
+			current_playing_patterns[ch]=a5_pattns[step_slot]
+			ptn_triggered_for_ch=5
 		endif
-	elseif ch=6
+	elseif ch=6 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a6_pattns[step_slot] >= 0
 		  SendMIDINoteOn ch, a6_pattns[step_slot] + offset, 127
 			SendMIDINoteOff ch, a6_pattns[step_slot] + offset, 64, 100
+			current_playing_patterns[ch]=a6_pattns[step_slot]
+			ptn_triggered_for_ch=6
 		endif
-	elseif ch=7
+	elseif ch=7 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a7_pattns[step_slot] >= 0
 			SendMIDINoteOn ch, a7_pattns[step_slot] + offset, 127
 			SendMIDINoteOff ch, a7_pattns[step_slot] + offset, 64, 100
+			current_playing_patterns[ch]=a7_pattns[step_slot]
+			ptn_triggered_for_ch=7
 		endif
-	endif	
+	endif
+	//TRIGGER PATTERN MODE 
+	if trigger_pattn_change_requested_for_ch[ch]>=0 //trigger pattern mode
+		SendMIDINoteOn ch, trigger_pattn_change_requested_for_ch[ch] + offset, 127
+		SendMIDINoteOff ch, trigger_pattn_change_requested_for_ch[ch] + offset, 64, 100
+		current_playing_patterns[ch]=trigger_pattn_change_requested_for_ch[ch]
+		ptn_triggered_for_ch=ch
+		trigger_pattn_change_requested_for_ch[ch]=-1
+	endif
+	if mode=10 and ptn_triggered_for_ch=seq_ch //we want to see the current pattn highlighted
+		Call @LabelAllSequencePads
+	endif
 @End
 
 @OnNewBeat //# Handle Scene and Pattern changes
@@ -351,7 +383,7 @@
 			Call @SetupLayout
 			Call @SetupKnobset0
 			Call @OnPadDown_KnobSetSelect
-		elseif last_pad=2 or last_pad=5 or last_pad=12 or last_pad=13
+		elseif last_pad=2 or last_pad=5 or last_pad=13
 			Exit //# Not in use
 		elseif (last_pad>=3 and last_pad<=5) or (last_pad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
@@ -362,15 +394,17 @@
 			Exit //# DELETE not allowed
 		elseif last_pad=8 or last_pad=9 or last_pad=10
 			Call @HandleGuiRequest // Show/Hide GUI, Mute, Launch
-		elseif (last_pad=11 or last_pad=14)
-			if last_pad = 11
-				mode=9 
-	      Call @SetupKnobset5 //# SEQUENCE STEPS EDIT
-			elseif last_pad = 14
-				mode=14
-	      Call @SetupKnobset9 //# ROTATION
-	    endif
-	    in_mode_select = FALSE
+		elseif last_pad=11 //sequence mode
+			mode=9 
+      in_mode_select = FALSE
+    	in_seq_mode = TRUE
+		elseif last_pad=12 //trigger play mode
+			mode=10
+			in_mode_select = FALSE
+    	in_seq_mode = TRUE
+		elseif last_pad = 14
+			mode=14
+      in_mode_select = FALSE
     	in_seq_mode = TRUE
 		elseif last_pad=6 and ((mode=9) or (mode=11) or (mode<=1))//# COPY PASTE
 			Call @HandleCopyPasteActions
@@ -587,7 +621,9 @@
   	double_tap=FALSE
 	endif
 	sel_pad=last_pad
-	if (mode=9 and move_all)
+	if mode=10
+		trigger_pattn_change_requested_for_ch[seq_ch]=last_pad //trigger a new pattern next beat/bar
+	elseif (mode=9 and move_all)
 		if last_pad=14
 			move_all_dir=-1
 			Call @MoveAllSteps
@@ -649,8 +685,8 @@
   if (NOT in_mode_select) and (NOT in_seq_mode)
   	Call @SetupKnobset0 //scenes mode duration setup  
   elseif (NOT in_mode_select) and in_seq_mode
-		if mode=9
-  		Call @SetupKnobset5
+		if mode=10
+  		Call @SetupKnobset6
 		elseif mode=14
   		Call @SetupKnobset9 //# ROTATION
   	elseif mode=6 and return_to_mode=9
@@ -1259,16 +1295,14 @@
 		Call @GetStepVal
     SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
 		Call @SetupLayout
-  endif
-	if (last_knob=1) //# PATTERN STEP RATE - Bar or Beat
+	elseif (last_knob=1) //# PATTERN STEP RATE - Bar or Beat
     val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 1
   	if sequence_rates[sequence_num] <> val
   		sequence_rates[sequence_num]=val
 			Call @SetSequenceLength
 			Call @LabelAllSequencePads
 		endif	
-	endif
-  if (last_knob=2) //# STEP VAL FOR SEQ
+	elseif (last_knob=2) //# STEP VAL FOR SEQ
     step_val = Round TranslateScale (GetKnobValue 2), 0, 127, seq_type_min, seq_type_max
     if move_all
 			rtn_to_step_slot=step_slot
@@ -1281,8 +1315,7 @@
 		else 
 			Call @SetStepVal
 		endif
-  endif
-  if (last_knob=3) //# ALL STEPS
+	elseif (last_knob=3) //# ALL STEPS
     val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
   	if move_all <> val
   		move_all=val
@@ -1315,6 +1348,39 @@
 	else
 		LabelKnob 3, {< Move1 >}
 	endif 
+@End
+
+@SetupKnobset6
+	//# TRIGGER PLAY MODE
+  knob_set = 6
+  step_slot=(current_scene*128)+(current_pattn*16)+sel_step
+	sequence_num=(current_scene*128) + (current_pattn*16) + seq_ch
+	if Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7 <> seq_ch
+	  SetKnobValue 0, TranslateScale seq_ch, 0, 7, 0, 127
+  endif	
+	SetKnobValue 1, 0
+  SetKnobValue 2, 0
+  SetKnobValue 3, 0
+  Call @LabelSet6Knobs
+@End
+@KnobChangeSet6 //# PATTERN EDIT currently selected step/pad (out of 16) in a pattern
+	step_slot=(current_scene*128)+(current_pattn*16)+sel_step
+	sequence_num=(current_scene*128) + (current_pattn*16) + seq_ch
+  if last_knob = 0 //# SEQ_CH
+    seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		Call @SetupLayout
+		Call @LabelSet6Knobs
+		sel_pad = sel_step
+		step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
+		Call @LabelSequencePad
+  endif
+@End
+@LabelSet6Knobs
+	LabelKnobs {TRIGGER PLAY MODE}
+	LabelKnob 0, {CH: }, seq_ch+1	
+	LabelKnob 1, { }
+	LabelKnob 2, { }
+	LabelKnob 3, { }
 @End
 
 @MoveAllSteps 
@@ -1452,6 +1518,8 @@
     Call @KnobChangeSet2 //# SETUP CHANNELS
 	elseif knob_set = 5
     Call @KnobChangeSet5 //# SEQUENCE STEPS EDIT
+	elseif knob_set = 6
+    Call @KnobChangeSet6 //# TRIGGER PLAY MODE
 	elseif knob_set = 9
     Call @KnobChangeSet9 //# ROTATION
 	elseif knob_set = 99 //settings layout
@@ -1517,8 +1585,8 @@
 		LabelPad 7, {DELETE  }
 	endif
 	Call @LabelDestinationInfoPads //8,9,10
-	LabelPad 11, {SEQUENCE}
-	LabelPad 12, { } //not in use
+	LabelPad 11, {SEQUENCE} //sequence pattern trigggers
+	LabelPad 12, {TRIGGER} //Interrupt sequence with pattern trigger or play without sequence
 	LabelPad 13, { }
 	LabelPad 14, {ROTATE}
 	LabelPad 15, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
@@ -1577,7 +1645,7 @@
 @End
 
 @UpdateSettingsPadColors
-	settings_pad_cols=[7,4,0,5,5,0,4,1, ds,ls,ms,4,0,0,2,1]	
+	settings_pad_cols=[7,4,0,5,5,0,4,1, ds,ls,ms,4,4,0,2,1]	
 	for i = 0 to 15
 		ColorPad i, settings_pad_cols[i]
 		if mgen_device_id=mgen_sel_dev
@@ -1679,10 +1747,12 @@
 	//# sequence mode layout
 	if mode = 9
 	  Call @SetupKnobset5 //# SEQUENCE EDIT ALL TYPES
+	elseif mode = 10
+	  Call @SetupKnobset6 //# TRIGGER PLAY
 	elseif mode = 12
 	  Call @SetupKnobset9 //# ROTATE
 	  LabelPads {ROTATE SEQUENCE: Select CH. Tap  <<pad15 or pad16>> to rotate.}
-	endif 
+	endif
 	Call @LabelAllSequencePads
 @End
 
@@ -1711,6 +1781,15 @@
 	if sel_pad >= pattn_length
 		padColor = 6
 	endif
+	if mode=10 //trigger play mode
+		if current_playing_patterns[seq_ch] = sel_pad
+			padColor=4
+		elseif trigger_pattn_change_requested_for_ch[seq_ch] = sel_pad
+		  padColor=6
+		else
+		  padColor=0
+		endif
+	endif
 	//# Selected step
 	if (sel_pad=sel_step) and mode=9 and seq_type<4
 		padColor=3
@@ -1733,14 +1812,20 @@
 	ap6=a6_pattns[step_slot]
 	ap7=a7_pattns[step_slot]
 	ap=[ap0, ap1, ap2, ap3, ap4, ap5, ap6, ap7]
-	nn=ap[seq_ch] + trig_note_offset[destinations[seq_ch]]
-	if ap[seq_ch] >= 0
-		LabelPad sel_pad, { ___P}, ap[seq_ch]+1, {___ }, { ch}, seq_ch+1, { }, (NoteName nn, TRUE), { (}, nn, {)}
+	if mode=10
+		ptn_num=sel_pad+1
+		nn=sel_pad + trig_note_offset[destinations[seq_ch]]
+	else
+	  ptn_num=ap[seq_ch]+1
+		nn=ap[seq_ch] + trig_note_offset[destinations[seq_ch]]
+	endif
+	if (ap[seq_ch] >= 0) or (mode=10) //trigger mode 16pads available
+		LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { }, (NoteName nn, TRUE), { (}, nn, {)}
 	else
 	  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
 	endif
   //# Hide data for pads outside seq length
-  if sel_pad >= pattn_length
+  if (sel_pad >= pattn_length) and not mode=10
 		LabelPad sel_pad, { }
 	endif
 @End
