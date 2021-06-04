@@ -10,6 +10,7 @@
 	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 	  SetMetroPPQN 4
 	  ppqn = 4 
+		ShowLayout 2
 		scene_change_requested = -1 //# on pad down has next scene number
 	  chord_change_requested = -1 //# on pad down has next chord number
 		chord_beat_count = -1
@@ -143,9 +144,35 @@
 	FillArray chord_notes_w_inv, -1, 1024 //store for the playable chord note pitches for each chord post inversion + txpose
 	curr_chord_notes=[-1,-1,-1,-1,-1,-1] //lo, root, 3rd, 5th, 7th current chord post txpose, inversion, raw octave
 	mode_midi_channel=0 //editing the midi channel mode
+	//map incoming note to get inversion.... C = inversion -4
+	inversions_for_gated_chord=[-4,-3,-2,-1,0,1,2,3,4,0,0,0] //[C-C#-D-D#=-4to-1]; [E=RootInv]; [F-F#-G-G#=1to4]
+	//triad inversions
+	//we use these for mode2 gated chord for quick access to adjust chord_scale notes for inversion 
+	triad_inversion_adjustments[0] = [-12,-12,-12,0] //inversion -4  C
+	triad_inversion_adjustments[4] = [-12,-12,-12,0] //inversion -3 C#
+	triad_inversion_adjustments[8] = [0,-12,-12,0] //inversion -2 D
+	triad_inversion_adjustments[12]= [0,0,-12,0] //inversions -1 D#
+	triad_inversion_adjustments[16]= [0,0,0,0] //root inversion E
+	triad_inversion_adjustments[20]= [12,0,0,0] //1st inversion F
+	triad_inversion_adjustments[24]= [12,12,0,0] //2nd inversion F#
+	triad_inversion_adjustments[28]= [12,12,12,0] //3rd inversion G
+	triad_inversion_adjustments[32]= [12,12,12,0] //4th inversion G#
+	//tetrad inversions 
+	tetrad_inversion_adjustments[0] = [-12,-12,-12,-12] //inversion -4
+	tetrad_inversion_adjustments[4] = [0,-12,-12,-12] //inversion -3
+	tetrad_inversion_adjustments[8] = [0,0,-12,-12] //inversion -2
+	tetrad_inversion_adjustments[12]= [0,0,0,-12] //inversions -1
+	tetrad_inversion_adjustments[16]= [0,0,0,0] //root inversion
+	tetrad_inversion_adjustments[20]= [12,0,0,0] //1st inversion
+	tetrad_inversion_adjustments[24]= [12,12,0,0] //2nd inversion
+	tetrad_inversion_adjustments[28]= [12,12,12,0] //3rd inversion
+	tetrad_inversion_adjustments[32]= [12,12,12,12] //4th inversion
 	//Modes for processing incoming notes 0:Off 1:Harmonize 2:GatedChord 3:*ChordOn 4:*RootOn 5:*5thOn 6:*Lo 7:*Hi 8:OFF
 	midi_chan_modes=[0,0,0,0, 1,1,1,1, 2,2,2,2, 0,0,0,0] 
 	set_all_mc_to=9 //Setting all midi channels to x harmonization style
+	active_ch_range=4 //limit active channels for better cpu 0-3; 0-7; 4-11; 0-11; 0-15
+	active_ch_min=0 //for setting active_ch_range 
+	active_ch_max=15 //for setting active_ch_range
 	FillArray mel_note_velos, 100, 127 //default value for stored velocity when re-trig mel notes on chord change 
 	apn_adj=0 //apn_adj allow passing notes  0:no 1:yes
   //# Scale definitions for midi in key, scale handling
@@ -206,11 +233,13 @@
 		scene_beat_count = scene_completed_bars + HostBeat
 		chord_beat_count = chord_completed_bars + HostBeat
 	endif
-	for i = 0 to 14
-		chord_note_ch = i
-		trigger_note_octave = 0
-		trigger_note_oct_adj = 0  
-		Call @SendOutChordNotes
+	for i = active_ch_min to active_ch_max
+		if midi_chan_modes[i]>2
+			chord_note_ch = i
+			trigger_note_octave = 0
+			trigger_note_oct_adj = 0
+			Call @SendOutChordNotes
+		endif
 	endfor
 		
 	//Log {---- Host Started ----}
@@ -221,9 +250,11 @@
   Call @ResetBeatCounts
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
   Call @SetupLayout
-	for i = 0 to 14
-		chord_note_ch = i
-		Call @TurnOffChordNotes
+	for i = active_ch_min to active_ch_max
+		if midi_chan_modes[i]>2
+			chord_note_ch = i
+			Call @TurnOffChordNotes
+		endif
 	endfor
 	//reset held notes
 	FillArray mel_note_voices, -1, num_mel_voices*16
@@ -383,7 +414,7 @@
 
 @HandleNotesHeldOverChordChange
 	if HostRunning //turn off notes over chord change and re-trigger melody and harmony channel notes
-		for c = 0 to 14 //channels 1-15. 16 is reserved for midi input and kntrl
+		for c = active_ch_min to active_ch_max //active channels 1-15. 16 is reserved for midi input and kntrl
 			chord_note_ch =  c
 			melody_note_ch = c
 			if midi_chan_modes[c]=1 and update_held_notes_on_chord_change //Harmonize 
@@ -408,7 +439,6 @@
 					Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
 				endif		
 			elseif midi_chan_modes[c]>=3 and midi_chan_modes[c]<=7 //always on modes
-				Log {Handling mode }, midi_chan_modes[c]
 				Call @TurnOffChordNotes //these modes always send note(s) of the current mode
 				trigger_note_oct_adj = 0  
 				Call @SendOutChordNotes
@@ -470,12 +500,7 @@
 			Exit
 		elseif (last_pad = 15) //All Notes off
 			mode=last_pad
-			for ch = 0 to 14
-				for n = 0 to 127
-					SendMIDINoteOn ch, n, 0
-					SendMIDINoteOff ch, n, 64 //handle stuck notes
-				endfor
-			endfor
+			Call @AllNotesOff
 			LabelPad 15, {Done!}
 		else
 			mode = last_pad
@@ -519,7 +544,7 @@
 		if NOT HostRunning and (last_pad >= 8) 
 			current_chord_duration = chord_bank[chord_slot + dur_slot]
 			if current_chord_duration>0
-				for i = 0 to 14
+				for i = active_ch_min to active_ch_max
 					if midi_chan_modes[i]>=2 and midi_chan_modes[i]<=7  //send chords to channels set up with mode chords
 						chord_note_ch = i 
 						trigger_note_oct_adj = 0 //pad down trigger uses default octave
@@ -531,6 +556,19 @@
 	endif
 @End
 
+@AllNotesOff //send midi note off for all channels - handle stuck notes
+	for ch = 0 to 15
+		Call @SendMidiOffForCh
+	endfor
+@End
+
+@SendMidiOffForCh //send midi note off for a channel (ch) - handle stuck notes
+	for n = 0 to 127
+		SendMIDINoteOn ch, n, 0
+		SendMIDINoteOff ch, n, 64 //handle stuck notes
+	endfor
+@End
+
 @OnPadUp
 	last_pad=LastPad
   Call @OnPadUp2
@@ -540,7 +578,7 @@
 	if NOT HostRunning and (last_pad >= 8)
 		current_chord_duration = chord_bank[chord_slot + dur_slot]
 		if current_chord_duration>0
-			for i = 0 to 14
+			for i = active_ch_min to active_ch_max
 				if midi_chan_modes[i]>=2 and midi_chan_modes[i]<=7
 					chord_note_ch = i
 	  			Call @TurnOffChordNotes
@@ -675,11 +713,6 @@
 		SendMidiCC knobs_controller[0], knobs_controller[4], (Round GetKnobValue 3), 75
 	endif
 @End
-
-@OnAuParameter
-  //Log {Last AU param: }, LastAUParameter
-@End
-
 
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
@@ -1000,15 +1033,20 @@
 				endif
 			endfor
 		endif
-	elseif midi_chan_modes[MIDIChannel]=2 //CHORD MODE SEND CURRENT CHORD NOTES1-4 if C sent on CH  
+	elseif midi_chan_modes[MIDIChannel]=2 //GATED CHORD MODE SEND CHORD NOTES from chord_scale with inv  
 		chord_note_ch=MIDIChannel
 		Call @TurnOffChordNotes // can only have one chord note per channel playing at any one time
-		trigger_note_octave = Div MIDINote, 12 //note in influences octave out
-		trigger_note_oct_adj = (trigger_note_octave - 4) * 12  //notes 48-59 no change
+		gated_chord_inversion = inversions_for_gated_chord[MIDINote%12] //a number from -4 to 4
+		if current_chord_scale[11]=-1
+			//inv_adjs is an array len 4, each cell -12, 0 or +12
+			CopyArray triad_inversion_adjustments[(gated_chord_inversion+4)*4], inv_adjs, 4 
+		else
+		  CopyArray tetrad_inversion_adjustments[(gated_chord_inversion+4)*4], inv_adjs, 4
+		endif
 		Call @SendOutChordNotes
 		if update_held_notes_on_chord_change //held note tracking for update on chord change
 			held_chord_notes[chord_note_ch] = TRUE
-			held_chord_oct_adj[chord_note_ch] = trigger_note_oct_adj
+			held_chord_oct_adj[chord_note_ch] = 0
 		endif
 	elseif midi_chan_modes[MIDIChannel]=8 //THRU
 		SendMIDIThru 
@@ -1023,14 +1061,27 @@
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	CopyArray chord_notes_w_inv[chord_slot], curr_chord_notes, 6 //make sure we have current chord notes
 	curr_mode = midi_chan_modes[chord_note_ch]
-	if curr_mode=2 or curr_mode=3 //GATED CHORDS or CHORD* always on
+	if curr_mode=2 //GATED CHORDS use chord_scale to derive a chord & apply inversion based on incoming midi note
+		if current_chord_scale[0]>=0 and current_chord_scale[4]>=0 and current_chord_scale[7]>=0 
+			//aka chord_formed we can send chord notes
+			index_to_chord_notes=[0,4,7,11]
+			//inv_adjs passed in from onMidiNoteOn. array len 4, each cell -12, 0 or +12
+			for i = 0 to 3  
+				Call @HumanizeVelocity
+				if current_chord_scale[index_to_chord_notes[i]] > 0
+					SendMIDINoteOn chord_note_ch, (current_chord_scale[index_to_chord_notes[i]] + inv_adjs[i]), velocity
+					SetNoteState chord_note_ch, i, (current_chord_scale[index_to_chord_notes[i]] + inv_adjs[i])
+				endif
+			endfor
+		endif
+	elseif curr_mode=3 //CHORD* always on. 
 		if curr_chord_notes[0]>=0 and curr_chord_notes[1]>=0 and curr_chord_notes[2]>=0 
 		//aka chord_formed we can send chord notes	
 			for i = 0 to 3  
 				Call @HumanizeVelocity
 				if curr_chord_notes[i] > 0
-					SendMIDINoteOn chord_note_ch, (curr_chord_notes[i] + trigger_note_oct_adj), velocity
-					SetNoteState chord_note_ch, i, (curr_chord_notes[i] + trigger_note_oct_adj)
+					SendMIDINoteOn chord_note_ch, curr_chord_notes[i], velocity
+					SetNoteState chord_note_ch, i, curr_chord_notes[i]
 				endif
 			endfor
 		endif
@@ -1795,15 +1846,16 @@
 @SetupKnobset3
 	//Midi channel modes - MUTE-HARMONIZE-CHORD-THRU
 	knob_set = 3
-	SetKnobValue 0, TranslateScale mode_midi_channel, 0, 14, 0, 127
+	SetKnobValue 0, TranslateScale mode_midi_channel, active_ch_min, active_ch_max, 0, 127
 	SetKnobValue 1, TranslateScale midi_chan_modes[mode_midi_channel], 0, 8, 0, 127
 	SetKnobValue 2, TranslateScale set_all_mc_to, 0, 4, 0, 127
+	SetKnobValue 3, TranslateScale active_ch_range, 0, 4, 0, 127
 	Call @LabelKnobset3
 @End
 @KnobChangeSet3
 	//Midi channel modes - MUTE-HARMONIZE-CHORD-THRU
 	if last_knob = 0
-	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 14
+	  val = Round TranslateScale (GetKnobValue 0), 0, 127, active_ch_min, active_ch_max
   	if val <> mode_midi_channel
 			mode_midi_channel = val
 			Call @LabelKnobset3
@@ -1814,16 +1866,58 @@
   	if val <> midi_chan_modes[mode_midi_channel]
 			midi_chan_modes[mode_midi_channel] = val
 			Call @LabelKnobset3
+			ch=mode_midi_channel 
+			Call @SendMidiOffForCh //send off notes to avoid stuck notes on new mode
 		endif
 	elseif last_knob = 2
   	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 9
   	if val <> set_all_mc_to
 			set_all_mc_to = val
-			FillArray midi_chan_modes, set_all_mc_to, 16
-			if set_all_mc_to=9
-				midi_chan_modes=[0,0,0,0, 1,1,1,1, 2,2,2,2, 0,0,0,0]
-			endif
+			my_fave_modes=[0,0,0,0, 1,1,1,1, 2,2,3,3, 0,0,0,0]
+			for i = 0 to 14
+				if i>=active_ch_min and i<=active_ch_max
+					if set_all_mc_to=9
+						midi_chan_modes[i]=my_fave_modes[i]
+					else
+					  midi_chan_modes[i]=set_all_mc_to
+					endif
+				endif
+			endfor
 			Call @LabelKnobset3
+		endif
+	elseif last_knob = 3
+  	val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 4
+  	if val <> active_ch_range
+			active_ch_range = val
+			if active_ch_range=0 //active 0-3
+				active_ch_min=0
+				active_ch_max=3
+			elseif active_ch_range=1 //active 0-7
+				active_ch_min=0
+				active_ch_max=7
+			elseif active_ch_range=2 //active 4-11
+				active_ch_min=4
+				active_ch_max=11
+			elseif active_ch_range=3 //active 0-11
+				active_ch_min=0
+				active_ch_max=11
+			elseif active_ch_range=4 //active 0-15
+				active_ch_min=0
+				active_ch_max=15	
+			endif
+			for i = 0 to 15
+				if i<active_ch_min
+					midi_chan_modes[i]=0
+					ch=i
+					Call @SendMidiOffForCh
+				elseif i>active_ch_max
+					midi_chan_modes[i]=0
+					ch=i
+					Call @SendMidiOffForCh
+				endif
+			endfor
+			mode_midi_channel=active_ch_min
+			Call @SetupKnobset3
 		endif
 	endif
 @End
@@ -1851,14 +1945,32 @@
 		LabelKnob 1, {Thru}
 	endif
 	LabelKnob 2, {Set All:}, set_all_mc_to
-	LabelKnob 3, { }
+	if active_ch_range=0
+		LabelKnob 3, {Active 1-4}
+	elseif active_ch_range=1
+		LabelKnob 3, {Active 1-8}
+	elseif active_ch_range=2
+		LabelKnob 3, {Active 5-12}
+	elseif active_ch_range=3
+		LabelKnob 3, {Active 1-12}
+	elseif active_ch_range=4
+		LabelKnob 3, {Active 1-16}
+	endif
 	Call @LabelMidiChModesSettingsPad
 @End
 
 @LabelMidiChModesSettingsPad
 	CopyArray midi_chan_modes, m, 16
-	if in_mode_select
-		LabelPad 12, {[}, m[0],{-}, m[1],{-}, m[2],{-}, m[3],{] }, {[}, m[4],{-}, m[5],{-}, m[6],{-}, m[7],{] },  {[}, m[8],{-}, m[9],{-}, m[10],{-}, m[11],{] }, {[}, m[12],{-}, m[13],{-}, m[14],{-}, {X] } 
+	if in_mode_select and active_ch_range=0 //0-3
+		LabelPad 12, {[}, m[0],{-}, m[1],{-}, m[2],{-}, m[3],{]  }, {   [X-X-X-X]  },  {  [X-X-X-X] }, {  [X-X-X-X] } 			
+	elseif in_mode_select and active_ch_range=1 //0-7
+		LabelPad 12, {[}, m[0],{-}, m[1],{-}, m[2],{-}, m[3],{]  }, { [}, m[4],{-}, m[5],{-}, m[6],{-}, m[7],{]  }, {  [X-X-X-X] }, {  [X-X-X-X] }
+	elseif in_mode_select and active_ch_range=2 //4-11
+		LabelPad 12, {[X-X-X-X]  }, {[}, m[4],{-}, m[5],{-}, m[6],{-}, m[7],{] },  { [}, m[8],{-}, m[9],{-}, m[10],{-}, m[11],{]  }, {  [X-X-X-X]}
+	elseif in_mode_select and active_ch_range=3 //0-11
+		LabelPad 12, {[}, m[0],{-}, m[1],{-}, m[2],{-}, m[3],{]  }, { [}, m[4],{-}, m[5],{-}, m[6],{-}, m[7],{]  },  {  [}, m[8],{-}, m[9],{-}, m[10],{-}, m[11],{]   }, {  [X-X-X-X]}
+	elseif in_mode_select and active_ch_range=4
+		LabelPad 12, {[}, m[0],{-}, m[1],{-}, m[2],{-}, m[3],{]  }, { [}, m[4],{-}, m[5],{-}, m[6],{-}, m[7],{]  },  {  [}, m[8],{-}, m[9],{-}, m[10],{-}, m[11],{] }, {[}, m[12],{-}, m[13],{-}, m[14],{-}, {X] } 
 	endif
 @End
 
