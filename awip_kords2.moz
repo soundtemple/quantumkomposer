@@ -639,7 +639,6 @@
 		Call @LabelChordTriggerModes 
 		Call @SetupKnobset5
 	elseif mode = 12
-		LabelPads {MODES: [1&2:Send note on to trigger]   *[3-7:Always on with chord]   [0:Mute 8:Thru]}
 		Call @SetupKnobset3
 	endif
 	Call @SendMidiCCBackToKnobs
@@ -1850,6 +1849,7 @@
 	SetKnobValue 1, TranslateScale midi_chan_modes[mode_midi_channel], 0, 8, 0, 127
 	SetKnobValue 2, TranslateScale set_all_mc_to, 0, 4, 0, 127
 	SetKnobValue 3, TranslateScale active_ch_range, 0, 4, 0, 127
+	mode_changed_for_ch=FALSE
 	Call @LabelKnobset3
 @End
 @KnobChangeSet3
@@ -1865,6 +1865,7 @@
   	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 8
   	if val <> midi_chan_modes[mode_midi_channel]
 			midi_chan_modes[mode_midi_channel] = val
+			mode_changed_for_ch=TRUE
 			Call @LabelKnobset3
 			ch=mode_midi_channel 
 			Call @SendMidiOffForCh //send off notes to avoid stuck notes on new mode
@@ -1927,22 +1928,31 @@
 	LabelKnob 0, {Chan# }, mode_midi_channel+1
 	if midi_chan_modes[mode_midi_channel] = 0
 		LabelKnob 1, {Off}
+		LabelPads {MODE 0: No midi sent thru to instrument}
 	elseif midi_chan_modes[mode_midi_channel] = 1
 		LabelKnob 1, {Harm'ze}
+		LabelPads {MODE 1: Incoming notes for channel are transposed to chord notes}
 	elseif midi_chan_modes[mode_midi_channel] = 2
 		LabelKnob 1, {Chord}
+		LabelPads {MODE 2: Incoming notes trigger current chord & determine inversion [-4 to 4] [C-C#-D-D# E F-F#-G-G#]}
 	elseif midi_chan_modes[mode_midi_channel] = 3
 		LabelKnob 1, {*Chord}
+		LabelPads {MODE 3: The current chord is sent continuously on channel}
 	elseif midi_chan_modes[mode_midi_channel] = 4
 		LabelKnob 1, {*Root}
+		LabelPads {MODE 4: The current chord root note is sent continuously on channel}
 	elseif midi_chan_modes[mode_midi_channel] = 5
 		LabelKnob 1, {*Fifth}
+		LabelPads {MODE 5: The current chord 5th is sent continuously on channel}
 	elseif midi_chan_modes[mode_midi_channel] = 6
 		LabelKnob 1, {*Lowest}
+		LabelPads {MODE 6: The lowest current chord note is sent continuously on channel}
 	elseif midi_chan_modes[mode_midi_channel] = 7
 		LabelKnob 1, {*Highest}
+		LabelPads {MODE 7: The highest current chord note is sent continuously on channel}
 	elseif midi_chan_modes[mode_midi_channel] = 8
 		LabelKnob 1, {Thru}
+		LabelPads {MODE 8: Midi passes thru without transposition}
 	endif
 	LabelKnob 2, {Set All:}, set_all_mc_to
 	if active_ch_range=0
@@ -1957,6 +1967,10 @@
 		LabelKnob 3, {Active 1-16}
 	endif
 	Call @LabelMidiChModesSettingsPad
+	if not mode_changed_for_ch
+		LabelPads {MODES: [1&2:Send note on to trigger]   *[3-7:Always on with chord]   [0:Mute 8:Thru]}
+		mode_changed_for_ch=FALSE
+	endif
 @End
 
 @LabelMidiChModesSettingsPad
