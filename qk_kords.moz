@@ -2292,61 +2292,61 @@
 @End
 
 @SetupSettingsLayout
-// #Mode selection for Knobs n Pads
-		in_mode_select = TRUE
-		LabelPads {_QK:KORDS SETTINGS:   (shift to exit)}
-		for i = 0 to (number_of_modes - 1)
-			ColorPad i, 6
-			LabelPad i, { } //# empty label to overwrite chord info
-			LatchPad i, NO 
-		endfor
-		settings_pad_cols=[8,4,7,7,7,0,4,3, 2,4,4,0,3,3,0,1]
-		if (songmode = 0)
-			LabelPad 0, {PLAYSONG: Active }
-		elseif (songmode = 1)
-			LabelPad 0, {PLAYSONG: Scene locked}
-		elseif (songmode = 2)
-			LabelPad 0, {PLAYSONG: Chord locked}
-		else
-			LabelPad 0, {PLAYSONG: Disabled}
-		endif	
-		LabelPad 1, {SCENES}
-		LabelPad 2, {+CHORDS: Select}
-		LabelPad 3, {+CHORDS: Construct}
-		LabelPad 4, {+CHORDS: Record}
-		LabelPad 5,{ }
-		if last_pad<=7 //# copy scene or chord
-			LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
-			copy_mode=0
-		else
-			LabelPad 6, {COPY/PASTE }, {CHORD }, current_chord+1
-			copy_mode=1 
+	// Mode selection for Knobs n Pads
+	in_mode_select = TRUE
+	LabelPads {_QK:KORDS SETTINGS:   (shift to exit)}
+	for i = 0 to (number_of_modes - 1)
+		ColorPad i, 6
+		LabelPad i, { } //# empty label to overwrite chord info
+		LatchPad i, NO 
+	endfor
+	settings_pad_cols=[8,4,7,7,7,0,4,3, 2,4,4,0,3,3,0,1]
+	if (songmode = 0)
+		LabelPad 0, {PLAYSONG: Active }
+	elseif (songmode = 1)
+		LabelPad 0, {PLAYSONG: Scene locked}
+	elseif (songmode = 2)
+		LabelPad 0, {PLAYSONG: Chord locked}
+	else
+		LabelPad 0, {PLAYSONG: Disabled}
+	endif	
+	LabelPad 1, {SCENES}
+	LabelPad 2, {+CHORDS: Select}
+	LabelPad 3, {+CHORDS: Construct}
+	LabelPad 4, {+CHORDS: Record}
+	LabelPad 5,{ }
+	if last_pad<=7 //# copy scene or chord
+		LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
+		copy_mode=0
+	else
+		LabelPad 6, {COPY/PASTE }, {CHORD }, current_chord+1
+		copy_mode=1 
+	endif
+	LabelPad 7, { SAVE     }
+	LabelPad 8, { MIDI INPUT  }, {   Key/Scale      }, (NoteName selected_midi_in_root), { }, (ScaleName allowed_scales[selected_midi_in_scale])
+	Call @LabelMelodyChannelsPad //pad8
+	Call @LabelMelodyModesPad		//pad9
+	LabelPad 11,{ }
+	Call @LabelHarmonyChannelsPad //pad11
+	Call @LabelHarmonyModesPad //pad12
+	LabelPad 14,{ }
+	LabelPad 15, {DELETE  }
+	if (mode>=1 and mode<=3)
+		LatchPad mode+1, YES //#shifted +Chords in menu
+		settings_pad_cols[mode+1]=8
+	else
+		LatchPad mode, YES
+		settings_pad_cols[mode]=8
+	endif
+	for i = 0 to (number_of_modes - 1)
+		ColorPad i, settings_pad_cols[i]
+		if mgen_device_id=mgen_sel_dev
+			SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
 		endif
-		LabelPad 7, { SAVE     }
-		LabelPad 8, { MIDI INPUT  }, {   Key/Scale      }, (NoteName selected_midi_in_root), { }, (ScaleName allowed_scales[selected_midi_in_scale])
-		Call @LabelMelodyChannelsPad //pad8
-		Call @LabelMelodyModesPad		//pad9
-		LabelPad 11,{ }
-		Call @LabelHarmonyChannelsPad //pad11
-		Call @LabelHarmonyModesPad //pad12
-		LabelPad 14,{ }
-		LabelPad 15, {DELETE  }
-		if (mode>=1 and mode<=3)
-			LatchPad mode+1, YES //#shifted +Chords in menu
-			settings_pad_cols[mode+1]=8
-		else
-			LatchPad mode, YES
-			settings_pad_cols[mode]=8
+		if settings_pad_cols[i]=8
+			LatchPad i, YES
 		endif
-		for i = 0 to (number_of_modes - 1)
-			ColorPad i, settings_pad_cols[i]
-			if mgen_device_id=mgen_sel_dev
-				SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
-			endif
-			if settings_pad_cols[i]=8
-				LatchPad i, YES
-			endif
-		endfor
+	endfor
 	Call @UpdateCurrentKnobset
 @End
 
