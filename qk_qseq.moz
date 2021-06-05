@@ -514,13 +514,13 @@
 		quick_config=0
 	endif
 	if quick_config=0
-		ch_names=[kit, ska, fxs, bss,   led, arp, plk, har]
+		ch_names=[kit, ska, prc, fxs,   bss, led, plk, arp]
 	elseif quick_config=1
 		ch_names=[kik, snr, hat, cym,   ska, tng, prc, fxs]
 	elseif quick_config=2
 		ch_names=[bss, bss, led, led,   pad, plk, arp, key]
 	elseif quick_config=3
-		ch_names=[kit, ska, bss, bss,   led, led, plk, har]
+		ch_names=[kit, ska, plk, fxs,   bss, bss, led, led]
 	endif	
 	Call @SetupSettingsLayout
 @End
