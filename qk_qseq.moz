@@ -96,9 +96,10 @@
 	def_sequence_rate=4 //index to pulses_per_note ie 1 bar per step 
 	//initial values
 	pattn_durs[0]=4 //# Pattern durations in beats
-	FillArray destinations, 0, 8  //Switching between LK, DC, Atom and Helium as destinations per channel
-	trig_note_offset=[0,0,60,0] //LK from note0, Atom from note0, Helium from note60, DComp from note0
-  FillArray sequence_lengths, 4, 8 //sequence lengths for all channels 
+	device_per_channel = 0 //bool eg: 1:Atom instance per channel or 0:single instance for all channels
+	FillArray trigger_method, 0, 8  //Switching between Note & CCV as trigger_method per channel
+	FillArray trigger_method_offset , 0, 8 //Starting note num or CC num for CCV mode
+	FillArray sequence_lengths, 4, 8 //sequence lengths for all channels 
 	FillArray chan_max_patterns, 16, 8
 	FillArray chan_mute_states, FALSE, 8 //default state for a channel is unmuted 0
 	FillArray chan_solo_states, FALSE, 8 //default state for a channel is unmuted 0
@@ -179,72 +180,75 @@
 
 @TriggerPattern
 	step_slot=(current_scene*128)+(current_pattn*16)+curr_steps[ch]
-	offset = trig_note_offset[destinations[ch]]
+	offset = trigger_method_offset[ch] //starting note num or cc_num for CCV mode
+	ch_trigger_method=trigger_method[ch] //trigger methods 0-2; Note, CC_NUM; CC_VAL
 	ptn_triggered_for_ch=-1
+	pattern_num_to_trigger=-1
 	if ch=0 and not trigger_pattn_change_requested_for_ch[ch]>=0 //trigger mode overrides seq mode
 		if a0_pattns[step_slot] >= 0
-			SendMIDINoteOn ch, a0_pattns[step_slot] + offset, 127
-			SendMIDINoteOff ch, a0_pattns[step_slot] + offset, 64, 100
+			pattern_num_to_trigger = a0_pattns[step_slot]
 			current_playing_patterns[ch]=a0_pattns[step_slot]
 			ptn_triggered_for_ch=0
 		endif
 	elseif ch=1 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a1_pattns[step_slot] >= 0
-			SendMIDINoteOn ch, a1_pattns[step_slot] + offset, 127
-			SendMIDINoteOff ch, a1_pattns[step_slot] + offset, 64, 100
+			pattern_num_to_trigger = a1_pattns[step_slot]
 			current_playing_patterns[ch]=a1_pattns[step_slot]
 			ptn_triggered_for_ch=1
 		endif
 	elseif ch=2 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a2_pattns[step_slot] >= 0
-			SendMIDINoteOn ch, a2_pattns[step_slot] + offset, 127
-			SendMIDINoteOff ch, a2_pattns[step_slot] + offset, 64, 100
+			pattern_num_to_trigger = a2_pattns[step_slot]
 			current_playing_patterns[ch]=a2_pattns[step_slot]
 			ptn_triggered_for_ch=2
 		endif
 	elseif ch=3 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a3_pattns[step_slot] >= 0
-			SendMIDINoteOn ch, a3_pattns[step_slot] + offset, 127
-			SendMIDINoteOff ch, a3_pattns[step_slot] + offset, 64, 100
+			pattern_num_to_trigger = a3_pattns[step_slot] 
 			current_playing_patterns[ch]=a3_pattns[step_slot]
 			ptn_triggered_for_ch=3
 		endif
 	elseif ch=4 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a4_pattns[step_slot] >= 0
-			SendMIDINoteOn ch, a4_pattns[step_slot] + offset, 127
-			SendMIDINoteOff ch, a4_pattns[step_slot] + offset, 64, 100
+			pattern_num_to_trigger = a4_pattns[step_slot]
 			current_playing_patterns[ch]=a4_pattns[step_slot]
 			ptn_triggered_for_ch=4
 		endif
 	elseif ch=5 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a5_pattns[step_slot] >= 0
-	  	SendMIDINoteOn ch, a5_pattns[step_slot] + offset, 127
-			SendMIDINoteOff ch, a5_pattns[step_slot] + offset, 64, 100
+			pattern_num_to_trigger = a5_pattns[step_slot] 
 			current_playing_patterns[ch]=a5_pattns[step_slot]
 			ptn_triggered_for_ch=5
 		endif
 	elseif ch=6 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a6_pattns[step_slot] >= 0
-		  SendMIDINoteOn ch, a6_pattns[step_slot] + offset, 127
-			SendMIDINoteOff ch, a6_pattns[step_slot] + offset, 64, 100
+			pattern_num_to_trigger = a6_pattns[step_slot] 
 			current_playing_patterns[ch]=a6_pattns[step_slot]
 			ptn_triggered_for_ch=6
 		endif
 	elseif ch=7 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a7_pattns[step_slot] >= 0
-			SendMIDINoteOn ch, a7_pattns[step_slot] + offset, 127
-			SendMIDINoteOff ch, a7_pattns[step_slot] + offset, 64, 100
+			pattern_num_to_trigger = a7_pattns[step_slot]
 			current_playing_patterns[ch]=a7_pattns[step_slot]
 			ptn_triggered_for_ch=7
 		endif
 	endif
 	//TRIGGER PATTERN MODE 
 	if trigger_pattn_change_requested_for_ch[ch]>=0 //trigger pattern mode
-		SendMIDINoteOn ch, trigger_pattn_change_requested_for_ch[ch] + offset, 127
-		SendMIDINoteOff ch, trigger_pattn_change_requested_for_ch[ch] + offset, 64, 100
+		pattern_num_to_trigger = trigger_pattn_change_requested_for_ch[ch]
 		current_playing_patterns[ch]=trigger_pattn_change_requested_for_ch[ch]
 		ptn_triggered_for_ch=ch
 		trigger_pattn_change_requested_for_ch[ch]=-1
+	endif
+	
+	//TRIGGER THE ACTUAL PATTERN
+	if ptn_triggered_for_ch>=0 and ch_trigger_method=0 //NOTE
+		SendMIDINoteOn ptn_triggered_for_ch, pattern_num_to_trigger + offset, 127
+		SendMIDINoteOff ptn_triggered_for_ch, pattern_num_to_trigger + offset, 64, 100
+	elseif ptn_triggered_for_ch>=0 and ch_trigger_method=1 //CC NUM
+		SendMIDICC ptn_triggered_for_ch, pattern_num_to_trigger + offset, 127
+	elseif ptn_triggered_for_ch>=0 and ch_trigger_method=2 //CC VAL
+		SendMIDICC ptn_triggered_for_ch, offset, pattern_num_to_trigger
 	endif
 	if mode=10 and ptn_triggered_for_ch=seq_ch //we want to see the current pattn highlighted
 		Call @LabelAllSequencePads
@@ -383,7 +387,7 @@
 			Call @SetupLayout
 			Call @SetupKnobset0
 			Call @OnPadDown_KnobSetSelect
-		elseif last_pad=2 or last_pad=5 or last_pad=13
+		elseif last_pad=2 or last_pad=9 or last_pad=10 or last_pad=13
 			Exit //# Not in use
 		elseif (last_pad>=3 and last_pad<=5) or (last_pad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
@@ -423,6 +427,7 @@
 		endif
 		Call @SendMidiCCBackToKnobs
 		Call @SetupLayout
+		Call @OnPadDown_KnobSetSelect
 		Call @HandleCopyPasteStateLabelling
 	//# NOT IN MODE SELECT......
 	elseif (NOT in_mode_select and mode=1) //Scenes mode
@@ -500,24 +505,22 @@
 	rbl=21
 	slm=22
 	tng=23
-	//destinations: lk=0 atom=1 helium=2 drum computer=3
-	//Channel name for each of the ATOMS to be sequenced	 
+	//trigger_method: 0:NOTE  1:CCV 
+	trigger_method=[0,0,0,0, 0,0,0,0]
+	trigger_method_offset=[0,0,0,0, 0,0,0,0]
+	//Channel name  to be sequenced	 
 	quick_config = quick_config+1
 	if quick_config > 3
 		quick_config=0
 	endif
 	if quick_config=0
 		ch_names=[kit, ska, fxs, bss,   led, arp, plk, har]
-		destinations=[3,0,0,0, 0,0,0,0]
 	elseif quick_config=1
 		ch_names=[kik, snr, hat, cym,   ska, tng, prc, fxs]
-		destinations=[0,0,0,0, 0,0,0,0]
 	elseif quick_config=2
 		ch_names=[bss, bss, led, led,   pad, plk, arp, key]
-		destinations=[0,0,0,0, 0,0,0,0]
 	elseif quick_config=3
 		ch_names=[kit, ska, bss, bss,   led, led, plk, har]
-		destinations=[3,0,0,0, 0,0,0,0]
 	endif	
 	Call @SetupSettingsLayout
 @End
@@ -642,6 +645,7 @@
 			rot_dir=0
 		endif
 		Call @RotateSequence	
+		Call @LabelKnobSet9
 	elseif (mode = 6) //# COPY/PASTE
   	copy_paste_status=2 //# PASTE
   	Call @CopyPaste
@@ -697,7 +701,9 @@
   	endif
   elseif in_mode_select
 		if last_pad=3 or last_pad=4
-      Call @SetupKnobset2 //# SETUP CHANNELS
+      Call @SetupKnobset2 //# TRIGGER CONFIG
+		elseif last_pad=5
+		  Call @SetupKnobset3 //# NAME CHANNELS
 		else
 		  Call @SetupKnobset99 //settings knobset
     endif
@@ -717,35 +723,11 @@
 
 @HandleGuiRequest
 	if last_pad=8 //GUI TOGGLE
-		if destinations[seq_ch]=0 or destinations[seq_ch]=3 //LK or D.Comp	
-			SendMIDICC 0, 101, 127 //only one gui for all sequence channels
+		if device_per_channel //when using an instance per seq_ch like multiple Atom instances 	
+			SendMIDICC seq_ch, 101, 127 //only one gui for all sequence channels
 		else
-		  SendMIDICC seq_ch, 101, 127
+		  SendMIDICC 0, 101, 127
 		endif
-	elseif last_pad=9 and destinations[seq_ch]=1 or last_pad=9 and destinations[seq_ch]=2 //LAUNCH MODE TOGGLE
-		chan_launch_states[seq_ch] = not chan_launch_states[seq_ch]
-		if chan_launch_states[seq_ch]
-			val=127
-		else
-		  val=0
-		endif
-		SendMIDICC seq_ch, 102, val
-	elseif last_pad=9 and destinations[seq_ch] = 0//SOLO MODE TOGGLE LK
-		chan_solo_states[seq_ch] = not chan_solo_states[seq_ch]
-		if chan_solo_states[seq_ch]
-			val=127
-		else
-		  val=0
-		endif
-		SendMIDICC seq_ch, 102, val
-	elseif last_pad=10 and destinations[seq_ch] <> 3 //MUTE TOGGLE except D.Comp
-		chan_mute_states[seq_ch] = not chan_mute_states[seq_ch]
-		if chan_mute_states[seq_ch]
-			val=127
-		else
-		  val=0
-		endif
-		SendMIDICC seq_ch, 103, val
 	endif
 	FlashPad last_pad
 	Call @SetupSettingsLayout
@@ -1182,49 +1164,94 @@
 			Call @UpdateSettingsPadColors
 		endif
 	elseif last_knob = 1 
-   	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_ch_names
-		if val <> ch_names[seq_ch]
-			ch_names[seq_ch] = val
+   	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 1
+		if val <> device_per_channel
+			device_per_channel = val
 			Call @LabelKnobSet2
 			label_chan=seq_ch
 			Call @LabelChannel
 		endif
 	elseif last_knob = 2 //the destination the note trigger will go to
-   	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 3
-		if val <> destinations[seq_ch]
-			destinations[seq_ch] = val
-			if destinations[seq_ch] = 1 //helium only 12 remote loops
-				chan_max_patterns[seq_ch] = 12
-			else
-			  chan_max_patterns[seq_ch] = 16
-			endif
+   	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
+		if val <> trigger_method[seq_ch]
+			trigger_method[seq_ch] = val
 			Call @LabelKnobSet2
-			Call @LabelDestinationInfoPads
-			Call @UpdateSettingsPadColors
+		endif
+	elseif last_knob = 3 //the destination the note trigger will go to
+   	val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 119
+		if val <> trigger_method_offset[seq_ch]
+			trigger_method_offset[seq_ch] = val
+			Call @LabelKnobSet2
 		endif
 	endif	
 @End
 @LabelKnobSet2
-	LabelKnobs {SETUP CHANNELS} 
+	LabelKnobs {TRIGGER CONFIG} 
+  LabelKnob 0, {CH: }, seq_ch+1
+	if device_per_channel
+	  LabelKnob 1, {TO: 8}
+	else
+		LabelKnob 1, {TO: 1}
+	endif 
+	if trigger_method[seq_ch]=1 //trigger methods 0-2; Note, CC_NUM; CC_VAL
+	  LabelKnob 2, {CC NUM}
+		LabelKnob 3, {FROM: }, trigger_method_offset[seq_ch]	
+	elseif trigger_method[seq_ch]=2
+	  LabelKnob 2, {CC VAL}
+		LabelKnob 3, {CC#: }, trigger_method_offset[seq_ch]
+	else
+	  LabelKnob 2, {NOTE}
+		LabelKnob 3, {FROM: }, trigger_method_offset[seq_ch]
+	endif
+  
+	SetKnobValue 0, TranslateScale seq_ch, 0, 7, 0, 127
+  SetKnobValue 1, TranslateScale device_per_channel, 0, 1, 0, 127
+  SetKnobValue 2, TranslateScale trigger_method[seq_ch], 0, 2, 0, 127
+  SetKnobValue 3, TranslateScale trigger_method_offset[seq_ch], 0, 119, 0, 127
+  CopyArray  ch_names, n, 8
+	LabelPads {Trigger methods per channel. TO: 1 device or 8 devices (ie per channel)}  
+@End
+
+@SetupKnobset3
+	// ASSIGN NAME TO SEQ CHANNELS
+  knob_set = 3
+	Call @LabelKnobSet3
+@End
+@KnobChangeSet3
+	// SETUP 8 SEQUENCE CHANNELS
+	if last_knob = 0 //the sequence channel to edit
+    val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		if val <> seq_ch
+			seq_ch = val
+			Call @LabelKnobSet3
+			label_chan=seq_ch
+			Call @LabelChannel
+			Call @LabelDestinationInfoPads
+			Call @UpdateSettingsPadColors
+		endif
+	elseif last_knob = 1 
+   	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_ch_names
+		if val <> ch_names[seq_ch]
+			ch_names[seq_ch] = val
+			Call @LabelKnobSet3
+			label_chan=seq_ch
+			Call @LabelChannel
+		endif
+	endif	
+@End
+@LabelKnobSet3
+	LabelKnobs {NAME CHANNELS} 
   LabelKnob 0, {CH: }, seq_ch+1
   LabelKnob 1, {NAME: }, ch_names[seq_ch]+1
-	if destinations[seq_ch]=1
-	  LabelKnob 2, {TO: Atom} 
-	elseif destinations[seq_ch]=2
-	  LabelKnob 2, {TO: Helium}
-	elseif destinations[seq_ch]=3
-	  LabelKnob 2, {TO: DComp}
-	else
-	  LabelKnob 2, {TO: LK}
-	endif
-  LabelKnob 3, { }
+	LabelKnob 2, { }
+	LabelKnob 3, { }
 	SetKnobValue 0, TranslateScale seq_ch, 0, 7, 0, 127
   SetKnobValue 1, TranslateScale ch_names[seq_ch], 0, num_ch_names, 0, 127
-  SetKnobValue 2, TranslateScale destinations[seq_ch], 0, 3, 0, 127
+  SetKnobValue 2, 0
   SetKnobValue 3, 0
   CopyArray  ch_names, n, 8
 	LabelPads {Select a name for each channel...}
-	LabelPad 4, {__SELECT__ }, { [}, n[0]+1,{-}, n[1]+1,{-}, n[2]+1,{-}, n[3]+1,{] }, { [}, n[4]+1,{-}, n[5]+1,{-}, n[6]+1,{-}, n[7]+1,{] }  
+	LabelPad 5, {_NAMES_ }, { [}, n[0]+1,{-}, n[1]+1,{-}, n[2]+1,{-}, n[3]+1,{] }, { [}, n[4]+1,{-}, n[5]+1,{-}, n[6]+1,{-}, n[7]+1,{] }  
 @End
 
 @GetStepVal 
@@ -1470,7 +1497,7 @@
   SetKnobValue 2, TranslateScale rot_dir, -1, 1, 0, 127
   SetKnobValue 3, 0
   FlashPad 14 //attention use these to rotate
-	FlashPad 15 
+	FlashPad 15  
 	Call @LabelKnobset9
 @End
 @KnobChangeSet9
@@ -1483,16 +1510,17 @@
 			Call @LabelKnobset9
 		endif
 	endif
-  if last_knob = 1
-    rot_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 5
-		if val <> rot_type
-			rot_type=val
+  if last_knob = 2
+    val = Round TranslateScale (GetKnobValue 2), 0, 127, -1, 1
+		if val <> rot_dir
+			rot_dir=val
 			Call @LabelKnobset9
 		endif
 	endif
 @End
 @LabelKnobset9
 	LabelKnobs {TAP P15 & P16 TO ROTATE}
+	LabelPads {>>> ROTATE <<<}
  	LabelKnob 0, {CH: }, seq_ch+1
 	if rot_dir=0
 		LabelKnob 2, {<ROT>}
@@ -1501,6 +1529,7 @@
   else
   	LabelKnob 2, {ROT >>>}
 	endif
+	SetKnobValue 2, TranslateScale rot_dir, -1, 1, 0, 127
 	LabelKnob 1, { } //# not in use
 	LabelKnob 3, { } //# not in use
 @End
@@ -1515,7 +1544,9 @@
   if knob_set = 0 
     Call @KnobChangeSet0 //# scene settings
 	elseif knob_set = 2
-    Call @KnobChangeSet2 //# SETUP CHANNELS
+    Call @KnobChangeSet2 //# TRIGGER CONFIG
+	elseif knob_set = 3
+    Call @KnobChangeSet3 //# NAME CHANNELS
 	elseif knob_set = 5
     Call @KnobChangeSet5 //# SEQUENCE STEPS EDIT
 	elseif knob_set = 6
@@ -1565,8 +1596,8 @@
 	LabelPad 1, {SCENES}
 	LabelPad 2, { }
 	LabelPad 3, {QUICK CONFIG #}, quick_config+1
-	Call @LabelKnobSet2
-	LabelPad 5, { }
+	LabelPad 4, {TRIGGER CONFIG}
+	Call @LabelKnobSet3
 	LabelPad 6, { }
 	if mode<=1
 		if last_pad<=7 //# copy scene or chord
@@ -1584,7 +1615,9 @@
 	if (mode>=8 or mode<=1)
 		LabelPad 7, {DELETE  }
 	endif
-	Call @LabelDestinationInfoPads //8,9,10
+	Call @LabelDestinationInfoPads //8
+	LabelPad 9, { }
+	LabelPad 10, { }
 	LabelPad 11, {SEQUENCE} //sequence pattern trigggers
 	LabelPad 12, {TRIGGER} //Interrupt sequence with pattern trigger or play without sequence
 	LabelPad 13, { }
@@ -1597,55 +1630,11 @@
 @End
 
 @LabelDestinationInfoPads
-	if destinations[seq_ch]=1
-		LabelPad 8, { ___CH}, seq_ch+1, {___ }, {  >ATOM }, seq_ch+1
-		ds=3
-	elseif destinations[seq_ch]=2
-	  LabelPad 8, { ___CH}, seq_ch+1, {___ }, {  >HELIUM }, seq_ch+1
-		ds=1
-	elseif destinations[seq_ch]=3
-	  LabelPad 8, { ___GUI___ }, {  >D.COMP }
-		ds=6
-	else 
-		LabelPad 8, { ___GUI___ }, {  >LK }
-		ds=2
-	endif
-	if destinations[seq_ch]=1 or destinations[seq_ch]=1 // launch state for Atom and Helium 
-		if chan_launch_states[seq_ch]
-			ls=1	
-			LabelPad 9, { ___CH}, seq_ch+1, {___ }, {  >STOP }
-		else
-			ls=3
-			LabelPad 9, { ___CH}, seq_ch+1, {___ }, {  >LAUNCH }		
-		endif
-	elseif destinations[seq_ch]=0 //show solo for LK
-		if chan_solo_states[seq_ch]
-			ls=4	
-			LabelPad 9, { ___CH}, seq_ch+1, {___ }, {  >UNSOLO }
-		else
-			ls=0
-			LabelPad 9, { ___CH}, seq_ch+1, {___ }, {  >SOLO }		
-		endif
-	else //drum computer
-		ls=0
-		LabelPad 9, { }
-	endif
-	if destinations[seq_ch]=3 // no mute for DCOMP
-		labelPad 10, { }
-		ms=0
-	else 
-		if chan_mute_states[seq_ch]
-			ms=2
-			LabelPad 10, { ___CH}, seq_ch+1, {___ }, {  >UNMUTE }
-		else
-		  ms=0
-			LabelPad 10, { ___CH}, seq_ch+1, {___ }, {  >MUTE }
-		endif
-	endif
+	LabelPad 8, { ___CH}, seq_ch+1, {___ }, {  >GUI }
 @End
 
 @UpdateSettingsPadColors
-	settings_pad_cols=[7,4,0,5,5,0,4,1, ds,ls,ms,4,4,0,2,1]	
+	settings_pad_cols=[7,4,0,5,5,5,4,1, 3,0,0,4,4,0,2,1]	
 	for i = 0 to 15
 		ColorPad i, settings_pad_cols[i]
 		if mgen_device_id=mgen_sel_dev
@@ -1814,15 +1803,31 @@
 	ap=[ap0, ap1, ap2, ap3, ap4, ap5, ap6, ap7]
 	if mode=10
 		ptn_num=sel_pad+1
-		nn=sel_pad + trig_note_offset[destinations[seq_ch]]
+		nn=sel_pad + trigger_method_offset[seq_ch]
 	else
 	  ptn_num=ap[seq_ch]+1
-		nn=ap[seq_ch] + trig_note_offset[destinations[seq_ch]]
+		nn=ap[seq_ch] + trigger_method_offset[seq_ch]
 	endif
-	if (ap[seq_ch] >= 0) or (mode=10) //trigger mode 16pads available
-		LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { }, (NoteName nn, TRUE), { (}, nn, {)}
+	if trigger_method[seq_ch]=0 //NOTE MODE
+		if (ap[seq_ch] >= 0) or (mode=10) //trigger mode 16pads available
+			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { }, (NoteName nn, TRUE), { (}, nn, {)}
+		else
+			LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
+		endif
+	elseif trigger_method[seq_ch]=1 //CC NUM mode
+		if (ap[seq_ch] >= 0) or (mode=10) //trigger mode 16pads available
+			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { cc#}, { }, nn
+		else
+		  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
+		endif
+	elseif trigger_method[seq_ch]=2 //CC VAL mode
+		if (ap[seq_ch] >= 0) or (mode=10) //trigger mode 16pads available
+			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { cc#}, trigger_method_offset[seq_ch], {-}, ap[seq_ch]
+		else
+		  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
+		endif
 	else
-	  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
+	
 	endif
   //# Hide data for pads outside seq length
   if (sel_pad >= pattn_length) and not mode=10
