@@ -2369,7 +2369,11 @@
 			if note_index=12
 				seq_octave=4 //# up1 when arp pattern uses 8
 			endif
-			n = curr_scale[note_index%12] //# note
+			if note_index > -1
+				n = curr_scale[note_index%12] //# note
+			else 
+				n = 0
+			endif
 			if seq_ch=0
 				seq0_notes[p_slot+i] = n
 				seq0_octs[p_slot+i] = seq_octave
