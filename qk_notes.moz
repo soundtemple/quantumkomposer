@@ -547,8 +547,8 @@
 				mgen_device_id=0
 			endif
 			Call @GetMidiINPUTScale //setup the new scale type
-			in_mode_select=FALSE
-			Call @OnShiftDown2
+			Call @LabelSettingsPads
+			Call @SetupKnobset99 //settings knobs
 		elseif (last_pad>=3 and last_pad<=5) or (last_pad=13 or last_pad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
     	LabelPad 6, { } //# CopyPaste not allowed
@@ -2621,88 +2621,92 @@
 			mode=return_to_mode //# cancel cp/del
 		endif
 		copy_paste_status=0 //# In case COPYPASTE aborted
-		LabelPads {SETTINGS:      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
+		Call @LabelSettingsPads
 		knob_set=99
-		Call @SetupKnobset99 //settings knobs
-		if (songmode = 0)
-			LabelPad 0, {PLAYSONG: Active }
-		elseif (songmode = 1)
-			LabelPad 0, {PLAYSONG: Scene locked}
-		elseif (songmode = 2)
-			LabelPad 0, {PLAYSONG: Pattern locked}
-		else
-			LabelPad 0, {PLAYSONG: Disabled}
-		endif
-		LabelPad 1, {SCENES/PATTERNS}
-		if notes_instance_type=1
-			LabelPad 2, {QK:NOTES }, {>MELODY}
-			ncol=4
-		elseif notes_instance_type=2
-			LabelPad 2, {QK:NOTES }, {>HARMONY}
-			ncol=3
-		elseif notes_instance_type=3
-			LabelPad 2, {QK:NOTES }, {>PERCS}
-			ncol=2
-		elseif notes_instance_type=4
-			LabelPad 2, {QK:NOTES }, {>LOOPS}
-			ncol=2
-		elseif notes_instance_type=5
-			LabelPad 2, {QK:NOTES }, {>FX}
-			ncol=6
-		elseif notes_instance_type=0
-			LabelPad 2, {QK:NOTES }, {>NOTES}
-			ncol=2
-		endif
-		Call @LabelSet3
-		LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
-		LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]       [}, cc_vals[2],{-}, cc_vals[3],{]}
-		LabelPad 6, { }
-		if mode<=1
-			if last_pad<=7 //# copy scene or chord
-				LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
-				copy_mode=0 //# copy scene
-			else
-				LabelPad 6, {COPY/PASTE }, {PATTERN }, current_pattn+1
-				copy_mode=1  //# copy pattn. allows switch scene b4 paste
-			endif
-		elseif mode=9
-			LabelPad 6, {COPY/PASTE }, {STEP }, sel_step+1
-		elseif mode=11
-			LabelPad 6, {COPY/PASTE }, {SEQ CH}, seq_ch+1
-		endif
-		if (mode>=8 or mode<=1)
-			LabelPad 7, {DELETE  }
-		endif
-		LabelPad 8, {EUC SEQ}
-		LabelPad 9, {STEP EDIT}	
-		LabelPad 10, {MUTATE}
-		LabelPad 11, {SEQ GEN }, seq_ch+1
-		LabelPad 12, {ROTATE}
-		if label_view_mode=4
-			LabelPad 13, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
-		elseif label_view_mode=5
-			LabelPad 13, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CHS1-4}
-		endif
-		LabelPad 14, { } //# MEL GEN IN NOTES
-		LatchPad i, NO
-		if label_view_mode=5
-			LabelPad 15, {SEQ VIEW     }, {  ALL}
-		elseif label_view_mode=4
-			LabelPad 15, {SEQ VIEW     }, {  CHANNEL}
-		endif
-		settings_pad_cols=[7,4,0,5,5,5,4,1, ncol,ncol,ncol,ncol,ncol,1,0,2]
-		if mode>=3 and mode<=5
-			settings_pad_cols[mode]=8
-		endif	
-		for i = 0 to (number_of_modes - 1)
-			ColorPad i, settings_pad_cols[i]
-			if mgen_device_id=mgen_sel_dev
-				SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
-			endif
-			LatchPad i, NO 
-		endfor
-		LatchPad mode, YES
+		Call @SetupKnobset99 //settings knobs		
 	endif
+@End
+
+@LabelSettingsPads
+	LabelPads {SETTINGS:      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
+	if (songmode = 0)
+		LabelPad 0, {PLAYSONG: Active }
+	elseif (songmode = 1)
+		LabelPad 0, {PLAYSONG: Scene locked}
+	elseif (songmode = 2)
+		LabelPad 0, {PLAYSONG: Pattern locked}
+	else
+		LabelPad 0, {PLAYSONG: Disabled}
+	endif
+	LabelPad 1, {SCENES/PATTERNS}
+	if notes_instance_type=1
+		LabelPad 2, {QK:NOTES }, {>MELODY}
+		ncol=4
+	elseif notes_instance_type=2
+		LabelPad 2, {QK:NOTES }, {>HARMONY}
+		ncol=3
+	elseif notes_instance_type=3
+		LabelPad 2, {QK:NOTES }, {>PERCS}
+		ncol=2
+	elseif notes_instance_type=4
+		LabelPad 2, {QK:NOTES }, {>LOOPS}
+		ncol=2
+	elseif notes_instance_type=5
+		LabelPad 2, {QK:NOTES }, {>FX}
+		ncol=6
+	elseif notes_instance_type=0
+		LabelPad 2, {QK:NOTES }, {>NOTES}
+		ncol=2
+	endif
+	Call @LabelSet3
+	LabelPad 4, {MIDI OUT     [}, midi_out_chs[0]+1,{-}, midi_out_chs[1]+1,{]       [}, midi_out_chs[2]+1,{-}, midi_out_chs[3]+1,{]}
+	LabelPad 5, {CC VALS     [}, cc_vals[0],{-}, cc_vals[1],{]       [}, cc_vals[2],{-}, cc_vals[3],{]}
+	LabelPad 6, { }
+	if mode<=1
+		if last_pad<=7 //# copy scene or chord
+			LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
+			copy_mode=0 //# copy scene
+		else
+			LabelPad 6, {COPY/PASTE }, {PATTERN }, current_pattn+1
+			copy_mode=1  //# copy pattn. allows switch scene b4 paste
+		endif
+	elseif mode=9
+		LabelPad 6, {COPY/PASTE }, {STEP }, sel_step+1
+	elseif mode=11
+		LabelPad 6, {COPY/PASTE }, {SEQ CH}, seq_ch+1
+	endif
+	if (mode>=8 or mode<=1)
+		LabelPad 7, {DELETE  }
+	endif
+	LabelPad 8, {EUC SEQ}
+	LabelPad 9, {STEP EDIT}	
+	LabelPad 10, {MUTATE}
+	LabelPad 11, {SEQ GEN }, seq_ch+1
+	LabelPad 12, {ROTATE}
+	if label_view_mode=4
+		LabelPad 13, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
+	elseif label_view_mode=5
+		LabelPad 13, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CHS1-4}
+	endif
+	LabelPad 14, { } //# MEL GEN IN NOTES
+	LatchPad i, NO
+	if label_view_mode=5
+		LabelPad 15, {SEQ VIEW     }, {  ALL}
+	elseif label_view_mode=4
+		LabelPad 15, {SEQ VIEW     }, {  CHANNEL}
+	endif
+	settings_pad_cols=[7,4,0,5,5,5,4,1, ncol,ncol,ncol,ncol,ncol,1,0,2]
+	if mode>=3 and mode<=5
+		settings_pad_cols[mode]=8
+	endif	
+	for i = 0 to (number_of_modes - 1)
+		ColorPad i, settings_pad_cols[i]
+		if mgen_device_id=mgen_sel_dev
+			SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
+		endif
+		LatchPad i, NO 
+	endfor
+	LatchPad mode, YES
 @End
 
 @OnShiftUp

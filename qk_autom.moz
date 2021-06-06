@@ -118,24 +118,28 @@
 		automation_ccs    = [46,47,58,60,  1,17,99,99,   1,17,1,17,    1,17,1,17]
 		automation_cols   = [6,6,6,6,      1,1,2,2,      2,2,2,2,      4,4,4,4]
 		mgen_device_id=3
+		SetShortName {AUTOM3}
 	elseif autom_preset=2 //Lead-scaps-rizer-harmony
 		automation_labels = [51,6,51,6,    56,6,55,40,   52,6,54,6,    53,6,57,6]
 		automation_chs    = [6,6,7,7,      3,3,3,3,      8,8,9,9,      10,10,11,11]
 		automation_ccs    = [1,17,1,17,    1,17,99,99,   1,17,1,17,    1,17,1,17]
 		automation_cols   = [4,4,4,4,      6,6,6,6,      3,3,3,3,      3,3,3,3]
 		mgen_device_id=4
+		SetShortName {AUTOM4}
 	elseif autom_preset=3 //Mixbus1-4: HPF-LPF-FX1-FX2
 		automation_labels = [42,43,44,45,  42,43,44,45,  42,43,44,45,  42,43,44,45]
 		automation_chs    = [12,12,12,12,  12,12,12,12,  12,12,12,12,  12,12,12,12]
 		automation_ccs    = [40,41,117,39, 56,57,118,55, 72,73,119,71, 88,89,120,87]
 		automation_cols   = [2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5]
 		mgen_device_id=9
+		SetShortName {AUTOM9}
 	else //empty template
 		FillArray automation_labels, 0, 16
 		FillArray automation_chs, 0, 16
 		FillArray automation_ccs, 0, 16
 		FillArray automation_cols, 0, 16
 		mgen_device_id=3
+		SetShortName {AUTOM}
 	endif  
 @End
 
