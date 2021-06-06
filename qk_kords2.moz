@@ -28,6 +28,7 @@
 		last_pad=0 
 		mgen_device_id=8 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
+		shift_is_down=FALSE
 	  led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
@@ -1238,7 +1239,9 @@
 		SendMIDIThru 
 	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
 		last_pad = MIDINote-20
-		if (MIDICommand=0x90 and MIDIByte3=0) or MIDICommand=0x80 //Note off
+		if MIDINote=36 and MIDICommand=0x80 //Note off
+			shift_is_down=FALSE //SHIFT
+		elseif (MIDICommand=0x90 and MIDIByte3=0) or MIDICommand=0x80 //Note off
 			Call @OnPadUp2
 		endif
 	endif
@@ -1423,7 +1426,7 @@
 	Call @LabelSettingsKnobs
 @End
 @KnobChangeSet99 //settings knobs
-	if last_knob = 0
+	if last_knob = 0 and shift_is_down
 	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 9
 		if val <> mgen_device_id
 			mgen_device_id=val
@@ -1433,6 +1436,8 @@
 				LabelKnob 0, {mgen# -}
 			endif
 		endif
+	elseif last_knob = 0 and not shift_is_down
+	  LabelPads {HOLD SHIFT DOWN TO CHANGE MGEN DEVICE ID!!!!}
 	elseif last_knob = 2
 	  val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 100
 	  if val <> rnd_scn_chance 	
@@ -2041,6 +2046,7 @@
 @End	
 
 @OnShiftDown2
+	shift_is_down=TRUE
 	if in_mode_select
 		in_mode_select = FALSE
 		LabelPads {[ KORDS ]  Scene: }, current_scene+1, { Chord: }, current_chord+1
@@ -2052,6 +2058,10 @@
 	else
 		Call @SetupSettingsLayout
 	endif
+@End
+
+@OnShiftUp
+  shift_is_down=FALSE
 @End
 
 @SetupSettingsLayout

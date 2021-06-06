@@ -27,6 +27,7 @@
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
+		shift_is_down=FALSE
 		Call @GetAutoRamps
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SysexMessageSetup
@@ -328,6 +329,8 @@
 		if MIDINote=36 //SHIFT
 			if MIDICommand=0x90 //noteOn	
 				Call @OnShiftDown2
+			elseif MIDICommand=0x80 //Note off
+				shift_is_down=FALSE
 			endif
 		else
 			last_pad = MIDINote-20
@@ -380,6 +383,7 @@
 @End	
 	
 @OnShiftDown2
+	shift_is_down=TRUE
 	Log {MODE: }, mode
 	if in_mode_select //# Exit SHIFT MODE
 		in_mode_select = FALSE	
@@ -400,6 +404,7 @@
 @End
 
 @OnShiftUp
+	shift_is_down=FALSE
 @End
 
 @OnPadDown
@@ -706,19 +711,19 @@
 	LabelPad 1, {SET AUTOM TO START S}, edit_scene+1
 	LabelPad 2, {SET AUTOM TO END S}, edit_scene+1
 	if record_autom_on
-		LabelPads {AUTOM : [ Record autom parameters during playback. Use rec knob in setup ]}
+		LabelPads {AUTOM : [ Record autom parameters during playback. Use 'REC' knob in setup ]}
 		LabelPad 3, {MODE=> RECORD}
 		LabelPad 4, {AUTOM RECORD}
 		pad_cols[3]=1
 		pad_cols[4]=1
 	elseif control_autom_on
-	  LabelPads {AUTOM : [ Control autom parameters ]}
+	  LabelPads {AUTOM : [ Control autom parameters. Use 'CON' knob. ]}
 		LabelPad 3, {MODE=> CONTROL}
 		LabelPad 4, {AUTOM CONTROL}
 		pad_cols[3]=3
 		pad_cols[4]=3
 	else
-	  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS. Use con knob in setup ] }
+	  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS ] }
 		LabelPad 3, {MODE=> SETUP}
 		LabelPad 4, {AUTOM SETUP}
 		pad_cols[3]=7
@@ -877,9 +882,9 @@
 		if val <> edit_scene
 			edit_scene = val
 			LabelKnob 0, {Edit scn }, edit_scene+1
+			Call @SetupSettingsLayout
 		endif
-	endif
-	if last_knob = 1
+	elseif last_knob = 1 and shift_is_down 
 	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 9
 		if val <> mgen_device_id
 			mgen_device_id=val
@@ -888,17 +893,25 @@
 			else
 				LabelKnob 1, {mgen# -}
 			endif
+			Call @SetupSettingsLayout
+		endif
+	elseif last_knob = 1 and not shift_is_down
+	  LabelPads {HOLD SHIFT DOWN TO CHANGE MGEN DEVICE ID!!!!}
+	elseif last_knob = 2
+	  val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
+	  if val <> auto_ramp_min
+			auto_ramp_min = val
+			LabelKnob 2, {MIN }, auto_ramp_min
+			Call @SetupSettingsLayout
+		endif	
+	elseif last_knob = 3
+	  val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+	  if val <> auto_ramp_max
+			auto_ramp_max = val
+			LabelKnob 3, {MAX }, auto_ramp_max
+			Call @SetupSettingsLayout
 		endif
 	endif
-	if last_knob = 2
-	  auto_ramp_min = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127
-	  LabelKnob 2, {MIN }, auto_ramp_min 
-  endif
-	if last_knob = 3
-	  auto_ramp_max = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
-	  LabelKnob 3, {MAX }, auto_ramp_max
-	endif
-	Call @SetupSettingsLayout
 @End
 
 @SetupKnobset4

@@ -24,6 +24,7 @@
 		mgen_device_id=0 //used for midi control of pads on LP. This instances id
 		mgen_sel_dev=0 //used for midi control of pads on LP. The currently selected instance
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
+		shift_is_down=FALSE
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id)
 		pattn_beat_count = 0
@@ -31,8 +32,8 @@
 		Call @InitKnobVariables //# All knob settings on load
 		Call @SysexMessageSetup
 		Call @SetupSequences
-		Call @SetupKnobset0
 		Call @SetupLayout
+		Call @SetupKnobset0
 	endif 
 @End
 
@@ -321,7 +322,7 @@
 @End
 
 @HandlePatternChange //# Work out what the next pattn is
-	pattn_slot = (current_scene * 8) + (current_pattn)
+	pattn_slot = (current_scene * 8) + current_pattn
 	if (pattn_change_requested > -1)
 		current_pattn = pattn_change_requested
 		pattn_change_requested = -1 //# reset request flag
@@ -740,6 +741,8 @@
 		if MIDINote=36 //SHIFT
 			if MIDICommand=0x90 //noteOn	
 				Call @OnShiftDown2
+			elseif MIDICommand=0x80 //Note off
+				shift_is_down=FALSE
 			endif
 		else
 			last_pad = MIDINote-20
@@ -1030,7 +1033,7 @@
 	Call @LabelSettingsKnobs
 @End
 @KnobChangeSet99 //settings knobs
-	if last_knob = 0
+	if last_knob = 0 and shift_is_down
 	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 9
 		if val <> mgen_device_id
 			mgen_device_id=val
@@ -1040,6 +1043,8 @@
 				LabelKnob 0, {mgen# -}
 			endif
 		endif
+	elseif last_knob = 0 and not shift_is_down
+	  LabelPads {HOLD SHIFT DOWN TO CHANGE MGEN DEVICE ID!!!!}
 	elseif last_knob = 1
 	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 7
 	  if val <> seq_ch	
@@ -1103,7 +1108,7 @@
 			scene_to_check=current_scene
 			Call @UpdatePattnsWithDuration
   	endif
-		pattn_to_label = current_pattn+8
+		pattn_to_label = current_pattn
 		Call @LabelPatternPad
   endif
 @End
@@ -1563,6 +1568,7 @@
 @End
 
 @OnShiftDown2
+	shift_is_down=TRUE
 	if in_mode_select
 		in_mode_select = FALSE
 		if mode>=8
@@ -1579,6 +1585,10 @@
 		endif
 		Call @SetupSettingsLayout
 	endif
+@End
+
+@OnShiftUp
+  shift_is_down=FALSE
 @End
 
 @SetupSettingsLayout
@@ -1654,11 +1664,11 @@
 @End
 
 @LabelPatternPad //# Set pattn_to_label var before calling 
-	pattn_slot = (current_scene * 8) + (pattn_to_label-8)
-	LabelPad pattn_to_label, { Sequence }, pattn_to_label-8+1, {    }, {[}, pattn_durs[pattn_slot], { bars]}
-	ColorPad pattn_to_label, 2
+	pattn_slot = (current_scene * 8) + pattn_to_label
+	LabelPad pattn_to_label+8, { Sequence }, pattn_to_label+1, {    }, {[}, pattn_durs[pattn_slot], { bars]}
+	ColorPad pattn_to_label+8, 2
 	if mgen_device_id=mgen_sel_dev
-		SendMIDINoteOn 15, pattn_to_label+led_index, 2
+		SendMIDINoteOn 15, pattn_to_label+8+led_index, 2
 	endif
 @End
 
@@ -1684,15 +1694,15 @@
 	    endif
 	  endfor		  
 	  //# Setup pattn pads  
-    for i = 8 to 15
-	    pattn_slot = (current_scene*8) + (i-8)
+    for i = 0 to 7
+	    pattn_slot = (current_scene*8) + i
 	    LatchPad i, NO
 	    if pattn_durs[pattn_slot] > 0
 	    	pattn_to_label = i
 	    	Call @LabelPatternPad
-				scn_pad_cols[i]=2
+				scn_pad_cols[i+8]=2
 	    else
-	  		LabelPad i, { }
+	  		LabelPad i+8, { }
 	  	endif
 	    if (mode = 7) and (pattn_durs[pattn_slot] > 0)
 				scn_pad_cols[i]=1

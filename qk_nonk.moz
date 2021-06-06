@@ -281,6 +281,8 @@
 		if MIDINote=36 //SHIFT
 			if MIDICommand=0x90 //noteOn	
 				Call @OnShiftDown2
+			elseif MIDICommand=0x80 //Note off
+				shift_is_down=FALSE
 			endif
 		else
 			last_pad = MIDINote-20
@@ -381,9 +383,10 @@
 @End
 
 @OnShiftDown2
+	shift_is_down=TRUE
 	ShowLayout 2
 	knob_set = knob_set+1
-	if knob_set > 2
+	if knob_set > 3
 		knob_set = 0
 	endif
 	Call @UnlatchAllPads
@@ -391,11 +394,18 @@
 	Call @SendMidiCCBackToKnobs
 @End
 
+@OnShiftUp
+  shift_is_down=FALSE
+@End
+
+
 @SetupKnobSet
 	if knob_set=1
 		Call @SetupKnobSet1 //keyboards and layouts
 	elseif knob_set=2
 	  Call @SetupKnobSet2 //pad layouts
+	elseif knob_set=3
+	  Call @SetupKnobSet3 //mgen select + other
 	else
 	  Call @SetupKnobSet0 //default
 	endif
@@ -412,6 +422,8 @@
 		Call @HandleKnobChange1
 	elseif knob_set=2
 	  Call @HandleKnobChange2
+	elseif knob_set=3
+	  Call @HandleKnobChange3
 	else 
 		Call @HandleKnobChange0
 	endif
@@ -421,6 +433,7 @@
 @SetupKnobSet0
 	//# Default Knobs
 	knob_set=0
+	Call @SetLayoutName
 	LabelKnobs {KEYBOARD SELECT}
 	LabelKnob 0, {Keybrd }, keyboard+1
 	if global_velo=0
@@ -476,6 +489,7 @@
 @SetupKnobset1
 	//# Shifted knobset
 	knob_set=1
+	Call @SetLayoutName
 	LabelKnobs {KEYBOARD SETUP}
 	LabelKnob 0, {Keybrd }, keyboard+1
 	LabelKnob 1, {Layout }, layouts[keyboard]
@@ -525,6 +539,7 @@
 
 @SetupKnobset2
 	//# Pad setup
+	Call @SetLayoutName
 	knob_set=2
 	last_note_pad = (keyboard*16)+last_pad
 	LatchPad last_pad, TRUE
@@ -578,6 +593,43 @@
 	LabelKnob 2, {Note }, notes[last_note_pad] 
 	LabelKnob 3, {Label }, labels[last_note_pad]
 @End
+
+@SetupKnobset3
+	//# MGEN SELECT & OTHER
+	knob_set=3
+	SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
+	SetKnobValue 1, 0
+	SetKnobValue 2, 0
+	SetKnobValue 3, 0
+	Call @LabelSet3Knobs	
+@End
+@HandleKnobChange3
+	if last_knob = 0 and shift_is_down
+	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 9
+		if val <> mgen_device_id
+			mgen_device_id=val
+			if mgen_device_id
+				LabelKnob 0, {mgen# }, mgen_device_id
+			else
+				LabelKnob 0, {mgen# -}
+			endif
+		endif
+	elseif last_knob = 0 and not shift_is_down
+	  LabelPads {HOLD SHIFT DOWN TO CHANGE MGEN DEVICE ID!!!!}
+	endif
+@End
+@LabelSet3Knobs
+	LabelKnobs {OTHER SETTINGS}
+	if mgen_device_id
+		LabelKnob 0, {mgen# }, mgen_device_id
+	else
+		LabelKnob 0, {mgen# -}
+	endif
+	LabelKnob 1, { }
+	LabelKnob 2, { }
+	LabelKnob 3, { }
+@End
+
 
 @UnlatchAllPads
 	for i = 0 to 15
