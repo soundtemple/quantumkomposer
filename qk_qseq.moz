@@ -21,7 +21,7 @@
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		use_turn_around = FALSE //# last pattn as turn around on last bar of scene
-		mgen_device_id=0 //used for midi control of pads on LP. This instances id
+		mgen_device_id=2 //used for midi control of pads on LP. This instances id
 		mgen_sel_dev=0 //used for midi control of pads on LP. The currently selected instance
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		shift_is_down=FALSE
@@ -102,7 +102,7 @@
 	def_sequence_rate=4 //index to pulses_per_note ie 1 bar per step 
 	//initial values
 	pattn_durs[0]=4 //# Pattern durations in beats
-	device_per_channel = 0 //bool eg: 1:Atom instance per channel or 0:single instance for all channels
+	FillArray device_gui_num, 0, 8 // each channel can load a different GUI or just one GUI for all channels or mix
 	FillArray trigger_method, 0, 8  //Switching between Note & CCV as trigger_method per channel
 	FillArray trigger_method_offset , 0, 8 //Starting note num or CC num for CCV mode
 	FillArray sequence_lengths, 4, 8 //sequence lengths for all channels 
@@ -792,7 +792,7 @@
   		Call @SetupKnobset5 //# EDIT
   	endif
   elseif in_mode_select
-		if last_pad=3 or last_pad=4
+		if last_pad=3 or last_pad=4 or last_pad=8
       Call @SetupKnobset2 //# TRIGGER CONFIG
 		elseif last_pad=5
 		  Call @SetupKnobset3 //# NAME CHANNELS
@@ -815,11 +815,7 @@
 
 @HandleGuiRequest
 	if last_pad=8 //GUI TOGGLE
-		if device_per_channel //when using an instance per seq_ch like multiple Atom instances 	
-			SendMIDICC seq_ch, 101, 127 //only one gui for all sequence channels
-		else
-		  SendMIDICC 0, 101, 127
-		endif
+		SendMIDICC device_gui_num[seq_ch], 101, 127
 	endif
 	FlashPad last_pad
 	Call @SetupSettingsLayout
@@ -1260,12 +1256,13 @@
 			Call @UpdateSettingsPadColors
 		endif
 	elseif last_knob = 1 
-   	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 1
-		if val <> device_per_channel
-			device_per_channel = val
+   	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 7
+		if val <> device_gui_num[seq_ch]
+			device_gui_num[seq_ch] = val
 			Call @LabelKnobSet2
 			label_chan=seq_ch
 			Call @LabelChannel
+			Call @LabelDestinationInfoPads
 		endif
 	elseif last_knob = 2 //the destination the note trigger will go to
    	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
@@ -1284,11 +1281,7 @@
 @LabelKnobSet2
 	LabelKnobs {TRIGGER CONFIG} 
   LabelKnob 0, {CH: }, seq_ch+1
-	if device_per_channel
-	  LabelKnob 1, {TO: 8}
-	else
-		LabelKnob 1, {TO: 1}
-	endif 
+	LabelKnob 1, {GUI# }, device_gui_num[seq_ch]+1	
 	if trigger_method[seq_ch]=1 //trigger methods 0-2; Note, CC_NUM; CC_VAL
 	  LabelKnob 2, {CC NUM}
 		LabelKnob 3, {FROM: }, trigger_method_offset[seq_ch]	
@@ -1301,11 +1294,11 @@
 	endif
   
 	SetKnobValue 0, TranslateScale seq_ch, 0, 7, 0, 127
-  SetKnobValue 1, TranslateScale device_per_channel, 0, 1, 0, 127
+  SetKnobValue 1, TranslateScale device_gui_num[seq_ch], 0, 7, 0, 127
   SetKnobValue 2, TranslateScale trigger_method[seq_ch], 0, 2, 0, 127
   SetKnobValue 3, TranslateScale trigger_method_offset[seq_ch], 0, 119, 0, 127
   CopyArray  ch_names, n, 8
-	LabelPads {Trigger methods per channel. TO: 1 device or 8 devices (ie per channel)}  
+	LabelPads {TRIGGER METHODS PER CHANNEL: Select CH, GUI#, MSG Type, MSG Offset}  
 @End
 
 @SetupKnobset3
@@ -1745,7 +1738,7 @@
 @End
 
 @LabelDestinationInfoPads
-	LabelPad 8, { ___CH}, seq_ch+1, {___ }, {  >GUI }
+	LabelPad 8, { ___CH}, seq_ch+1, {___ }, {  >GUI-}, device_gui_num[seq_ch]+1
 @End
 
 @UpdateSettingsPadColors
