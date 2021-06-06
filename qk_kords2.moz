@@ -1110,17 +1110,20 @@
 @End
 
 @ConvertToHarmonyNotes
-	//convet to harmony notes using current chord scale
-	note_in=midi_note%12
-	oct_in=Div midi_note, 12
-	note_out=current_chord_scale[note_in]
-	oct_out=(oct_in*12)-60
-	note_to_send=oct_out+note_out
-	//# save calculated harmony note to locker for note off recall
-	SetNoteState melody_note_ch, midi_note, note_to_send
-	//# send note out
-	Call @HumanizeVelocity
-  SendMIDINoteOn melody_note_ch, note_to_send, velocity 
+	//convert to harmony notes using current chord scale if chord formed and chord has duration
+	current_chord_duration = chord_bank[chord_slot + dur_slot]
+	if current_chord_duration>0 and (current_chord_scale[0]>0 and current_chord_scale[4]>0 and current_chord_scale[7]>0)
+		note_in=midi_note%12
+		oct_in=Div midi_note, 12
+		note_out=current_chord_scale[note_in]
+		oct_out=(oct_in*12)-60
+		note_to_send=oct_out+note_out
+		//# save calculated harmony note to locker for note off recall
+		SetNoteState melody_note_ch, midi_note, note_to_send
+		//# send note out
+		Call @HumanizeVelocity
+	  SendMIDINoteOn melody_note_ch, note_to_send, velocity 
+	endif
 @End
 
 @HandleInversionSetting
