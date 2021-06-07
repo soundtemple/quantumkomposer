@@ -58,7 +58,8 @@
 	pattn_duration = 0
 	seq_ch=0 //# the sequence lane 0-3 
 	seq_type=3 //# sequence lane to edit. Step, Note, Velo, CC
-	num_ch_names=23 //the number of labels we have for nameing a channel
+	num_ch_names=20 //the number of labels we have for naming a channel
+	num_ch_dests=4 //number of names we have for midi destinations gui, atom, lk, helium, drambo
 	step_val=0
   copy_paste_status=0 //# Copy paste 0=off; 1=Copied; 2=Paste
   return_to_mode=0 //# Copy paste on completion
@@ -587,11 +588,14 @@
 	swl=16
 	chd=17
 	fxs=18
-	dcp=19
+	scp=19
 	ska=20
-	rbl=21
-	slm=22
-	tng=23
+	//destination names (midi generating piano rolls)
+	gui=0
+	atm=1
+	ilk=2
+	hel=3
+	drm=4
 	//trigger_method: 0:NOTE  1:CCV 
 	trigger_method=[0,0,0,0, 0,0,0,0]
 	trigger_method_offset=[0,0,0,0, 0,0,0,0]
@@ -600,14 +604,21 @@
 	if quick_config > 3
 		quick_config=0
 	endif
+	device_gui_num=[0,0,0,0, 0,0,0,0]
 	if quick_config=0
-		ch_names=[kit, ska, prc, fxs,   bss, led, plk, arp]
+		ch_names= [kit, ska, prc, fxs,   bss, plk, led, arp]
+		ch_destns=[ilk, ilk, ilk, ilk,   ilk, ilk, ilk, ilk]
 	elseif quick_config=1
-		ch_names=[kik, snr, hat, cym,   ska, tng, prc, fxs]
+		ch_names= [kik, snr, hat, cym,   prc, ska, prc, fxs]
+		ch_destns=[drm, drm, drm, drm,   drm, drm, drm, drm]
 	elseif quick_config=2
-		ch_names=[bss, bss, led, led,   pad, plk, arp, key]
+		ch_names= [bss, bss, led, led,   pad, plk, arp, key]
+		ch_destns=[atm, atm, atm, atm,   atm, atm, atm, atm]
+		device_gui_num=[0,1,2,3, 4,5,6,7]
 	elseif quick_config=3
-		ch_names=[kit, ska, plk, fxs,   bss, bss, led, led]
+		ch_names= [kit, ska, prc, fxs,   bss, plk, led, arp]
+		ch_destns=[hel, hel, hel, hel,   ilk, ilk, ilk, ilk]
+		device_gui_num=[0,0,0,0, 1,1,1,1]
 	endif	
 	Call @SetupSettingsLayout
 @End
@@ -1298,7 +1309,7 @@
   SetKnobValue 2, TranslateScale trigger_method[seq_ch], 0, 2, 0, 127
   SetKnobValue 3, TranslateScale trigger_method_offset[seq_ch], 0, 119, 0, 127
   CopyArray  ch_names, n, 8
-	LabelPads {TRIGGER METHODS PER CHANNEL: Select CH, GUI#, MSG Type, MSG Offset}  
+	LabelPads {TRIGGER METHODS PER CHANNEL: Select sequence CH, Destination GUI#, MSG Type, MSG Offset}  
 @End
 
 @SetupKnobset3
@@ -1326,20 +1337,29 @@
 			label_chan=seq_ch
 			Call @LabelChannel
 		endif
+	elseif last_knob = 2
+   	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, num_ch_dests
+		if val <> ch_destns[seq_ch]
+			ch_destns[seq_ch] = val
+			Call @LabelKnobSet3
+			label_chan=seq_ch
+			Call @LabelChannel
+			Call @LabelDestinationInfoPads
+		endif
 	endif	
 @End
 @LabelKnobSet3
 	LabelKnobs {NAME CHANNELS} 
   LabelKnob 0, {CH: }, seq_ch+1
   LabelKnob 1, {NAME: }, ch_names[seq_ch]+1
-	LabelKnob 2, { }
+	LabelKnob 2, {DEST: }, ch_destns[seq_ch]+1
 	LabelKnob 3, { }
 	SetKnobValue 0, TranslateScale seq_ch, 0, 7, 0, 127
   SetKnobValue 1, TranslateScale ch_names[seq_ch], 0, num_ch_names, 0, 127
-  SetKnobValue 2, 0
+  SetKnobValue 2, TranslateScale ch_destns[seq_ch], 0, num_ch_dests, 0, 127
   SetKnobValue 3, 0
   CopyArray  ch_names, n, 8
-	LabelPads {Select a name for each channel...}
+	LabelPads {Select a CHANNEL NAME and a DESTINATION NAME for each channel...}
 	LabelPad 5, {_NAMES_ }, { [}, n[0]+1,{-}, n[1]+1,{-}, n[2]+1,{-}, n[3]+1,{] }, { [}, n[4]+1,{-}, n[5]+1,{-}, n[6]+1,{-}, n[7]+1,{] }  
 @End
 
@@ -1738,7 +1758,17 @@
 @End
 
 @LabelDestinationInfoPads
-	LabelPad 8, { ___CH}, seq_ch+1, {___ }, {  >GUI-}, device_gui_num[seq_ch]+1
+	if ch_destns[seq_ch]=1
+		LabelPad 8, { ___ATOM___ }, { ch}, device_gui_num[seq_ch]+1, { cc101 }, {  }
+	elseif ch_destns[seq_ch]=2
+	  LabelPad 8, { ____LK____ }, { ch}, device_gui_num[seq_ch]+1, { cc101 }, {  }
+	elseif ch_destns[seq_ch]=3
+	  LabelPad 8, { __HELIUM__ }, { ch}, device_gui_num[seq_ch]+1, { cc101 }, {  }
+	elseif ch_destns[seq_ch]=4
+	  LabelPad 8, { _DRAMBO_ }, { ch}, device_gui_num[seq_ch]+1, { cc101 }, {  }
+	else	
+		LabelPad 8, { ___GUI___ }, { ch}, device_gui_num[seq_ch]+1, { cc101 }, {  } 
+	endif
 @End
 
 @UpdateSettingsPadColors
@@ -1985,15 +2015,9 @@
 	elseif ch_names[label_chan]=18
 		LabelPads {[  CH}, label_chan+1, {: FX}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=19
-		LabelPads {[  CH}, label_chan+1, {: DRUM COMP.}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: SCAPE}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=20
 		LabelPads {[  CH}, label_chan+1, {: SKAKA}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
-	elseif ch_names[label_chan]=21
-		LabelPads {[  CH}, label_chan+1, {: ROZETTA BASSLINE}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
-	elseif ch_names[label_chan]=22
-		LabelPads {[  CH}, label_chan+1, {: SLAMMER}	, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
-	elseif ch_names[label_chan]=23
-		LabelPads {[  CH}, label_chan+1, {: TING}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	endif
 @End
 
