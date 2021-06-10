@@ -34,6 +34,7 @@
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
 		txpose_w_circle_fifths=FALSE
 		copy_mode=-1
+		SetTimerInterval 1000
 	  Call @TransposeCalcArrays
 	  Call @InitKnobVariables //# All knob settings on start
 		Call @SysexMessageSetup
@@ -210,6 +211,7 @@
 	//# In AUM getting HostBeat to start on 0 seems flaky
 	//# Fixed by BramBos in June2020
 	//Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
+	chord_to_set=current_chord
 	Call @SetChordScale 
 	if (HostBeat = 0) and (HostBar = 0)
 		//# starting playback from beginning		
@@ -402,6 +404,7 @@
 			current_chord=rnd_chrd //if rnd_chrd has duration
 		endif
 	endif
+	chord_to_set=current_chord
 	Call @SetChordScale
   chord_beat_count = 0 //# reset chord beat count on new chord
 	//turn off notes over chord change and re-trigger melody and harmony channel notes
@@ -467,7 +470,7 @@
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			LabelPads {NOT ALLOWED WHEN HOST RUNNING}
 			Exit //# Only return to song allowed in playback
-		elseif (last_pad=5 or last_pad=13)
+		elseif last_pad=13
 			Exit //# Not in use
 		elseif (HostRunning and last_pad=8)
 			Exit //# Not allowed in playback
@@ -493,12 +496,17 @@
 			mode = last_pad-1 //# shifting mode to add kontroller slave in menu
 			//Log {MODE:}, mode-1
 			in_mode_select = FALSE
+		elseif last_pad=5
+			StartTimer
+			LabelPads {HOLD PAD DOWN TO GENERATE RANDOM CHORD PROGRESSION FOR SCENE }, current_scene+1
+			Exit
 		elseif (last_pad>=8 and last_pad<=12)
     	//# midi setup modes - dont exit in_select_mode
     	mode = last_pad
 			Call @SetupSettingsLayout
     elseif (last_pad = 14)
 			Call @LogCurrentSceneToPresetFormat
+			LabelPads {Scene preset data printed. Check log!}
 			Exit
 		elseif (last_pad = 15) //All Notes off
 			mode=last_pad
@@ -511,9 +519,6 @@
 		endif
 		Call @HandleModeChange
 		Call @SetupLayout
-		if (last_pad = 14)
-			LabelPads {Scene preset data printed. Check log!}
-		endif
 	//# NOT IN MODE SELECT......
 	elseif NOT in_mode_select
 		//# handle mode actions if record or reset else do knob scene change
@@ -550,6 +555,7 @@
 					if midi_chan_modes[i]>=2 and midi_chan_modes[i]<=7  //send chords to channels set up with mode chords
 						chord_note_ch = i 
 						trigger_note_oct_adj = 0 //pad down trigger uses default octave
+						inv_adjs=[0,0,0,0] //used for gated chords only. pad down we use inv set in chord
 		  			Call @SendOutChordNotes
 					endif
 				endfor
@@ -588,6 +594,7 @@
 			endfor
 		endif
   endif
+	StopTimer
 @End
 
 @HandleModeChange
@@ -819,14 +826,24 @@
 @SaveSelectedChordPad
 	//# save to pad in select mode once chord params chosen on knobs 
 	//# chord to be updated
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
+	chord_slot = (current_scene * 100) + ((chord_to_set) * 10)
 	
 	//# Set fields not updated here. Default if new else saved
-	chrd_duration = 4 //# default value for new chord
-	if chord_bank[chord_slot + dur_slot] > 0
-		chrd_duration = chord_bank[chord_slot + dur_slot]
+	if generate_random_chord
+		root_updated = TRUE
+		type_updated = TRUE
+		inv_updated = TRUE
+		chord_bank[chord_slot + dur_slot] = Random 1,16 //duration
+		slct_chord_root=new_root_choices[(Random 0,len_new_root_choices)]
+		slct_chord_type=new_chord_type_choices[(Random 0,len_new_type_choices)]
+		slct_chord_inversion=Random -1,1
+	else
+		chrd_duration = 4 //# default value for new chord
+		if chord_bank[chord_slot + dur_slot] > 0
+			chrd_duration = chord_bank[chord_slot + dur_slot]
+		endif
+		chord_bank[chord_slot + dur_slot] = chrd_duration
 	endif
-	chord_bank[chord_slot + dur_slot] = chrd_duration
 	
 	//# Only update changed fields
 	if root_updated or type_updated
@@ -853,7 +870,7 @@
 		chord_bank[chord_slot + inv_slot] = chrd_inversion
 		inv_updated = FALSE
 	endif
-	chrd_to_label = current_chord+8
+	chrd_to_label = chord_to_set+8
 	Call @LabelChordPad
 	Call @UpdateChordsWithDuration
 	Call @MakeChordScale
@@ -861,9 +878,17 @@
 
 @SaveConstructedChordPad
 	//# save to pad in construct mode  			
-	chord_slot = (current_scene * 100) + ((current_chord) * 10) //# chord to be updated	
+	chord_slot = (current_scene * 100) + ((chord_to_set) * 10) //# chord to be updated	
 	//# Set fields not updated here. Default if new else saved
-	chrd_duration = 4 //# default value for new chord
+	if generate_random_chord
+		chrd_duration = Random 1,16
+		constructed_root=new_root_choices[(Random 0,len_new_root_choices)]
+		constructed_3rd=Random 0,3
+		constructed_5th=Random 0,2
+		constructed_7th=Random 0,4
+	else
+		chrd_duration = 4 //# default value for new chord
+	endif
 	if chord_bank[chord_slot + dur_slot] > 0
 		chrd_duration = chord_bank[chord_slot + dur_slot]
 	endif
@@ -882,7 +907,7 @@
 	chord_bank[chord_slot + 2] = chord_5th
 	chord_bank[chord_slot + 3] = chord_7th
 	//Log {Root: }, (NoteName constructed_root), { 3rd: }, c3rd_intervals[constructed_3rd], { 5th: }, c5th_intervals[constructed_5th], { 7th: }, c7th_intervals[constructed_7th], { Chord notes }, constructed_root, { }, chord_3rd, { }, chord_5th, { }, chord_7th, { 7th: }, chord_bank[chord_slot + 3]
-	chrd_to_label = current_chord+8
+	chrd_to_label = chord_to_set+8
 	Call @LabelChordPad
 	Call @UpdateChordsWithDuration
 	Call @MakeChordScale
@@ -900,21 +925,19 @@
 @End
 
 @MakeChordScaleForScene
-	real_current_chord=current_chord
-	chord_slot = (current_scene * 100) + ((current_chord) * 10) //# chord to be updated	
 	for i = 0 to 7
-		current_chord=i
+		chord_to_set=i //always except in random gen and suggest and make for scene
+		chord_slot = (current_scene * 100) + ((chord_to_set) * 10) //# chord to be updated	
 		if chord_bank[chord_slot + dur_slot]>0
 			Call @MakeChordScale //if there is a duration on that chord
 		endif
 	endfor
-	current_chord=real_current_chord
 @End
 
 @MakeChordScale
 	//create a "chord scale" to make transposing incoming notes to chord notes and chords faster
-	chord_slot = (current_scene * 100) + ((current_chord) * 10) //# chord to be updated
-	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
+	chord_slot = (current_scene * 100) + ((chord_to_set) * 10) //# chord to be updated
+	chord_scale_slot = (current_scene * 120) + ((chord_to_set) * 15)
 	txpose_index = scene_bank[(current_scene * sc_size) + sc_txp_slot]
 	scn_txpose = txpose_array[txpose_index] //# scene txpose amount
 	
@@ -970,15 +993,16 @@
 	//LOGGING!!!
 	cs=[]
 	CopyArray chord_scale, cs, 14 //just for logging here
-	Log {--- Made chord scale for s1}, current_scene+1, { chord }, current_chord+1, {---}
+	Log {--- Made chord scale for s1}, current_scene+1, { chord }, chord_to_set+1, {---}
 	Log {MADE CHORD SCALE: [}, cs[0],{-},cs[1],{-},cs[2],{-},cs[3],{-},cs[4],{-},cs[5],{-},cs[6],{-},cs[7],{-},cs[8],{-},cs[9],{-},cs[1],{-},cs[10],{-},cs[11],{]} 
 	Log {MADE CHORD NOTE W INV: [R:},curr_chord_notes[0],{ 3rd:},curr_chord_notes[1],{ 5th:},curr_chord_notes[2],{  7th:},curr_chord_notes[3],{  LO:},curr_chord_notes[4],{  HI:},curr_chord_notes[5],{]}
 	Log {-----}
 @End
 
 @SetChordScale
-	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
-	chord_slot = (current_scene * 100) + ((current_chord) * 10) 
+	//requires chord_to_set - mostly current chord, except when suggest and creating random chord prog
+	chord_scale_slot = (current_scene * 120) + ((chord_to_set) * 15)
+	chord_slot = (current_scene * 100) + ((chord_to_set) * 10) 
 	CopyArray all_chord_scales[chord_scale_slot], current_chord_scale, 14 
 	CopyArray chord_notes_w_inv[chord_slot], curr_chord_notes, 6
 	Log {SET CURRCHRD NOTES W INV: [ R:},curr_chord_notes[0],{  3rd:},curr_chord_notes[1],{  5th:},curr_chord_notes[2],{  7th:},curr_chord_notes[3],{  LO:},curr_chord_notes[4],{  HI:},curr_chord_notes[5],{]}
@@ -1038,7 +1062,7 @@
 		chord_note_ch=MIDIChannel
 		Call @TurnOffChordNotes // can only have one chord note per channel playing at any one time
 		gated_chord_inversion = inversions_for_gated_chord[MIDINote%12] //a number from -4 to 4
-		if current_chord_scale[11]=-1
+		if current_chord_scale[11]=-1 //ie current_chord is a triad
 			//inv_adjs is an array len 4, each cell -12, 0 or +12
 			CopyArray triad_inversion_adjustments[(gated_chord_inversion+4)*4], inv_adjs, 4 
 		else
@@ -1285,6 +1309,7 @@
     Call @LabelChordPad
     Call @SetupLayout
 		Call @UpdateChordsWithDuration
+		chord_to_set=current_chord //always except in random gen and suggest
 		Call @MakeChordScale
   endif
 @End
@@ -1346,6 +1371,7 @@
 		mode=0
 		Call @UpdateScenesWithDuration
 		Call @UpdateChordsWithDuration
+		chord_to_set=current_chord //always except in random gen and suggest
 		Call @MakeChordScaleForScene
 	elseif last_pad >= 8
 		//Log {pasting to chord }, last_pad-8
@@ -1357,6 +1383,7 @@
 		songmode = 2
 		mode=0
 		Call @UpdateChordsWithDuration
+		chord_to_set=current_chord //always except in random gen and suggest
 		Call @MakeChordScale
 	endif
 	copied_scene = -1 //# reset
@@ -1373,11 +1400,14 @@
 	n4=11 //prev_7th
 	d=4 //duration
 	i=0 //inversion
+	
 	if current_scene>0 and current_chord=0 //# use last chord prev_scene
 		for x = 0 to 7
 			test_slot = ((current_scene-1) * 100) + (x * 10)
 			if chord_bank[chord_slot+dur_slot] > 0 //# chord has duration so use it	
-					prev_chord_slot=test_slot
+				prev_chord_slot=test_slot
+			else
+			  prev_chord_slot=test_slot
 	  	endif
 		endfor
 		n1=chord_bank[prev_chord_slot]%12
@@ -1395,6 +1425,8 @@
 		d=chord_bank[prev_chord_slot+4]%12
 		i=chord_bank[prev_chord_slot+5]%12
 	endif
+	
+	CopyArray current_chord_scale, ccs, 14 //use current chord scale to generate new chord shape
 	
 	//# chord = [note1, note2, note3, note4, duration, inv, bass]
 	chord_suggest_bank[0*10]  = [n1,        n2,         n3,         n4,         d,i,n1]
@@ -1419,7 +1451,7 @@
 	chord_slot = (current_scene * 100) + (current_chord * 10) //# chord to update
 	CopyArray chord_suggest_bank[chrd_sugg*10], chord_bank[chord_slot], 7
 	chrd_to_label = current_chord+8
-	Call @LabelChordPad
+	Call @LabelChordPad		
 @End
 
 @SetupKnobset99
@@ -1545,6 +1577,7 @@
 	endif
 	LabelKnob 0, {Duration}	
 	LabelKnob 2, {Inv }, chrd_inversion
+	LabelKnob 3, { }
 	SetKnobValue 0, TranslateScale chrd_duration, 0, 127, 0, 127
 	SetKnobValue 2, TranslateScale chrd_inversion, -4, 4, 0, 127
 	SetKnobValue 3, 0
@@ -1552,6 +1585,7 @@
 @KnobChangeSet1
 //# chord settings
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
+	chord_to_set=current_chord
 	if last_knob = 0
 	  chrd_duration = (Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127)+1
 	  if chrd_duration <> chord_bank[chord_slot + dur_slot] 
@@ -1638,6 +1672,7 @@
 @End
 @KnobChangeSet2
 	inv_updated = FALSE
+	chord_to_set = current_chord
 	if last_knob = 0
 	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
   	if val <> slct_chord_root
@@ -1792,6 +1827,7 @@
 	SetKnobValue 3, TranslateScale constructed_7th, 0, 4, 0, 127
 @End
 @KnobChangeSet6
+	chord_to_set = current_chord //required for @SaveConstructedChordPad
 	if last_knob = 0
 	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
   	if val <> constructed_root
@@ -2096,7 +2132,7 @@
 	LabelPad 2, {+CHORDS: Select}
 	LabelPad 3, {+CHORDS: Construct}
 	LabelPad 4, {+CHORDS: Record}
-	LabelPad 5,{ }
+	LabelPad 5, {GEN RND CHORD PROG.}
 	if last_pad<=7 //# copy scene or chord
 		LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
 		copy_mode=0
@@ -2125,6 +2161,33 @@
 		endif
 	endfor
 	Call @UpdateCurrentKnobset
+@End
+
+@OnTimer
+	//generate random chord progression for current scene
+	generate_random_chord=TRUE
+	if current_chord_scale[0]>=0 and current_chord_scale[4]>=0 and current_chord_scale[7]>=0
+		new_root_choices = [current_chord_scale[0], current_chord_scale[4], current_chord_scale[7]]
+	else
+	  new_root_choices = [0,4,7]
+	endif
+	len_new_root_choices=2
+	new_chord_type_choices=[0,1,4,5,6,7,8,9,10]
+	len_new_type_choices=8
+	for rc = 0 to 7
+		chord_to_set=rc //required for SaveContructedChordPad
+		//Call @SaveConstructedChordPad
+		Call @SaveSelectedChordPad
+		Call @MakeChordScale
+		Call @SetChordScale //set the chord scale to the newly created chord to help with suggesting next 
+	endfor
+	in_mode_select = FALSE
+	mode = 0
+	knob_set = 1
+	Call @SetupLayout
+	LabelPads {RANDOM CHORD PROGRESSION CREATED FOR SCENE }, current_scene+1
+	StopTimer
+	generate_random_chord=FALSE
 @End
 
 @SortList
