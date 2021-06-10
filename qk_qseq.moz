@@ -528,7 +528,7 @@
 	endif
 @End
 
-@UpdateSettingPadColors
+@UpdateSettingPadColors //DELETE
 	//Update GUI pad colors and LP colors in settings mode
 	for i = 0 to 15
 		ColorPad i, settings_pad_cols[i]
@@ -564,7 +564,7 @@
 		mode = last_pad
 		Call @OnPadDown_KnobSetSelect
 	endif
-	Call @UpdateSettingPadColors
+	Call @UpdateSettingsPadColors
 @End
 
 @QuickConfig
@@ -606,18 +606,18 @@
 	endif
 	device_gui_num=[0,0,0,0, 0,0,0,0]
 	if quick_config=0
-		ch_names= [kit, ska, prc, fxs,   bss, plk, led, arp]
+		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
 		ch_destns=[ilk, ilk, ilk, ilk,   ilk, ilk, ilk, ilk]
 	elseif quick_config=1
-		ch_names= [kik, snr, hat, cym,   prc, ska, prc, fxs]
+		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
 		ch_destns=[drm, drm, drm, drm,   drm, drm, drm, drm]
 	elseif quick_config=2
-		ch_names= [bss, bss, led, led,   pad, plk, arp, key]
+		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
 		ch_destns=[atm, atm, atm, atm,   atm, atm, atm, atm]
 		device_gui_num=[0,1,2,3, 4,5,6,7]
 	elseif quick_config=3
-		ch_names= [kit, ska, prc, fxs,   bss, plk, led, arp]
-		ch_destns=[hel, hel, hel, hel,   ilk, ilk, ilk, ilk]
+		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
+		ch_destns=[hel, hel, hel, hel,   hel, hel, hel, hel]
 		device_gui_num=[0,0,0,0, 1,1,1,1]
 	endif	
 	Call @SetupSettingsLayout
@@ -767,7 +767,6 @@
 @End
 
 @OnPadUp2
-  //pass
 	StopTimer
 @End
 
@@ -1772,8 +1771,12 @@
 @End
 
 @UpdateSettingsPadColors
-	settings_pad_cols=[7,4,tbb_col,5,5,5,4,1, 3,0,sp_col,sq_col,4,0,2,1]	
+	settings_pad_cols=[7,4,tbb_col,5,5,5,4,1, 0,0,sp_col,sq_col,4,0,2,1]
+	gui_pad_cols=[1,2,3,4,5,6,7,1]
 	for i = 0 to 15
+		if i = 8 //gui pad
+			settings_pad_cols[8] = gui_pad_cols[seq_ch]
+		endif
 		ColorPad i, settings_pad_cols[i]
 		if mgen_device_id=mgen_sel_dev
 			SendMIDINoteOn 15, i+led_index, settings_pad_cols[i]
