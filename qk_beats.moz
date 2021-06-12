@@ -2725,8 +2725,13 @@
 	  n1=curr_scale[seq1_notes[step_slot]]
 	  n2=curr_scale[seq2_notes[step_slot]]
 	  n3=curr_scale[seq3_notes[step_slot]]
+		p0=seq0_notes[step_slot]+1
+	  p1=seq1_notes[step_slot]+1
+	  p2=seq2_notes[step_slot]+1
+	  p3=seq3_notes[step_slot]+1
 	endif
 	n=[n0,n1,n2,n3]
+	p=[p0,p1,p2,p3]
   v0=seq0_velos[step_slot]
   v1=seq1_velos[step_slot]
   v2=seq2_velos[step_slot]
@@ -2747,9 +2752,11 @@
 	cc=[cc0,cc1,cc2,cc3]
 	if (label_style=5) //# label all channels + all values
   	LabelPad sel_pad, (NoteName n3 ,YES), {_v},v3r,{cc},cc3r,{ }, (NoteName n2, YES), {_v},v2r,{cc},cc2r,{ }, (NoteName n1, YES), {_v},v1r,{cc},cc1r,{ }, (NoteName n0, YES), {_v},v0r,{cc},cc0r
-  elseif (label_style=4) //# label selected channel + all values
+  elseif (label_style=4) and note_set_type>=1//# label selected channel + all values
+  	LabelPad sel_pad, {____P},p[seq_ch], {____ }, (NoteName n[seq_ch], YES), {     }, n[seq_ch], {          v},v[seq_ch],{  cc},cc[seq_ch]
+  elseif (label_style=4) and note_set_type=0//# label selected channel + all values
   	LabelPad sel_pad, (NoteName n[seq_ch], YES), {     }, n[seq_ch], {          v},v[seq_ch],{  cc},cc[seq_ch]
-  elseif (label_style=0) or (label_style=1) 
+	elseif (label_style=0) or (label_style=1) 
   	//# label selected channel note and octave only
   	LabelPad sel_pad, (NoteName n[seq_ch], YES)
   elseif (label_style=2) //# label selected channel velo only
