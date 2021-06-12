@@ -109,10 +109,10 @@
 	chan_pgm=[]
 	FillArray chan_pgm_max, 127, 16
 	// Default setup for Channels - midi chs are fixed
-	chan_labels =  [1,2,13,15,3,4,5,5,8,6,10,9,20,21,22,23]
-	chan_colors =  [2,2,2,2,4,4,4,4,3,3,3,3,5,5,5,0]
+	chan_labels =  [1,2,13,15,3,10,5,8,6,15,11,9,20,21,22,23]
+	chan_colors =  [2,2,2,2,4,3,4,3,3,3,3,3,5,5,5,0]
 	chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	chan_layouts =  [18,19,20,22,21,21,21,21,21,21,21,21,2,16,17,0]
+	chan_layouts =  [18,7,20,22,21,21,21,21,21,21,21,21,2,16,17,0]
 	FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
 	FillArray chan_arm, FALSE, 16
@@ -700,6 +700,11 @@
 	if last_pad=15
 		Exit
 	endif
+	if chan_layouts[last_pad]>=18 and chan_layouts[last_pad]<=21
+		drambo_layout_active = TRUE
+	else
+	  drambo_layout_active = FALSE
+	endif
 	if (last_pad=curr_chan) or drambo_layout_active  
 		//user hit goto channel pad twice or Drambo layout so select pad 
 		curr_chan = last_pad
@@ -732,11 +737,6 @@
 	endif
 	Call @SendMidiCCBackToKnobs
 	SendMIDICC 15, 24, last_pad //LED FEEDBACK
-	if chan_layouts[last_pad]>=18 or chan_layouts[last_pad]<=21
-		drambo_layout_active = TRUE
-	else
-	  drambo_layout_active = FALSE
-	endif
 @End
 
 @PadDownInstrMode
@@ -1986,7 +1986,7 @@
 		def_labels[16*3] = [29,18,124,125,126,52,11,0, 12,13,14,15,64,65,66,59]
 		def_colors[16*3] = [6,6,0,0,0,4,5,5,4,4,4,4,0,0,0,0]
 		def_vals[16*3]   = [45,64,0,0,0,64,64,80, 0,0,0,0,0,0,0,0]
-		def_ccs[16*3]    = [78,8,124,125,126,11,12,13,117,118,119,120,121,122,123,93]
+		def_ccs[16*3]    = [78,8,124,125,126,82,83,84,117,118,119,120,121,122,123,93]
 	elseif chan_layouts[edit_chan]=8
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Mersenne}
 		def_colors[16*0] =  [6,6,6,6,6,6,6,6, 6,6,6,6,6,6,6,6]
