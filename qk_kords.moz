@@ -170,7 +170,7 @@
 	tetrad_inversion_adjustments[28]= [12,12,12,0] //3rd inversion
 	tetrad_inversion_adjustments[32]= [12,12,12,12] //4th inversion
 	//Modes for processing incoming notes 0:Off 1:Harmonize 2:GatedChord 3:*ChordOn 4:*RootOn 5:*5thOn 6:*Lo 7:*Hi 8:OFF
-	midi_chan_modes=[0,0,0,0, 1,1,1,1, 2,2,2,2, 0,0,0,0] 
+	midi_chan_modes=[0,0,0,0, 1,2,1,2, 2,2,6,0, 0,0,0,0] 
 	set_all_mc_to=9 //Setting all midi channels to x harmonization style
 	active_ch_range=4 //limit active channels for better cpu 0-3; 0-7; 4-11; 0-11; 0-15
 	active_ch_min=0 //for setting active_ch_range 
@@ -725,8 +725,8 @@
 @OnMidiCC
 	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	//Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
-	if MIDIChannel>=4 and MIDIChannel<=11 and MIDIByte2<=4
-		SendMIDIThru // step cc automation from NOTES. Allowed ccs 0-4 only. 
+	if MIDIChannel<=15
+		SendMIDIThru // automation. 
 	elseif (MIDIByte2>=101) and (MIDIByte2<=(101+7)) and (MIDIChannel=15) and MIDIByte3<=32
 		//# handle scene duration change
 		scene_bank[((MIDIByte2-101) * sc_size)] = MIDIByte3 
