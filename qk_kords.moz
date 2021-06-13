@@ -833,7 +833,8 @@
 		root_updated = TRUE
 		type_updated = TRUE
 		inv_updated = TRUE
-		chord_bank[chord_slot + dur_slot] = Random 1,16 //duration
+		rnd_durations=[2,4,4,8,8,12,16]
+		chord_bank[chord_slot + dur_slot] = rnd_durations[Random 0,6] //duration
 		slct_chord_root=new_root_choices[(Random 0,len_new_root_choices)]
 		slct_chord_type=new_chord_type_choices[(Random 0,len_new_type_choices)]
 		slct_chord_inversion=Random -1,1
@@ -2167,9 +2168,9 @@
 	//generate random chord progression for current scene
 	generate_random_chord=TRUE
 	if current_chord_scale[0]>=0 and current_chord_scale[4]>=0 and current_chord_scale[7]>=0
-		new_root_choices = [current_chord_scale[0], current_chord_scale[4], current_chord_scale[7]]
+		new_root_choices = [current_chord_scale[0], current_chord_scale[4], current_chord_scale[5], current_chord_scale[7]]
 	else
-	  new_root_choices = [0,4,7]
+	  new_root_choices = [0,4,5,7]
 	endif
 	len_new_root_choices=2
 	new_chord_type_choices=[0,1,4,5,6,7,8,9,10]
@@ -2180,6 +2181,7 @@
 		Call @SaveSelectedChordPad
 		Call @MakeChordScale
 		Call @SetChordScale //set the chord scale to the newly created chord to help with suggesting next 
+		new_root_choices = [current_chord_scale[0], current_chord_scale[4], current_chord_scale[5], current_chord_scale[7]]
 	endfor
 	in_mode_select = FALSE
 	mode = 0
