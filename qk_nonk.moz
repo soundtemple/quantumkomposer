@@ -82,7 +82,7 @@
 	//Store your layout info here
 	//Pads from top left to bottom right
 	
-	layouts =        [1,2,3,16, 4,5,4,5, 5,16,5,5, 0,0,0,0] // Layout to use with each keyboard
+	layouts =        [1,2,0,3, 4,5,4,5, 5,16,5,5, 0,0,0,0] // Layout to use with each keyboard
 	keybd_channels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15] //default midi channel use if not specified in layout
 	kntrl_keyboard_selection=[0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15] //on KNTRL Instr. channel change - select a keyboard 
 	
@@ -114,11 +114,11 @@
 		notes[kb2b*16] = [44,45,46,47, -1,-1,-1,-1, 36,37,38,39, 40,41,42,43]
 		colors[kb2b*16] = [4,4,4,4, 0,0,0,0, 2,2,2,2, 3,3,3,3]
 		pad_channels[kb2b*16] = [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]
-	elseif layouts[kb2b] = 3 //name: PERCS AND FX/LOOPS
-		labels[kb2b*16] = [8,8,9,9,9,9,9,9, 11,13,12,39, 14,14,14,14]	
-		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 48,49,50,51, 52,53,54,55]
-		colors[kb2b*16] = [1,2,3,4,5,6,7,4, 1,2,3,4,5,6,7,4]
-		pad_channels[kb2b*16] = [1,1,1,1,1,1,1,1, 2,2,2,2,2,2,2,2]
+	elseif layouts[kb2b] = 3 //name: FX
+		labels[kb2b*16] = [11,13,-1,-1, 39,39,39,39, -1,-1,-1,-1,-1,-1,-1,-1]	
+		notes[kb2b*16] =  [49,51,-1,-1, 54,56,58,61, -1,-1,-1,-1,-1,-1,-1,-1]
+		colors[kb2b*16] = [4,4,0,0, 5,5,5,5, 0,0,0,0,0,0,0,0]
+		FillArray pad_channels[kb2b*16], 3, 16
 	elseif layouts[kb2b] = 4 //name: KORDS:MELODY CHANNEL KEYBOARD
 		labels[kb2b*16] = [24,28,25,28,26,28,27,24,24,28,25,28,26,28,27,24]
 		notes[kb2b*16] = [60,62,64,65,67,69,71,72, 48,50,52,53, 55,57,59,60]
@@ -200,13 +200,13 @@
 	// Set your layout names here. 
 	layout_num=layouts[keyboard] 
 	if layout_num=0
-		LabelPads keyboard+1, { - }, { }
+		LabelPads keyboard+1, { - }, {EMPTY}
 	elseif layout_num=1
 	  LabelPads keyboard+1, { - }, {DRUM KIT}
 	elseif layout_num=2
 		LabelPads keyboard+1, { - }, {PERCS}
 	elseif layout_num=3
-		LabelPads keyboard+1, { - }, {PERCS & FX}
+		LabelPads keyboard+1, { - }, {FX}
 	elseif layout_num=4
 		LabelPads keyboard+1, { - }, {KORDS:MELODY KEYBOARD CH:}, keybd_channels[keyboard]+1
 	elseif layout_num=5
@@ -233,6 +233,8 @@
 		LabelPads keyboard+1, { - }, {KORDS: MELODY CHORD NOTES ONLY}
 	elseif layout_num=16
 	  LabelPads keyboard+1, { - }, {KORDS: ROOT - FIFTH - LOWEST - HIGHEST - CHORD}
+	elseif layout_num=17
+		LabelPads keyboard+1, { - }, {SLICED LOOP#1}
 	elseif layout_num=17
 		LabelPads keyboard+1, { - }, {SLICED LOOP#1}
 	else
