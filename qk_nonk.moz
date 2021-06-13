@@ -180,7 +180,7 @@
 		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 16 //name: ROOT - THIRD - FIFTH - CHORD - LOWEST - HIGHEST
 		labels[kb2b*16] = [-1,-1,-1,-1,-1,-1,-1,-1, 24,25,26,-1, 29,-1,37,38]
-		notes[kb2b*16] =  [-1,-1,-1,-1,-1,-1,-1,-1, 48,52,55,-1, 53,-1,57,58]
+		notes[kb2b*16] =  [-1,-1,-1,-1,-1,-1,-1,-1, 48,52,55,-1, 53,-1,57,59]
 		colors[kb2b*16] = [0,0,0,0, 0,0,0,0, 3,3,3,0, 4,0,6,6]
 		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	elseif layouts[kb2b] = 17 //name: SLICED LOOP#1

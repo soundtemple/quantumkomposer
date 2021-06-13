@@ -101,7 +101,7 @@
 	update_held_notes_on_chord_change=TRUE //FALSE will allow held notes to continue as originally triggered
 	num_mel_voices=6 //melody chans max polyphony. for tracking melody notes over chord changes we limit for CPU
 	FillArray mel_note_voices, -1, num_mel_voices*16
-	FillArray held_chord_notes, FALSE, 16 //Tracking the chord note chans. 1 note per chan max IN.
+	FillArray held_chord_notes, -1, 16 //Tracking the chord note chans. 1 note per chan max IN.
 	FillArray held_chord_oct_adj, 0, 16 	//Harmony note octave in effect octave chord notes are sent out on
 @End
 
@@ -169,8 +169,8 @@
 	tetrad_inversion_adjustments[24]= [12,12,0,0] //2nd inversion
 	tetrad_inversion_adjustments[28]= [12,12,12,0] //3rd inversion
 	tetrad_inversion_adjustments[32]= [12,12,12,12] //4th inversion
-	//Modes for processing incoming notes 0:Off 1:Harmonize 2:GatedChord 3:*ChordOn 4:*RootOn 5:*5thOn 6:*Lo 7:*Hi 8:OFF
-	midi_chan_modes=[0,0,0,0, 1,2,1,2, 2,2,6,0, 0,0,0,0] 
+	//Modes for processing incoming notes 0:Off 1:Harmonize 2:GatedChord 3:ChordNotes 4:OFF
+	midi_chan_modes=[0,0,0,0, 1,2,1,2, 2,3,3,3, 0,0,0,0] 
 	set_all_mc_to=9 //Setting all midi channels to x harmonization style
 	active_ch_range=4 //limit active channels for better cpu 0-3; 0-7; 4-11; 0-11; 0-15
 	active_ch_min=0 //for setting active_ch_range 
@@ -237,15 +237,6 @@
 		scene_beat_count = scene_completed_bars + HostBeat
 		chord_beat_count = chord_completed_bars + HostBeat
 	endif
-	for i = active_ch_min to active_ch_max
-		if midi_chan_modes[i]>2
-			chord_note_ch = i
-			trigger_note_octave = 0
-			trigger_note_oct_adj = 0
-			Call @SendOutChordNotes
-		endif
-	endfor
-		
 	//Log {---- Host Started ----}
 	Call @SetupLayout
 @End
@@ -254,15 +245,9 @@
   Call @ResetBeatCounts
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
   Call @SetupLayout
-	for i = active_ch_min to active_ch_max
-		if midi_chan_modes[i]>2
-			chord_note_ch = i
-			Call @TurnOffChordNotes
-		endif
-	endfor
 	//reset held notes
 	FillArray mel_note_voices, -1, num_mel_voices*16
-	FillArray held_chord_notes, FALSE, 16 //Tracking the chord note chans. 1 note per chan max IN.
+	FillArray held_chord_notes, -1, 16 //Tracking the chord note chans. 1 note per chan max IN.
 	FillArray held_chord_oct_adj, 0, 16 	//Harmony note octave in effect octave chord notes are sent out on
 @End 
 
@@ -429,7 +414,7 @@
 						//turn off the existing melody ch note
 						harmony_note = (GetNoteState melody_note_ch, mel_note_voices[voice])
 						SendMIDINoteOff melody_note_ch, harmony_note, 64
-						Log {HCC Voice:}, v, { ch }, c+1, {mn voice in_note}, mel_note_voices[voice], { hnote: }, harmony_note 
+						//Log {HCC Voice:}, v, { ch }, c+1, {mn voice in_note}, mel_note_voices[voice], { hnote: }, harmony_note 
 						//retrigger the melody channel voice	
 						midi_note = mel_note_voices[voice]
 						melody_note_velo = mel_note_velos[voice]  
@@ -439,14 +424,17 @@
 				endfor
 			elseif midi_chan_modes[c]=2 and update_held_notes_on_chord_change
 				Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
-				if held_chord_notes[c]
+				if held_chord_notes[c]>=0
 					trigger_note_oct_adj = held_chord_oct_adj[c]  //notes 48-59 no change
 					Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
 				endif		
-			elseif midi_chan_modes[c]>=3 and midi_chan_modes[c]<=7 //always on modes
-				Call @TurnOffChordNotes //these modes always send note(s) of the current mode
-				trigger_note_oct_adj = 0  
-				Call @SendOutChordNotes
+			elseif midi_chan_modes[c]=3 and update_held_notes_on_chord_change
+				Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
+				if held_chord_notes[c]>=0
+					trigger_note_oct_adj = 0  //notes 48-59 no change
+					midi_note=held_chord_notes[c] // the incoming note determines what we send out
+					Call @SendOutChordNotes //Send out new notes for held chord notes & update notestate
+				endif		
 			endif
 		endfor
 	endif
@@ -552,8 +540,9 @@
 			current_chord_duration = chord_bank[chord_slot + dur_slot]
 			if current_chord_duration>0
 				for i = active_ch_min to active_ch_max
-					if midi_chan_modes[i]>=2 and midi_chan_modes[i]<=7  //send chords to channels set up with mode chords
+					if midi_chan_modes[i]=2 or midi_chan_modes[i]=3  //send chords to channels set up with mode chords
 						chord_note_ch = i 
+						midi_note=8 //chord notes mode. send the chord
 						trigger_note_oct_adj = 0 //pad down trigger uses default octave
 						inv_adjs=[0,0,0,0] //used for gated chords only. pad down we use inv set in chord
 		  			Call @SendOutChordNotes
@@ -587,7 +576,7 @@
 		current_chord_duration = chord_bank[chord_slot + dur_slot]
 		if current_chord_duration>0
 			for i = active_ch_min to active_ch_max
-				if midi_chan_modes[i]>=2 and midi_chan_modes[i]<=7
+				if midi_chan_modes[i]=2 or midi_chan_modes[i]=3
 					chord_note_ch = i
 	  			Call @TurnOffChordNotes
 				endif
@@ -1071,10 +1060,19 @@
 		endif
 		Call @SendOutChordNotes
 		if update_held_notes_on_chord_change //held note tracking for update on chord change
-			held_chord_notes[chord_note_ch] = TRUE
+			held_chord_notes[chord_note_ch] = MIDINote
 			held_chord_oct_adj[chord_note_ch] = 0
 		endif
-	elseif midi_chan_modes[MIDIChannel]=8 //THRU
+	elseif midi_chan_modes[MIDIChannel]=3 //NOTES OF CHORD
+		chord_note_ch=MIDIChannel
+		midi_note=MIDINote%12
+		Call @TurnOffChordNotes // can only have one chord note per channel playing at any one time
+		Call @SendOutChordNotes
+		if update_held_notes_on_chord_change //held note tracking for update on chord change
+			held_chord_notes[chord_note_ch] = midi_note
+			held_chord_oct_adj[chord_note_ch] = 0
+		endif
+	elseif midi_chan_modes[MIDIChannel]=4 //THRU
 		SendMIDIThru 
 	endif
 @End
@@ -1100,9 +1098,9 @@
 				endif
 			endfor
 		endif
-	elseif curr_mode=3 //CHORD* always on. 
+	elseif (curr_mode=3 and midi_note=5) //NOTES OF CHORD mode incoming note=F
 		if curr_chord_notes[0]>=0 and curr_chord_notes[1]>=0 and curr_chord_notes[2]>=0 
-		//aka chord_formed we can send chord notes	
+			//aka chord_formed we can send chord notes	
 			for i = 0 to 3  
 				Call @HumanizeVelocity
 				if curr_chord_notes[i] > 0
@@ -1111,12 +1109,20 @@
 				endif
 			endfor
 		endif
-	elseif curr_mode>=4 and curr_mode<=7 //Send a single note of the chord based on mode
-		//These fall into the always on category so no trigger note octave adj here
+	elseif curr_mode=3 and (midi_note=0 or midi_note=4 or midi_note=7 or midi_note=9 or midi_note=11)  
+		//Send a single note of the chord based on incoming note root-3rd-5th-lowest-highest
 		Call @HumanizeVelocity
-		//notes modes play 0:LO 1:ROOT 2:3RD 3:5TH 4:7TH 5:HI
-		index_to_curr_chord_notes = [curr_chord_notes[0], curr_chord_notes[2], curr_chord_notes[4], curr_chord_notes[5]]
-		note_to_play = index_to_curr_chord_notes[curr_mode-4] //4:root, 5:5th, 6:lowest, 7:highest
+		if midi_note=0
+			note_to_play = curr_chord_notes[0] //root
+		elseif midi_note=4
+		  note_to_play = curr_chord_notes[1] //3rd
+		elseif midi_note=7
+		  note_to_play = curr_chord_notes[2] //5th
+		elseif midi_note=9
+		  note_to_play = curr_chord_notes[4] //lowest
+		elseif midi_note=11
+		  note_to_play = curr_chord_notes[5] //highest
+		endif
 		if note_to_play > 0
 			SendMIDINoteOn chord_note_ch, note_to_play, velocity
 			SetNoteState chord_note_ch, 0, note_to_play
@@ -1258,11 +1264,11 @@
 				endif
 			endfor
 		endif
-	elseif midi_chan_modes[MIDIChannel]=2	  
+	elseif midi_chan_modes[MIDIChannel]=2 or midi_chan_modes[MIDIChannel]=3
 		chord_note_ch=MIDIChannel
 		Call @TurnOffChordNotes
 		if update_held_notes_on_chord_change
-			held_chord_notes[chord_note_ch] = FALSE
+			held_chord_notes[chord_note_ch] = -1
 			held_chord_oct_adj[chord_note_ch] = 0
 		endif
 	elseif midi_chan_modes[MIDIChannel]=8 //thru mode
@@ -1906,10 +1912,10 @@
   	if val <> mode_midi_channel
 			mode_midi_channel = val
 			Call @LabelKnobset3
-			SetKnobValue 1, TranslateScale midi_chan_modes[mode_midi_channel], 0, 8, 0, 127
+			SetKnobValue 1, TranslateScale midi_chan_modes[mode_midi_channel], 0, 4, 0, 127
 		endif
   elseif last_knob = 1
-  	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 8
+  	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 4
   	if val <> midi_chan_modes[mode_midi_channel]
 			midi_chan_modes[mode_midi_channel] = val
 			mode_changed_for_ch=TRUE
@@ -1921,7 +1927,7 @@
   	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 9
   	if val <> set_all_mc_to
 			set_all_mc_to = val
-			my_fave_modes=[0,0,0,0, 1,1,1,1, 2,2,3,3, 0,0,0,0]
+			my_fave_modes=[0,0,0,0, 1,2,1,2, 2,3,3,3, 0,0,0,0]
 			for i = 0 to 14
 				if i>=active_ch_min and i<=active_ch_max
 					if set_all_mc_to=9
@@ -1981,23 +1987,11 @@
 		LabelPads {MODE 1: Incoming notes for channel are transposed to chord notes}
 	elseif midi_chan_modes[mode_midi_channel] = 2
 		LabelKnob 1, {Chord}
-		LabelPads {MODE 2: Incoming notes trigger current chord & determine inversion [-4 to 4] [C-C#-D-D# E F-F#-G-G#]}
+		LabelPads {MODE 2: Incoming note triggers current chord & determines inversion [-4 to 4] [C-C#-D-D# E F-F#-G-G#]}
 	elseif midi_chan_modes[mode_midi_channel] = 3
-		LabelKnob 1, {*Chord}
-		LabelPads {MODE 3: The current chord is sent continuously on channel}
+		LabelKnob 1, {ChdNotes}
+		LabelPads {MODE 3: Incoming note triggers current chord Root(C)-3rd(E)-5th(G)-Chord(F)-Lowest(A)-Highest(B)}
 	elseif midi_chan_modes[mode_midi_channel] = 4
-		LabelKnob 1, {*Root}
-		LabelPads {MODE 4: The current chord root note is sent continuously on channel}
-	elseif midi_chan_modes[mode_midi_channel] = 5
-		LabelKnob 1, {*Fifth}
-		LabelPads {MODE 5: The current chord 5th is sent continuously on channel}
-	elseif midi_chan_modes[mode_midi_channel] = 6
-		LabelKnob 1, {*Lowest}
-		LabelPads {MODE 6: The lowest current chord note is sent continuously on channel}
-	elseif midi_chan_modes[mode_midi_channel] = 7
-		LabelKnob 1, {*Highest}
-		LabelPads {MODE 7: The highest current chord note is sent continuously on channel}
-	elseif midi_chan_modes[mode_midi_channel] = 8
 		LabelKnob 1, {Thru}
 		LabelPads {MODE 8: Midi passes thru without transposition}
 	endif
@@ -2015,7 +2009,7 @@
 	endif
 	Call @LabelMidiChModesSettingsPad
 	if not mode_changed_for_ch
-		LabelPads {MODES: [1&2:Send note on to trigger]   *[3-7:Always on with chord]   [0:Mute 8:Thru]}
+		LabelPads {MODES: [1-3:Send note on to trigger]   [0:Mute 8:Thru]}
 		mode_changed_for_ch=FALSE
 	endif
 @End
