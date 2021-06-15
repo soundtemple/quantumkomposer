@@ -15,7 +15,7 @@
 		scene_change_requested = -1 //# on pad down has next scene number
 		pattn_change_requested = -1 //# on pad down has next pattn number
 		scene_change_pattn_reset = TRUE //# Goto pattn 0 when user changes scene
-		scene_changed = FALSE
+		scene_changing = FALSE
 		in_mode_select = FALSE //# Toggle for changing modes mode
 		in_seq_mode = FALSE //# editing pattern steps mode+
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
@@ -32,6 +32,7 @@
 		trigger_pattern_before_beat=TRUE //Trigger pattern before beat (mgen quant>0) or onBeat and (mgen quant=0)
 		sequencing_paused=FALSE //Dont send new triggers out for any channels. trigger mode only
 		SetTimerInterval 1000
+		time_for_turnaround=FALSE
 		Call @InitKnobVariables //# All knob settings on load
 		Call @SysexMessageSetup
 		Call @SetupSequences
@@ -124,6 +125,8 @@
 	//# stored midi note num for current playing note. for sending OFF notes
 	//# stored at time midi note on is sent. see @OnMetroPulse
 	pattn_length=16
+	next_scene=0 //for calculation before beat triggering
+	next_pattn=0 //for calculation before beat triggering
 @End
 		
 @OnHostStart 
@@ -136,7 +139,7 @@
 		in_mid_step=[0,0,0,0,0,0,0,0]
 		pattn_beat_count = -1
 		scene_beat_count = -1
-		scene_changed = FALSE
+		scene_changing = FALSE
 		if (songmode = 0)
 			current_scene = 0
 			current_pattn = 0
@@ -152,6 +155,8 @@
 		curr_steps=[0,0,0,0,0,0,0,0]
 		in_mid_step=[0,0,0,0,0,0,0,0]
 	endif
+	next_scene=current_scene 
+	next_pattn=current_pattn 
 	Call @SetupLayout
 @End
 
@@ -164,13 +169,16 @@
 @End 
 
 @OnMetroPulse
+	if CurrentMetroPulse%4=3 //pulse before beat update next scene and pattern
+		Call @GetNextScene //also calls GetNextPattn
+	endif
 	//# Update counts - pulses and step positions all seq_chs. Trigger patterns if moving to new step
 	for ch = 0 to 7
 		sequence_num=(current_scene*128) + (current_pattn*16) + ch
 		curr_rate = pulses_per_note[sequence_rates[sequence_num]] //Beat or bar
 		curr_seq_len = sequence_lengths[sequence_num]
 		in_mid_step[ch] = (curr_pattn_pulses[ch]) % curr_rate
-		if (curr_pattn_pulses[ch]+2) % curr_rate //for schedule trigger before beat
+		if (curr_pattn_pulses[ch]+1) % curr_rate //for schedule trigger before beat
 			on_pulse_b4_change[ch] = FALSE
 		else
 		  on_pulse_b4_change[ch] = TRUE
@@ -210,8 +218,6 @@
 @TriggerPattern
 	step_slot=(current_scene*128)+(current_pattn*16)+curr_steps[ch]
 	if trigger_pattern_before_beat and HostRunning //schedule before beat. Get next scene, pattn, step...
-		Call @GetNextScene
-		Call @GetNextPattn
 		next_step=curr_steps[ch]+1
 		if (next_step >= curr_seq_len) or (next_scene <> current_scene) // end of pattn or its a new scene
 			next_step=0
@@ -281,12 +287,9 @@
 		pattern_triggered_by_user=TRUE
 	elseif pattn_change_requested>=0
 		//handle scene or pattern change request by triggering first pattern in sequence
-		Log {Trigger pattern in pattn_change requested}
 		pattern_num_to_trigger = 0
 		current_playing_patterns[ch]=0
 		ptn_triggered_for_ch=ch
-  	scene_change_requested = -1
-		pattn_change_requested = -1 //# reset request flag
 	endif
 	
 	//TRIGGER THE ACTUAL PATTERN	
@@ -294,7 +297,6 @@
 		if ptn_triggered_for_ch>=0 and ch_trigger_method=0 //NOTE
 			SendMIDINoteOn ptn_triggered_for_ch, pattern_num_to_trigger + offset, 127
 			SendMIDINoteOff ptn_triggered_for_ch, pattern_num_to_trigger + offset, 64, 1
-			Log {Pattern triggered ch}, ch, { pattern# }, pattern_num_to_trigger
 		elseif ptn_triggered_for_ch>=0 and ch_trigger_method=1 //CC NUM
 			SendMIDICC ptn_triggered_for_ch, pattern_num_to_trigger + offset, 127
 		elseif ptn_triggered_for_ch>=0 and ch_trigger_method=2 //CC VAL
@@ -308,17 +310,13 @@
 @End
 
 @OnNewBeat //# Handle Scene and Pattern changes
-	Log {--- new beat ---}, CurrentMetroPulse, { beat# }, HostBeat 
+	//Log {--- new beat ---}, CurrentMetroPulse, { beat# }, HostBeat 
 	scene_beat_count = scene_beat_count + 1
 	pattn_beat_count = pattn_beat_count + 1
 	current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
 	pattn_slot = (current_scene * 8) + (current_pattn)
 	current_pattn_duration = pattn_durs[pattn_slot] * HostBeatsPerMeasure
 	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
-	time_for_turnaround = FALSE
-  if use_turn_around
-  	Call @TimeForTurnaround
-  endif
 	//# Pattern progression -- Order of operations
 	if (scene_change_requested > -1) and (HostBeat=0)
 		//# user requested scene change and its a new bar (& return to song)
@@ -329,13 +327,13 @@
  		Call @HandlePattnChange //# User requested pattn change & its a new beat
 	elseif time_for_turnaround
  		Call @HandlePattnChange
-	elseif (pattn_beat_count >= current_pattn_duration)
+	elseif (pattn_beat_count >= current_pattn_duration) and current_pattn_duration>0
 		Call @HandlePattnChange
 	endif
 @End
 
 @OnNewBar
-  // Log {---- NEW BAR --- }, CurrentMetroPulse
+  //Log {---- NEW BAR --- }, CurrentMetroPulse
 @End
 
 
@@ -351,12 +349,10 @@
 @End
 
 @HandleSceneChange //# Work out which scene is next
-	scene_changed = TRUE
 	if return_to_song_mode_requested
 		return_to_song_mode_requested = FALSE
 	endif
-	Call @GetNextScene
-  current_scene = next_scene
+	current_scene = next_scene
 	rnd_scn = -1 //Either schdule or on beat gets the rnd scn. not both
   scene_beat_count = 0
 	pattn_beat_count = 0
@@ -385,10 +381,10 @@
 		  next_scene=current_scene
 		endif
 	endif
+	Call @GetNextPattn
 @End
 
-@HandlePattnChange //# Work out what the next pattn is
-	Call @GetNextPattn
+@HandlePattnChange // Set new pattn occurs on new bar
 	current_pattn = next_pattn	
 	rnd_ptn = -1 //Either schedule or on beat gets the rnd ptn. not both
   pattn_beat_count = 0 //# reset pattn beat count on new pattn
@@ -396,12 +392,18 @@
   curr_pattn_pulses=[0,0,0,0] //# reset metroPulse count for each seq.
   curr_steps=[0,0,0,0] //# reset steps for each seq.
 	in_mid_step=[0,0,0,0]
+	scene_change_requested = -1
+	pattn_change_requested = -1 //# reset request flag
 	Call @SetupLayout
 @End
 
 @GetNextPattn
 	// A pattern is a Sequence in the GUI and consists of a number of patterns which in the code are sequence pads
-	pattn_slot = (current_scene * 8) + current_pattn
+	time_for_turnaround = FALSE
+  if use_turn_around
+  	Call @TimeForTurnaround
+	endif
+	pattn_slot = (next_scene * 8) + current_pattn
 	next_pattn = current_pattn
 	if (pattn_change_requested > -1)
 		next_pattn = pattn_change_requested
@@ -410,13 +412,13 @@
  		endif
  	elseif (scene_change_requested > -1) //# also handle pattn change
 		next_pattn = 0
-  	scene_changed = FALSE
-  elseif scene_changed
+  	scene_changing = FALSE
+  elseif scene_changing
 		//# reset pattn to 0 on scene change if songmode < 2
 		if (songmode <= 1)
 			next_pattn = 0
 		endif
-		scene_changed = FALSE
+		scene_changing = FALSE
 	elseif (songmode = 2) //# Loop current pattn & Scene
     next_pattn = current_pattn
   elseif (current_pattn = 7) //# Wrap playback
@@ -428,10 +430,10 @@
   else
     next_pattn = current_pattn + 1
   endif
-	//GetNextPattn is called many times when scheduling. We only want to get one next rnd_ptn. So set once, until used
+	//Get Next Pattn is called many times when scheduling. We only want to get one next rnd_ptn. So set once, until used
 	if ((Random 1,99) < rnd_ptn_chance) and songmode<2 and rnd_ptn=-1 //%chance of pattn change if not pattn locked
     rnd_ptn = (Random 0, num_ptns_with_dur) //get random pattn with duration
-		if pattn_durs[(current_scene * 8) + rnd_ptn]>0
+		if pattn_durs[(next_scene * 8) + rnd_ptn]>0
 			current_pattn=rnd_ptn //if rnd_ptn has duration
 		endif
 	endif
@@ -538,7 +540,8 @@
 	elseif timer_type=2
 		LabelPads {Scene}, current_scene+1, { Sequence1 now triggers pattern }, current_scene+1, { on all channels}
 		StopTimer
-		Call @MakeSequenceIntoScene
+		scene_to_change=current_scene
+		Call @MakeSequenceIntoSceneTrigger
 		mode=9  //goto sequence mode to have a look
     in_mode_select = FALSE
   	in_seq_mode = TRUE
@@ -793,12 +796,15 @@
 @OnPadDown_ScenePattnChange //# handle scene/pattn change
   if (last_pad >= 0 and last_pad <= 7)
 		scene_change_requested = last_pad
+		next_scene=scene_change_requested
+		next_pattn=0
 		songmode=1 //locked to scene. User pressed scene pad
   	if (NOT HostRunning) //# immediate change else newbeat/bar handles
   		Call @HandleSceneChange 
   	endif
 	elseif (last_pad >= 8 and last_pad <= 15) 	
 		pattn_change_requested = last_pad - 8 //# chrd 0-7
+		next_pattn=pattn_change_requested
 		songmode=2 //lockt to pattn. User pressed pattn pad
 		if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandlePattnChange 
@@ -969,9 +975,11 @@
 			elseif NOT HostRunning //# immediate change else newbeat/bar handles
 				scene_change_requested = sysex_msg[msg_start]
 				songmode=1 // lock to scene
+				next_scene=scene_change_requested
+				next_pattn=0
 				Call @HandleSceneChange 
 			endif
-			Call @SetupLayout	
+			Call @SetupLayout
 		endif
 	endif
 @End
@@ -1031,11 +1039,10 @@
 	Call @SetupLayout
 @End
 
-@MakeSequenceIntoScene
-	scene_duration = scene_durs[current_scene]
-	reset_scene = current_scene 
-	seq_to_scn_slot = reset_scene*128
-	FillArray pattn_durs[reset_scene * 8], 0, 8
+@MakeSequenceIntoSceneTrigger
+	scene_duration = scene_durs[scene_to_change]
+	seq_to_scn_slot = scene_to_change*128
+	FillArray pattn_durs[scene_to_change * 8], 0, 8
 	FillArray a0_pattns[seq_to_scn_slot], -1, 128 
 	FillArray a1_pattns[seq_to_scn_slot], -1, 128
 	FillArray a2_pattns[seq_to_scn_slot], -1, 128
@@ -1044,19 +1051,18 @@
 	FillArray a5_pattns[seq_to_scn_slot], -1, 128
 	FillArray a6_pattns[seq_to_scn_slot], -1, 128
 	FillArray a7_pattns[seq_to_scn_slot], -1, 128
-	pattn_durs[reset_scene * 8] = scene_duration
-	a0_pattns[seq_to_scn_slot]=current_scene
-	a1_pattns[seq_to_scn_slot]=current_scene
-	a2_pattns[seq_to_scn_slot]=current_scene
-	a3_pattns[seq_to_scn_slot]=current_scene
-	a4_pattns[seq_to_scn_slot]=current_scene
-	a5_pattns[seq_to_scn_slot]=current_scene
-	a6_pattns[seq_to_scn_slot]=current_scene 
-	a7_pattns[seq_to_scn_slot]=current_scene
+	pattn_durs[scene_to_change * 8] = scene_duration
+	a0_pattns[seq_to_scn_slot]=scene_to_change
+	a1_pattns[seq_to_scn_slot]=scene_to_change
+	a2_pattns[seq_to_scn_slot]=scene_to_change
+	a3_pattns[seq_to_scn_slot]=scene_to_change
+	a4_pattns[seq_to_scn_slot]=scene_to_change
+	a5_pattns[seq_to_scn_slot]=scene_to_change
+	a6_pattns[seq_to_scn_slot]=scene_to_change
+	a7_pattns[seq_to_scn_slot]=scene_to_change
 	FillArray sequence_lengths[seq_to_scn_slot], (Clip scene_duration, 0, 16), 128
 	FillArray sequence_rates[seq_to_scn_slot], def_sequence_rate, 128
-	num_ptns_with_dur[current_scene]=1 
-	Call @SetSequenceLength //based on sequence_rate and pattn_dur
+	num_ptns_with_dur[scene_to_change]=1 
 	Call @LabelKnobset0
 	scene_to_check=current_scene
 	Call @UpdatePattnsWithDuration
@@ -1855,6 +1861,7 @@
 
 @SetupLayout //#setup layout pads
   if in_mode_select
+		Call @SetupSettingsLayout
   	Exit
   elseif in_seq_mode
   	Call @SetupSeqLayout
