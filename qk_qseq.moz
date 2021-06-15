@@ -95,6 +95,7 @@
 	FillArray a5_pattns, -1, 1024
 	FillArray a6_pattns, -1, 1024
 	FillArray a7_pattns, -1, 1024
+	pattern_pad_cols=[4,4,4,4,4,4,4,4]
 	FillArray current_playing_patterns, -1, 8 //the pattn number playing in each channel
 	FillArray trigger_pattn_change_requested_for_ch, -1, 8 //trigger mode handling requested patterns
 	//# sequence_num=(current_scene*128)+(current_pattn*16)+(seq_ch)
@@ -1953,10 +1954,10 @@
 	endfor
 @End
 
-@ColorSequencePad //# ColorPad Is the selected pad off - on - sustain prev.
+@ColorSequencePad
 	padColor=0
 	if ap[seq_ch]>=0
-		padColor=4	
+		padColor=pattern_pad_cols[seq_ch]
 	endif
 	if sel_pad_type=0 //# stored value
 		padColor=0
@@ -1966,11 +1967,11 @@
 	endif
 	//# Off pads past pattn length
 	if sel_pad >= pattn_length
-		padColor = 6
+		padColor = 5
 	endif
 	if mode=10 //trigger play mode
 		if current_playing_patterns[seq_ch] = sel_pad
-			padColor=4
+			padColor=pattern_pad_cols[seq_ch]
 		elseif trigger_pattn_change_requested_for_ch[seq_ch] = sel_pad
 		  padColor=6
 		else
