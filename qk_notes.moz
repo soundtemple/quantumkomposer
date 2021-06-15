@@ -386,7 +386,7 @@
  		Call @HandlePatternChange //# User requested pattn change & its a new beat
  	elseif time_for_turnaround
  		Call @HandlePatternChange
-	elseif (pattn_beat_count >= current_pattn_duration)
+	elseif (pattn_beat_count >= current_pattn_duration) and (current_pattn_duration>0)
 		Call @HandlePatternChange
 	endif
 	if mode=0
