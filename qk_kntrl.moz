@@ -31,6 +31,8 @@
 		midi_controller=[15,36,37,38,39] //midi controller channel then 4 ccs for kntrl of kntrl knobs
 		scene_copied=FALSE
 		loop_song_mode=TRUE
+		sel_mgen_dev=0
+		end_of_song=FALSE
 		//Initialise KNTRL
 		Call @SysexMessageSetup
 		Call @InitKnobVariables //# All knob settings on start
@@ -69,7 +71,7 @@
 @InitKnobVariables
 	//# Any knobset knob should have a setting here
 	current_scene = 0 // #0-7 Pads 0-7
-	scene_durs=[4,8,0,0,0,0,0,0]
+	scene_durs=[4,4,4,4, 4,4,4,4]
 	scene_names=[0,1,2,3,4,5,6,7]
 	scene_presets[0*8]=[1,2,2,1,0,0,0,0]
 	scene_presets[1*8]=[4,8,16,16, 8,16,8,4]
@@ -79,6 +81,8 @@
 	global_swing=0
 	scene_preset=0
 	scene_beat_count=0
+	trigger_pattern_before_beat=TRUE //Trigger pattn before beat (mgen quant>0) or onBeat and (mgen quant=0)
+	tbb_col=0 // color of pad for trigger before beat	
 	//# Color Scheme
 	col_scene = 2
 	col_sel_scene = 4
@@ -94,7 +98,6 @@
 	cc_scene_duration=101 //+ scene_num0-7 ie 101-108
 	cc_rtn_to_song_mode=22
 	cc_swing=23
-	send_cc21_for_spa=FALSE // chg SPA pattern when KNTRL changes scene
 	
 	//MIDI KONTROL DATA STRUCTURE
 	// 16 channels --> layout, midi_ch, label,color,lsb,msb
@@ -401,7 +404,6 @@
 	if (HostBeat = 0) and (HostBar = 0)
 		//# starting playback from beginning		
 		scene_beat_count = -1
-		scene_changed = FALSE
 		if (songmode = 0)
 			current_scene = 0
 		endif
@@ -428,27 +430,57 @@
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }
 @End 
 
+@OnMetroPulse
+	//scenes can only change on the bar, so to trigger before beat we need to check last pulse before each bar
+	if CurrentMetroPulse = (HostBeatsPerMeasure * ppqn)-1  and trigger_pattern_before_beat
+		current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
+		//Log {Last pulse before new bar. Scn beat count: }, scene_beat_count+1, { scn dur: }, current_scene_duration
+		if (scene_beat_count+1) >= current_scene_duration
+			Call @GetNextScene
+			trigger_scene=next_scene
+			Call @SendSceneChangeMidiTrigger
+		elseif scene_change_requested > -1
+			//Log {scene_change_requested = }, scene_change_requested
+		  Call @GetNextScene
+			trigger_scene=next_scene
+			Call @SendSceneChangeMidiTrigger
+		endif
+	endif
+@End
+
+@OnNewBar
+	Log {--- NEW BAR ---}
+@End
 
 @OnNewBeat
 	//# increment beat counts
 	scene_beat_count = scene_beat_count + 1
+	
 	//# Handle Scene and Chord changes
 	current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
 	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
 	if (scene_change_requested > -1) and (HostBeat = 0)
 		//# user requested scene change and its a new bar (& return to song)
 		//# Log {Handling scene change request. It a new bar}
+		Call @GetNextScene
+		new_scene=next_scene
 		Call @HandleSceneChange
+		if not trigger_pattern_before_beat
+			trigger_scene=current_scene
+			Call @SendSceneChangeMidiTrigger	
+		endif
 	elseif (scene_beat_count >= current_scene_duration)
-		//# its time to increment scene
 		//Log {Time to increment scene }, scene_change_requested
+		Call @GetNextScene
+		new_scene=next_scene
 		Call @HandleSceneChange
+		if not trigger_pattern_before_beat
+			trigger_scene=current_scene
+			Call @SendSceneChangeMidiTrigger
+		endif
 	endif
 	// Log {Logging current info}, scene_change_requested
 	Call @LogCurrentInfo
-@End
-
-@OnNewBar
 @End
 
 @OnShiftDown
@@ -578,11 +610,13 @@
 			mixer_mode=last_pad-8
 			Call @SetupKnobset7
 			Call @SendMidiCCBackToKnobs
+		elseif last_pad=13 and (NOT HostRunning) 
+			Call @PrintPreset
+			StartTimer
+			LabelPads {HOLD PAD DOWN TO CHANGE}
 		elseif last_pad=14
 			layouts_locked = NOT layouts_locked
 			Call @SetupSettingsLayout	
-		elseif last_pad=13 and (NOT HostRunning) 
-			Call @PrintPreset
 		endif
 	elseif NOT in_mode_select
 		Call @ModeSetup
@@ -601,6 +635,18 @@
 		SendMIDINoteOff chan_midi_chs[curr_chan], inst_state[pad_slot], 64 //Byte3 release vel. hardly used
 	elseif inst_msg_type[pad_slot]=1
 	  SendMIDINoteOff chan_midi_chs[curr_chan], inst_ccs[pad_slot], 64
+	endif
+	StopTimer
+@End
+
+@OnTimer
+  trigger_pattern_before_beat = not trigger_pattern_before_beat
+	Call @SetupSettingsLayout
+	StopTimer
+	if trigger_pattern_before_beat
+		LabelPads {MIDI GENERATOR(S) PATTERN/CLIP QUANTISTATION MUST BE BEAT OR BAR}
+	else
+		LabelPads {MIDI GENERATOR(S) PATTERN/CLIP QUANTISTATION MUST BE OFF (0)}
 	endif
 @End
 
@@ -630,11 +676,15 @@
 
 @PadDownScenesMode
 	if last_pad >= 0 and last_pad <= 7 //SCENES MODE
-		//qk devices manage own pattern timing. Others LK, Drambo we use instant change in HandleSceneChange
+		//qk devices manage own pattern timing.
 		msg_type=sx_scene_change //sysex scene change
 		msg_data=[last_pad] //copy colors to msg_data array
 		len_data=1
 		Call @SendSysex //let other MGENS know we have a user initiated scene trigger
+		if trigger_pattern_before_beat // if triggering before beat (mgen quant>0) then send request immediately
+			trigger_scene=last_pad
+			Call @SendSceneChangeMidiTrigger
+		endif
 		if songmode=0 and HostRunning and last_pad=current_scene //in song mode. just lock to scene
 			edit_scene=last_pad
 			songmode=1 // lock to scene
@@ -648,8 +698,14 @@
 		elseif NOT HostRunning //# immediate change else newbeat/bar handles
 			scene_change_requested = last_pad
 			songmode=1 // lock to scene
+			new_scene=last_pad
 			Call @HandleSceneChange 
+			if not trigger_pattern_before_beat //if trigger before beat its already been sent
+				trigger_scene=current_scene
+				Call @SendSceneChangeMidiTrigger
+			endif
 		endif
+		edit_scene=last_pad //user pressed pad so assuming that what they want to edit if wanting to edit
 		Call @SetupKnobset0
 		Call @SetupLayoutScenes
 	elseif mode=0 and last_pad=12
@@ -986,49 +1042,48 @@
 	endif
 @End
 
+@GetNextScene
+	end_of_song=FALSE
+	if scene_change_requested > -1
+  	next_scene = scene_change_requested
+  elseif (songmode > 0)
+  	next_scene = current_scene
+  elseif (current_scene = 7) //# End of song. Loop back to beginning
+    next_scene = 0
+		end_of_song = TRUE	
+  elseif scene_durs[current_scene + 1] <= 0
+  	//# also song end ie no next scene
+  	next_scene = 0 //# no duration in next scene return to beginning
+  	end_of_song = TRUE
+	else
+		next_scene = current_scene + 1 //# Going to next
+	endif
+@End
+
 @HandleSceneChange
-	//# Work out which scene is next
-	scene_changed = TRUE
+	//# Change the scene 
+	current_scene=new_scene
 	if return_to_song_mode_requested
 		return_to_song_mode_requested = FALSE
 	endif
-	if scene_change_requested > -1
-  	current_scene = scene_change_requested
-		scene_change_requested = -1
-  elseif (songmode > 0)
-  	current_scene = current_scene
-  elseif (current_scene = 7) //# End of song. Loop back to beginning
-    current_scene = 0 
-		if not loop_song_mode
-			SendMIDICC 14, 109, 127 // Scene change
-			msg_type=sx_scene_change //sysex scene change
-			msg_data=[0] 
-			len_data=1
-			Call @SendSysex 
-			SendMIDICC 15, 0, 127 // transport stop
-		endif
-  elseif scene_durs[current_scene + 1] <= 0
-  	//# also song end
-  	current_scene = 0 //# no duration in next scene return to beginning
-		if not loop_song_mode
-		SendMIDICC 14, 109, 127 // Scene change
-			msg_type=sx_scene_change //sysex scene change
-			msg_data=[0] 
-			len_data=1
-			Call @SendSysex 
-			SendMIDICC 15, 0, 127 // transport stop	
-		endif
-  else
-		current_scene = current_scene + 1 //# Going to next
-  endif
-	if send_cc21_for_spa
-		SendMIDICC 14, 21, current_scene // Pattern change for StepPolyArpUnit
-	endif
-	SendMIDICC 14, current_scene+109, 127 // Scene change non QK devices
-  scene_beat_count = 0
+	scene_beat_count = 0
+	scene_change_requested = -1
   Log {----- SCENE CHANGE -----}, {S}, current_scene+1
 	if mode=0
 		Call @SetupLayoutScenes
+	endif
+@End
+
+@SendSceneChangeMidiTrigger
+	SendMIDICC 14, trigger_scene+109, 127 // Scene change non QK devices
+	Log {Midi Scene trigger sent}
+	if not loop_song_mode and end_of_song=TRUE
+		msg_type=sx_scene_change //sysex scene change
+		msg_data=[0] 
+		len_data=1
+		Call @SendSysex 
+		SendMIDICC 15, 0, 127 // transport stop
+		end_of_song=FALSE
 	endif
 @End
 
@@ -1090,7 +1145,7 @@
 	  LabelPad 14, { ___EDIT___ }, { LAYOUTS }
 		p14=col_mode_edit
 	endif
-	settings_cols = [4,p1,p2,p3, 5,5,5,5, 2,2,2,2, 2,0,p14,1]
+	settings_cols = [4,p1,p2,p3, 5,5,5,5, 2,2,2,2, 2,tbb_col,p14,1]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
@@ -1192,7 +1247,14 @@
 		LabelKnob 0, {MidiFB OFF}
 	endif
 	LabelKnob 2, { }
-	LabelPad 13, {LOG PRESET}
+	if trigger_pattern_before_beat
+		LabelPad 13, {__TRIGGER__}, { BEFORE BAR }
+		tbb_col=0
+	else 
+		LabelPad 13, {__TRIGGER__}, { ON NEW BAR }
+		tbb_col=1
+	endif
+	
 	LabelKnob 1, { }
 	LabelKnob 3, { }
 	SetKnobValue 0, TranslateScale send_midi_feedback, 0, 1, 0, 127
