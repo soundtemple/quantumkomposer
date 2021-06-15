@@ -106,6 +106,7 @@
 	FillArray automation_chs, 0, 16 //the channel automation gets sent on
 	FillArray automation_cols, 0, 16 //the pad color for the automation slot
 	FillArray automation_labels, 0, 16 //Label for the automation slot
+	FillArray default_vals, -1, 16 //The default value for the automation slot. Can be reset in settings
 	
 	FillArray automation_chs,-1,16 //# knobs used to store and locate the param to automate
 	FillArray automation_pads,-1,16 //# knobs used to store and locate the param to automate
@@ -117,6 +118,7 @@
 		automation_chs    = [15,15,15,15,  0,0,1,1,      1,1,2,2,      4,4,5,5,5]
 		automation_ccs    = [46,47,58,60,  1,17,99,99,   1,17,1,17,    1,17,1,17]
 		automation_cols   = [6,6,6,6,      1,1,2,2,      2,2,2,2,      4,4,4,4]
+		default_vals      = [0,20,0,127,   0,127,0,127,  0,127,0,127,  0,127,0,127]
 		mgen_device_id=3
 		SetShortName {AUTOM3}
 	elseif autom_preset=2 //Lead-scaps-rizer-harmony
@@ -124,6 +126,7 @@
 		automation_chs    = [6,6,7,7,      3,3,3,3,      8,8,9,9,      10,10,11,11]
 		automation_ccs    = [1,17,1,17,    1,17,99,99,   1,17,1,17,    1,17,1,17]
 		automation_cols   = [4,4,4,4,      6,6,6,6,      3,3,3,3,      3,3,3,3]
+		default_vals      = [0,127,0,127,  0,127,0,0,    0,127,0,127,  0,127,0,127]
 		mgen_device_id=4
 		SetShortName {AUTOM4}
 	elseif autom_preset=3 //Mixbus1-4: HPF-LPF-FX1-FX2
@@ -131,6 +134,7 @@
 		automation_chs    = [12,12,12,12,  12,12,12,12,  12,12,12,12,  12,12,12,12]
 		automation_ccs    = [40,41,117,39, 56,57,118,55, 72,73,119,71, 88,89,120,87]
 		automation_cols   = [2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5]
+		default_vals      = [0,127,0,0,    0,127,0,0,    0,127,0,0,    0,127,0,0]
 		mgen_device_id=9
 		SetShortName {AUTOM9}
 	else //empty template
@@ -138,60 +142,71 @@
 		FillArray automation_chs, 0, 16
 		FillArray automation_ccs, 0, 16
 		FillArray automation_cols, 0, 16
+		FillArray default_vals, -1, 16
 		mgen_device_id=3
 		SetShortName {AUTOM}
-	endif  
+	endif
+	CopyArray default_vals, autom_control_vals, 16 //update control knob vals to default vals
+@End
+
+@ResetToDefaults
+	for i = 0 to 15
+		if automation_labels[i]>0 and default_vals[i]>=0 and automation_chs[i]>=0 and automation_ccs[i]>=0
+			SendMIDICC automation_chs[i], automation_ccs[i], default_vals[i]
+			autom_control_vals[i] = default_vals[i]
+		endif
+	endfor
 @End
 
 @ResetAutomToPosition
 	//Return autom to reset_position eg: edit_scene * 128 would be beginning of edit_scene
 	//Log {edit scene: }, edit_scene, { reset pos: }, reset_position, { cc: }, automation_ccs[0], { Clip: }, (Clip auto_data_ch0[reset_position], 0, 127)
-	if automation_labels[0] > 0
+	if automation_labels[0] > 0 and auto_data_ch0[reset_position] >= 0
 		SendMIDICC automation_chs[0], automation_ccs[0], (Clip auto_data_ch0[reset_position], 0, 127)
 	endif
-	if automation_labels[1] > 0
+	if automation_labels[1] > 0 and auto_data_ch1[reset_position] >= 0
 		SendMIDICC automation_chs[1], automation_ccs[1], (Clip auto_data_ch1[reset_position], 0, 127)
 	endif
-	if automation_labels[2] > 0
+	if automation_labels[2] > 0 and auto_data_ch2[reset_position] >= 0
 		SendMIDICC automation_chs[2], automation_ccs[2], (Clip auto_data_ch2[reset_position], 0, 127)
 	endif
-	if automation_labels[3] > 0
+	if automation_labels[3] > 0 and auto_data_ch3[reset_position] >= 0
 		SendMIDICC automation_chs[3], automation_ccs[3], (Clip auto_data_ch3[reset_position], 0, 127)
 	endif
-	if automation_labels[4] > 0
+	if automation_labels[4] > 0 and auto_data_ch4[reset_position] >= 0
 		SendMIDICC automation_chs[4], automation_ccs[4], (Clip auto_data_ch4[reset_position], 0, 127)
 	endif
-	if automation_labels[5] > 0
+	if automation_labels[5] > 0 and auto_data_ch5[reset_position] >= 0
 		SendMIDICC automation_chs[5], automation_ccs[5], (Clip auto_data_ch5[reset_position], 0, 127)
 	endif
-	if automation_labels[6] > 0
+	if automation_labels[6] > 0 and auto_data_ch6[reset_position] >= 0
 		SendMIDICC automation_chs[6], automation_ccs[6], (Clip auto_data_ch6[reset_position], 0, 127)
 	endif
-	if automation_labels[7] > 0
+	if automation_labels[7] > 0 and auto_data_ch7[reset_position] >= 0
 		SendMIDICC automation_chs[7], automation_ccs[7], (Clip auto_data_ch7[reset_position], 0, 127)
 	endif
-	if automation_labels[8] > 0
+	if automation_labels[8] > 0 and auto_data_ch8[reset_position] >= 0
 		SendMIDICC automation_chs[8], automation_ccs[8], (Clip auto_data_ch8[reset_position], 0, 127)
 	endif
-	if automation_labels[9] > 0
+	if automation_labels[9] > 0 and auto_data_ch9[reset_position] >= 0
 		SendMIDICC automation_chs[9], automation_ccs[9], (Clip auto_data_ch9[reset_position], 0, 127)
 	endif
-	if automation_labels[10] > 0
+	if automation_labels[10] > 0 and auto_data_ch10[reset_position] >= 0
 		SendMIDICC automation_chs[10], automation_ccs[10], (Clip auto_data_ch10[reset_position], 0, 127)
 	endif
-	if automation_labels[11] > 0
+	if automation_labels[11] > 0 and auto_data_ch11[reset_position] >= 0
 		SendMIDICC automation_chs[11], automation_ccs[11], (Clip auto_data_ch11[reset_position], 0, 127)
 	endif
-	if automation_labels[12] > 0
+	if automation_labels[12] > 0 and auto_data_ch12[reset_position] >= 0
 		SendMIDICC automation_chs[12], automation_ccs[12], (Clip auto_data_ch12[reset_position], 0, 127)
 	endif
-	if automation_labels[13] > 0
+	if automation_labels[13] > 0 and auto_data_ch13[reset_position] >= 0
 		SendMIDICC automation_chs[13], automation_ccs[13], (Clip auto_data_ch13[reset_position], 0, 127)
 	endif
-	if automation_labels[14] > 0
+	if automation_labels[14] > 0 and auto_data_ch14[reset_position] >= 0
 		SendMIDICC automation_chs[14], automation_ccs[14], (Clip auto_data_ch14[reset_position], 0, 127)
 	endif
-	if automation_labels[15] > 0
+	if automation_labels[15] > 0 and auto_data_ch15[reset_position] >= 0
 		SendMIDICC automation_chs[15], automation_ccs[15], (Clip auto_data_ch15[reset_position], 0, 127)
 	endif
 	FillArray interpolation_buffer, -1, 48
@@ -428,12 +443,10 @@
 		elseif last_pad=1
 			reset_position = edit_scene*128
 			Call @ResetAutomToPosition
-			LabelPad 1, {AUTOM RESET TO START S}, edit_scene+1
+			LabelPad 1, {VALS RESET TO START S}, edit_scene+1
 		elseif last_pad=2
-			last_beat_in_scene = (scene_durs[edit_scene] * 4) - 1
-			reset_position = (edit_scene*128) + last_beat_in_scene
-			Call @ResetAutomToPosition
-			LabelPad 2, {AUTOM RESET TO END S}, edit_scene+1
+			Call @ResetToDefaults
+			LabelPad 2, {VALS RESET TO DEFAULTS}
 		elseif last_pad=3
 			autom_setup_mode = autom_setup_mode+1
 			if autom_setup_mode>2
@@ -712,8 +725,8 @@
 	max=auto_ramp_max
 	mid=Div (auto_ramp_min+auto_ramp_max), 2
 	LabelPad 0, {SCENES}
-	LabelPad 1, {SET AUTOM TO START S}, edit_scene+1
-	LabelPad 2, {SET AUTOM TO END S}, edit_scene+1
+	LabelPad 1, {RESET VALS TO START S}, edit_scene+1
+	LabelPad 2, {SET VALS TO DEFAULTS}
 	if record_autom_on
 		LabelPads {AUTOM : [ Record autom parameters during playback. Use 'REC' knob in setup ]}
 		LabelPad 3, {MODE=> RECORD}
@@ -954,7 +967,11 @@
 	else
 	  SetKnobValue 2, TranslateScale a_cc, 0, 127, 0, 127
 	endif
-	SetKnobValue 3, TranslateScale a_col, 0, 7, 0, 127
+	if control_autom_on
+		SetKnobValue 3, TranslateScale default_vals[sel_autom_pad], 0, 127, 0, 127
+	else
+		SetKnobValue 3, TranslateScale a_col, 0, 7, 0, 127
+	endif
 	Call @LabelAutomationPads
 @End
 
@@ -1008,9 +1025,17 @@
 		endif
 	endif
   if last_knob = 3
-		automation_cols[sel_autom_pad] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 7
-		LabelKnob 3, {Color }, automation_cols[sel_autom_pad]
-		LatchPad sel_autom_pad, NO 
+		if control_autom_on
+			val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 127
+			if val <> default_vals[sel_autom_pad]
+				default_vals[sel_autom_pad] = val
+				Call @LabelAutomationPads
+			endif
+		else
+			automation_cols[sel_autom_pad] = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 7
+			LabelKnob 3, {Color }, automation_cols[sel_autom_pad]
+			LatchPad sel_autom_pad, NO 
+		endif
 	endif
 	pad_to_label=sel_autom_pad
 	pad_slot=sel_autom_pad
@@ -1038,7 +1063,11 @@
 	else
 	  LabelKnob 2, {cc# }, automation_ccs[sel_autom_pad]
 	endif
-	LabelKnob 3, {Color }, automation_cols[sel_autom_pad]
+	if control_autom_on
+		LabelKnob 3, {DefVal }, default_vals[sel_autom_pad]
+	else
+		LabelKnob 3, {Color }, automation_cols[sel_autom_pad]
+	endif
 @End
 
 @SetupKnobset5
