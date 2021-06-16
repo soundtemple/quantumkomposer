@@ -16,6 +16,7 @@
 		pattn_change_requested = -1 //# on pad down has next pattn number
 		scene_change_pattn_reset = TRUE //# Goto pattn 0 when user changes scene
 		scene_changing = FALSE
+		pattn_changing = FALSE
 		in_mode_select = FALSE //# Toggle for changing modes mode
 		in_seq_mode = FALSE //# editing pattern steps mode+
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
@@ -222,10 +223,12 @@
 	step_slot=(current_scene*128)+(current_pattn*16)+curr_steps[ch]
 	if trigger_pattern_before_beat and HostRunning //schedule before beat. Get next scene, pattn, step...
 		next_step=curr_steps[ch]+1
-		if (next_step >= curr_seq_len) or (next_scene <> current_scene) or scene_changing // end of pattn or its a new scene
+		if (next_step >= curr_seq_len) or (next_scene <> current_scene) or scene_changing or pattn_changing 
+			// end of pattn or its a new scene
 			next_step=0
 		endif
 		step_slot=(next_scene*128)+(next_pattn*16) + next_step
+		Log {next_scene:}, next_scene, { next_pattn: }, next_pattn, { next_step: },next_step
 	endif
 	offset = trigger_method_offset[ch] //starting note num or cc_num for CCV mode
 	ch_trigger_method=trigger_method[ch] //trigger methods 0-2; Note, CC_NUM; CC_VAL
@@ -360,12 +363,12 @@
   scene_beat_count = 0
 	pattn_beat_count = 0
   Call @HandlePattnChange //# Scene change effect pattn change
+	scene_changing = FALSE
 @End
 
 @GetNextScene
 	current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
 	next_scene = current_scene
-	scene_changing = FALSE
 	if scene_change_requested > -1
   	next_scene = scene_change_requested
 		scene_changing = TRUE
@@ -404,6 +407,7 @@
 	in_mid_step=[0,0,0,0,0,0,0,0]
 	scene_change_requested = -1
 	pattn_change_requested = -1 //# reset request flag
+	pattn_changing = FALSE
 	Call @SetupLayout
 @End
 
@@ -411,13 +415,14 @@
 	pattn_slot = (current_scene * 8) + (current_pattn)
 	current_pattn_duration = pattn_durs[pattn_slot] * HostBeatsPerMeasure
 	time_for_turnaround = FALSE
-  if use_turn_around
+	if use_turn_around
   	Call @TimeForTurnaround
 	endif
 	pattn_slot = (next_scene * 8) + current_pattn
 	next_pattn = current_pattn
 	if (pattn_change_requested > -1)
 		next_pattn = pattn_change_requested
+		pattn_changing = TRUE
 		if songmode <= 2
 			songmode = 2 //# Lock to pattn if user requests pattn change
  		endif
@@ -435,9 +440,10 @@
   elseif (time_for_turnaround)
 		next_pattn = 7 //# play last pattn for one bar as a turn around before scene change
   elseif (pattn_durs[pattn_slot+1] <= 0)
-  	next_pattn = 0 //# no duration no next pattn (pattn_slot + 10)
+  	next_pattn = 0 //# no duration no next pattn 
   elseif (pattn_beat_count+1 >= current_pattn_duration) and (current_pattn_duration>0)
     next_pattn = current_pattn + 1
+		pattn_changing = TRUE
   endif
 	//Get Next Pattn is called many times when scheduling. We only want to get one next rnd_ptn. So set once, until used
 	if ((Random 1,99) < rnd_ptn_chance) and songmode<2 and rnd_ptn=-1 //%chance of pattn change if not pattn locked
@@ -978,7 +984,7 @@
 			elseif songmode=0 and HostRunning
 			  scene_change_requested = sysex_msg[msg_start]
 				songmode=1
-			elseif songmode=1 and HostRunning //locked to scene. re-trigger
+			elseif songmode=1 or songmode=2 and HostRunning //locked to scene. re-trigger
 				scene_change_requested = sysex_msg[msg_start]
 				edit_scene=last_pad
 			elseif NOT HostRunning //# immediate change else newbeat/bar handles
