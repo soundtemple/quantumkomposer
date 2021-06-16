@@ -981,7 +981,11 @@
 				songmode=1 // lock to scene
 				Call @HandleSceneChange 
 			endif
-			Call @SetupLayout	
+			if in_mode_select
+				Call @SetupSettingsLayout
+			else
+				Call @SetupLayout
+			endif	
 		endif
 	endif
 @End
@@ -2560,7 +2564,6 @@
 
 @SetupLayout //#setup layout pads
   if in_mode_select
-		Call @SetupSettingsLayout
   	Exit
   elseif in_seq_mode
   	Call @SetupSeqLayout
