@@ -337,12 +337,13 @@
 		scene_changing = TRUE
 		next_scene = scene_change_requested
 	elseif scene_beat_count+1 >= current_scene_duration
-		scene_changing = TRUE
-		next_scene = (current_scene + 1)%8  //# Going to next or back to first
-		if (songmode > 0)
+		if (songmode > 0) //locked to scene
 	  	next_scene = current_scene
+		elseif scene_durs[current_scene+1] > 0 or current_scene=7
+		  next_scene = (current_scene + 1)%8  //# Going to next or back to first
 		elseif (scene_durs[current_scene+1] <= 0) //# also song end
   		next_scene = 0 //# no duration in next scene return to beginning
+			scene_changing = TRUE
 		endif
 		if ((Random 1,99) < rnd_scn_chance) and songmode=0 //%chance of random scene change if not scene locked
 			rnd_scn = (Random 0, num_scns_with_dur) //get random scene with duration
@@ -379,11 +380,13 @@
 		pattn_changing = TRUE
 		next_pattn = 7 //# play last pattn for one bar as a turn around before scene change
 	elseif (pattn_beat_count+1 >= current_pattn_duration) and (current_pattn_duration>0)
-    pattn_changing = TRUE
-		next_pattn = (current_pattn + 1)%8 //next or back to first
 		if (songmode = 2) //# Loop current pattn & Scene
 	    next_pattn = current_pattn
-	  elseif (pattn_durs[pattn_slot+1] <= 0)
+	  elseif pattn_durs[pattn_slot+1]>0
+	    pattn_changing = TRUE
+			next_pattn = (current_pattn + 1)%8 //next or back to first
+		elseif (pattn_durs[pattn_slot+1] <= 0)
+			pattn_changing = TRUE
 	  	next_pattn = 0 //# no duration no next pattn
 		endif
 		if ((Random 1,99) < rnd_ptn_chance) and songmode<2 //%chance of pattn change if not pattn locked
