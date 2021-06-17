@@ -1768,11 +1768,11 @@
 	copy_paste_status=0 //# In case COPYPASTE aborted
 	knob_set=99
 	if (songmode = 0)
-		LabelPad 0, {PLAYSONG: Active }
+		LabelPad 0, {SONGMODE }
 	elseif (songmode = 1)
-		LabelPad 0, {PLAYSONG: Scene locked}
+		LabelPad 0, {SCENE LOCKED}
 	elseif (songmode = 2)
-		LabelPad 0, {PLAYSONG: Pattern locked}
+		LabelPad 0, {SEQ'NCE LOCKED}
 	else
 		LabelPad 0, {PLAYSONG: Disabled}
 	endif
