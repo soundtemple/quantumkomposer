@@ -86,14 +86,14 @@
 	sel_step = 0 
   //# All sequences 8scenes x 8patterns x 16 steps. Each 1024 cells
 	//# slot = (sel_scene*128) + (sel_pattn*16) + sel_step 
-	FillArray a0_pattns, 5, 1024 //# pattern triggered at each possible step 8scn, 32bars, 4beats per bar 
-	FillArray a1_pattns, 5, 1024
-	FillArray a2_pattns, 5, 1024
-	FillArray a3_pattns, 5, 1024
-	FillArray a4_pattns, 5, 1024
-	FillArray a5_pattns, 5, 1024
-	FillArray a6_pattns, 5, 1024
-	FillArray a7_pattns, 5, 1024
+	FillArray a0_pattns, -1, 1024 //# pattern triggered at each possible step 8scn, 32bars, 4beats per bar 
+	FillArray a1_pattns, -1, 1024
+	FillArray a2_pattns, -1, 1024
+	FillArray a3_pattns, -1, 1024
+	FillArray a4_pattns, -1, 1024
+	FillArray a5_pattns, -1, 1024
+	FillArray a6_pattns, -1, 1024
+	FillArray a7_pattns, -1, 1024
 	pattern_pad_cols=[4,4,4,4,4,4,4,4]
 	FillArray current_playing_patterns, -1, 8 //the pattn number playing in each channel
 	FillArray trigger_pattn_change_requested_for_ch, -1, 8 //trigger mode handling requested patterns
@@ -126,7 +126,8 @@
 	pattn_length=16
 	next_scene=0 //for calculation before beat triggering
 	next_pattn=0 //for calculation before beat triggering
-	//Call @MakeFirstSequenceSceneTriggerAllScenes
+	Call @MakeFirstSequenceSceneTriggerAllScenes
+	pad_down_trigger_all_ready_for_playback=FALSE //when host stopped we can send pattern triggers 
 @End
 		
 @OnHostStart 
@@ -226,6 +227,8 @@
 		endif
 		step_slot=(next_scene*128)+(next_pattn*16) + next_step
 		//Log {Next step is: }, next_step+1
+	elseif not HostRunning and pad_down_trigger_all_ready_for_playback
+	  step_slot=(current_scene*128)+(current_pattn*16)
 	endif
 	offset = trigger_method_offset[ch] //starting note num or cc_num for CCV mode
 	ch_trigger_method=trigger_method[ch] //trigger methods 0-2; Note, CC_NUM; CC_VAL
@@ -237,7 +240,6 @@
 			pattern_num_to_trigger = a0_pattns[step_slot]
 			current_playing_patterns[ch]=a0_pattns[step_slot]
 			ptn_triggered_for_ch=0
-			Log {ch1 pattern: }, pattern_num_to_trigger+1
 		endif
 	elseif ch=1 and not trigger_pattn_change_requested_for_ch[ch]>=0
 		if a1_pattns[step_slot] >= 0
@@ -287,7 +289,7 @@
 		pattern_num_to_trigger = trigger_pattn_change_requested_for_ch[ch]
 		current_playing_patterns[ch]=trigger_pattn_change_requested_for_ch[ch]
 		ptn_triggered_for_ch=ch
-		trigger_pattn_change_requested_for_ch[ch]=-1
+		trigger_pattn_change_requested_for_ch[ch]=-1 
 		pattern_triggered_by_user=TRUE
 	endif
 	
@@ -296,6 +298,7 @@
 		if ptn_triggered_for_ch>=0 and ch_trigger_method=0 //NOTE
 			SendMIDINoteOn ptn_triggered_for_ch, pattern_num_to_trigger + offset, 127
 			SendMIDINoteOff ptn_triggered_for_ch, pattern_num_to_trigger + offset, 64, 1
+			//Log {sent midi: ch}, ptn_triggered_for_ch, { #}, pattern_num_to_trigger + offset
 		elseif ptn_triggered_for_ch>=0 and ch_trigger_method=1 //CC NUM
 			SendMIDICC ptn_triggered_for_ch, pattern_num_to_trigger + offset, 127
 		elseif ptn_triggered_for_ch>=0 and ch_trigger_method=2 //CC VAL
@@ -805,6 +808,14 @@
   		Call @HandlePattnChange 
   	endif
   endif
+	if not HostRunning
+		pad_down_trigger_all_ready_for_playback=TRUE
+		for i = 0 to 7
+			ch=i
+			Call @TriggerPattern
+		endfor
+		pad_down_trigger_all_ready_for_playback=FALSE
+	endif
 	Call @SetupLayout	
 @End
 
@@ -970,6 +981,14 @@
 				next_scene=scene_change_requested
 				next_pattn=0
 				Call @HandleSceneChange 
+			endif
+			if not HostRunning 
+				pad_down_trigger_all_ready_for_playback=TRUE
+				for i = 0 to 7
+					ch=i
+					Call @TriggerPattern
+				endfor
+				pad_down_trigger_all_ready_for_playback=FALSE
 			endif
 			Call @SetupLayout
 		endif
@@ -2002,19 +2021,19 @@
 		nn=ap[seq_ch] + trigger_method_offset[seq_ch]
 	endif
 	if trigger_method[seq_ch]=0 //NOTE MODE
-		if (ap[seq_ch] >= 0) or (mode=10) //trigger mode 16pads available
+		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10  //trigger mode 16pads available
 			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { }, (NoteName nn, TRUE), { (}, nn, {)}
 		else
 			LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
 		endif
 	elseif trigger_method[seq_ch]=1 //CC NUM mode
-		if (ap[seq_ch] >= 0) or (mode=10) //trigger mode 16pads available
+		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10 //trigger mode 16pads available
 			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { cc#}, { }, nn
 		else
 		  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
 		endif
-	elseif trigger_method[seq_ch]=2 //CC VAL mode
-		if (ap[seq_ch] >= 0) or (mode=10) //trigger mode 16pads available
+	elseif trigger_method[seq_ch]=2  //CC VAL mode
+		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10 //trigger mode 16pads available
 			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { cc#}, trigger_method_offset[seq_ch], {-}, ap[seq_ch]
 		else
 		  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
