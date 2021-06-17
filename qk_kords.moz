@@ -800,8 +800,9 @@
 			elseif songmode=0 and HostRunning
 			  scene_change_requested = sysex_msg[msg_start]
 				songmode=1
-			elseif songmode=1 and HostRunning //locked to scene. re-trigger
-				scene_change_requested = sysex_msg[msg_start]
+			elseif songmode>=0 and songmode<=2 and HostRunning
+			  scene_change_requested = sysex_msg[msg_start]
+				songmode=1
 				edit_scene=last_pad
 			elseif NOT HostRunning //# immediate change else newbeat/bar handles
 				scene_change_requested = sysex_msg[msg_start]

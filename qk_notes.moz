@@ -975,11 +975,9 @@
 			//# handle scene change requested (ie: PadDown Scene change)
 			if songmode=0 and HostRunning and sysex_msg[msg_start]=current_scene //in song mode. just lock to scene
 				songmode=1 // lock to scene
-			elseif songmode=0 and HostRunning
+			elseif songmode>=0 and songmode<=2 and HostRunning
 			  scene_change_requested = sysex_msg[msg_start]
 				songmode=1
-			elseif songmode=1 and HostRunning //locked to scene. re-trigger
-				scene_change_requested = sysex_msg[msg_start]
 				edit_scene=last_pad
 			elseif NOT HostRunning //# immediate change else newbeat/bar handles
 				scene_change_requested = sysex_msg[msg_start]
