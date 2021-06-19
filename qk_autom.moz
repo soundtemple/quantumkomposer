@@ -5,7 +5,7 @@
 	ShowLayout 2
 	LabelPads {[ QK:AUTOM ]}
 	if unassigned scene_durs //# duration in first scene
-		mgen_device_id=3 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=8 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
@@ -119,7 +119,7 @@
 		automation_ccs    = [46,47,58,60,  1,17,99,99,   1,17,1,17,    1,17,1,17]
 		automation_cols   = [6,6,6,6,      1,1,2,2,      2,2,2,2,      4,4,4,4]
 		default_vals      = [0,20,0,127,   0,127,0,127,  0,127,0,127,  0,127,0,127]
-		mgen_device_id=3
+		mgen_device_id=7
 		SetShortName {AUTOM3}
 	elseif autom_preset=2 //Lead-scaps-rizer-harmony
 		automation_labels = [51,6,51,6,    56,6,55,40,   52,6,54,6,    53,6,57,6]
@@ -127,7 +127,7 @@
 		automation_ccs    = [1,17,1,17,    1,17,99,99,   1,17,1,17,    1,17,1,17]
 		automation_cols   = [4,4,4,4,      6,6,6,6,      3,3,3,3,      3,3,3,3]
 		default_vals      = [0,127,0,127,  0,127,0,0,    0,127,0,127,  0,127,0,127]
-		mgen_device_id=4
+		mgen_device_id=8
 		SetShortName {AUTOM4}
 	elseif autom_preset=3 //Mixbus1-4: HPF-LPF-FX1-FX2
 		automation_labels = [42,43,44,45,  42,43,44,45,  42,43,44,45,  42,43,44,45]
@@ -143,7 +143,7 @@
 		FillArray automation_ccs, 0, 16
 		FillArray automation_cols, 0, 16
 		FillArray default_vals, -1, 16
-		mgen_device_id=3
+		mgen_device_id=7
 		SetShortName {AUTOM}
 	endif
 	CopyArray default_vals, autom_control_vals, 16 //update control knob vals to default vals
@@ -282,14 +282,14 @@
 		if mode=0
 			Call @SetupLayoutScenes
 		endif
-	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and HostRunning)
+	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and HostRunning) and MIDIChannel=15
   	return_to_song_mode_requested = TRUE //# handle return to song mode requested
   	in_mode_select = FALSE
 		songmode = 0
   	mode = 0
 		ColorPad current_scene, 6
     ColorPad 8, 3
-	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning)
+	elseif (MIDIByte2=cc_rtn_to_song_mode and MIDIByte3>0 and not HostRunning) and MIDIChannel=15
 		return_to_song_mode_requested = TRUE
 		in_mode_select = FALSE //Return to song mode
   	songmode = 0
@@ -297,11 +297,11 @@
 		current_scene=0
 		Call @SetupLayoutScenes
 		ColorPad current_scene, 3
-  elseif (MIDIByte2=cc_swing) //# Global swing
+  elseif (MIDIByte2=cc_swing and MIDIChannel=15) //# Global swing
   	swng=MIDIByte3
   	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
   	Call @SetupLayoutScenes
-	elseif MIDIByte2>=40 and MIDIByte2<=43 //KNTRL Knobs on CH16
+	elseif MIDIByte2>=40 and MIDIByte2<=43 and MIDIChannel=15 //KNTRL Knobs on CH16
 		if mgen_sel_dev=mgen_device_id
 			last_knob = MIDIByte2-40 //simulate  LastPad action
 			SetKnobValue last_knob, MIDIByte3 // change knob position
@@ -311,7 +311,7 @@
 		if MIDIByte3<=7 //handle copy scene
 			copied_scene = MIDIByte3
 			LabelPads {Scene }, MIDIByte3+1, { copied. Ready to paste}
-		elseif MIDIByte3>=8 and MIDIByte3<=15 //handle scene paste
+		elseif MIDIByte3>=8 and MIDIByte3<=15 and MIDIChannel=15 //handle scene paste
 			paste_to_scene = MIDIByte3-8
 			LabelPads {Copied scene }, copied_scene+1, { to scene }, paste_to_scene+1
 			CopyArray auto_data_ch0[copied_scene*128], auto_data_ch0[paste_to_scene*128], 128 
@@ -332,7 +332,7 @@
 			CopyArray auto_data_ch15[copied_scene*128], auto_data_ch15[paste_to_scene*128], 128
 			scene_durs[paste_to_scene] = scene_durs[copied_scene]
 		endif
-	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
+	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0 and MIDIChannel=15
 		mgen_sel_dev=MIDIByte2-91+1 // range 1-9 to match display
 		if mgen_sel_dev= mgen_device_id
 			in_mode_select = FALSE
