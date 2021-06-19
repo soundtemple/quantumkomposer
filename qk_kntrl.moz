@@ -1537,7 +1537,7 @@
 @BuildLayoutPages
 	//Setup a default layout page
 	drambo_layout_active=FALSE //default. only for layouts 5 & 6 at present
-	for i = 0 to 3 //wiping layout so we only need to add back in what has changed
+	for i = 1 to 2 //wiping layout so we only need to add back in what has changed
 		def_labels[16*i] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 		def_colors[16*i] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_vals[16*i]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -1547,26 +1547,17 @@
 		def_mins[16*i]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs[16*i]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 	endfor
-	
+	Call @CreateGenericPage1and4
 	if chan_layouts[edit_chan]=0 
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Free}
-		Call @CreateMixerPage4
 	elseif chan_layouts[edit_chan]=1 
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Generic Synth}
-		def_colors[16*0] = [4,4,4,4,3,3,1,1,6,0,0,0,5,5,4,4]			
-		def_labels[16*0] = [85,85,85,85,46,51,47,52,    35,64,65,66,49,53,12,14]			
-		def_vals[16*0]   = [0,0,0,0,0,20,0,20,   0,0,0,0,0,20,0,0]			
-		def_ccs[16*0]    = [30,31,32,33, 34,35,36,37, 0, 121,122,123, 43,44,117,119]
 		def_colors[16*1] = [3,1,6,2,4,4,4,4,3,1,6,2,4,4,7,7]			
 		def_labels[16*1] = [24,25,26,27,28,29,30,31,     24,25,26,27,32,32,44,44]			
 		def_vals[16*1]   = [0,0,0,0, 0,64,20,20, 0,0,0,0, 0,0,0,0]			
 		def_colors[16*2] = [3,4,1,6,2,2,2,2,3,3,3,3,4,4,4,4]			
 		def_labels[16*2] = [19,20,76,21,28,29,30,31,     16,23,40,40,16,23,40,40]	
 		def_vals[16*2]   = [100,0,0,0,  0,64,20,20,  64,64,0,0, 64,64,0,0]
-		def_colors[16*3] = [2,2,6,6,3,3,3,3,4,4,2,2,0,0,0,0]			
-		def_labels[16*3] = [0, 1,4, 5,  10, 8, 9,11, 12,14,57,58, 124,125,126,127]			
-		def_ccs[16*3]    = [7 ,6,10,11, 16,14,15,17, 87,88,89,90, 124,125,126,127]
-		def_vals[16*3]   = [100,64,0,0,   0,64,64,127, 0,0,0,0, 0,0,0,0]			
 	elseif chan_layouts[edit_chan]=2
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Bus A-D}
 		mixbuseq_gui=[124,125,126,127]
@@ -1597,7 +1588,6 @@
 		def_vals[16*2]   = [64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64]
 		def_ccs[16*2]    = [33,41,49,57,66,74,82,90,30,38,46,54,62,71,79,87]
 		def_maxs[16*2]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-		Call @CreateMixerPage4
 	elseif chan_layouts[edit_chan]=4
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Drum Comp}	
 		for i = 0 to 3 
@@ -1625,7 +1615,6 @@
 		def_vals[16*2]   = [3,16,0,0,0,0,127,127,18,19,38,17,0,0,127,90]
 		def_ccs[16*2]    = [62,63,64,65,66,126,68,69,70,71,72,73,74,75,76,77]
 		def_maxs[16*2]   = [5,32,1,127,127,127,127,127,127,127,127,127,127,1,127,127]
-		Call @CreateMixerPage4
 	elseif chan_layouts[edit_chan]=6 //Zeeon
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Zeeon}
 		def_labels[16*0] = [89,16,17,74,19,76,20,21,  89,16,17,74,-1,-1,18,0]			
@@ -1900,12 +1889,16 @@
 	endfor
 @End
 
-@CreateMixerPage4
+@CreateGenericPage1and4
 	//Create a mixer layout on page 4 for all channels as a default. can be overwritten
-	def_labels[16*3] = [0,2,1,3,4,5,6,7,85,12,14,10,11,64,65,66]
-	def_colors[16*3] = [2,2,2,2,6,6,6,6,4,4,4,3,3,0,0,0]
-	def_vals[16*3]   = [64,64,64,64,0,0,0,0, 0,0,0,0, 127,0,0,0]
-	def_ccs[16*3]    = [7,8,6,9, 10,11,12,13, 96,117,119,16,  17,121,122,123]
+	def_colors[16*0] = [4,4,4,4,3,3,1,1,6,0,0,0,5,5,4,4]			
+	def_labels[16*0] = [85,85,85,85,46,51,47,52,    35,64,65,66,49,53,12,14]			
+	def_vals[16*0]   = [0,0,0,0,0,20,0,20,   0,0,0,0,0,20,0,0]			
+	def_ccs[16*0]    = [30,31,32,33, 34,35,36,37, 0, 121,122,123, 43,44,117,119]
+	def_colors[16*3] = [2,2,6,6,3,3,3,3,4,4,2,2,0,0,0,0]			
+	def_labels[16*3] = [0, 1,4, 5,  10, 8, 9,11, 12,14,57,58, 124,125,126,127]			
+	def_ccs[16*3]    = [7 ,6,10,11, 16,14,15,17, 87,88,89,90, 124,125,126,127]
+	def_vals[16*3]   = [100,64,0,0,   0,64,64,127, 0,0,0,0, 0,0,0,0]
 @End
 
 @SetupLayoutChannels
