@@ -26,7 +26,7 @@
 	  use_turn_around = TRUE //# last chord as turn around on last bar of scene
 		//# used for LED feedback
 		last_pad=0 
-		mgen_device_id=8 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=4 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		shift_is_down=FALSE
 	  led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
