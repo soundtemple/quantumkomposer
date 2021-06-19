@@ -21,7 +21,7 @@
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		use_turn_around = TRUE //# last pattn as turn around on last bar of scene
-		mgen_device_id=1 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=5 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		shift_is_down=FALSE
@@ -194,7 +194,7 @@
 		scale_slot = sel_scale*50
 		notes_in_set=8
 		ch_start_notes=[0,2,4,6]
-		mgen_device_id=1
+		mgen_device_id=5
 		if sel_scale=3 // DC Patt
 			notes_in_set=16
 			ch_start_notes=[0,0,0,0]
@@ -210,7 +210,7 @@
 		elseif sel_scale=8 // DrPERCS
 			notes_in_set=8
 			midi_out_chs=[1,1,1,1]
-			mgen_device_id=2
+			mgen_device_id=5
 			ch_start_notes=[0,2,4,6]
 		elseif sel_scale=9 //HAMMER HEAD
 			notes_in_set=6
@@ -908,7 +908,7 @@
 			SendMIDINoteOn 15, current_scene+led_index, 3
 			SendMIDINoteOn 15, 8+led_index, 3
 		endif
-	elseif MIDIByte2>=40 and MIDIByte2<=43 //KNTRL Knobs on CH16
+	elseif MIDIByte2>=40 and MIDIByte2<=43 and MIDIChannel=15 //KNTRL Knobs on CH16
 		if mgen_sel_dev=mgen_device_id
 			last_knob = MIDIByte2-40 //simulate  LastPad action
 			SetKnobValue last_knob, MIDIByte3 // change knob position
@@ -942,7 +942,7 @@
 			copied_scene = -1 //# reset
 			Call @SetupLayout
 		endif
-	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
+	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0 and MIDIChannel=15
 		mgen_sel_dev=MIDIByte2-91+1 // range 1-9 to match display
 		if mgen_sel_dev=mgen_device_id
 			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
