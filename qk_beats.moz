@@ -30,7 +30,8 @@
 		mchnce=100
 		pattn_beat_count = 0
 		scene_beat_count = 0
-		Call @InitKnobVariables //# All knob settings on load
+		trigger_pad_on_tap=TRUE
+    Call @InitKnobVariables //# All knob settings on load
 		Call @SysexMessageSetup
 		Call @SetupSequences
 		Call @LoadDrumPatterns
@@ -168,7 +169,7 @@
 	fixed_notesets[6*50] = [48,49,50,51,52,53,54,55, 56,57,58,59,60,61,62,63] // [Digistix]
 	fixed_notesets[7*50] = [36,37,38,39,40,41,42,43, 44,45,46,47,48,49,50,51] // [FAC Drum kit]  
 	fixed_notesets[8*50] = [48,49,50,51, 52,53,54,55] //[DrPERCS]
-	fixed_notesets[9*50] = [49,51,54, 56,58,61] //# [HAMMERHEAD]
+	fixed_notesets[9*50] = [49,56,51,54, 58,61,63,66] //# [HAMMERHEAD]
 	fixed_notesets[10*50]= [48,49,50,51, 52,53,54,55] //# [DrDRUMS]
 	s_noteset=[48,49,50,51] //# Single noteset (always 4 notes long, 1 for each channel)
 	Call @GetMidiINPUTScale //# set up init scale for midi input	
@@ -212,10 +213,10 @@
 			midi_out_chs=[1,1,1,1]
 			mgen_device_id=5
 			ch_start_notes=[0,2,4,6]
-		elseif sel_scale=9 //HAMMER HEAD
-			notes_in_set=6
+		elseif sel_scale=9 //HAMMERHEAD
+			notes_in_set=8
 			midi_out_chs=[0,0,0,0]
-			ch_start_notes=[0,1,2,3]
+			ch_start_notes=[0,2,4,6]
 		elseif sel_scale=10 //DrDRUMS
 			notes_in_set=8
 			midi_out_chs=[0,0,0,0]
@@ -529,7 +530,7 @@
 	if in_mode_select and (last_pad <= (number_of_modes - 1))
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
-		elseif last_pad=14 or last_pad=2
+		elseif last_pad=2
 			Exit //# Not in use
 		elseif (HostRunning and (last_pad>=3 and last_pad<=5))
 			Exit //# Not allowed in playback
@@ -537,7 +538,7 @@
 			Exit //# COPY PASTE not allowed
 		elseif (last_pad=7) and not (mode<=1 or mode>=8)
 			Exit //# DELETE not allowed
-		elseif (last_pad>=3 and last_pad<=5) or (last_pad=13 or last_pad=15)
+		elseif (last_pad>=3 and last_pad<=5) or (last_pad=13 or last_pad=14 or last_pad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
     	LabelPad 6, { } //# CopyPaste not allowed
     	LabelPad 7, { } //# Delete not allowed here
@@ -561,6 +562,13 @@
 				in_mode_select=FALSE
 				in_seq_mode=TRUE
 				Call @SetupLayout
+			elseif last_pad=14
+				trigger_pad_on_tap = not trigger_pad_on_tap
+				if trigger_pad_on_tap
+					LabelPad 14, {TRIGGER PAD ON TAP}
+				else
+					LabelPad 14, {NO TRIGGER PAD ON TAP}
+				endif
 			else
 				mode = last_pad
 	    	Call @OnPadDown_KnobSetSelect
@@ -688,12 +696,10 @@
     	Call @ResetScenePatternSequence
   	endif
   elseif (NOT in_mode_select and in_seq_mode)
-		if sel_step=last_pad
-			double_tap=TRUE
-		else
-	  	double_tap=FALSE
-		endif
 		sel_pad=last_pad
+		if trigger_pad_on_tap and (mode=8 or mode=9 or mode=10 or mode=11) and not move_all
+			Call @TriggerPadOnTap
+		endif
 		if mode=8 and not steps_record_mode//# Step sequence mode
   		Call @UpdateSelStepType //# 0=off; 1=on;
 		elseif (mode=9 and seq_type=4 and not move_all)  //setp edit ALL adjust move_all_dir
@@ -708,39 +714,6 @@
 			else 
 				move_all_dir=0
 			endif
-		elseif (mode=9 and seq_type<4) and double_tap and not move_all //step edit mode pre-hear sel pad 
-			step_slot=(current_scene*128)+(current_pattn*16)+last_pad
-			if seq_ch=0 //get note to play for seq pad pressed
-				if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
-					note_val=curr_scale[seq0_notes[step_slot]]
-				else //# ScaleDegree stored. Convert to note
-					note_val = (seq0_octs[step_slot]*12) + (curr_scale[seq0_notes[step_slot]]) 
-				endif
-				velo_val = seq0_velos[step_slot]
-			elseif seq_ch=1
-				if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
-					note_val=curr_scale[seq1_notes[step_slot]]
-				else //# ScaleDegree stored. Convert to note
-					note_val = (seq1_octs[step_slot]*12) + (curr_scale[seq1_notes[step_slot]]) 
-				endif
-				velo_val = seq0_velos[step_slot]
-			elseif seq_ch=2
-				if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
-					note_val=curr_scale[seq2_notes[step_slot]]
-				else //# ScaleDegree stored. Convert to note
-					note_val = (seq2_octs[step_slot]*12) + (curr_scale[seq2_notes[step_slot]]) 
-				endif
-				velo_val = seq2_velos[step_slot]
-			elseif seq_ch=3
-				if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
-					note_val=curr_scale[seq3_notes[step_slot]]
-				else //# ScaleDegree stored. Convert to note
-					note_val = (seq3_octs[step_slot]*12) + (curr_scale[seq3_notes[step_slot]]) 
-				endif
-				velo_val = seq3_velos[step_slot]
-			endif
-			SendMIDINoteOn midi_out_chs[seq_ch], note_val, velo_val //allow user press to send note
-			SendMIDINoteOff midi_out_chs[seq_ch], note_val, velo_val, 500
 		elseif (mode>=10 and mode<=13)
 			if mode=12 //rotate sequence
 				if last_pad=14
@@ -776,6 +749,41 @@
   	sel_step=last_pad
   	Call @SetupLayout
   endif
+@End
+
+@TriggerPadOnTap
+	step_slot=(current_scene*128)+(current_pattn*16)+last_pad
+	if seq_ch=0 //get note to play for seq pad pressed
+		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
+			note_val=curr_scale[seq0_notes[step_slot]]
+		else //# ScaleDegree stored. Convert to note
+			note_val = (seq0_octs[step_slot]*12) + (curr_scale[seq0_notes[step_slot]]) 
+		endif
+		velo_val = seq0_velos[step_slot]
+	elseif seq_ch=1
+		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
+			note_val=curr_scale[seq1_notes[step_slot]]
+		else //# ScaleDegree stored. Convert to note
+			note_val = (seq1_octs[step_slot]*12) + (curr_scale[seq1_notes[step_slot]]) 
+		endif
+		velo_val = seq0_velos[step_slot]
+	elseif seq_ch=2
+		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
+			note_val=curr_scale[seq2_notes[step_slot]]
+		else //# ScaleDegree stored. Convert to note
+			note_val = (seq2_octs[step_slot]*12) + (curr_scale[seq2_notes[step_slot]]) 
+		endif
+		velo_val = seq2_velos[step_slot]
+	elseif seq_ch=3
+		if note_set_type>=1 //# Fixed noteset or kit. NoteVal stored
+			note_val=curr_scale[seq3_notes[step_slot]]
+		else //# ScaleDegree stored. Convert to note
+			note_val = (seq3_octs[step_slot]*12) + (curr_scale[seq3_notes[step_slot]]) 
+		endif
+		velo_val = seq3_velos[step_slot]
+	endif
+	SendMIDINoteOn midi_out_chs[seq_ch], note_val, velo_val //allow user press to send note
+	SendMIDINoteOff midi_out_chs[seq_ch], note_val, velo_val, 500
 @End
 
 @OnPadUp
@@ -1493,7 +1501,7 @@
 	  	LabelPad 3, {NOTESET   [Dr Percs]}
 			SetShortName {PERCS}
 		elseif sel_scale=9
-	  	LabelPad 3, {NOTESET   [Hamr Head]}
+	  	LabelPad 3, {NOTESET   [HammrHead]}
 		elseif sel_scale=10
 	  	LabelPad 3, {NOTESET   [Dr DRUMS]}
 		endif
@@ -1778,6 +1786,7 @@
 @End
 
 @RotateSequence //# rotate a selected sequence. requires args rotation(-1 or +1), old_seq
+	old_index=0
 	step_slot=(current_scene*128)+(current_pattn*16)
 	FillArray old_notes, 0, 16
 	FillArray old_octs, 0, 16
@@ -2521,7 +2530,11 @@
 	elseif label_view_mode=5
 		LabelPad 13, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CHS1-4}
 	endif
-	LabelPad 14, { } //# MEL GEN IN NOTES
+	if trigger_pad_on_tap
+		LabelPad 14, {TRIGGER PAD ON TAP}
+	else
+		LabelPad 14, {NO TRIGGER PAD ON TAP}
+	endif
 	if label_view_mode=5
 		LabelPad 15, {SEQ VIEW     }, {  ALL}
 	elseif label_view_mode=4
