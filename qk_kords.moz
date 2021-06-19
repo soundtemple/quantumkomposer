@@ -35,6 +35,7 @@
 		txpose_w_circle_fifths=FALSE
 		copy_mode=-1
 		SetTimerInterval 1000
+		controlled_by_scene_master=TRUE
 	  Call @TransposeCalcArrays
 	  Call @InitKnobVariables //# All knob settings on start
 		Call @SysexMessageSetup
@@ -1517,7 +1518,11 @@
 	scn_duration = scene_bank[current_scene * sc_size]
 	scn_txpose = scene_bank[(current_scene * sc_size) + sc_txp_slot]
 	scn_preset = scene_bank[(current_scene * sc_size) + sc_preset_slot]
-	LabelKnob 0, {Duration}
+	if controlled_by_scene_master
+		LabelKnob 0, {SCN.MSTR}
+	else
+		LabelKnob 0, {Duration}
+	endif
 	LabelKnob 1, {Transpose}
 	LabelKnob 2, {Preset }, scn_preset
 	if txpose_w_circle_fifths
@@ -1532,7 +1537,7 @@
 @End
 @KnobChangeSet0
 	//# scene settings
-	if last_knob = 0
+	if last_knob = 0 and not controlled_by_scene_master
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_bank[current_scene * sc_size] 	
 		  scene_bank[current_scene * sc_size] = scn_duration

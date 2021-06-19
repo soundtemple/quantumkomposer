@@ -31,6 +31,7 @@
 		pattn_beat_count = 0
 		scene_beat_count = 0
 		trigger_pad_on_tap=TRUE
+		controlled_by_scene_master=TRUE
     Call @InitKnobVariables //# All knob settings on load
 		Call @SysexMessageSetup
 	  Call @SetupSequences
@@ -1288,7 +1289,11 @@
 @SetupKnobset0 //# Scene settings
 	knob_set = 0
 	LabelKnobs {Scene }, current_scene+1, { setup}
-	LabelKnob 0, {Duration}
+	if controlled_by_scene_master
+		LabelKnob 0, {SCN.MSTR}
+	else
+		LabelKnob 0, {Duration}
+	endif
 	LabelKnob 1, {Swing }, scene_swing[current_scene], {%}
 	LabelKnob 2, { }
 	LabelKnob 3, { }
@@ -1297,9 +1302,9 @@
 	SetKnobValue 3, 0
 @End
 @KnobChangeSet0 //# scene settings xs0
-	if last_knob = 0
+	if last_knob = 0 and not controlled_by_scene_master
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
-	  if scn_duration <> scene_durs[current_scene] 	
+	  if scn_duration <> scene_durs[current_scene]
 		  scene_durs[current_scene] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
 			Call @UpdateScenesWithDuration

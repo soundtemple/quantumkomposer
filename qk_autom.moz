@@ -28,6 +28,7 @@
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
 		shift_is_down=FALSE
+		controlled_by_scene_master=TRUE
 		Call @GetAutoRamps
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SysexMessageSetup
@@ -844,7 +845,11 @@
 	LabelPads {[ AUTOM ]  Scene: }, current_scene+1
 	LabelKnobs {SCENE SETUP}
 	LabelKnob 0, {Edit scn }, edit_scene+1
-	LabelKnob 1, {Bars }, scene_durs[edit_scene]
+	if controlled_by_scene_master
+		LabelKnob 1, {SCN.MSTR}
+	else
+		LabelKnob 1, {Bars }, scene_durs[edit_scene]
+	endif
 	LabelKnob 2, { }
 	LabelKnob 3, { }
 	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
@@ -859,10 +864,14 @@
 			edit_scene = val
 			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
 			LabelKnob 0, {Edit scn }, edit_scene+1
-			LabelKnob 1, {Bars }, scene_durs[edit_scene]
+			if controlled_by_scene_master
+				LabelKnob 1, {SCN.MSTR}
+			else
+				LabelKnob 1, {Bars }, scene_durs[edit_scene]
+			endif
 		endif
 	endif
-	if last_knob = 1
+	if last_knob = 1 and not controlled_by_scene_master
 		scn_duration = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32
 		scene_durs[edit_scene] = scn_duration
 	endif

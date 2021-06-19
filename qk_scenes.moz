@@ -323,7 +323,7 @@
 			LabelPads {HOLD PAD DOWN TO CHANGE}
 		endif
 	elseif NOT in_mode_select
-		Call @ModeSetup
+		Call @PadDownScenesMode
 	endif
 	//LOG {MODE: }, mode
 @End
@@ -345,16 +345,6 @@
 		LabelPads {MIDI GENERATOR(S) PATTERN/CLIP QUANTISTATION MUST BE BEAT OR BAR}
 	else
 		LabelPads {MIDI GENERATOR(S) PATTERN/CLIP QUANTISTATION MUST BE OFF (0)}
-	endif
-@End
-
-@ModeSetup
-	if in_mode_select
-		Call @SetupSettingsLayout
-		Call @UpdateCurrentKnobset
-		LabelPads {[ SCENE MASTER : SETTINGS ]}
-	elseif mode=0  //SCENES MODE
-		Call @PadDownScenesMode
 	endif
 @End
 
