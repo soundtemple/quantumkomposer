@@ -30,6 +30,7 @@
 		mchnce=100
 		pattn_beat_count = 0
 		scene_beat_count = 0
+		trigger_pad_on_tap=TRUE
     Call @InitKnobVariables //# All knob settings on load
 		Call @SysexMessageSetup
 	  Call @SetupSequences
@@ -495,8 +496,6 @@
 	if in_mode_select and (last_pad <= (number_of_modes - 1))
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
-		elseif last_pad=14
-			Exit //# Not in use
 		elseif (HostRunning and (last_pad>=3 and last_pad<=5))
 			Exit //# Not allowed in playback
 		elseif (last_pad=6) and not (mode=9 or mode=11 or mode<=1)
@@ -549,7 +548,7 @@
 			Call @GetMidiINPUTScale //setup the new scale type
 			Call @LabelSettingsPads
 			Call @SetupKnobset99 //settings knobs
-		elseif (last_pad>=3 and last_pad<=5) or (last_pad=13 or last_pad=15)
+		elseif (last_pad>=3 and last_pad<=5) or (last_pad=13 or last_pad=15 or last_pad=14)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
     	LabelPad 6, { } //# CopyPaste not allowed
     	LabelPad 7, { } //# Delete not allowed here
@@ -575,6 +574,13 @@
 				in_seq_mode=TRUE
 				Call @SetupLayout
 				Log {Sequence reversed!}
+			elseif last_pad=14
+				trigger_pad_on_tap = not trigger_pad_on_tap
+				if trigger_pad_on_tap
+					LabelPad 14, {TRIGGER PAD ON TAP}
+				else
+					LabelPad 14, {NO TRIGGER PAD ON TAP}
+				endif
 			else
 				mode = last_pad
 	    	Call @OnPadDown_KnobSetSelect
@@ -708,33 +714,14 @@
     	Call @ResetScenePatternSequence
   	endif
   elseif (NOT in_mode_select and in_seq_mode)
-		if sel_step=last_pad
-			double_tap=TRUE
-		else
-		  double_tap=FALSE
+		sel_pad=last_pad //# for updating step label info
+		if trigger_pad_on_tap and (mode=8 or mode=9 or mode=10 or mode=11) and not move_all
+			Call @TriggerPadOnTap
 		endif
-  	sel_pad=last_pad //# for updating step label info
 		if mode=8 and not steps_record_mode//# Step sequence mode
 			Call @UpdateSelStepType //# 0=off; 1=on; 2=sustain prev
   	elseif (mode=9 and seq_type=4) and not move_all
 		  Call @UpdateSelStepType //# 0=off; 1=on;
-		elseif (mode=9 and seq_type<4) and double_tap and not move_all //step edit mode pre-hear sel pad 
-			step_slot=(current_scene*128)+(current_pattn*16)+last_pad
-			if seq_ch=0 //get note to play for seq pad pressed
-				note_val = (seq0_octs[step_slot]*12) + (curr_scale[seq0_notes[step_slot]])
-				velo_val = seq0_velos[step_slot]
-			elseif seq_ch=1
-				note_val = (seq1_octs[step_slot]*12) + (curr_scale[seq1_notes[step_slot]])
-				velo_val = seq1_velos[step_slot]
-			elseif seq_ch=2
-				note_val = (seq2_octs[step_slot]*12) + (curr_scale[seq2_notes[step_slot]])
-				velo_val = seq2_velos[step_slot]
-			elseif seq_ch=3
-				note_val = (seq3_octs[step_slot]*12) + (curr_scale[seq3_notes[step_slot]])
-				velo_val = seq3_velos[step_slot]
-			endif
-			SendMIDINoteOn midi_out_chs[seq_ch], note_val, velo_val //allow user press to send note
-			SendMIDINoteOff midi_out_chs[seq_ch], note_val, velo_val, 500
 		elseif (mode=9 and move_all)
 			if last_pad=14
 				move_all_dir=-1
@@ -780,6 +767,25 @@
   	sel_step=last_pad
   	Call @SetupLayout
   endif
+@End
+
+@TriggerPadOnTap
+	step_slot=(current_scene*128)+(current_pattn*16)+last_pad
+	if seq_ch=0 //get note to play for seq pad pressed
+		note_val = (seq0_octs[step_slot]*12) + (curr_scale[seq0_notes[step_slot]])
+		velo_val = seq0_velos[step_slot]
+	elseif seq_ch=1
+		note_val = (seq1_octs[step_slot]*12) + (curr_scale[seq1_notes[step_slot]])
+		velo_val = seq1_velos[step_slot]
+	elseif seq_ch=2
+		note_val = (seq2_octs[step_slot]*12) + (curr_scale[seq2_notes[step_slot]])
+		velo_val = seq2_velos[step_slot]
+	elseif seq_ch=3
+		note_val = (seq3_octs[step_slot]*12) + (curr_scale[seq3_notes[step_slot]])
+		velo_val = seq3_velos[step_slot]
+	endif
+	SendMIDINoteOn midi_out_chs[seq_ch], note_val, velo_val //allow user press to send note
+	SendMIDINoteOff midi_out_chs[seq_ch], note_val, velo_val, 500
 @End
 
 @OnPadUp
@@ -1748,6 +1754,7 @@
 
 @RotateSequence //# rotate a selected sequence. requires args rotation(-1 or +1), old_seq
 	step_slot=(current_scene*128)+(current_pattn*16)
+	old_index=0
 	FillArray old_notes, 0, 16
 	FillArray old_octs, 0, 16
 	FillArray old_velos, 0, 16
@@ -2686,7 +2693,11 @@
 	elseif label_view_mode=5
 		LabelPad 13, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CHS1-4}
 	endif
-	LabelPad 14, { } //# MEL GEN IN NOTES
+	if trigger_pad_on_tap
+		LabelPad 14, {TRIGGER PAD ON TAP}
+	else
+		LabelPad 14, {NO TRIGGER PAD ON TAP}
+	endif
 	LatchPad i, NO
 	if label_view_mode=5
 		LabelPad 15, {SEQ VIEW     }, {  ALL}
@@ -2891,10 +2902,10 @@
 	euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
 	pattn_length = (16 - euc_vals[euc_slot+2])
   x=15
-	o0=seq0_octs[step_slot]+1
-	o1=seq1_octs[step_slot]+1
-	o2=seq2_octs[step_slot]+1
-	o3=seq3_octs[step_slot]+1
+	o0=seq0_octs[step_slot]
+	o1=seq1_octs[step_slot]
+	o2=seq2_octs[step_slot]
+	o3=seq3_octs[step_slot]
 	n0=curr_scale[seq0_notes[step_slot]] + (12 * o0) 
   n1=curr_scale[seq1_notes[step_slot]] + (12 * o1)
   n2=curr_scale[seq2_notes[step_slot]] + (12 * o2)
