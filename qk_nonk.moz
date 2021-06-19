@@ -5,7 +5,7 @@
 //# To build your layouts populate the data in @BuildLayouts, @BuildKeyboardLayout and @SetLayoutName
 
 @OnLoad
-	mgen_device_id=5 //used for midi control of pads. each mgen instance is assigned a number
+	mgen_device_id=3 //used for midi control of pads. each mgen instance is assigned a number
 	mgen_sel_dev=0 //used for midi control of pads	
 	log_notes=FALSE //setting to log notes (sent to instruments) as played
   ShowLayout 4
@@ -278,7 +278,7 @@
 
 @OnMidiNote
 	if MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
-		// notes 20-36 on channel 16  used to trigger MGEN pads 0-15
+		// notes 20-36 on channel 16  used to trigger pads 0-15
 		if MIDINote=36 //SHIFT
 			if MIDICommand=0x90 //noteOn	
 				Call @OnShiftDown2
@@ -295,7 +295,7 @@
 			  Call @OnPadUp2
 			endif
 		endif
-	endif		
+	endif
 @End
 
 @OnSysex
@@ -311,9 +311,6 @@
 		msg_end=SysexSize-1 //where msg_data ends
 		qk_msg_type=sysex_msg[len_header] //the message type received
 		//handle msg types...
-		if qk_msg_type = sx_chan_select
-			Log {Receive message to set new instrument channel}
-		endif
 	endif
 @End
 
