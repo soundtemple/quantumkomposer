@@ -22,7 +22,7 @@
 		notes_instance_type = 0
 	  use_turn_around = TRUE //# last pattn as turn around on last bar of scene
 	  led_index=20 // notes 20-46 used for updating LED feedback on 16pads
-		mgen_device_id=0 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=6 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		shift_is_down=FALSE
 	  send_cc_back_to_knobs = TRUE
@@ -526,25 +526,25 @@
 				SetShortName {SLICES}
 				sel_scale=0 // Chromatic
 				note_set_type=1 //to instrument
-				mgen_device_id=3
+				mgen_device_id=7
 			elseif notes_instance_type=4
 				midi_out_chs=[2,2,2,2]
 				SetShortName {LOOPS}
 				sel_scale=0 // Chromatic
 				note_set_type=1 //to instrument
-				mgen_device_id=3
+				mgen_device_id=7
 			elseif notes_instance_type=5
 				midi_out_chs=[2,2,2,2]
 				SetShortName {FX}
 				sel_scale=0 // Chromatic
 				note_set_type=1 //to instrument
-				mgen_device_id=3
+				mgen_device_id=7
 			elseif notes_instance_type=0
 				midi_out_chs=[0,1,2,3]
 				SetShortName {NOTES}
 				sel_scale=0 // Chromatic
 				note_set_type=1 //to instrument
-				mgen_device_id=0
+				mgen_device_id=6
 			endif
 			Call @GetMidiINPUTScale //setup the new scale type
 			Call @LabelSettingsPads
@@ -875,7 +875,7 @@
 			SendMIDINoteOn 15, current_scene+led_index, 3
 			SendMIDINoteOn 15, 8+led_index, 3
 		endif
-	elseif (MIDIByte2=22 and MIDIByte3>0 and not HostRunning)
+	elseif (MIDIByte2=22 and MIDIByte3>0 and not HostRunning) and MIDIChannel=15
 		return_to_song_mode_requested = TRUE
 		in_mode_select = FALSE //Return to song mode
   	songmode = 0
@@ -889,13 +889,13 @@
 			SendMIDINoteOn 15, current_scene+led_index, 3
 			SendMIDINoteOn 15, 8+led_index, 3
 		endif
-	elseif MIDIByte2>=40 and MIDIByte2<=43 //KNTRL Knobs on CH16
+	elseif MIDIByte2>=40 and MIDIByte2<=43 and MIDIChannel=15 //KNTRL Knobs on CH16
 		if mgen_sel_dev=mgen_device_id
 			last_knob = MIDIByte2-40 //simulate  LastPad action
 			SetKnobValue last_knob, MIDIByte3 // change knob position
 			Call @OnKnobChange2 //handle that change
 		endif
-  elseif (MIDIByte2=89) //copy paste scene
+  elseif MIDIByte2=89 and MIDIChannel=15//copy paste scene
 		in_mode_select = FALSE // return to scenes mode first
   	mode = 0
 		if MIDIByte3<=7 //handle copy scene
@@ -923,12 +923,12 @@
 			copied_scene = -1 //# reset
 			Call @SetupLayout
 		endif
-	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0
+	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0 and MIDIChannel=15
 		mgen_sel_dev=MIDIByte2-91+1 // range 1-9 to match display
 		if mgen_sel_dev= mgen_device_id
 			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
 		endif
-	elseif (MIDIByte2=23) //# Global swing
+	elseif MIDIByte2=23 and MIDIChannel=15//# Global swing
   	swng=MIDIByte3
   	scene_swing=[swng,swng,swng,swng,swng,swng,swng,swng]
   	Call @SetupLayout
