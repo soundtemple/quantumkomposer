@@ -633,7 +633,7 @@
 		//0chan, 1page, 2padnum. 3lbl, 4col, 5cc, 6min, 7max, 8val, 9type
 		inst_labels[pad_slot]=copied_pad[3]
 		inst_colors[pad_slot]=copied_pad[4]
-		inst_ccs[pad_slot]=copied_pad[5]
+		//inst_ccs[pad_slot]=copied_pad[5] - we dont want to copy cc
 		inst_mins[pad_slot]=copied_pad[6]
 		inst_maxs[pad_slot]=copied_pad[7]
 		inst_def_vals[pad_slot]=copied_pad[8]
