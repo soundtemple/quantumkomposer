@@ -105,10 +105,17 @@
 		Call @PadDownScenesMode
 		
 	elseif MIDIByte2>=40 and MIDIByte2<=43 //Knobs on CH16
+		//Log {OnMidiCC mgen_device_id:}, mgen_device_id, { mgen_sel_dev:}, mgen_sel_dev 
 		if mgen_sel_dev=mgen_device_id
 			last_knob = MIDIByte2-40 //simulate  LastPad action
 			SetKnobValue last_knob, MIDIByte3 // change knob position
 			Call @OnKnobChange2 //handle that change
+		endif
+		
+	elseif MIDIByte2>=91 and MIDIByte2<=98 and MIDIByte3>0 and MIDIChannel=15
+		mgen_sel_dev=MIDIByte2-91+1 // range 1-9 to match display
+		if mgen_sel_dev=mgen_device_id
+			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
 		endif
 		
 	elseif (MIDIByte2>=109) and (MIDIByte2<=116) and (MIDIByte3=127) //SCENE CHANGE CH16 CC109-116 val127
@@ -116,9 +123,6 @@
 		in_mode_select=FALSE	
 		last_pad = MIDIByte2-109
 		Call @PadDownScenesMode
-		
-	else
-	  SendMIDIThru
 	endif
 @End
 
