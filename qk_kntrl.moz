@@ -101,7 +101,7 @@
 	inst_state=[] // the stored val for each instr slot 4pages 16pad slots
 	inst_curr_page=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
 	inst_labels=[]
-	inst_color=[]
+	inst_colors=[]
 	inst_ccs=[] //# midi cc num sent chs 0-15 
 	inst_mins=[] //# range parameter for the val attribute
 	inst_maxs=[] //# range parameter for the val attribute
@@ -169,6 +169,10 @@
 	rmkr_instrs[5*8] = [61,63,63,64, 65,65,67,67] //ch6 hho
 	rmkr_instrs[6*8] = [71,80,74,77, 86,89,92,83] //ch7 perc1
 	rmkr_instrs[7*8] = [72,81,75,78, 87,90,93,84] //ch8 perc2
+	//inst pad copy variables
+	inst_pad_copied=FALSE //when inst layout unlocked copy/paste inst pad data option is available
+	copied_pad=[] //0chan, 1page, 2padnum. 3lbl, 4col, 5cc, 6min, 7max, 8val, 9type
+	last_inst_pad=-1
 @End
 
 @OnMidiCC //KNTRL midi implementation. Receive only CH16 - output to active channel
@@ -430,6 +434,8 @@
 		endif
 		Call @UpdateCurrentKnobset
 	else //Enter settings
+		inst_pad_copied=FALSE
+		FillArray copied_pad, 10, 0
 		Call @SetupSettingsLayout
 		Call @UpdateCurrentKnobset
 	endif
@@ -520,6 +526,11 @@
 			mixer_mode=last_pad-8
 			Call @SetupKnobset7
 			Call @SendMidiCCBackToKnobs
+		elseif last_pad=13 and NOT layouts_locked
+			//copy inst last inst pad pressed
+			copied_pad=[curr_chan, inst_curr_page[curr_chan], last_inst_pad, inst_labels[pad_slot], inst_colors[pad_slot], inst_ccs[pad_slot], inst_mins[pad_slot], inst_maxs[pad_slot], inst_def_vals[pad_slot], inst_msg_type[pad_slot]]
+			inst_pad_copied = TRUE
+			Call @SetupSettingsLayout	
 		elseif last_pad=13 and (NOT HostRunning) 
 			Call @PrintPreset
 		elseif last_pad=14
@@ -615,7 +626,26 @@
 @End
 
 @PadDownInstrMode
-	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + last_pad 
+	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + last_pad
+	last_inst_pad=last_pad
+	//Pasting an instrument pad slot on press
+	if not layouts_locked and inst_pad_copied
+		//0chan, 1page, 2padnum. 3lbl, 4col, 5cc, 6min, 7max, 8val, 9type
+		inst_labels[pad_slot]=copied_pad[3]
+		inst_colors[pad_slot]=copied_pad[4]
+		inst_ccs[pad_slot]=copied_pad[5]
+		inst_mins[pad_slot]=copied_pad[6]
+		inst_maxs[pad_slot]=copied_pad[7]
+		inst_def_vals[pad_slot]=copied_pad[8]
+		inst_msg_type[pad_slot]=copied_pad[9]
+		inst_pad_copied=FALSE
+		last_inst_pad=-1
+		FillArray copied_pad, 0, 10
+		edit_chan=curr_chan
+		Call @LabelInstrumentKnobs
+		Call @SetupLayoutChannels
+		Exit
+	endif
 	val=127 // for mute solo arm messages if required
 	chan = chan_midi_chs[curr_chan]
 	re_label_pad_on_press=FALSE
@@ -677,14 +707,6 @@
 	elseif lbl=61 or lbl=101 or lbl=119 or lbl=120 or lbl=124 or lbl=125 or lbl=126 or lbl=127
 		SendMIDICC chan, inst_ccs[pad_slot], 127 //buttons for plugins 
 		use_instr_knobset_a = NOT use_instr_knobset_a
-	elseif lbl=105 //drum comp solo
-	  if inst_state[pad_slot]=127
-			val=1
-		else
-		  val=127
-		endif
-		inst_state[pad_slot] = val
-		SendMIDICC chan, inst_ccs[pad_slot], val
 	elseif lbl=123 //send note
 	  SendMIDINoteOn chan, inst_state[pad_slot], 100
 	elseif inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc // PGM CHG MSG
@@ -700,9 +722,8 @@
 				chan_pgm[curr_chan] = new_pgm
 				SendMIDIBankSelect chan_midi_chs[curr_chan], chan_msb[curr_chan], chan_lsb[curr_chan]
 				SendMIDIProgramChange chan_midi_chs[curr_chan], chan_pgm[curr_chan]
-				//Log {Sent PGM MSG: CHAN:}, chan_midi_chs[curr_chan]+1, { PGM: }, chan_pgm[curr_chan], { MSB: }, chan_msb[curr_chan], { LSB: }, chan_lsb[curr_chan]
+				Log {Sent PGM MSG: CHAN:}, chan_midi_chs[curr_chan]+1, { PGM: }, chan_pgm[curr_chan], { MSB: }, chan_msb[curr_chan], { LSB: }, chan_lsb[curr_chan]
 			endif
-			use_instr_knobset_a = FALSE
 		endif
 	elseif inst_labels[pad_slot]=lbl_num_res_mxr //RESET MIXER
 		if last_pad = edit_pad //user hit same pad again. switch knobset
@@ -885,6 +906,18 @@
 	LabelPad 10,{ __MIXER__ }, {EQ}
 	LabelPad 11,{ __MIXER__ }, {FX}
 	LabelPad 12,{ __MIXER__ }, {MUTE SOLO} //mute solo
+	
+	if inst_pad_copied and NOT layouts_locked
+		LabelPad 13, {COPIED  }, { CHAN}, copied_pad[0]+1, {   }, { PAGE}, copied_pad[1]+1, {    }, { PAD#}, copied_pad[2]+1
+		p13=3
+	elseif (NOT inst_pad_copied) and (NOT layouts_locked)  
+		LabelPad 13, {COPY LAST INST PAD}
+		p13=col_mode_edit
+	else
+	  LabelPad 13, { }
+		p13=0
+	endif
+	
 	if layouts_locked
 		LabelPad 14, { ___INST___ }, {LAYOUTS 🔒}
 		p14=0
@@ -892,7 +925,7 @@
 	  LabelPad 14, { ___EDIT___ }, { LAYOUTS }
 		p14=col_mode_edit
 	endif
-	settings_cols = [0,p1,p2,p3, 5,5,5,5, 2,2,2,2, 2,0,p14,1]
+	settings_cols = [0,p1,p2,p3, 5,5,5,5, 2,2,2,2, 2,p13,p14,1]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
@@ -906,7 +939,6 @@
 	//When we want some pads update in settings without re-settng whole layout
 	//PADS
 	LabelPads {KNTRL : [ SETTINGS ]}
-	LabelPad 13, { }
 	//KNOBS
 	LabelKnobs {KNOBS}
 	if send_midi_feedback
@@ -1045,11 +1077,13 @@
 		LabelKnob 3, {RuisFM}
 	elseif layout = 10
 		LabelKnob 3, {Textures}
+	elseif layout = 11
+		LabelKnob 3, {4CopyUtil}
 	endif
 	SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 22, 0, 127
 	SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 6, 0, 127
 	SetKnobValue 2, TranslateScale chan_midi_chs[edit_chan], 0, 15, 0, 127
-	SetKnobValue 3, TranslateScale chan_layouts[edit_chan], 0, 10, 0, 127 
+	SetKnobValue 3, TranslateScale chan_layouts[edit_chan], 0, 11, 0, 127 
 @End
 
 @KnobChangeSet1
@@ -1074,7 +1108,7 @@
 		ColorPad edit_chan, chan_colors[edit_chan]
 	endif
 	if last_knob=3 and edit_chan<12
-		kval = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 10
+		kval = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 11
 		if kval <> chan_layouts[edit_chan]
 			chan_layouts[edit_chan]=kval
 			Call @BuildLayoutPages 
@@ -1103,6 +1137,7 @@
 		if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
 			LabelKnob 0, {LSB }, chan_lsb[curr_chan] // only one per channel
 			LabelKnob 1, {MSB }, chan_msb[curr_chan] // only one per channel
+			LabelKnob 2, { }
 			LabelKnob 3, {MAX }, chan_pgm_max[curr_chan]
 		else
 		  if inst_msg_type[pad_slot]=1
@@ -1247,7 +1282,7 @@
 				if inst_labels[pad_slot]=63 //Ruismaker drum ch#
 					drum_ch = inst_ccs[pad_slot]-22 //# drum ch cc's 22-29
 					val = rmkr_instrs[(8*drum_ch) + val] //see array of selectable drum sounds per ch
-					//Log {Drum ch: }, drum_ch, { Instrument#: }, val, { cc#: }, inst_ccs[pad_slot]
+					//Log {Drum ch: }, drum_ch, { Instrument#: }, val, { cc#: }, [pad_slot]
 				endif
 				inst_state[pad_slot] = val 
 				if inst_msg_type[pad_slot]>0 or inst_labels[pad_slot]=123
@@ -1524,7 +1559,7 @@
 @BuildLayoutPages
 	//Setup a default layout page
 	drambo_layout_active=FALSE //default. only for layouts 5 & 6 at present
-	for i = 1 to 2 //wiping layout so we only need to add back in what has changed
+	for i = 0 to 3 //wiping layout so we only need to add back in what has changed
 		def_labels[16*i] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 		def_colors[16*i] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_vals[16*i]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -1534,17 +1569,17 @@
 		def_mins[16*i]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_maxs[16*i]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 	endfor
-	Call @CreateGenericPage1and4
+	Call @CreateGenericPage1and2
 	if chan_layouts[edit_chan]=0 
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Free}
 	elseif chan_layouts[edit_chan]=1 
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Generic Synth}
-		def_colors[16*1] = [3,1,6,2,4,4,4,4,3,1,6,2,4,4,7,7]			
-		def_labels[16*1] = [24,25,26,27,28,29,30,31,     24,25,26,27,32,32,44,44]			
-		def_vals[16*1]   = [0,0,0,0, 0,64,20,20, 0,0,0,0, 0,0,0,0]			
-		def_colors[16*2] = [3,4,1,6,2,2,2,2,3,3,3,3,4,4,4,4]			
-		def_labels[16*2] = [19,20,76,21,28,29,30,31,     16,23,40,40,16,23,40,40]	
-		def_vals[16*2]   = [100,0,0,0,  0,64,20,20,  64,64,0,0, 64,64,0,0]
+		def_colors[16*2] = [3,1,6,2,4,4,4,4,3,1,6,2,4,4,7,7]			
+		def_labels[16*2] = [24,25,26,27,28,29,30,31,     24,25,26,27,32,32,44,44]			
+		def_vals[16*2]   = [0,0,0,0, 0,64,20,20, 0,0,0,0, 0,0,0,0]			
+		def_colors[16*3] = [3,4,1,6,2,2,2,2,3,3,3,3,4,4,4,4]			
+		def_labels[16*3] = [19,20,76,21,28,29,30,31,     16,23,40,40,16,23,40,40]	
+		def_vals[16*3]   = [100,0,0,0,  0,64,20,20,  64,64,0,0, 64,64,0,0]
 	elseif chan_layouts[edit_chan]=2
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:MIXBUS A-D}
 		mixbuseq_gui=[124,125,126,127]
@@ -1591,19 +1626,19 @@
 		def_vals[16*3]   = [0,5,37,51,0,127,0,0,0,0,0,0,0,0,0,0]
 		def_ccs[16*3]    = [78,79,80,81,82,83,84,124,86,87,88,89,90,91,92,93]
 	elseif chan_layouts[edit_chan]=5 //DRUMS
-		def_labels[16*1] = [1,22,29,67,1,22,29,67,1,22,29,67,1,22,29,67] //Pad control x4
-		def_colors[16*1] = [4,4,4,4, 5,5,5,5, 6,6,6,6, 7,7,7,7]
-		def_vals[16*1]   = [64,64,127,127,64,64,127,127,64,64,127,127,64,64,127,127]
 		def_labels[16*2] = [1,22,29,67,1,22,29,67,1,22,29,67,1,22,29,67] //Pad control x4
-		def_colors[16*2] = [1,1,1,1, 2,2,2,2, 3,3,3,3, 7,7,7,7]
+		def_colors[16*2] = [4,4,4,4, 5,5,5,5, 6,6,6,6, 7,7,7,7]
 		def_vals[16*2]   = [64,64,127,127,64,64,127,127,64,64,127,127,64,64,127,127]
+		def_labels[16*3] = [1,22,29,67,1,22,29,67,1,22,29,67,1,22,29,67] //Pad control x4
+		def_colors[16*3] = [1,1,1,1, 2,2,2,2, 3,3,3,3, 7,7,7,7]
+		def_vals[16*3]   = [64,64,127,127,64,64,127,127,64,64,127,127,64,64,127,127]
 	elseif chan_layouts[edit_chan]=6 //DRUMS2
-		def_labels[16*1] = [1,22,29,67,1,22,29,67,1,22,29,67,1,22,29,67] //Pad control x4
-		def_colors[16*1] = [4,4,4,4, 5,5,5,5, 6,6,6,6, 7,7,7,7]
-		def_vals[16*1]   = [64,64,127,127,64,64,127,127,64,64,127,127,64,64,127,127]
 		def_labels[16*2] = [1,22,29,67,1,22,29,67,1,22,29,67,1,22,29,67] //Pad control x4
-		def_colors[16*2] = [1,1,1,1, 2,2,2,2, 3,3,3,3, 7,7,7,7]
+		def_colors[16*2] = [4,4,4,4, 5,5,5,5, 6,6,6,6, 7,7,7,7]
 		def_vals[16*2]   = [64,64,127,127,64,64,127,127,64,64,127,127,64,64,127,127]
+		def_labels[16*3] = [1,22,29,67,1,22,29,67,1,22,29,67,1,22,29,67] //Pad control x4
+		def_colors[16*3] = [1,1,1,1, 2,2,2,2, 3,3,3,3, 7,7,7,7]
+		def_vals[16*3]   = [64,64,127,127,64,64,127,127,64,64,127,127,64,64,127,127]
 	elseif chan_layouts[edit_chan]=7
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:SKAKA}
 		def_vals[16*0]   = [64,127,0,0, 64,127,0,0, 64,127,0,0, 64,127,0,0]
@@ -1621,35 +1656,48 @@
 		def_ccs[16*3]    = [78,8,124,125,126,82,83,84,117,118,119,120,121,122,123,93]
 	elseif chan_layouts[edit_chan]=8
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Ruismkr}
-		def_labels[16*1] = [62,-1,53,51,-1,124,47,0,22,29,67,27,48,46,2,0]
-		def_colors[16*1] = [0,0,4,4,0,0,4,4,6,6,6,6,6,6,6,6]
-		def_vals[16*1]   = [0,0,0,0,64,0,0,87,64,40,64,0,0,0,64,64]
-		def_ccs[16*1]    = [110,31,102,106,34,124,105,103,14,15,16,21,19,20,18,17]
-		def_maxs[16*1]   = [7,7,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-		def_labels[16*2] = [63,63,63,63,63,63,63,63,0,0,0,0,0,0,0,0]
-		def_colors[16*2] = [1,1,2,2,3,3,4,4,1,1,2,2,3,3,4,4]
-		def_vals[16*2]   = [0,0,0,0,0,0,0,0,64,64,64,64,64,64,64,64]
-		def_ccs[16*2]    = [22,23,24,25,26,27,28,29,33,41,49,57,66,74,82,90]
-		def_maxs[16*2]   = [7,7,7,7,7,7,7,7,127,127,127,127,127,127,127,127]
+		def_labels[16*2] = [62,-1,53,51,-1,124,47,0,22,29,67,27,48,46,2,0]
+		def_colors[16*2] = [0,0,4,4,0,0,4,4,6,6,6,6,6,6,6,6]
+		def_vals[16*2]   = [0,0,0,0,64,0,0,87,64,40,64,0,0,0,64,64]
+		def_ccs[16*2]    = [110,31,102,106,34,124,105,103,14,15,16,21,19,20,18,17]
+		def_maxs[16*2]   = [7,7,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		def_labels[16*3] = [63,63,63,63,63,63,63,63,0,0,0,0,0,0,0,0]
+		def_colors[16*3] = [1,1,2,2,3,3,4,4,1,1,2,2,3,3,4,4]
+		def_vals[16*3]   = [0,0,0,0,0,0,0,0,64,64,64,64,64,64,64,64]
+		def_ccs[16*3]    = [22,23,24,25,26,27,28,29,33,41,49,57,66,74,82,90]
+		def_maxs[16*3]   = [7,7,7,7,7,7,7,7,127,127,127,127,127,127,127,127]
 	elseif chan_layouts[edit_chan]=9
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:RuisFM}
-		def_labels[16*1] = [16,26,62,10,25,124,47,1,22,41,40,28,29,48,2,0]
-		def_colors[16*1] = [4,4,0,5,5,0,5,5,6,6,6,6,6,6,6,6]
-		def_vals[16*1]   = [0,0,1,0,0,64,0,100,64,64,64,64,64,0,64,100]
-		def_ccs[16*1]    = [14,16,110,25,24,124,105,103,15,17,18,20,19,21,22,23]
-		def_maxs[16*1]   = [5,7,5,127,127,127,127,127,127,127,127,127,127,127,127,127]
-		def_labels[16*2] = [-1,-1,-1,-1, -1,-1,-1,-1, 0,0,0,0, 0,0,-1,124]
-		def_colors[16*2] = [0,0,0,0,0,0,0,0, 1,2,3,4,5,6,0,0]
-		def_vals[16*2]   = [0,0,0,0,0,0,0,0, 100,100,100,100,100,100,0,64]
-		def_ccs[16*2]    = [79,80,81,82, 83,84,85,86,39,51,63,76,88,100,52,124]
+		def_labels[16*2] = [16,26,62,10,25,124,47,1,22,41,40,28,29,48,2,0]
+		def_colors[16*2] = [4,4,0,5,5,0,5,5,6,6,6,6,6,6,6,6]
+		def_vals[16*2]   = [0,0,1,0,0,64,0,100,64,64,64,64,64,0,64,100]
+		def_ccs[16*2]    = [14,16,110,25,24,124,105,103,15,17,18,20,19,21,22,23]
+		def_maxs[16*2]   = [5,7,5,127,127,127,127,127,127,127,127,127,127,127,127,127]
+		def_labels[16*3] = [-1,-1,-1,-1, -1,-1,-1,-1, 0,0,0,0, 0,0,-1,124]
+		def_colors[16*3] = [0,0,0,0,0,0,0,0, 1,2,3,4,5,6,0,0]
+		def_vals[16*3]   = [0,0,0,0,0,0,0,0, 100,100,100,100,100,100,0,64]
+		def_ccs[16*3]    = [79,80,81,82, 83,84,85,86,39,51,63,76,88,100,52,124]
 	elseif chan_layouts[edit_chan]=10 //TEXTURES
 		drambo_layout_active=TRUE
-		def_labels[16*1] = [1,22,29,11, 1,10,40,11, 1,0,0,0, 1,10,29,11] //??
-		def_colors[16*1] = [2,2,2,2, 4,4,4,4, 1,1,1,1, 5,5,5,5] 
-		def_vals[16*1]   = [64,64,127,127, 64,0,0,127, 64,64,64,64, 64,64,127,127]
-		def_labels[16*2] = [1,78,110,11, 1,78,110,11, 1,78,110,11, 1,78,110,11] //??
-		def_colors[16*2] = [3,5,5,5, 3,5,5,5, 3,5,5,5, 3,5,5,5]
-		def_vals[16*2]   = [64,127,0,127,64,127,0,127,64,127,0,127,64,127,0,127]
+		def_labels[16*2] = [1,22,29,11, 1,10,40,11, 1,0,0,0, 1,10,29,11] //??
+		def_colors[16*2] = [2,2,2,2, 4,4,4,4, 1,1,1,1, 5,5,5,5] 
+		def_vals[16*2]   = [64,64,127,127, 64,0,0,127, 64,64,64,64, 64,64,127,127]
+		def_labels[16*3] = [1,78,110,11, 1,78,110,11, 1,78,110,11, 1,78,110,11] //??
+		def_colors[16*3] = [3,5,5,5, 3,5,5,5, 3,5,5,5, 3,5,5,5]
+		def_vals[16*3]   = [64,127,0,127,64,127,0,127,64,127,0,127,64,127,0,127]
+	elseif chan_layouts[edit_chan]=11 //4COPY Utility layout to use for copying pads
+		def_labels[16*0] = [66,120,125,126, 127,124,64,123, 57,58,61,60, 59,65,-1,-1] //BUTTONS
+		def_labels[16*1] = [4,5,6,7,12,13,14,15, 46,47,48,49,50,51,42,52] //FX
+		def_labels[16*2] = [16,19,20,21, 76,54,45,23, 28,29,30,31, 24,25,26,27] //OSC ADSR  FILTER
+		def_labels[16*3] = [26,32,44,43, 40,41,33,35, 37,53,26,39, 75,17,69,77] //MOD
+		def_colors[16*0] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+		def_colors[16*1] = [4,4,4,4, 4,4,4,4, 4,4,4,4, 4,4,4,4]
+		def_colors[16*2] = [6,6,6,6, 6,6,6,6, 3,3,3,3, 3,3,3,3]
+		def_colors[16*3] = [5,5,5,5, 5,5,5,5, 5,5,5,5, 5,5,5,5]
+		def_vals[16*0]   = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+		def_vals[16*1]   = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+		def_vals[16*2]   = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+		def_vals[16*3]   = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
 	endif	
 	pad_slot = (64*edit_chan)
 	CopyArray def_labels, inst_labels[pad_slot], 64 //4pages of 16pads
@@ -1663,16 +1711,16 @@
 	endfor
 @End
 
-@CreateGenericPage1and4
+@CreateGenericPage1and2
 	//Create a mixer layout on page 4 for all channels as a default. can be overwritten
-	def_colors[16*0] = [4,4,4,4,4,4,4,4, 6,0,0,0,4,0,2,2]			
-	def_labels[16*0] = [38,38,38,38,38,38,38,38, 35,64,65,66,0,124,57,58]			
-	def_vals[16*0]   = [0,0,0,0,0,0,0,0,   0,0,0,0,90,0,0,0]			
-	def_ccs[16*0]    = [30,31,32,33, 34,35,36,37, 0, 121,122,123, 43,44,45,46]
-	def_colors[16*3] = [2,2,6,6,3,3,3,3,4,4,4,4,0,0,0,0]			
-	def_labels[16*3] = [0, 1,4, 5,  10, 8, 9,11, 12,13,14,15, 124,125,126,127]			
-	def_ccs[16*3]    = [7 ,6,10,11, 16,14,15,17, 12,13,14,15, 124,125,126,127]
-	def_vals[16*3]   = [100,64,0,0,   0,64,64,127, 0,0,0,0, 0,0,0,0]
+	def_colors[16*0] = [2,2,6,6,3,3,3,3,4,4,4,4,0,0,0,0]			
+	def_labels[16*0] = [0, 1,4, 5,  10, 8, 9,11, 12,13,14,15, 124,125,126,127]			
+	def_ccs[16*0]    = [7 ,6,10,11, 16,14,15,17, 12,13,14,15, 124,125,126,127]
+	def_vals[16*0]   = [100,64,0,0,   0,64,64,127, 0,0,0,0, 0,0,0,0]
+	def_colors[16*1] = [4,4,4,4,4,4,4,4, 6,0,0,0,4,0,2,2]			
+	def_labels[16*1] = [38,38,38,38,38,38,38,38, 35,64,65,66,0,124,57,58]			
+	def_vals[16*1]   = [0,0,0,0,0,0,0,0,   0,0,0,0,90,0,0,0]			
+	def_ccs[16*1]    = [30,31,32,33, 34,35,36,37, 0, 121,122,123, 43,44,45,46]
 @End
 
 @SetupLayoutChannels
