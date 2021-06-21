@@ -1724,7 +1724,7 @@
 	
 @OnKnobChange2
 	//# Knob change router
-  if knob_set = 0 
+	if knob_set = 0 
     Call @KnobChangeSet0 //# scene settings
 	elseif knob_set = 2
     Call @KnobChangeSet2 //# TRIGGER CONFIG

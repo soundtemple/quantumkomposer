@@ -1285,7 +1285,7 @@
 	LabelKnob 2, {RndScn}, rnd_scn_chance
 	LabelKnob 3, {RndPtn}, rnd_ptn_chance
 	LabelKnobs { }
-	LabelPads {Settings}
+	LabelPads {BEATS : [ SETTINGS ]      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
 @End
 
 @SetupKnobset0 //# Scene settings
@@ -2491,7 +2491,7 @@
 		mode=return_to_mode //# cancel cp/del
 	endif
 	copy_paste_status=0 //# In case COPYPASTE aborted
-	LabelPads {SETTINGS:      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
+	LabelPads {BEATS : [ SETTINGS ]      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
 	knob_set=99
 	Call @SetupKnobset99 //settings knobs
 	if (songmode = 0)

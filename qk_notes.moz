@@ -1284,7 +1284,7 @@
 	LabelKnob 2, {RndScn}, rnd_scn_chance
 	LabelKnob 3, {RndPtn}, rnd_ptn_chance
 	LabelKnobs { }
-	LabelPads {Settings}
+	LabelPads {NOTES : [ SETTINGS ]      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
 @End
 @SetupKnobset0 //# Scene settings
 	knob_set = 0
@@ -2638,7 +2638,7 @@
 @End
 
 @LabelSettingsPads
-	LabelPads {SETTINGS:      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
+	LabelPads {NOTES : [ SETTINGS ]      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
 	if (songmode = 0)
 		LabelPad 0, {PLAYSONG: Active }
 	elseif (songmode = 1)
