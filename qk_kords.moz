@@ -26,7 +26,7 @@
 	  use_turn_around = TRUE //# last chord as turn around on last bar of scene
 		//# used for LED feedback
 		last_pad=0 
-		mgen_device_id=4 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=8 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		shift_is_down=FALSE
 	  led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
@@ -35,8 +35,7 @@
 		txpose_w_circle_fifths=FALSE
 		copy_mode=-1
 		SetTimerInterval 1000
-		controlled_by_scene_master=TRUE
-	  Call @TransposeCalcArrays
+		Call @TransposeCalcArrays
 	  Call @InitKnobVariables //# All knob settings on start
 		Call @SysexMessageSetup
 	  Call @SetupChordsScenes
@@ -1518,11 +1517,7 @@
 	scn_duration = scene_bank[current_scene * sc_size]
 	scn_txpose = scene_bank[(current_scene * sc_size) + sc_txp_slot]
 	scn_preset = scene_bank[(current_scene * sc_size) + sc_preset_slot]
-	if controlled_by_scene_master
-		LabelKnob 0, {SCN.MSTR}
-	else
-		LabelKnob 0, {Duration}
-	endif
+	LabelKnob 0, {Duration}
 	LabelKnob 1, {Transpose}
 	LabelKnob 2, {Preset }, scn_preset
 	if txpose_w_circle_fifths
@@ -1537,13 +1532,15 @@
 @End
 @KnobChangeSet0
 	//# scene settings
-	if last_knob = 0 and not controlled_by_scene_master
+	if last_knob = 0 and ShiftPressed
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_bank[current_scene * sc_size] 	
 		  scene_bank[current_scene * sc_size] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
 			Call @UpdateScenesWithDuration
 	  endif
+	elseif last_knob = 0 and NOT ShiftPressed
+		LabelPads {Normally controlled by Scene Master. Hold SHIFT to change.}
   endif
   if last_knob = 1
 	  scn_txpose = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 12
@@ -2097,6 +2094,7 @@
 			knob_set = 1
 		endif		
 		Call @SetupLayout
+		Call @OnPadDown_KnobSetSelect
 	else
 		Call @SetupSettingsLayout
 	endif

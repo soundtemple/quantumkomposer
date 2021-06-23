@@ -34,7 +34,6 @@
 		sequencing_paused=FALSE //Dont send new triggers out for any channels. trigger mode only
 		SetTimerInterval 1000
 		time_for_turnaround=FALSE
-		controlled_by_scene_master=TRUE
 		Call @InitKnobVariables //# All knob settings on load
 		Call @SysexMessageSetup
 		Call @SetupSequences
@@ -1260,7 +1259,7 @@
 @End
 @KnobChangeSet0 
 	// scene / sequence durations
-	if last_knob = 0 and not controlled_by_scene_master
+	if last_knob = 0 and ShiftPressed
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_durs[current_scene] 	
 		  scene_durs[current_scene] = scn_duration
@@ -1269,6 +1268,8 @@
 	  endif
 		scn_to_label = current_scene
 		Call @LabelScenePad
+	elseif last_knob = 0 and NOT ShiftPressed
+		LabelPads {Normally controlled by Scene Master. Hold SHIFT to change.}
   endif
 	if last_knob = 2
 	  pattn_duration = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 16
@@ -1286,11 +1287,7 @@
 @LabelKnobset0
 	pattn_slot = (current_scene * 8) + current_pattn
 	LabelKnobs {DURATIONS }
-	if controlled_by_scene_master
-		LabelKnob 0, {SCN.MSTR}
-	else
-		LabelKnob 0, {SCN}, current_scene+1, { }, scene_durs[current_scene], {b}
-	endif
+	LabelKnob 0, {SCN}, current_scene+1, { }, scene_durs[current_scene], {b}
 	LabelKnob 1, { }
 	LabelKnob 2, {SEQ}, current_pattn+1, { },  pattn_durs[pattn_slot], {b}
 	LabelKnob 3, { }

@@ -5,7 +5,7 @@
 	ShowLayout 2
 	LabelPads {[ QK:AUTOM ]}
 	if unassigned scene_durs //# duration in first scene
-		mgen_device_id=8 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=4 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		mode = 0 //# 0Scenes, 1Channels, 2Kontrol
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
@@ -28,7 +28,6 @@
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
 		shift_is_down=FALSE
-		controlled_by_scene_master=TRUE
 		Call @GetAutoRamps
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SysexMessageSetup
@@ -120,7 +119,7 @@
 		automation_ccs    = [46,47,58,60,  1,17,99,99,   1,17,1,17,    1,17,1,17]
 		automation_cols   = [6,6,6,6,      1,1,2,2,      2,2,2,2,      4,4,4,4]
 		default_vals      = [0,20,0,127,   0,127,0,127,  0,127,0,127,  0,127,0,127]
-		mgen_device_id=7
+		mgen_device_id=4
 		SetShortName {AUTOM3}
 	elseif autom_preset=2 //Lead-scaps-rizer-harmony
 		automation_labels = [51,6,51,6,    56,6,55,40,   52,6,54,6,    53,6,57,6]
@@ -128,7 +127,7 @@
 		automation_ccs    = [1,17,1,17,    1,17,99,99,   1,17,1,17,    1,17,1,17]
 		automation_cols   = [4,4,4,4,      6,6,6,6,      3,3,3,3,      3,3,3,3]
 		default_vals      = [0,127,0,127,  0,127,0,0,    0,127,0,127,  0,127,0,127]
-		mgen_device_id=8
+		mgen_device_id=4
 		SetShortName {AUTOM4}
 	elseif autom_preset=3 //Mixbus1-4: HPF-LPF-FX1-FX2
 		automation_labels = [42,43,44,45,  42,43,44,45,  42,43,44,45,  42,43,44,45]
@@ -136,7 +135,7 @@
 		automation_ccs    = [40,41,117,39, 56,57,118,55, 72,73,119,71, 88,89,120,87]
 		automation_cols   = [2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5]
 		default_vals      = [0,127,0,0,    0,127,0,0,    0,127,0,0,    0,127,0,0]
-		mgen_device_id=9
+		mgen_device_id=4
 		SetShortName {AUTOM9}
 	else //empty template
 		FillArray automation_labels, 0, 16
@@ -144,7 +143,7 @@
 		FillArray automation_ccs, 0, 16
 		FillArray automation_cols, 0, 16
 		FillArray default_vals, -1, 16
-		mgen_device_id=7
+		mgen_device_id=4
 		SetShortName {AUTOM}
 	endif
 	CopyArray default_vals, autom_control_vals, 16 //update control knob vals to default vals
@@ -405,11 +404,13 @@
 	Log {MODE: }, mode
 	if in_mode_select //# Exit SHIFT MODE
 		in_mode_select = FALSE	
-		if mode=0
-			Call @SetupLayoutScenes
-		elseif mode=2 //AUTOM
+		if mode=2 //AUTOM
 			Call @LabelAutomationPads
 			Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
+		else
+ 			mode=0 //SCENES
+			Call @SetupLayoutScenes
+			Call @SetupKnobset0
 		endif
 		Call @UpdateCurrentKnobset		
 	else //not in mode select
@@ -845,11 +846,7 @@
 	LabelPads {[ AUTOM ]  Scene: }, current_scene+1
 	LabelKnobs {SCENE SETUP}
 	LabelKnob 0, {Edit scn }, edit_scene+1
-	if controlled_by_scene_master
-		LabelKnob 1, {SCN.MSTR}
-	else
-		LabelKnob 1, {Bars }, scene_durs[edit_scene]
-	endif
+	LabelKnob 1, {Bars }, scene_durs[edit_scene]
 	LabelKnob 2, { }
 	LabelKnob 3, { }
 	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
@@ -864,16 +861,14 @@
 			edit_scene = val
 			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
 			LabelKnob 0, {Edit scn }, edit_scene+1
-			if controlled_by_scene_master
-				LabelKnob 1, {SCN.MSTR}
-			else
-				LabelKnob 1, {Bars }, scene_durs[edit_scene]
-			endif
+			LabelKnob 1, {Bars }, scene_durs[edit_scene]
 		endif
 	endif
-	if last_knob = 1 and not controlled_by_scene_master
+	if last_knob = 1 and ShiftPressed
 		scn_duration = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32
 		scene_durs[edit_scene] = scn_duration
+	elseif last_knob = 1 and NOT ShiftPressed
+		LabelPads {Normally controlled by Scene Master. Hold SHIFT to change.}
 	endif
 	scn_to_label = current_scene
 	Call @SetupLayoutScenes

@@ -21,7 +21,7 @@
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		use_turn_around = TRUE //# last pattn as turn around on last bar of scene
-		mgen_device_id=5 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=4 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		shift_is_down=FALSE
@@ -31,7 +31,6 @@
 		pattn_beat_count = 0
 		scene_beat_count = 0
 		trigger_pad_on_tap=TRUE
-		controlled_by_scene_master=TRUE
     Call @InitKnobVariables //# All knob settings on load
 		Call @SysexMessageSetup
 		Call @SetupSequences
@@ -196,7 +195,7 @@
 		scale_slot = sel_scale*50
 		notes_in_set=8
 		ch_start_notes=[0,2,4,6]
-		mgen_device_id=5
+		mgen_device_id=4
 		if sel_scale=3 // DC Patt
 			notes_in_set=16
 			ch_start_notes=[0,0,0,0]
@@ -212,7 +211,6 @@
 		elseif sel_scale=8 // DrPERCS
 			notes_in_set=8
 			midi_out_chs=[1,1,1,1]
-			mgen_device_id=5
 			ch_start_notes=[0,2,4,6]
 		elseif sel_scale=9 //HAMMERHEAD
 			notes_in_set=8
@@ -1292,11 +1290,7 @@
 	knob_set = 0
 	LabelKnobs {Scene }, current_scene+1, { setup}
 	LabelPads {[ BEATS ]  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
-	if controlled_by_scene_master
-		LabelKnob 0, {SCN.MSTR}
-	else
-		LabelKnob 0, {Duration}
-	endif
+	LabelKnob 0, {Duration}
 	LabelKnob 1, {Swing }, scene_swing[current_scene], {%}
 	LabelKnob 2, { }
 	LabelKnob 3, { }
@@ -1305,13 +1299,15 @@
 	SetKnobValue 3, 0
 @End
 @KnobChangeSet0 //# scene settings
-	if last_knob = 0 and not controlled_by_scene_master
+	if last_knob = 0 and ShiftPressed
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_durs[current_scene] 	
 		  scene_durs[current_scene] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
 			Call @UpdateScenesWithDuration
 	  endif
+	elseif last_knob = 0 and NOT ShiftPressed
+		LabelPads {Normally controlled by Scene Master. Hold SHIFT to change.}
   endif
   if last_knob = 1
 	  scn_swing = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 100
@@ -2476,7 +2472,7 @@
 		if mode>=8
 			in_seq_mode=TRUE
 		endif
-		Call @OnPadDown_KnobSetSelect				
+		Call @OnPadDown_KnobSetSelect
 		Call @SetupLayout
 	else
 		Call @SetupSettingsLayout
