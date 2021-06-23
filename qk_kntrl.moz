@@ -313,8 +313,6 @@
 	if MIDICommand=0xD0 or MIDICommand=0xE0 //Aftertouch or pitchbend
 		if MIDIChannel=15
 			SendMIDIThruOnCh chan_midi_chs[curr_chan]
-		else
-		  SendMIDIThru
 		endif
 	endif
 @End
