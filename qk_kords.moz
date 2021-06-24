@@ -2008,7 +2008,7 @@
 	elseif active_ch_range=3
 		LabelKnob 3, {Active 1-12}
 	elseif active_ch_range=4
-		LabelKnob 3, {Active 1-16}
+		LabelKnob 3, {Active 1-15}
 	endif
 	Call @LabelMidiChModesSettingsPad
 	if not mode_changed_for_ch
