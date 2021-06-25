@@ -58,6 +58,7 @@
 	sx_rtn_to_song=22 //return to song 
 	sx_glbl_swing=23 //global swing
 	sx_copy_scene=89 //Copy paste contents of whole scene
+	sx_custom_knobs_update=63 //Send channel and 4kntrl knobs and 4 mgen knobs to QK2KBS for led feedback
 	//QK message types - knobs change messages
 	sx_kntrl_knobs=36 //KNTRL 4 knobs --to knobs controller
 	sx_mgen_knobs=40 //MGEN 4 knobs --to knobs controller
@@ -193,9 +194,12 @@
 	// ccs117-127: CH Mixer controls
 	//Log {Lowr: }, lower_mx_ccs_max, { uppr: }, upper_mx_ccs_min
 	if ready_to_rec_knob_vals and (custom_knobs[0] <> -1) and MIDIChannel= custom_knobs[0]
-		Log {Setting config for pad: }, last_pad
 		custom_knobs[last_pad+1] = MIDIByte2
 		Call @SetupLayoutKnobsConfig	
+		msg_type=sx_custom_knobs_update
+		CopyArray custom_knobs, msg_data, 9
+		len_data=9
+		Call @SendSysex //update QK2KBS so it can send midi feedback to controller
 	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and MIDIByte2=custom_knobs[5] or MIDIByte2=custom_knobs[6] or MIDIByte2=custom_knobs[7] or MIDIByte2=custom_knobs[8]  
 		//custom selected mgen device knobs
 		if MIDIByte2=custom_knobs[5] 
@@ -1318,6 +1322,10 @@
 			custom_knobs[0] = val
 			LabelKnob 0, {Chan:}, custom_knobs[0]+1
 			Call @SetupLayoutKnobsConfig
+			msg_type=sx_custom_knobs_update
+			CopyArray custom_knobs, msg_data, 9
+			len_data=9
+			Call @SendSysex //update QK2KBS so it can send midi feedback to controller
 		endif
 	endif
 @End
