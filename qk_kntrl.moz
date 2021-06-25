@@ -26,7 +26,7 @@
 		in_mode_select = TRUE //# Toggle for changing modes mode
 		number_of_modes = 16 //# Change in operational mode 
 		curr_chan=0 //# 0-15 KNTRL channels + Channel Select + M-Kontrol Channel
-		midi_controller=[15,36,37,38,39] //midi controller channel then 4 ccs for kntrl of kntrl knobs
+		kntrl_knobs=[15,36,37,38,39] //midi controller channel then 4 ccs for kntrl of kntrl knobs
 		loop_song_mode=TRUE
 		sel_mgen_dev=0
 		knob_set=99 //settings knobset
@@ -160,6 +160,9 @@
 	mgen_colors =  [3,3,7,5,2,4,4,6,2,0,0,0,2,0,0,0]
 	mgen_guis = [91,92,93,94,95,96,97,98,99,0,0,0,0,0,0,0]
 	mgen_ccs=[40,41,42,43]	//cc's that control the 4 knobs
+	// in case custom knobs config is required. they get converted to mgen_ccs and kntrl_knobs ch=-1 no custom 
+	custom_knobs = [-1, 1,2,3,4, 5,6,7,8] 
+	ready_to_rec_knob_vals=FALSE // bool for setting custom knob vals
 	//Ruismaker instruments per channel 
 	rmkr_instrs[0*8] = [10,11,12,13, 14,15,16,17] //ch1 8 kiks all arrays len=8
 	rmkr_instrs[1*8] = [70,73,76,79, 82,85,88,91] //ch4 low toms
@@ -189,7 +192,38 @@
 	// CCs109-116: scene change - this is how kntrl communicates with other QK devices for scene update
 	// ccs117-127: CH Mixer controls
 	//Log {Lowr: }, lower_mx_ccs_max, { uppr: }, upper_mx_ccs_min
-	if MIDIChannel <> 15
+	if ready_to_rec_knob_vals and (custom_knobs[0] <> -1) and MIDIChannel= custom_knobs[0]
+		Log {Setting config for pad: }, last_pad
+		custom_knobs[last_pad+1] = MIDIByte2
+		Call @SetupLayoutKnobsConfig	
+	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and MIDIByte2=custom_knobs[5] or MIDIByte2=custom_knobs[6] or MIDIByte2=custom_knobs[7] or MIDIByte2=custom_knobs[8]  
+		//custom selected mgen device knobs
+		if MIDIByte2=custom_knobs[5] 
+			last_knob=0
+		elseif MIDIByte2=custom_knobs[6]
+			last_knob=1
+		elseif MIDIByte2=custom_knobs[7]
+			last_knob=2
+		elseif MIDIByte2=custom_knobs[8]
+			last_knob=3
+		endif
+		SendMIDICC 15, mgen_ccs[last_knob], MIDIByte3
+		
+	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and MIDIByte2=custom_knobs[1] or MIDIByte2=custom_knobs[2] or MIDIByte2=custom_knobs[3] or MIDIByte2=custom_knobs[4]  
+		//custom selected kntrl device knobs
+		if MIDIByte2=custom_knobs[1] 
+			last_knob=0
+		elseif MIDIByte2=custom_knobs[2]
+			last_knob=1
+		elseif MIDIByte2=custom_knobs[3]
+			last_knob=2
+		elseif MIDIByte2=custom_knobs[4]
+			last_knob=3
+		endif
+		SetKnobValue last_knob, MIDIByte3 // change knob position
+		Call @OnKnobChange2 //handle that change 
+		
+	elseif MIDIChannel <> 15
 		Exit //other cc's must be on ch16 (1-16)
 		
 	elseif MIDIByte2<=17 or MIDIByte2>=117 //MIXER CONTROLS  curr_ch (21<>113)
@@ -372,12 +406,12 @@
 
 @SendMidiCCBackToKnobs
 	//# Update controller knob vals with midi cc
-	// Log {sending midi to CONTROLLER ... CH:}, midi_controller[0]+1, { cc#}, midi_controller[1], {-},midi_controller[4]
+	// Log {sending midi to CONTROLLER ... CH:}, kntrl_knobs[0]+1, { cc#}, kntrl_knobs[1], {-},kntrl_knobs[4]
 	if send_midi_feedback
-		SendMidiCC midi_controller[0], midi_controller[1], (Round GetKnobValue 0)
-		SendMidiCC midi_controller[0], midi_controller[2], (Round GetKnobValue 1), 25
-		SendMidiCC midi_controller[0], midi_controller[3], (Round GetKnobValue 2), 50
-		SendMidiCC midi_controller[0], midi_controller[4], (Round GetKnobValue 3), 75
+		SendMidiCC kntrl_knobs[0], kntrl_knobs[1], (Round GetKnobValue 0)
+		SendMidiCC kntrl_knobs[0], kntrl_knobs[2], (Round GetKnobValue 1), 25
+		SendMidiCC kntrl_knobs[0], kntrl_knobs[3], (Round GetKnobValue 2), 50
+		SendMidiCC kntrl_knobs[0], kntrl_knobs[4], (Round GetKnobValue 3), 75
 		for i = 0 to 14 //send selected mixer vals for curr_chan back to midi controller
 			val = mixer_state[(curr_chan*20)+i] //LED FEEDBACK
 			SendMIDICC 15, curr_chan_ccs_update_controller[i], val, (i*40)+40
@@ -452,7 +486,9 @@
 	pad_is_down = TRUE
 	if in_mode_select
 		if last_pad=0
-			Exit //not in use
+			mode=3
+			in_mode_select=FALSE
+			Call @SetupLayoutKnobsConfig
 		elseif last_pad=1 //# ___MG___ KONTRL CHANNEL
 			mode=6
 			in_mode_select=FALSE
@@ -554,6 +590,10 @@
 	  SendMIDINoteOff chan_midi_chs[curr_chan], inst_ccs[pad_slot], 64
 	endif
 	StopTimer
+	ready_to_rec_knob_vals=FALSE
+	if mode=3 and last_pad<=7
+		Call @SetupLayoutKnobsConfig
+	endif
 @End
 
 @ModeSetup
@@ -565,10 +605,8 @@
 		Exit
 	elseif mode=1 // channels mode
 		Call @PadDownChannelsMode
-	elseif mode=2 // midi learn
-		Call @PadDownMidiLearnMode
-	elseif mode=3 // unused
-		//log {unused}
+	elseif mode=3 // configure midi controller knobs
+		Call @PadDownConfigureKnobs
 	elseif mode=4 // unused
 		//log {unused}
 	elseif mode=5 // INSTRUMENT mode
@@ -860,12 +898,29 @@
 	endif
 @End
 
+@PadDownConfigureKnobs
+	if last_pad<=7
+		ready_to_rec_knob_vals=TRUE
+		if custom_knobs[0]>=0
+			ColorPad last_pad+8, 2
+			LabelPad last_pad+8, {____^____}, { turn knob on controller }
+		else
+			ColorPad last_pad+8, 1
+		  LabelPad last_pad+8, { Set knobs channel first }
+		endif
+	endif
+@End
+
 @SetupSettingsLayout
 	// #Label all settings mode pads
 	in_mode_select = TRUE
 	ShowLayout 2
 	Call @LabelSettings
-	LabelPad 0, { }
+	LabelPad 0, {CONFIGURE KNOBS}
+	kc_col=0
+	if custom_knobs[0]>=0
+		kc_col=3
+	endif
 	LabelPad 1, { __MGEN__ }, { KONTROL }
 	if edit_mode_active
 		LabelPad 2, {<= EDIT =>}
@@ -923,7 +978,7 @@
 	  LabelPad 14, { ___EDIT___ }, { LAYOUTS }
 		p14=col_mode_edit
 	endif
-	settings_cols = [0,p1,p2,p3, 5,5,5,5, 2,2,2,2, 2,p13,p14,1]
+	settings_cols = [kc_col,p1,p2,p3, 5,5,5,5, 2,2,2,2, 2,p13,p14,1]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
@@ -966,7 +1021,7 @@
 	  elseif knob_set = 2
 	  	Call @KnobChangeSet2	//# Instrument knobs unlocked
 	  elseif knob_set = 3
-	  	Call @KnobChangeSet3	//# Midi control usage
+	  	Call @KnobChangeSet3	//# Configure knobs 
 	  elseif knob_set = 4
 	  	Call @KnobChangeSet4	//# Instrument knobs locked
 	  elseif knob_set = 5
@@ -1005,7 +1060,7 @@
 				Call @Setupknobset2 //setup INSTRUMENT KNOBS
 			endif
 	  elseif knob_set = 3
-	  	Call @SetupKnobset3	//# unused
+	  	Call @SetupKnobset3	//# Configure knobs
 	  elseif knob_set = 4
 	  	Call @SetupKnobset4	//# unused
 	  elseif knob_set = 5
@@ -1238,6 +1293,35 @@
 	Call @LabelInstrumentKnobs
 @End
 
+@SetupKnobset3
+	knob_set = 3
+	LabelPads {KNTRL : [ CONFIGURE KNOBS ] - 4 KNTRL knobs & 4 selected MGEN knobs. (hold pad. turn knob)}
+	LabelKnobs {KNOBS CHANNEL (ALL) }
+	if custom_knobs[0] = -1
+		LabelKnob 0, {Not in use}
+	else
+		LabelKnob 0, {Chan:}, custom_knobs[0]+1
+	endif
+	LabelKnob 1, { } 
+	LabelKnob 2, { }
+	LabelKnob 3, { }
+	SetKnobValue 0, TranslateScale custom_knobs[0], -1, 14, 0, 127
+	SetKnobValue 1, 0
+	SetKnobValue 2, 0
+	SetKnobValue 3, 0 
+@End
+
+@KnobChangeSet3
+	if last_knob = 0 // KNOBS CHANNEL
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 14 // change page
+		if val <> custom_knobs[0]
+			custom_knobs[0] = val
+			LabelKnob 0, {Chan:}, custom_knobs[0]+1
+			Call @SetupLayoutKnobsConfig
+		endif
+	endif
+@End
+	
 @SetupKnobset4
 	//# INTRUMENT KONTROL MODE with locked layouts active
 	knob_set=4
@@ -1490,6 +1574,39 @@
 		SendMIDICC 15, mgen_ccs[last_knob], mgen_vals[last_knob] //LED FEEDBACK
 	endif
 	//Log {sending Mgen CH15 CC#},mgen_ccs[pad_slot+last_knob], { - }, mgen_vals[pad_slot+last_knob]
+@End
+
+
+@SetupLayoutKnobsConfig
+	for i = 8 to 15
+		LabelPad i, { }
+		ColorPad i, 0
+		if custom_knobs[0]>=0
+			ColorPad i-8,3
+		else
+		  ColorPad i-8,0
+		endif
+	endfor
+	if custom_knobs[0] = -1 //custom knobs not in use
+		LabelPad 0, { __KNTRL1__ }, { --- }
+		LabelPad 1, { __KNTRL2__ }, { --- }
+		LabelPad 2, { __KNTRL3__ }, { --- }
+		LabelPad 3, { __KNTRL4__ }, { --- }
+		LabelPad 4, { __KNTRL1__ }, { --- }
+		LabelPad 5, { __MGEN2__ }, { --- }
+		LabelPad 6, { __MGEN3__ }, { --- }
+		LabelPad 7, { __MGEN4__ }, { --- }
+	else
+		LabelPad 0, { __KNTRL1__ }, { cc#}, custom_knobs[1]
+		LabelPad 1, { __KNTRL2__ }, { cc#}, custom_knobs[2]
+		LabelPad 2, { __KNTRL3__ }, { cc#}, custom_knobs[3]
+		LabelPad 3, { __KNTRL4__ }, { cc#}, custom_knobs[4]
+		LabelPad 4, { __MGEN1__ }, { cc#}, custom_knobs[5]
+		LabelPad 5, { __MGEN2__ }, { cc#}, custom_knobs[6]
+		LabelPad 6, { __MGEN3__ }, { cc#}, custom_knobs[7]
+		LabelPad 7, { __MGEN4__ }, { cc#}, custom_knobs[8]
+	endif
+	Call @SetupKnobset3
 @End
 
 @PrintPreset
@@ -2060,4 +2177,3 @@
 	//update init vars with variable numbers if this is changed
 @End
 
- 
