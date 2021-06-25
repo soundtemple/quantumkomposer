@@ -490,8 +490,8 @@
 
 @LogCurrentInfo
 	current_scene_duration = scene_durs[current_scene]
-	Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
-	LabelPads {[ SCENES ]}, current_scene+1, {   Bar }, (Div scene_beat_count, HostBeatsPerMeasure)+1,  {.}, HostBeat+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure) 
+	//Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
+	LabelPads {[ SCENES ]}, { Scene}, current_scene+1, {   Bar }, (Div scene_beat_count, HostBeatsPerMeasure)+1,  {.}, HostBeat+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure) 
 @End
 
 @SetupSettingsLayout
