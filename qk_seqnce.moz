@@ -325,6 +325,13 @@
 	elseif pattn_changing
 		Call @HandleSceneChange
 	endif
+	if mode=1
+		LabelKnobs {[ SCENES ] Bar }, (Div scene_beat_count, HostBeatsPerMeasure)+1,  {.}, HostBeat+1
+	elseif mode=9
+	  LabelKnobs {[ SEQNCE ] Bar }, (Div scene_beat_count, HostBeatsPerMeasure)+1,  {.}, HostBeat+1 
+	elseif mode=10
+	  LabelKnobs {[ TRIGGER ] Bar }, (Div scene_beat_count, HostBeatsPerMeasure)+1,  {.}, HostBeat+1
+	endif
 @End
 
 @OnNewBar
@@ -467,7 +474,11 @@
 			LabelPads {HOLD PAD DOWN TO CHANGE}
 			timer_type=2
 		elseif last_pad=9
-			Exit //# Not in use
+			for i = 0 to 7
+				SendMIDINoteOn 14, i, 127 //stop all clips button for each channel	
+			endfor
+			LabelPad last_pad, {Done!   }, {     Sent ch15 Notes0-7}
+			Exit
 		elseif (last_pad>=3 and last_pad<=5) or (last_pad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
 			Call @HandleSettingsModeActions
@@ -1287,7 +1298,7 @@
 @End
 @LabelKnobset0
 	pattn_slot = (current_scene * 8) + current_pattn
-	LabelKnobs {DURATIONS }
+	LabelKnobs {[ SCENES ]}
 	LabelKnob 0, {SCN}, current_scene+1, { }, scene_durs[current_scene], {b}
 	LabelKnob 1, { }
 	LabelKnob 2, {SEQ}, current_pattn+1, { },  pattn_durs[pattn_slot], {b}
@@ -1541,7 +1552,7 @@
 		FlashPad 14
 		FlashPad 15
 	endif
-	LabelKnobs {SEL STEP}, sel_step+1
+	LabelKnobs {[ SEQNCE ]}
 	LabelKnob 0, {CH: }, seq_ch+1
 	if sequence_rates[seq_ch]
 		LabelKnob 1, {Rate: Bar}
@@ -1584,7 +1595,7 @@
   endif
 @End
 @LabelSet6Knobs
-	LabelKnobs {TRIGGER PLAY MODE}
+	LabelKnobs {[ TRIGGER ]}
 	LabelKnob 0, {CH: }, seq_ch+1	
 	LabelKnob 1, { }
 	LabelKnob 2, { }
@@ -1808,7 +1819,7 @@
 		LabelPad 7, {DELETE  }
 	endif
 	Call @LabelDestinationInfoPads //8
-	LabelPad 9, { }
+	LabelPad 9, {STOP ALL CLIPS}
 	if sequencing_paused
 		LabelPad 10, {SEQ PAUSED}
 		sp_col=1
@@ -1844,7 +1855,7 @@
 @End
 
 @UpdateSettingsPadColors
-	settings_pad_cols=[7,4,tbb_col,5,5,5,4,1, 0,0,sp_col,sq_col,4,0,2,1]
+	settings_pad_cols=[7,4,tbb_col,5,5,5,4,1, 0,1,sp_col,sq_col,4,0,2,1]
 	gui_pad_cols=[1,2,3,4,5,6,7,1]
 	for i = 0 to 15
 		if i = 8 //gui pad
@@ -2054,47 +2065,47 @@
 	//Label pads  with channel name
 	// if adding to this list update num_ch_names in @InitKnobVariables
 	if ch_names[label_chan]=0
-		LabelPads {[  CH}, label_chan+1, {: KICK/LO-TOM}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: KICK/LO-TOM}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=1
-		LabelPads {[  CH}, label_chan+1, {: SNARE/CLAP}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: SNARE/CLAP}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=2
-		LabelPads {[  CH}, label_chan+1, {: HATS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: HATS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=3
-		LabelPads {[  CH}, label_chan+1, {: HAT2/RIDE}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: HAT2/RIDE}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=4
-		LabelPads {[  CH}, label_chan+1, {: PERCS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: PERCS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=5
-		LabelPads {[  CH}, label_chan+1, {: DRUMS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: DRUMS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=6
-		LabelPads {[  CH}, label_chan+1, {: BASS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: BASS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=7
-		LabelPads {[  CH}, label_chan+1, {: LEAD}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: LEAD}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=8
-		LabelPads {[  CH}, label_chan+1, {: PADS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: PADS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=9
-		LabelPads {[  CH}, label_chan+1, {: PLUCK}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: PLUCK}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=10
-		LabelPads {[  CH}, label_chan+1, {: ARP1}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: ARP1}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=11
-		LabelPads {[  CH}, label_chan+1, {: ARP2}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: ARP2}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=12
-		LabelPads {[  CH}, label_chan+1, {: MELODY}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: MELODY}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=13
-		LabelPads {[  CH}, label_chan+1, {: HARMONY}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: HARMONY}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=14
-		LabelPads {[  CH}, label_chan+1, {: KEYS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: KEYS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=15
-		LabelPads {[  CH}, label_chan+1, {: DRONE}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: DRONE}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=16
-		LabelPads {[  CH}, label_chan+1, {: SWELL}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: SWELL}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=17
-		LabelPads {[  CH}, label_chan+1, {: CHORDS}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: CHORDS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=18
-		LabelPads {[  CH}, label_chan+1, {: FX}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: FX}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=19
-		LabelPads {[  CH}, label_chan+1, {: SCAPE}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: SCAPE}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=20
-		LabelPads {[  CH}, label_chan+1, {: SKAKA}, {  ]   Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: SKAKA}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	endif
 @End
 
