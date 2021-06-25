@@ -16,6 +16,7 @@
 		in_mode_select = FALSE //# Toggle for changing modes mode
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		curr_chan=0 //# 0-15 KNTRL channels + Channel Select + M-Kontrol Channel
+		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		scene_copied=FALSE
@@ -316,6 +317,7 @@
 @OnPadDown2 // for midi in as well notes 0-15 on any channel
 	//# Pad Down actions
 	pad_is_down = TRUE
+	shift_is_down=FALSE //protect against unwanted shift releases not happening
 	if in_mode_select
 		if last_pad=0
 		  in_mode_select = FALSE
@@ -329,7 +331,7 @@
 	elseif NOT in_mode_select
 		Call @PadDownScenesMode
 	endif
-	//LOG {MODE: }, mode
+	Call @SendMidiCCBackToKnobs
 @End
 
 @OnPadUp
@@ -560,6 +562,7 @@
 		  Call @SetupKnobset0 //# scene settings
 		endif
 	endif
+	Call @SendMidiCCBackToKnobs
 @End
 
 @KnobChangeSet99
