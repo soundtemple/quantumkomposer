@@ -5,10 +5,10 @@
 //It should receive midi from all QK instances 
 
 @OnLoad
-  SetShortName {QK2TW}
+  SetShortName {QK2KBS}
 	ShowLayout 2
-	LabelPads {QK2TW - Handles midi feedback to the KNOBS controller (MF TWISTER)} 
-	Log {QK2TW - Handles midi feedback to the KNOBS controller}
+	LabelPads {QK2KNOBS - Handles midi feedback to the KNOBS controller (MF TWISTER)} 
+	Log {QK2KNOBS - Handles midi feedback to the KNOBS controller}
 	out_ch=15 //the channel to send feedback to the controller on
 	kkntrl=[36,37,38,39] //cc's used to control the knobs in KNTRL. Feedback comes from KNTRL
 	kmgen=[40,41,42,43] //cc's used to control the knobs on the selected MGEN device. FB from sel. MGEN
