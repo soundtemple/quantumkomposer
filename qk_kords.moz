@@ -454,7 +454,8 @@
 @End
 
 @OnPadDown2
-	//# Splitting this event into separate handlers xopd
+	//# Splitting this event into separate handlers
+	shift_is_down=FALSE //protect against unwanted shift releases not happening
 	if in_mode_select and (last_pad <= (number_of_modes - 1))
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			LabelPads {NOT ALLOWED WHEN HOST RUNNING}
@@ -1532,14 +1533,14 @@
 @End
 @KnobChangeSet0
 	//# scene settings
-	if last_knob = 0 and ShiftPressed
+	if last_knob = 0 and shift_is_down
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_bank[current_scene * sc_size] 	
 		  scene_bank[current_scene * sc_size] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
 			Call @UpdateScenesWithDuration
 	  endif
-	elseif last_knob = 0 and NOT ShiftPressed
+	elseif last_knob = 0 and NOT shift_is_down
 		LabelPads {Normally controlled by Scene Master. Hold SHIFT to change.}
   endif
   if last_knob = 1

@@ -432,6 +432,7 @@
 @End
 	
 @OnPadDown2
+	shift_is_down=FALSE //protect against unwanted shift releases not happening
 	pad_is_down = TRUE
 	//# Pad Down actions
 	if in_mode_select
@@ -864,10 +865,10 @@
 			LabelKnob 1, {Bars }, scene_durs[edit_scene]
 		endif
 	endif
-	if last_knob = 1 and ShiftPressed
+	if last_knob = 1 and shift_is_down
 		scn_duration = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32
 		scene_durs[edit_scene] = scn_duration
-	elseif last_knob = 1 and NOT ShiftPressed
+	elseif last_knob = 1 and NOT shift_is_down
 		LabelPads {Normally controlled by Scene Master. Hold SHIFT to change.}
 	endif
 	scn_to_label = current_scene
