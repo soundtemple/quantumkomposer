@@ -101,15 +101,17 @@
 	scale_slot = 2
 	oct_adj_slot = 3
 	num_scales=6 //number of scales allowed
-	scales_select = [1,2,3,4,5,6]
-  
+	scales_select = [1,2,3,4,5,6] //scale numbers for allowed scales
+	//I prefer scale quantizing to work slightly differently. This adjustment ensure that an incoming E will always be the 3rd degree of the current scale
+  glbl_scale_adj = [0,0,0,0,-1, 0,0,0,0,0,0,-1] 
+	
   //# Create empty chord and scene arrays
   for s = 0 to 7 
 	  //# Create 8 scene arrays in scene_bank
 	  scene_bank[s*sc_size] = [0,6,1,1,1,1,1,8,8,8,8,-1]
 		for c = 0 to 7
 			//# Create 8 chord arrays for each scene
-			chord_bank[(s*100) + (c*10)] = [0, 1, 0, 0]
+			chord_bank[(s*100) + (c*10)] = [0, 0, 0, 0] //duration, root, scale, oct_adj
 		endfor
 	endfor
 	
@@ -190,7 +192,6 @@
 	current_scene_duration = scene_bank[current_scene * sc_size]  * HostBeatsPerMeasure //# IN BEATS!
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	current_chord_duration = chord_bank[chord_slot + dur_slot]
-	current_chord_scale = chord_bank[chord_slot + scale_slot]
 	
 	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
 	
@@ -271,7 +272,6 @@
 @HandleChordChange
 	//# Work out what the next chord is 
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	current_chord_scale = chord_bank[chord_slot + scale_slot]
 	if (chord_change_requested > -1)
 		current_chord = chord_change_requested
 		chord_change_requested = -1 //# reset request flag
@@ -306,6 +306,7 @@
 			current_chord=rnd_chrd //if rnd_chrd has duration
 		endif
 	endif
+	Call @SetCurrentScale	
 	chord_to_set=current_chord
 	chord_beat_count = 0 //# reset chord beat count on new chord
 	//turn off notes over chord change and re-trigger melody and harmony channel notes
@@ -316,6 +317,25 @@
   endif
   //Log {----- CHORD CHANGE -----}, {C}, current_chord+1
   Call @SetupLayout
+@End
+
+@SetCurrentScale
+	//Set the current scale to quantize incoming notes to
+	chord_slot = (current_scene * 100) + ((current_chord) * 10)
+	curr_scale_index = chord_bank[chord_slot + scale_slot]
+	curr_scale_num = scales_select[curr_scale_index]
+	curr_scale_root = chord_bank[chord_slot + root_slot] 
+	curr_scale_oct_adj = chord_bank[chord_slot + oct_adj_slot] * 12
+	txpose_index = scene_bank[(current_scene * sc_size) + sc_txp_slot]
+	scn_txp_amt = txpose_array[txpose_index] //# scene txpose amount
+	PresetScale curr_scale_num
+	SetRootNote curr_scale_root 
+	Log {Current scale: }, (NoteName curr_scale_root), { }, (ScaleName curr_scale_num)
+	for note_in = 60 to 72
+		note_to_quantize = note_in + curr_scale_root + glbl_scale_adj[note_in%12]
+		output_note = (ScaleQuantize note_to_quantize) + curr_scale_oct_adj + scn_txp_amt
+		Log (NoteName note_in, YES), { ===> }, (NoteName output_note, YES)
+	endfor
 @End
 
 @HandleNotesHeldOverChordChange
@@ -484,8 +504,9 @@
 
 @LabelPadsSQ
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	current_chord_scale = chord_bank[chord_slot + scale_slot]
-	LabelPads {[ SCALE QUANTIZER ]    Scene}, current_scene+1, {.}, current_chord+1, { }, (ScaleName scales_select[current_chord_scale]), {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration)
+	curr_scale_index = chord_bank[chord_slot + scale_slot]
+	curr_scale_root = chord_bank[chord_slot + root_slot]
+	LabelPads {[ SCALE QUANTIZER ]    Scene}, current_scene+1, {.}, current_chord+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration), { -- }, (NoteName curr_scale_root), { }, (ScaleName scales_select[curr_scale_index])
 @End
 
 @HandleModeChange
@@ -664,9 +685,7 @@
 	//# Log {Midi received on CH: }, MIDIChannel, { note: }, MidiNote
 	//# -1Off 0Chord 1Round 2+NonChord 3Bass 4Root 5Third 6Fifth 7thru
 	//# Record chords from the channel set 
-	if mode=3 and  MIDIChannel=record_notes_channel // records mode 
-		Call @HandleRecordNotes
-	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
+	if MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
 		// notes 20-36 on channel 16  used to trigger MGEN pads 0-15
 		if MIDINote=36 //SHIFT
 			if MIDICommand=0x90 //noteOn	
@@ -702,7 +721,7 @@
 		chord_note_ch=MIDIChannel
 		Call @TurnOffChordNotes // can only have one chord note per channel playing at any one time
 		gated_chord_inversion = inversions_for_gated_chord[MIDINote%12] //a number from -4 to 4
-		if current_chord_scale[11]=-1 //ie current_chord is a triad
+		if curr_scale_index[11]=-1 //ie current_chord is a triad
 			//inv_adjs is an array len 4, each cell -12, 0 or +12
 			CopyArray triad_inversion_adjustments[(gated_chord_inversion+4)*4], inv_adjs, 4 
 		else
@@ -960,9 +979,9 @@
   endif
   if last_knob = 1
 	  scn_txpose = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 12
-	  if scn_txpose <> scene_bank[(current_scene * sc_size) + sc_txp_slot] 	
+	  if scn_txpose <> scene_bank[(current_scene * sc_size) + sc_txp_slot] 	 
 		  scene_bank[(current_scene * sc_size) + sc_txp_slot] = scn_txpose
-		  Call @SetupLayout //# re-label all chord pads
+			Call @SetupLayout //# re-label all chord pads
 		endif
   endif
   if last_knob = 2
@@ -986,15 +1005,15 @@
 	knob_set = 1
 	Call @LabelSet1Knobs
 	SetKnobValue 0, TranslateScale chrd_duration, 0, 127, 0, 127
-	SetKnobValue 1, TranslateScale chrd_root, 0, 127, 0, 127
+	SetKnobValue 1, TranslateScale chrd_root, 0, 11, 0, 127
 	SetKnobValue 2, TranslateScale chrd_scale, 0, num_scales-1, 0, 127
 	SetKnobValue 3, TranslateScale chrd_oct_adj, -1, 1, 0, 127
 @End
 @KnobChangeSet1
-//# Scale settings
+	//# Scale settings
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	chord_to_set=current_chord
-	if last_knob = 0
+	if last_knob = 0 //DURATION
 	  chrd_duration = (Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127)+1
 	  if chrd_duration <> chord_bank[chord_slot + dur_slot] 
 		  chord_bank[chord_slot + dur_slot] = chrd_duration
@@ -1002,26 +1021,29 @@
 			Call @LabelSet1Knobs
   	endif
   endif
-  if last_knob = 1
+  if last_knob = 1 //SCALE ROOT
 	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 11
 		if val <> chord_bank[chord_slot + root_slot]
 			chord_bank[chord_slot + root_slot] = val
 			Call @LabelSet1Knobs
+			Call @SetCurrentScale
 		endif
 	else
-		if last_knob = 2
+		if last_knob = 2 //SCALE TYPE
 			val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, num_scales-1
 			if val <> chord_bank[chord_slot + scale_slot] 
 				chord_bank[chord_slot + scale_slot] = val
 				Call @LabelSet1Knobs
+				Call @SetCurrentScale
 			endif
 	  endif
   endif
-  if last_knob = 3
+  if last_knob = 3 //OCT ADJ
 		val = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 1
 		if val <> chord_bank[chord_slot + oct_adj_slot]
 			chord_bank[chord_slot + oct_adj_slot] = val
 			Call @LabelSet1Knobs
+			Call @SetCurrentScale
 		endif
   endif
   chrd_to_label = current_chord+8
@@ -1453,7 +1475,6 @@
 	    txpose_labels[txpose_index] = label
 	    txpose_index = txpose_index + 1
 	  endfor
-		//log {TXPOSE ARRAY CoF}
 		//CopyArray txpose_array, t, 13 	//temp
 		//Log t[0],{,},t[1],{,},t[2],{,},t[3],{,},t[4],{,},t[5],{,},t[6],{,},t[7],{,},t[8],{,},t[9],{,},t[10],{,},t[11],{,},t[12],{,}
 	else
