@@ -99,8 +99,8 @@
   root_slot = 1
 	scale_slot = 2
 	oct_adj_slot = 3
-	num_scales=22 //number of scales allowed
-	scales_select = [1,2,3,4,5,6, 7,8,9,10,11,12, 14,15,16,17,19,20, 21,22,23,24] //scale numbers for allowed scales
+	num_scales=21 //number of scales allowed
+	scales_select = [1,2,3,4,5,6, 8,9,10,11,12,14, 15,16,17,19,20,21, 22,23,24] //scale numbers for allowed scales
 	//I prefer scale quantizing to work slightly differently. This adjustment ensure that an incoming E will always be the 3rd degree of the current scale
   glbl_scale_adj = [0,0,0,0,-1, 0,0,0,0,0,0,-1] 
 	
@@ -1092,7 +1092,7 @@
 	endif
 	Call @LabelMidiChModesSettingsPad
 	if not mode_changed_for_ch
-		LabelPads {MODES: [1:Quantize incoming notes to scale]   [0:Mute 2:Thru]}
+		LabelPads {MODES: [0:Mute    1:Quantize incoming notes to scale    2:Thru]}
 		mode_changed_for_ch=FALSE
 	endif
 @End
