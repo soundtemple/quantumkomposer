@@ -86,7 +86,7 @@
 	rnd_chrd_chance=0 //% chance chord change will be to a random one
 	num_scns_with_dur=0 //RND only selects scenes with duration
 	num_chrds_with_dur=[0,0,0,0, 0,0,0,0] //RND only selects chords with duration per scene
-	//Modes for processing incoming notes 0:Off 1:Harmonize 2:GatedChord 3:ChordNotes 4:OFF
+	//Modes for processing incoming notes 0:Off 1:SCALE_QUANTIZE 2:GatedChord 3:ChordNotes 4:OFF
 	midi_chan_modes=[0,0,0,0, 1,2,1,2, 2,3,3,3, 0,0,0,0] 
 	set_all_mc_to=9 //Setting all midi channels to x harmonization style
 	active_ch_range=4 //limit active channels for better cpu 0-3; 0-7; 4-11; 0-11; 0-15
@@ -349,6 +349,13 @@
 	Call @LogNoteQuantization
 @End
 
+@SendStoreQuantizedNote
+	//requires variable note_to_quantize; sets variable quantized_note from GetQuantizedNote
+	SetNoteState note_in_midi_chan, note_to_quantize, quantized_note
+	Call @HumanizeVelocity
+  SendMIDINoteOn note_in_midi_chan, quantized_note, velocity
+@End
+
 @LogNoteQuantization
 	Log {In }, (NoteName curr_scale_root), { }, (ScaleName curr_scale_num), { }, (NoteName note_to_quantize, YES), { ===> }, (NoteName quantized_note, YES)
 @End
@@ -358,7 +365,7 @@
 		for c = active_ch_min to active_ch_max //active channels 1-15. 16 is reserved for midi input and kntrl
 			chord_note_ch =  c
 			melody_note_ch = c
-			if midi_chan_modes[c]=1 and update_held_notes_on_chord_change //Harmonize 
+			if midi_chan_modes[c]=1 and update_held_notes_on_chord_change //SCALE_QUANTIZE 
 	 			for v = 0 to (num_mel_voices-1)
 					voice = (melody_note_ch*num_mel_voices)+v
 					if mel_note_voices[voice] > -1 //ch1
@@ -696,7 +703,7 @@
 @End
 
 @OnMidiNoteOn
-	//# Process incoming midi to be re-harmonized (if not Rec Chords mode)
+	//# Process incoming midi to be re-SCALE_QUANTIZEd (if not Rec Chords mode)
 	//# Log {Midi received on CH: }, MIDIChannel, { note: }, MidiNote
 	//# -1Off 0Chord 1Round 2+NonChord 3Bass 4Root 5Third 6Fifth 7thru
 	//# Record chords from the channel set 
@@ -718,10 +725,11 @@
 		endif
 	elseif midi_chan_modes[MIDIChannel]=0 //MUTE
 		Exit
-	elseif midi_chan_modes[MIDIChannel]=1  //HARMONIZE  Notes coming in
-		midi_note = MidiNote
-		melody_note_ch = MIDIChannel
-		Call @ConvertToHarmonyNotes //Convert and send the note
+	elseif midi_chan_modes[MIDIChannel]=1  //SCALE_QUANTIZE  Notes coming in
+		note_to_quantize = MidiNote
+		note_in_midi_chan = MIDIChannel
+		Call @GetQuantizedNote
+		Call @SendStoreQuantizedNote
 		if update_held_notes_on_chord_change
 			for i = 0 to (num_mel_voices-1) //for held notes over chord changes
 				voice = (MIDIChannel*num_mel_voices)+i //Check if there is a voice available
@@ -776,7 +784,7 @@
 
 @OnMidiNoteOff  
   // #handle midi notes for harmonizing note OFF
-	if midi_chan_modes[MIDIChannel]=1 //harmonize mode
+	if midi_chan_modes[MIDIChannel]=1 //SCALE_QUANTIZE mode
 		harmony_note = GetNoteState MIDIChannel, MIDINote  
   	SendMIDINoteOff MIDIChannel, harmony_note, MIDIVelocity  
   	SetNoteState MIDIChannel, MIDINote, FALSE
@@ -812,7 +820,7 @@
 	//# Send out all 4 chord notes when midi_chan_mode = 2 //CHORD from curr_chord_notes array
 	//get notes from the current chord scale
 	//curr_chord_notes=[lo, root, 3rd, 5th, 7th, hi] //post inversion, txpose, raw octave
-	//Modes 0:Off 1:Harmonize 2:GatedChord 3:*ChordOn 4:*RootOn 5:*5thOn 6:*Lo 7:*Hi 8:OFF
+	//Modes 0:Off 1:SCALE_QUANTIZE 2:GatedChord 3:*ChordOn 4:*RootOn 5:*5thOn 6:*Lo 7:*Hi 8:OFF
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	curr_mode = midi_chan_modes[chord_note_ch]
 	if curr_mode=2 //GATED CHORDS use chord_scale to derive a chord & apply inversion based on incoming midi note
@@ -1104,7 +1112,7 @@
 @End
 
 @SetupKnobset3
-	//Midi channel modes - MUTE-HARMONIZE-CHORD-THRU
+	//Midi channel modes - MUTE-SCALE_QUANTIZE-CHORD-THRU
 	knob_set = 3
 	SetKnobValue 0, TranslateScale mode_midi_channel, active_ch_min, active_ch_max, 0, 127
 	SetKnobValue 1, TranslateScale midi_chan_modes[mode_midi_channel], 0, 8, 0, 127
@@ -1114,7 +1122,7 @@
 	Call @LabelKnobset3
 @End
 @KnobChangeSet3
-	//Midi channel modes - MUTE-HARMONIZE-CHORD-THRU
+	//Midi channel modes - MUTE-SCALE_QUANTIZE-CHORD-THRU
 	if last_knob = 0
 	  val = Round TranslateScale (GetKnobValue 0), 0, 127, active_ch_min, active_ch_max
   	if val <> mode_midi_channel
@@ -1184,14 +1192,14 @@
 	endif
 @End
 @LabelKnobset3
-	//Midi channel modes - MUTE-HARMONIZE-CHORD-THRU
+	//Midi channel modes - MUTE-SCALE_QUANTIZE-CHORD-THRU
 	LabelKnobs {MIDI CH MODES}
 	LabelKnob 0, {Chan# }, mode_midi_channel+1
 	if midi_chan_modes[mode_midi_channel] = 0
 		LabelKnob 1, {Off}
 		LabelPads {MODE 0: No midi sent thru to instrument}
 	elseif midi_chan_modes[mode_midi_channel] = 1
-		LabelKnob 1, {Harm'ze}
+		LabelKnob 1, {QUANTIZE}
 		LabelPads {MODE 1: Incoming notes for channel are transposed to chord notes}
 	elseif midi_chan_modes[mode_midi_channel] = 2
 		LabelKnob 1, {Chord}
