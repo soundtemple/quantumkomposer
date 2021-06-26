@@ -986,10 +986,10 @@
 	//LOGGING!!!
 	cs=[]
 	CopyArray chord_scale, cs, 14 //just for logging here
-	Log {--- Made chord scale for s1}, current_scene+1, { chord }, chord_to_set+1, {---}
-	Log {MADE CHORD SCALE: [}, cs[0],{-},cs[1],{-},cs[2],{-},cs[3],{-},cs[4],{-},cs[5],{-},cs[6],{-},cs[7],{-},cs[8],{-},cs[9],{-},cs[1],{-},cs[10],{-},cs[11],{]} 
-	Log {MADE CHORD NOTE W INV: [R:},curr_chord_notes[0],{ 3rd:},curr_chord_notes[1],{ 5th:},curr_chord_notes[2],{  7th:},curr_chord_notes[3],{  LO:},curr_chord_notes[4],{  HI:},curr_chord_notes[5],{]}
-	Log {-----}
+	//Log {--- Made chord scale for s1}, current_scene+1, { chord }, chord_to_set+1, {---}
+	//Log {MADE CHORD SCALE: [}, cs[0],{-},cs[1],{-},cs[2],{-},cs[3],{-},cs[4],{-},cs[5],{-},cs[6],{-},cs[7],{-},cs[8],{-},cs[9],{-},cs[1],{-},cs[10],{-},cs[11],{]} 
+	//Log {MADE CHORD NOTE W INV: [R:},curr_chord_notes[0],{ 3rd:},curr_chord_notes[1],{ 5th:},curr_chord_notes[2],{  7th:},curr_chord_notes[3],{  LO:},curr_chord_notes[4],{  HI:},curr_chord_notes[5],{]}
+	//Log {-----}
 @End
 
 @SetChordScale
@@ -998,7 +998,7 @@
 	chord_slot = (current_scene * 100) + ((chord_to_set) * 10) 
 	CopyArray all_chord_scales[chord_scale_slot], current_chord_scale, 14 
 	CopyArray chord_notes_w_inv[chord_slot], curr_chord_notes, 6
-	Log {SET CURRCHRD NOTES W INV: [ R:},curr_chord_notes[0],{  3rd:},curr_chord_notes[1],{  5th:},curr_chord_notes[2],{  7th:},curr_chord_notes[3],{  LO:},curr_chord_notes[4],{  HI:},curr_chord_notes[5],{]}
+	//Log {SET CURRCHRD NOTES W INV: [ R:},curr_chord_notes[0],{  3rd:},curr_chord_notes[1],{  5th:},curr_chord_notes[2],{  7th:},curr_chord_notes[3],{  LO:},curr_chord_notes[4],{  HI:},curr_chord_notes[5],{]}
 @End
 
 @GetChordFlavour
@@ -1097,6 +1097,7 @@
 			index_to_chord_notes=[0,4,7,11]
 			//inv_adjs passed in from onMidiNoteOn. array len 4, each cell -12, 0 or +12
 			for i = 0 to 3  
+				note_in_velo = 90
 				Call @HumanizeVelocity
 				if current_chord_scale[index_to_chord_notes[i]] > 0
 					SendMIDINoteOn chord_note_ch, (current_chord_scale[index_to_chord_notes[i]] + inv_adjs[i]), velocity
