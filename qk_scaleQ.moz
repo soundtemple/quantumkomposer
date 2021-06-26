@@ -127,10 +127,7 @@
 @OnHostStart
 	//log {--- HOST START ---}
 	//# Start beat count on same beat as host
-	//# In AUM getting HostBeat to start on 0 seems flaky
-	//# Fixed by BramBos in June2020
 	//Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
-	chord_to_set=current_chord
 	if (HostBeat = 0) and (HostBar = 0)
 		//# starting playback from beginning		
 		chord_beat_count = -1
@@ -307,7 +304,6 @@
 		endif
 	endif
 	Call @SetCurrentScale	
-	chord_to_set=current_chord
 	chord_beat_count = 0 //# reset chord beat count on new chord
 	//turn off notes over chord change and re-trigger melody and harmony channel notes
 	Call @HandleNotesHeldOverChordChange 
@@ -322,12 +318,10 @@
 @SetCurrentScale
 	//Set the current scale to quantize incoming notes to
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
+	Call @GetScaleRoot
 	curr_scale_index = chord_bank[chord_slot + scale_slot]
 	curr_scale_num = scales_select[curr_scale_index]
-	curr_scale_root = chord_bank[chord_slot + root_slot] 
 	curr_scale_oct_adj = chord_bank[chord_slot + oct_adj_slot] * 12
-	txpose_index = scene_bank[(current_scene * sc_size) + sc_txp_slot]
-	scn_txp_amt = txpose_array[txpose_index] //# scene txpose amount
 	PresetScale curr_scale_num
 	SetRootNote curr_scale_root 
 	Log {Current scale: }, (NoteName curr_scale_root), { }, (ScaleName curr_scale_num)
@@ -340,13 +334,18 @@
 @GetQuantizedNote
 	//requires variable note_to_quantize; sets variable quantized_note 
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	curr_scale_root = chord_bank[chord_slot + root_slot] 
+	Call @GetScaleRoot
 	curr_scale_oct_adj = chord_bank[chord_slot + oct_adj_slot] * 12
+	adj_note_to_quantize = note_to_quantize + curr_scale_root + glbl_scale_adj[note_to_quantize%12]
+	quantized_note = (ScaleQuantize adj_note_to_quantize) + curr_scale_oct_adj 
+	Call @LogNoteQuantization
+@End
+
+@GetScaleRoot 
+	//for chord_slot in current scene
 	txpose_index = scene_bank[(current_scene * sc_size) + sc_txp_slot]
 	scn_txp_amt = txpose_array[txpose_index] //# scene txpose amount
-	adj_note_to_quantize = note_to_quantize + curr_scale_root + glbl_scale_adj[note_to_quantize%12]
-	quantized_note = (ScaleQuantize adj_note_to_quantize) + curr_scale_oct_adj + scn_txp_amt
-	Call @LogNoteQuantization
+	curr_scale_root = (chord_bank[chord_slot + root_slot] + scn_txp_amt + 12) % 12 //root after scene txpose. +12 to ensure no negative results
 @End
 
 @SendStoreQuantizedNote
@@ -527,7 +526,7 @@
 @LabelPadsSQ
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	curr_scale_index = chord_bank[chord_slot + scale_slot]
-	curr_scale_root = chord_bank[chord_slot + root_slot]
+	Call @GetScaleRoot
 	LabelPads {[ SCALE QUANTIZER ]    Scene}, current_scene+1, {.}, current_chord+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration), { -- }, (NoteName curr_scale_root), { }, (ScaleName scales_select[curr_scale_index])
 @End
 
@@ -900,9 +899,8 @@
 		//# Exit copy paste
 		songmode = 1
 		mode=0
-		Call @UpdateScenesWithDuration
-		Call @UpdateChordsWithDuration
-		Call @MakeChordScaleForScene
+		Call @UpdateScenesWithDuration //for rnd scene
+		Call @UpdateChordsWithDuration //for rnd chord
 	elseif last_pad >= 8
 		//Log {pasting to chord }, last_pad-8
 		LabelPads	{Copied S}, copied_scene+1, { Chord }, copied_chord+1, { to }, {S}, current_scene+1, { Chord }, last_pad-7
@@ -913,8 +911,6 @@
 		songmode = 2
 		mode=0
 		Call @UpdateChordsWithDuration
-		chord_to_set=current_chord //always except in random gen and suggest
-		Call @MakeChordScale
 	endif
 	copied_scene = -1 //# reset
 	copied_chord = -1
@@ -1037,7 +1033,6 @@
 @KnobChangeSet1
 	//# Scale settings
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	chord_to_set=current_chord
 	if last_knob = 0 //DURATION
 	  chrd_duration = (Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127)+1
 	  if chrd_duration <> chord_bank[chord_slot + dur_slot] 
@@ -1377,7 +1372,8 @@
 	chord_slot = (current_scene * 100) + ((chrd_to_label-8) * 10)
 	sd = chord_bank[chord_slot + dur_slot]
 	sn = scales_select[chord_bank[chord_slot + scale_slot]]
-	sr = chord_bank[chord_slot + root_slot]
+	Call @GetScaleRoot
+	sr = curr_scale_root
 	so = chord_bank[chord_slot + oct_adj_slot]
 	sd_bars = Div sd, 4
 	sd_beats = (sd % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
