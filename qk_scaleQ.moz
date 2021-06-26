@@ -331,11 +331,26 @@
 	PresetScale curr_scale_num
 	SetRootNote curr_scale_root 
 	Log {Current scale: }, (NoteName curr_scale_root), { }, (ScaleName curr_scale_num)
-	for note_in = 60 to 72
-		note_to_quantize = note_in + curr_scale_root + glbl_scale_adj[note_in%12]
-		output_note = (ScaleQuantize note_to_quantize) + curr_scale_oct_adj + scn_txp_amt
-		Log (NoteName note_in, YES), { ===> }, (NoteName output_note, YES)
+	for n = 60 to 72
+		note_to_quantize = n 
+		Call @GetQuantizedNote
 	endfor
+@End
+
+@GetQuantizedNote
+	//requires variable note_to_quantize; sets variable quantized_note 
+	chord_slot = (current_scene * 100) + ((current_chord) * 10)
+	curr_scale_root = chord_bank[chord_slot + root_slot] 
+	curr_scale_oct_adj = chord_bank[chord_slot + oct_adj_slot] * 12
+	txpose_index = scene_bank[(current_scene * sc_size) + sc_txp_slot]
+	scn_txp_amt = txpose_array[txpose_index] //# scene txpose amount
+	adj_note_to_quantize = note_to_quantize + curr_scale_root + glbl_scale_adj[note_to_quantize%12]
+	quantized_note = (ScaleQuantize adj_note_to_quantize) + curr_scale_oct_adj + scn_txp_amt
+	Call @LogNoteQuantization
+@End
+
+@LogNoteQuantization
+	Log {In }, (NoteName curr_scale_root), { }, (ScaleName curr_scale_num), { }, (NoteName note_to_quantize, YES), { ===> }, (NoteName quantized_note, YES)
 @End
 
 @HandleNotesHeldOverChordChange
@@ -981,6 +996,7 @@
 	  scn_txpose = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 12
 	  if scn_txpose <> scene_bank[(current_scene * sc_size) + sc_txp_slot] 	 
 		  scene_bank[(current_scene * sc_size) + sc_txp_slot] = scn_txpose
+			Call @SetCurrentScale
 			Call @SetupLayout //# re-label all chord pads
 		endif
   endif
@@ -992,6 +1008,7 @@
 		if txpose_val <> txpose_w_circle_fifths
 			txpose_w_circle_fifths = txpose_val
 			Call @TransposeCalcArrays
+			Call @SetCurrentScale
 			Call @SetupLayout
 			Call @SetupKnobset0
 		endif
