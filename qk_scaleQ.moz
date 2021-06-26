@@ -1301,6 +1301,7 @@
   	Exit
   else
 		//# Setup scene pads
+		Call @SetupKnobset1
 		FillArray scn_pad_cols, 0, 16
 		for i = 0 to 7  
 	    if scene_bank[i * sc_size] > 0
