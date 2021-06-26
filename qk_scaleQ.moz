@@ -762,7 +762,6 @@
 	num_chrds_with_dur[current_scene]=last_pad-8-1
 	//reset chord scales
 	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
-	FillArray all_chord_scales[chord_scale_slot], -1, 15
   //Log {Chord }, last_pad+1, { reset}
   Call @SetupLayout
 @End
