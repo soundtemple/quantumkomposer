@@ -131,7 +131,6 @@
 @End
 		
 @OnHostStart 
-	Log { }
 	Log { --- HOST START ---}
 	if (HostBeat = 0) and (HostBar = 0)
 		//# SEQUENCE MODE RESETS...
@@ -173,7 +172,7 @@
 	//Log {-- CMP }, CurrentMetroPulse, { ---}
 	if CurrentMetroPulse=15 //pulse before new bar update next scene and sequence. They only change per bar
 		Call @GetSceneForNextBeat //also calls GetNextPattn
-		Log {MP15 so got next_scene:}, next_scene+1, { and next_pattn:}, next_pattn+1
+		//Log {MP15 so got next_scene:}, next_scene+1, { and next_pattn:}, next_pattn+1
 	endif
 	//# Update counts - pulses and step positions all seq_chs. Trigger patterns if moving to new step
 	for ch = 0 to 7
@@ -196,7 +195,7 @@
 			endif
 		endif
 		
-		//FlashPad
+		//Flash Pad
 		if not in_mid_step[ch]
 			if in_seq_mode and (ch=seq_ch)
 				FlashPad curr_steps[seq_ch]
@@ -312,7 +311,7 @@
 @End
 
 @OnNewBeat //# Handle Scene and Pattern changes
-	Log {--- new beat ---}, HostBeat, { beat# }, HostBeat 
+	//Log {--- new beat ---}, HostBeat, { beat# }, HostBeat 
 	scene_beat_count = scene_beat_count + 1
 	pattn_beat_count = pattn_beat_count + 1
 	current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
@@ -335,7 +334,7 @@
 @End
 
 @OnNewBar
-  Log {---- NEW BAR= }, HostBar, { --- }
+  //Log {---- NEW BAR= }, HostBar+1, { --- }
 @End
 
 @GetSceneForNextBeat
@@ -346,11 +345,14 @@
 	if scene_change_requested > -1
 		scene_changing = TRUE
 		next_scene = scene_change_requested
+		songmode = 1
 	elseif scene_beat_count+1 >= current_scene_duration
 		if (songmode > 0) //locked to scene
 	  	next_scene = current_scene
+			scene_changing = TRUE
 		elseif scene_durs[current_scene+1] > 0 or current_scene=7
 		  next_scene = (current_scene + 1)%8  //# Going to next or back to first
+			scene_changing = TRUE
 		elseif (scene_durs[current_scene+1] <= 0) //# also song end
   		next_scene = 0 //# no duration in next scene return to beginning
 			scene_changing = TRUE
@@ -364,7 +366,7 @@
 			endif
 		endif
 	endif
-	Log {Scene for next beat: }, next_scene+1
+	//Log {Scene for next beat: }, next_scene+1
 	Call @GetPattnForNextBeat
 @End
 
@@ -392,6 +394,7 @@
 	elseif (pattn_beat_count+1 >= current_pattn_duration) and (current_pattn_duration>0)
 		if (songmode = 2) //# Loop current pattn & Scene
 	    next_pattn = current_pattn
+			scene_changing = TRUE
 	  elseif pattn_durs[pattn_slot+1]>0
 	    pattn_changing = TRUE
 			next_pattn = (current_pattn + 1)%8 //next or back to first
@@ -406,7 +409,7 @@
 			endif
 		endif
 	endif
-	Log {Pattn for next beat }, next_pattn+1
+	//Log {Pattn for next beat }, next_pattn+1, { pattn changing}
 @End
 
 @TimeForTurnaround
@@ -420,7 +423,7 @@
 	endif
 @End
 
-@HandleSceneChange //# Work out which scene is next
+@HandleSceneChange //# Set next scene
 	if return_to_song_mode_requested
 		return_to_song_mode_requested = FALSE
 	endif
@@ -434,8 +437,8 @@
 @HandlePattnChange // Set new pattn occurs on new bar
 	current_pattn = next_pattn	
 	pattn_beat_count = 0 //# reset pattn beat count on new pattn
-  //# SEQUENCE MODE RESETS.	..
-  curr_pattn_pulses=[0,0,0,0,0,0,0,0] //# reset metroPulse count for each seq.
+  //# SEQUENCE MODE RESETS.	..	
+	curr_pattn_pulses=[0,0,0,0,0,0,0,0] //# reset metroPulse count for each seq.
   curr_steps=[0,0,0,0,0,0,0,0] //# reset steps for each seq.
 	in_mid_step=[0,0,0,0,0,0,0,0]
 	scene_change_requested = -1
@@ -472,7 +475,8 @@
 		elseif last_pad=2
 			StartTimer
 			LabelPads {HOLD PAD DOWN TO CHANGE}
-			timer_type=2
+			timer_type=1
+			Exit
 		elseif last_pad=9
 			for i = 0 to 7
 				SendMIDINoteOn 14, i, 127 //stop all clips button for each channel	
@@ -503,6 +507,7 @@
 			StartTimer
 			LabelPads {HOLD PAD DOWN TO MAKE SEQUENCE1 INTO A SCENE TRIGGER}
 			timer_type=2
+			Exit
 		elseif last_pad = 14
 			mode=14
       in_mode_select = FALSE
