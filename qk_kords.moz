@@ -781,6 +781,12 @@
 	endif
 @End
 
+@OnMidiInput
+	if MIDICommand=0xD0 or MIDICommand=0xE0 //Aftertouch or pitchbend pass through
+		SendMIDIThru 
+	endif
+@End
+
 @OnSysex
   ReceiveSysex sysex_msg
   qk_msg=YES
