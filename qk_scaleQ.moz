@@ -7,21 +7,21 @@
 	if unassigned scene_bank //# duration in first scene
 		ResetNoteStates FALSE // #reset the locker with the value FALSE!
 	  mode = 0 //# See @HandleModeChange for modes
-	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
+	  songmode = 0 //# 0:Playsong 1:SceneLocked 2:ScaleLocked
 	  SetMetroPPQN 4
 	  ppqn = 4 
 		ShowLayout 2
 		scene_change_requested = -1 //# on pad down has next scene number
-	  chord_change_requested = -1 //# on pad down has next chord number
-		chord_beat_count = -1
+	  scale_change_requested = -1 //# on pad down has next scalenumber
+		scale_beat_count = -1
 		scene_beat_count = -1
 		scene_changed = FALSE
-	  scene_change_chord_reset = TRUE //# Goto chord 0 when user changes scene
+	  scene_change_scale_reset = TRUE //# Goto scale0 when user changes scene
 	  in_mode_select = FALSE //# Toggle for changing modes mode
 	  number_of_modes = 16 //# Change in operational mode 
 	  allow_mode_chg_playbk = TRUE //# Mode change during playback
 	  return_to_song_mode_requested = FALSE //# used for switching on new bar 
-	  use_turn_around = TRUE //# last chord as turn around on last bar of scene
+	  use_turn_around = TRUE //# last scaleas turn around on last bar of scene
 		//# used for LED feedback
 		last_pad=0 
 		mgen_device_id=8 //used for midi control of pads. each mgen instance is assigned a number
@@ -36,7 +36,7 @@
 		Call @TransposeCalcArrays
 	  Call @InitKnobVariables //# All knob settings on start
 		Call @SysexMessageSetup
-	  Call @SetupChordsScenes
+	  Call @SetupScalesScenes
 	  Call @SetupKnobset0
 	  Call @SetupLayout
 	endif
@@ -62,30 +62,30 @@
 	scn_preset = 1
 	scn_out4_on = 1
 	num_sc_presets = 13
-	chrd_duration = 0
+	scle_duration = 0
 	
-	//keeping track of held notes over chord changes
-	//When a chrd chgs. Turn off all held notes and replace with notes of new chord
-	update_held_notes_on_chord_change=TRUE //FALSE will allow held notes to continue as originally triggered
-	num_mel_voices=6 //melody chans max polyphony. for tracking melody notes over chord changes we limit for CPU
+	//keeping track of held notes over scalechanges
+	//When a scle chgs. Turn off all held notes and replace with notes of new scale
+	update_held_notes_on_scale_change=TRUE //FALSE will allow held notes to continue as originally triggered
+	num_mel_voices=6 //melody chans max polyphony. for tracking melody notes over scalechanges we limit for CPU
 	FillArray mel_note_voices, -1, num_mel_voices*16
-	FillArray held_chord_notes, -1, 16 //Tracking the chord note chans. 1 note per chan max IN.
-	FillArray held_chord_oct_adj, 0, 16 	//Harmony note octave in effect octave chord notes are sent out on
+	FillArray held_scale_notes, -1, 16 //Tracking the scalenote chans. 1 note per chan max IN.
+	FillArray held_scale_oct_adj, 0, 16 	//Harmony note octave in effect octave scalenotes are sent out on
 @End
 
-@SetupChordsScenes
+@SetupScalesScenes
 	current_scene = 0 // #0-7 Pads 0-7
-  current_chord = 0 // #0-7 Pads 8-15
+  current_scale = 0 // #0-7 Pads 8-15
 	//# scene config: [duration, txpose, preset, mg1-4_modes, out_ch1-4 modes]
   //# MG Modes determine how harmonization occurs per scene
   sc_txp_slot = 1
   sc_preset_slot = 2
 	sc_size = 15 //# ^ above slots + duration = 11 + 4 spare for even sizing 
   rnd_scn_chance=0 //% chance scene change will be to a random one
-	rnd_chrd_chance=0 //% chance chord change will be to a random one
+	rnd_scle_chance=0 //% chance scalechange will be to a random one
 	num_scns_with_dur=0 //RND only selects scenes with duration
-	num_chrds_with_dur=[0,0,0,0, 0,0,0,0] //RND only selects chords with duration per scene
-	//Modes for processing incoming notes 0:Off 1:SCALE_QUANTIZE 2:GatedChord 3:ChordNotes 4:OFF
+	num_scles_with_dur=[0,0,0,0, 0,0,0,0] //RND only selects scales with duration per scene
+	//Modes for processing incoming notes 0:Off 1:SCALE_QUANTIZE 2:GatedScale 3:ScaleNotes 4:OFF
 	midi_chan_modes=[0,0,0,0, 1,1,1,1, 1,1,1,1, 0,0,0,0] 
 	set_all_mc_to=9 //Setting all midi channels to x harmonization style
 	active_ch_range=4 //limit active channels for better cpu 0-3; 0-7; 4-11; 0-11; 0-15
@@ -93,34 +93,68 @@
 	active_ch_max=15 //for setting active_ch_range
 	mode_midi_channel=0 //editing the midi channel mode
 	current_scene_duration=0
+	rnd_scale_set_for_scene=FALSE //generate random for slot or for scene bool
+	last_scene_scale_pad_touched=0 //ensure only scene scale pad touches change what we generate for
 	
 	// SCALE SLOT strucutre [duration, root, scale, oct_adj]
   dur_slot = 0 //# fixed location for duration
   root_slot = 1
-	scale_slot = 2
+	scale_type_slot = 2
 	oct_adj_slot = 3
-	num_scales=21 //number of scales allowed
-	scales_select = [1,2,3,4,5,6, 8,9,10,11,12,14, 15,16,17,19,20,21, 22,23,24] //scale numbers for allowed scales
-	//I prefer scale quantizing to work slightly differently. This adjustment ensure that an incoming E will always be the 3rd degree of the current scale
-  glbl_scale_adj = [0,0,0,0,-1, 0,0,0,0,0,0,-1] 
+	num_scales=25 //number of scales allowed
+	curr_scale_root=0 //root note of current scale
+	curr_scale_oct_adj=0 //oct adj for current scale
+	curr_scale_num=0 //number to index current scale
+	current_scale_array=[0,0,2,4,4,5,7,7, 9, 9,11,11] //the current scale array (major)
 	
-  //# Create empty chord and scene arrays
+	//Index my scales to Mozaic scale nums for naming
+	scale_nums_to_names=[1,2,3,4,8,11,9,10,18,5,6,12,12,0,14,15,16,17,17,19,20,21,22,23,24]
+	//# Common scale degrees spread over 12 index slots for ease	 *number matched Mozaic number
+	//scale_types[0]   = [c,c,d,d,e,f,f,g, g,a ,a ,b ] //#letters
+	scale_types[0*12]  = [0,0,2,4,4,5,7,7, 9, 9,11,11] //# Major
+	scale_types[1*12]  = [0,0,2,3,3,5,7,7, 8, 8,10,10] //# NatMin
+	scale_types[2*12]  = [0,0,2,3,3,5,7,7, 9, 9,11,11] //# MelMin
+	scale_types[3*12]  = [0,0,2,3,3,5,7,7, 8, 8,11,11] //# HarMin
+	scale_types[4*12]  = [0,0,2,3,3,5,7,7, 9, 9,10,10] //# Dorian
+	scale_types[5*12]  = [0,1,3,3,3,5,7,7, 8, 8,10,10] //# Phrygian
+	scale_types[6*12]  = [0,0,2,4,4,6,6,7, 9, 9,11,11] //# Lydian
+	scale_types[7*12]  = [0,0,2,4,4,5,7,7, 9, 9,10,10] //# Mixolydian
+	scale_types[8*12]  = [0,1,3,3,3,5,6,6, 8, 8,10,10] //# Locrian
+	scale_types[9*12]  = [0,0,2,4,4,4,7,7, 9, 9, 9, 9] //# Major Pent
+	scale_types[10*12] = [0,0,3,3,3,5,7,7,10,10,10,10] //# Minor Pent
+	scale_types[11*12] = [0,0,3,3,3,5,6,7,10,10,10,10] //# Blues Minor
+	scale_types[12*12] = [0,2,2,3,3,4,4,7, 7,9 ,9 ,9 ] //# Blues Major (Gospel)
+	scale_types[13*12] = [0,1,2,3,4,5,6,7, 8, 9,10,11] //# Chromatic*
+	scale_types[14*12] = [0,2,2,3,5,5,6,8, 8,9 ,11,11] //# Diminished*
+	scale_types[15*12] = [0,2,2,3,3,5,5,7, 7,8 ,10,10] //# Bhairavi*
+	scale_types[16*12] = [0,2,2,3,3,6,6,7, 8,11,11,11] //# Gypsy*
+	scale_types[17*12] = [0,1,4,4,4,5,7,7, 8,10,10,12] //# Klezmer*
+	scale_types[18*12] = [0,1,4,4,4,5,7,7, 8,10,10,12] //# Klezmer --- SPARE
+	scale_types[19*12] = [0,2,2,5,5,5,7,7, 9,9, 12,12] //# Andean*
+	scale_types[20*12] = [0,1,5,5,5,5,6,6, 6,10,10,10] //# Iwato*
+	scale_types[21*12] = [0,1,5,5,5,5,7,7, 7,10,10,10] //# InSen*
+	scale_types[22*12] = [0,2,2,3,3,7,7,7, 8,8 ,8 ,8 ] //# Hirajoshi*
+	scale_types[23*12] = [0,1,3,3,3,7,7,7, 7,10,10,10] //# Pelog*
+	scale_types[24*12] = [0,2,2,5,5,5,7,7, 7,9 ,9 ,9 ] //# Yo*
+	
+	
+  //# Create empty scaleand scene arrays
   for s = 0 to 7 
 	  //# Create 8 scene arrays in scene_bank
-	  scene_bank[s*sc_size] = [0,6,1,1,1,1,1,8,8,8,8,-1]
+	  scene_bank[s*sc_size] = [0,6]
 		for c = 0 to 7
-			//# Create 8 chord arrays for each scene
-			chord_bank[(s*100) + (c*10)] = [0, 0, 0, 0] //duration, root, scale, oct_adj
+			//# Create 8 scalearrays for each scene
+			scale_bank[(s*100) + (c*10)] = [0, 0, 0, 0] //duration, root, scale, oct_adj
 		endfor
 	endfor
 	
   //# indexing them by scene size (sc_size). Sample scenes
   //# eg scene2 ... scene_bank[sc_size * sc#(0-7)] = [2,6,0,0,0,0,0,1,1,1,1]
   scene_bank[0] = [1,6,1,1,1,1,1,8,8,8,8,-1]
-	//# Example chords: increment in 10's in each scene, new scenes on the 100
-  //# eg: chord_bank[10] = [67, 71, 74, 77, 8, 0, -1] //# Scene1 Chord 2
-  //# eg: chord_bank[100] = [65, 69, 72, 76, 8, 0, -1] //# Scene2 Chord 1
-  //# eg: chord_bank[110] = [69, 72, 76, 79, 4, 0, -1] //# Scene2 Chord 1
+	//# Example scales: increment in 10's in each scene, new scenes on the 100
+  //# eg: scale_bank[10] = [67, 71, 74, 77, 8, 0, -1] //# Scene1 Scale 2
+  //# eg: scale_bank[100] = [65, 69, 72, 76, 8, 0, -1] //# Scene2 Scale 1
+  //# eg: scale_bank[110] = [69, 72, 76, 79, 4, 0, -1] //# Scene2 Scale 1
 @End
 
 @OnHostStart
@@ -129,27 +163,27 @@
 	//Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
 	if (HostBeat = 0) and (HostBar = 0)
 		//# starting playback from beginning		
-		chord_beat_count = -1
+		scale_beat_count = -1
 		scene_beat_count = -1
 		scene_changed = FALSE
 		if (songmode = 0)
 			current_scene = 0
-			current_chord = 0
+			current_scale = 0
 		elseif (songmode = 1)
-			current_chord = 0
+			current_scale = 0
 		endif
 		if mode > 2 
-			//# No chord Rec, Select or Delete in playback
+			//# No scaleRec, Select or Delete in playback
 			mode = 0
 		endif
 	else
 		//# continuing playback
 		//# Could do nothing and allow continue with vars unchanged
-		//# but in case use can jump timeline we are doing this to keep HostBeat aligned and chord/Scene at same relative positions.
+		//# but in case use can jump timeline we are doing this to keep HostBeat aligned and scale/Scene at same relative positions.
 		scene_completed_bars = scene_beat_count % HostBeatsPerMeasure
-		chord_completed_bars = chord_beat_count % HostBeatsPerMeasure
+		scale_completed_bars = scale_beat_count % HostBeatsPerMeasure
 		scene_beat_count = scene_completed_bars + HostBeat
-		chord_beat_count = chord_completed_bars + HostBeat
+		scale_beat_count = scale_completed_bars + HostBeat
 	endif
 	//Log {---- Host Started ----}
 	Call @SetupLayout
@@ -157,17 +191,17 @@
 
 @OnHostStop
   Call @ResetBeatCounts
-  //Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
+  //Log {---- Host Stopped ---- }, scene_beat_count, { - }, scale_beat_count 
   Call @SetupLayout
 	FillArray mel_note_voices, -1, num_mel_voices*16
-	FillArray held_chord_notes, -1, 16 //Tracking the chord note chans. 1 note per chan max IN.
-	FillArray held_chord_oct_adj, 0, 16 	//Harmony note octave in effect octave chord notes are sent out on
+	FillArray held_scale_notes, -1, 16 //Tracking the scalenote chans. 1 note per chan max IN.
+	FillArray held_scale_oct_adj, 0, 16 	//Harmony note octave in effect octave scalenotes are sent out on
 @End 
 
 @ResetBeatCounts
 	//# Re-start when mode or scene changes
 	scene_beat_count = 0
-	chord_beat_count = 0
+	scale_beat_count = 0
 	//# Log {Beat counts reset}
 @End
 
@@ -182,23 +216,23 @@
 	//Log {-- new beat --}
 	//# increment beat counts xonb
 	scene_beat_count = scene_beat_count + 1
-	chord_beat_count = chord_beat_count + 1
+	scale_beat_count = scale_beat_count + 1
 	
-	//# Handle Scene and Chord changes
+	//# Handle Scene and Scale changes
 	current_scene_duration = scene_bank[current_scene * sc_size]  * HostBeatsPerMeasure //# IN BEATS!
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	current_chord_duration = chord_bank[chord_slot + dur_slot]
+	scale_slot = (current_scene * 100) + ((current_scale) * 10)
+	current_scale_duration = scale_bank[scale_slot + dur_slot]
 	
 	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
 	
 	//# Log {Scene beats left: }, current_scene_duration - scene_beat_count
-	//# Log {Chord beats left: }, current_chord_duration - chord_beat_count
+	//# Log {Scale beats left: }, current_scale_duration - scale_beat_count
   time_for_turnaround = FALSE
   if use_turn_around
   	Call @TimeForTurnaround
   endif
   
-	//# Chord progressop -- Order of operations
+	//# Scale progressop -- Order of operations
 	if (scene_change_requested > -1) and (HostBeat = 0)
 		//# user requested scene change and its a new bar (& return to song)
 		//# Log {Handling scene change request. It a new bar}
@@ -206,13 +240,13 @@
 	elseif (scene_beat_count >= current_scene_duration)
 		//# its time to increment scene
 		Call @HandleSceneChange
-	elseif (chord_change_requested > -1)
-  	//# User requested chord change & its a new beat
- 		Call @HandleChordChange
+	elseif (scale_change_requested > -1)
+  	//# User requested scalechange & its a new beat
+ 		Call @HandleScaleChange
  	elseif time_for_turnaround
- 		Call @HandleChordChange
-	elseif (chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
-		Call @HandleChordChange
+ 		Call @HandleScaleChange
+	elseif (scale_beat_count >= current_scale_duration) and (current_scale_duration>0) 
+		Call @HandleScaleChange
 	endif
 	if mode=0
 		Call @LabelPadsSQ
@@ -220,17 +254,17 @@
 @End
 
 @TimeForTurnaround
-	//# Under these conditions jump to last chord for 1 bar before scene change
-	//# 2nd last chord in scene has no duration. Last chord has 4 beat duration
+	//# Under these conditions jump to last scalefor 1 bar before scene change
+	//# 2nd last scalein scene has no duration. Last scalehas 4 beat duration
 	//# Mode must be in song or scene lock
 	//# must be 1 bar before scene ends
 	//# Log {**** CHECKING TURN AROUND ****}
-	chord6 = chord_bank[(current_scene * 100) + 60 + dur_slot]
-	chord7 = chord_bank[(current_scene * 100) + 70 + dur_slot]
-	//# Log {Chord6 dur: }, chord6, { Chord7 dur: }, chord7
+	scale6 = scale_bank[(current_scene * 100) + 60 + dur_slot]
+	scale7 = scale_bank[(current_scene * 100) + 70 + dur_slot]
+	//# Log {Scale6 dur: }, scale6, { Scale7 dur: }, scale7
 	//# Log {SBC: }, scene_beat_count, { SC_DUR: }, current_scene_duration, { HBPM: }, HostBeatsPerMeasure
 	//# Log scene_beat_count, { === }, (current_scene_duration - HostBeatsPerMeasure)
-	if (songmode <= 1) and (chord6 = 0) and (chord7 = 4) and (current_chord <= 5) and (scene_beat_count = current_scene_duration - HostBeatsPerMeasure)
+	if (songmode <= 1) and (scale6 = 0) and (scale7 = 4) and (current_scale <= 5) and (scene_beat_count = current_scene_duration - HostBeatsPerMeasure)
 		time_for_turnaround = TRUE
 		//Log {Its TURN AROUND TIME!!}
 	endif
@@ -256,95 +290,111 @@
   endif
   if ((Random 1,99) < rnd_scn_chance) and songmode=0 //%chance of random scene change if not scene locked
     rnd_scn = (Random 0, num_scns_with_dur) //get random scene with duration
-		if scene_bank[rnd_scn * sc_size]>0 and chord_bank[(rnd_scn * 100) + dur_slot]>0
-			current_scene=rnd_scn //if rnd_scn has scene and first chord duration
+		if scene_bank[rnd_scn * sc_size]>0 and scale_bank[(rnd_scn * 100) + dur_slot]>0
+			current_scene=rnd_scn //if rnd_scn has scene and first scaleduration
 		endif
 	endif
   Call @ResetBeatCounts
   //Log {----- SCENE CHANGE -----}, {S}, current_scene+1
-  Call @HandleChordChange //# Scene change effect chord change
+  Call @HandleScaleChange //# Scene change effect scalechange
 @End
 
-@HandleChordChange
-	//# Work out what the next chord is 
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	if (chord_change_requested > -1)
-		current_chord = chord_change_requested
-		chord_change_requested = -1 //# reset request flag
+@HandleScaleChange
+	//# Work out what the next scaleis 
+	scale_slot = (current_scene * 100) + ((current_scale) * 10)
+	if (scale_change_requested > -1)
+		current_scale = scale_change_requested
+		scale_change_requested = -1 //# reset request flag
 		if songmode < 2
-			songmode = 2 //# Lock to chord if user requests chord change
+			songmode = 2 //# Lock to scaleif user requests scalechange
  		endif
- 	elseif (scene_change_requested > -1) //# also handle chord change
-		current_chord = 0
+ 	elseif (scene_change_requested > -1) //# also handle scalechange
+		current_scale = 0
   	scene_change_requested = -1
   	scene_changed = FALSE
   elseif scene_changed
-		//# reset chord to 0 on scene change if songmode < 2
+		//# reset scaleto 0 on scene change if songmode < 2
 		if (songmode <= 1)
-			current_chord = 0
+			current_scale = 0
 		endif
 		scene_changed = FALSE
-	elseif (songmode = 2) //# Loop current chord & Scene
-    current_chord = current_chord
-  elseif (current_chord = 7) //# Wrap playback
-    current_chord = 0
+	elseif (songmode = 2) //# Loop current scale& Scene
+    current_scale = current_scale
+  elseif (current_scale = 7) //# Wrap playback
+    current_scale = 0
   elseif (time_for_turnaround)
-  	//# play last chord for one bar as a turn around before scene change
-  	current_chord = 7
-  elseif (chord_bank[(chord_slot+10) + dur_slot] <= 0)
-  	current_chord = 0 //# no duration no next chord (chord_slot + 10)
+  	//# play last scalefor one bar as a turn around before scene change
+  	current_scale = 7
+  elseif (scale_bank[(scale_slot+10) + dur_slot] <= 0)
+  	current_scale = 0 //# no duration no next scale(scale_slot + 10)
   else
-    current_chord = current_chord + 1
+    current_scale = current_scale + 1
   endif
-	if ((Random 1,99) < rnd_chrd_chance) and songmode<2 //%chance of random chord change if not chord locked
-    rnd_chrd = (Random 0, num_chrds_with_dur) //get random chord with duration
-		if chord_bank[(current_scene * 100) + (rnd_chrd * 10) + dur_slot]>0
-			current_chord=rnd_chrd //if rnd_chrd has duration
+	if ((Random 1,99) < rnd_scle_chance) and songmode<2 //%chance of random scalechange if not scalelocked
+    rnd_scle = (Random 0, num_scles_with_dur) //get random scalewith duration
+		if scale_bank[(current_scene * 100) + (rnd_scle * 10) + dur_slot]>0
+			current_scale=rnd_scle //if rnd_scle has duration
 		endif
 	endif
 	Call @SetCurrentScale	
-	chord_beat_count = 0 //# reset chord beat count on new chord
-	//turn off notes over chord change and re-trigger melody and harmony channel notes
-	Call @HandleNotesHeldOverChordChange 
+	scale_beat_count = 0 //# reset scalebeat count on new scale
+	//turn off notes over scalechange and re-trigger melody and harmony channel notes
+	Call @HandleNotesHeldOverScaleChange 
 	//# Label pads
   if not in_mode_select
 		Call @LabelPadsSQ
   endif
-  //Log {----- CHORD CHANGE -----}, {C}, current_chord+1
+  //Log {----- scaleCHANGE -----}, {C}, current_scale+1
   Call @SetupLayout
 @End
 
 @SetCurrentScale
-	//Set the current scale to quantize incoming notes to
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
+	//Set the current scale to quantize incoming notes to. It sets following variables which can be used as current scale:
+	//curr_scale_root; curr_scale_num; current_scale_array; curr_scale_oct_adj
+	scale_slot = (current_scene * 100) + ((current_scale) * 10)
 	Call @GetScaleRoot
-	curr_scale_index = chord_bank[chord_slot + scale_slot]
-	curr_scale_num = scales_select[curr_scale_index]
-	curr_scale_oct_adj = chord_bank[chord_slot + oct_adj_slot] * 12
-	PresetScale curr_scale_num
-	SetRootNote curr_scale_root 
-	Log {Current scale: }, (NoteName curr_scale_root), { }, (ScaleName curr_scale_num)
+	curr_scale_num = scale_bank[scale_slot + scale_type_slot]
+	curr_scale_oct_adj = scale_bank[scale_slot + oct_adj_slot] * 12
+	CopyArray scale_types[curr_scale_num*12], current_scale_array, 12
 	for n = 60 to 72
 		note_to_quantize = n 
 		Call @GetQuantizedNote
 	endfor
+	//Call @LogCurrentScale
+@End
+
+@LogCurrentScale
+	x=[]
+	for i = 0 to 11
+		note_to_quantize = i
+		Call @GetQuantizedNote
+		x[i]= quantized_note
+	endfor
+	//Log {current_scale = [}, x[0],{,},x[1],{,},x[2],{,},x[3],{,},x[4],{,},x[5],{,},x[6],{,},x[7],{,},x[8],{,},x[9],{,},x[10],{,},x[11], {] #},	{ Scale type#}, curr_scale_num
+	if curr_scale_num=8
+		Log {current_scale#}, curr_scale_num, { = [}, (NoteName x[0]),{,}, (NoteName x[1]),{,},(NoteName x[2]),{,},(NoteName x[3]),{,},(NoteName x[4]),{,},(NoteName x[5]),{,},(NoteName x[6]),{,},(NoteName x[7]),{,},(NoteName x[8]),{,},(NoteName x[9]),{,},(NoteName x[10]),{,},(NoteName x[11]), {] # Locrian}
+	else
+	  Log {current_scale#}, curr_scale_num, { = [}, (NoteName x[0]),{,}, (NoteName x[1]),{,},(NoteName x[2]),{,},(NoteName x[3]),{,},(NoteName x[4]),{,},(NoteName x[5]),{,},(NoteName x[6]),{,},(NoteName x[7]),{,},(NoteName x[8]),{,},(NoteName x[9]),{,},(NoteName x[10]),{,},(NoteName x[11]), {] #},	(ScaleName scale_nums_to_names[curr_scale_num])
+	endif
 @End
 
 @GetQuantizedNote
 	//requires variable note_to_quantize; sets variable quantized_note 
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	Call @GetScaleRoot
-	curr_scale_oct_adj = chord_bank[chord_slot + oct_adj_slot] * 12
-	adj_note_to_quantize = note_to_quantize + curr_scale_root + glbl_scale_adj[note_to_quantize%12]
-	quantized_note = (ScaleQuantize adj_note_to_quantize) + curr_scale_oct_adj 
-	Call @LogNoteQuantization
+	note_to_quantize = MidiNote
+	
+	scale_slot = (current_scene * 100) + ((current_scale) * 10)
+	Call @GetScaleRoot	
+	note_to_idx = note_to_quantize%12
+	oct_only_val  = (Div note_to_quantize, 12) * 12
+	quantized_note = current_scale_array[note_to_idx] + oct_only_val + curr_scale_root + curr_scale_oct_adj
+	//Call @LogNoteQuantization
 @End
 
 @GetScaleRoot 
-	//for chord_slot in current scene
+	//for scale_slot in current scene
 	txpose_index = scene_bank[(current_scene * sc_size) + sc_txp_slot]
 	scn_txp_amt = txpose_array[txpose_index] //# scene txpose amount
-	curr_scale_root = (chord_bank[chord_slot + root_slot] + scn_txp_amt + 12) % 12 //root after scene txpose. +12 to ensure no negative results
+	curr_scale_root = (scale_bank[scale_slot + root_slot] + scn_txp_amt + 12) % 12 //root after scene txpose. +12 to ensure no negative results
 @End
 
 @SendStoreQuantizedNote
@@ -355,13 +405,13 @@
 @End
 
 @LogNoteQuantization
-	Log {In }, (NoteName curr_scale_root), { }, (ScaleName curr_scale_num), { }, (NoteName note_to_quantize, YES), { ===> }, (NoteName quantized_note, YES)
+	Log {In }, (NoteName curr_scale_root), { ScaleType# }, curr_scale_num, { }, (NoteName note_to_quantize, YES), { ===> }, (NoteName quantized_note, YES)
 @End
 
-@HandleNotesHeldOverChordChange
-	if HostRunning //turn off notes over chord change and re-trigger melody and harmony channel notes
+@HandleNotesHeldOverScaleChange
+	if HostRunning //turn off notes over scalechange and re-trigger melody and harmony channel notes
 		for ch = active_ch_min to active_ch_max //active channels 1-15. 16 is reserved for midi input and kntrl
-			if midi_chan_modes[c]=1 and update_held_notes_on_chord_change //SCALE_QUANTIZE 
+			if midi_chan_modes[c]=1 and update_held_notes_on_scale_change //SCALE_QUANTIZE 
 	 			for v = 0 to (num_mel_voices-1)
 					voice = (ch*num_mel_voices)+v
 					if mel_note_voices[voice] > -1 //ch1
@@ -384,10 +434,10 @@
 @End
 
 @LogCurrentInfo
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	current_chord_duration = chord_bank[chord_slot + dur_slot]
+	scale_slot = (current_scene * 100) + ((current_scale) * 10)
+	current_scale_duration = scale_bank[scale_slot + dur_slot]
 	current_scene_duration = scene_bank[current_scene * sc_size]
-	Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { Chord:}, current_chord+1, { }, chord_beat_count+1, {/}, current_chord_duration, { beats}, { Mode: }, mode, { HostBeat: }, HostBeat+1
+	Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { Scale:}, current_scale+1, { }, scale_beat_count+1, {/}, current_scale_duration, { beats}, { Mode: }, mode, { HostBeat: }, HostBeat+1
 @End
 
 @OnPadDown
@@ -402,7 +452,7 @@
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			LabelPads {NOT ALLOWED WHEN HOST RUNNING}
 			Exit //# Only return to song allowed in playback
-		elseif (last_pad>=2 and last_pad<=4) or (last_pad>=8 and last_pad<=13)
+		elseif (last_pad=2 or last_pad=4) or (last_pad>=8 and last_pad<=13)
 			Exit //# Not in use
 		elseif (HostRunning and last_pad=8)
 			Exit //# Not allowed in playback
@@ -424,6 +474,10 @@
 			mode = 0
 			knob_set = 1
 			Call @SetupLayout
+		elseif last_pad=3
+			StartTimer
+			LabelPads {HOLD PAD DOWN TO GENERATE RANDOM SCALE SET FOR SCENE }, current_scene+1
+			Exit
 		elseif last_pad=5 //modes mode
 		  mode = last_pad
 			Call @SetupSettingsLayout
@@ -442,7 +496,7 @@
 	elseif NOT in_mode_select
 		//# handle mode actions if record or reset else do knob scene change
 		if not (mode=7 or copy_mode=2)
-			Call @OnPadDown_SceneChordChange //dont change if deleting or copy/pasting
+			Call @OnPadDown_SceneScaleChange //dont change if deleting or copy/pasting
 		endif	
 	 	Call @OnPadDown_KnobSetSelect
 		if (mode = 6) //# COPY/PASTE
@@ -450,14 +504,14 @@
     	if copy_mode=0 and last_pad<=7
 	    	Call @CopyPaste //# copy paste scene
 	    elseif copy_mode=1 and last_pad>=8 
-	    	Call @CopyPaste //# copy paste chord
+	    	Call @CopyPaste //# copy paste scale
 	    endif
 		elseif (mode=7) and (last_pad <= 7) //# reset mode
     	//Log {Reset scene called}
     	Call @ResetScene   
  	 	elseif (mode=7) and (last_pad >= 7)
-    	//Log {Reset chord called}
-    	Call @ResetChord
+    	//Log {Reset scalecalled}
+    	Call @ResetScale
   	endif
 	endif
 @End
@@ -485,10 +539,7 @@
 @End
 
 @LabelPadsSQ
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	curr_scale_index = chord_bank[chord_slot + scale_slot]
-	Call @GetScaleRoot
-	LabelPads {[ SCALE QUANTIZER ]    Scene}, current_scene+1, {.}, current_chord+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration), { -- }, (NoteName curr_scale_root), { }, (ScaleName scales_select[curr_scale_index])
+	LabelPads {[ SCALE QUANTIZER ]    Scene}, current_scene+1, {.}, current_scale+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration)
 @End
 
 @HandleModeChange
@@ -500,26 +551,26 @@
 	elseif mode = 5
 		Call @SetupKnobset3
 	elseif mode = 6
-		//# Copy/Paste pad hit so 'copy' current scene or chord
+		//# Copy/Paste pad hit so 'copy' current scene or scale
 		//# in_select_mode = FALSE its already been exited
 		if copy_mode=0 //# scene
 			copied_scene = current_scene
 			//Log {Copied current s}, current_scene+1
 			LabelPads {Current scene copied. Select a scene to paste to}
-		elseif copy_mode=1 //# chord
+		elseif copy_mode=1 //# scale
 			copied_scene = current_scene //# just for labelling
-			copied_chord = current_chord
-			//Log {Copied current chord }, current_chord+1
-			LabelPads {Current chord copied. Select a scene, then a chord slot to paste to}
+			copied_scale = current_scale
+			//Log {Copied current scale}, current_scale+1
+			LabelPads {Current scalecopied. Select a scene, then a scaleslot to paste to}
 		endif
 	elseif mode = 7
-		LabelPads {DELETE: Select a scene or chord slot to reset}
+		LabelPads {DELETE: Select a scene or scaleslot to reset}
 	endif
 	Call @SendMidiCCBackToKnobs
 @End
 
-@OnPadDown_SceneChordChange
-	//# handle scene/chord change xopds
+@OnPadDown_SceneScaleChange
+	//# handle scene/scalechange xopds
   if (last_pad >= 0 and last_pad <= 7)
   	//# Scene change
   	scene_change_requested = last_pad
@@ -528,14 +579,15 @@
   		Call @HandleSceneChange 
   	endif
 	elseif (last_pad >= 8 and last_pad <= 15) 	
-  	//# User Chord change 
-  	chord_change_requested = last_pad - 8 //# chrd 0-7
-  	songmode=2 //lockt to chord. User pressed chord pad
+  	//# User Scale change 
+  	scale_change_requested = last_pad - 8 //# scle 0-7
+  	songmode=2 //lockt to scale. User pressed scalepad
 		if NOT HostRunning //# immediate change else newbeat/bar handles
-  		Call @HandleChordChange 
+  		Call @HandleScaleChange 
   	endif
   endif
-	Call @SetupLayout	
+	Call @SetupLayout
+	last_scene_scale_pad_touched=last_pad
 @End
 
 @OnPadDown_KnobSetSelect
@@ -585,10 +637,10 @@
   	songmode = 0
   	mode = 0
 		current_scene=0
-		current_chord=0
+		current_scale=0
 		Call @SetupLayout
 		ColorPad current_scene, 3
-    ColorPad current_chord+8, 3
+    ColorPad current_scale+8, 3
 		if mgen_device_id=mgen_sel_dev
 			SendMIDINoteOn 15, current_scene+led_index, 3
 			SendMIDINoteOn 15, 8+led_index, 3
@@ -608,7 +660,7 @@
 		elseif MIDIByte3>=8 and MIDIByte3<=15 //handle scene paste
 			LabelPads {Copied Scene }, copied_scene+1, { to Scene }, (MIDIByte3-8)+1
 			CopyArray scene_bank[copied_scene * sc_size], scene_bank[(MIDIByte3-8) * sc_size], sc_size
-			CopyArray chord_bank[copied_scene * 100], chord_bank[(MIDIByte3-8) * 100], 100
+			CopyArray scale_bank[copied_scene * 100], scale_bank[(MIDIByte3-8) * 100], 100
 			songmode = 1
 			mode=0
 			copied_scene = -1 //# reset
@@ -663,10 +715,10 @@
 @End
 
 @OnMidiNoteOn
-	//# Process incoming midi to be re-SCALE_QUANTIZEd (if not Rec Chords mode)
+	//# Process incoming midi to be re-SCALE_QUANTIZEd (if not Rec Scales mode)
 	//# Log {Midi received on CH: }, MIDIChannel, { note: }, MidiNote
-	//# -1Off 0Chord 1Round 2+NonChord 3Bass 4Root 5Third 6Fifth 7thru
-	//# Record chords from the channel set 
+	//# -1Off 0Scale 1Round 2+NonScale 3Bass 4Root 5Third 6Fifth 7thru
+	//# Record scales from the channel set 
 	if MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 and mgen_sel_dev=mgen_device_id and mgen_device_id>=0 
 		// notes 20-36 on channel 16  used to trigger MGEN pads 0-15
 		if MIDINote=36 //SHIFT
@@ -691,8 +743,9 @@
 		note_in_velo = MIDIVelocity
 		Call @GetQuantizedNote
 		Call @SendStoreQuantizedNote
-		if update_held_notes_on_chord_change
-			for i = 0 to (num_mel_voices-1) //for held notes over chord changes
+		Log {IN: }, (NoteName note_to_quantize, YES), { OUT: }, (NoteName quantized_note, YES), { for chan}, MIDIChannel+1
+		if update_held_notes_on_scale_change
+			for i = 0 to (num_mel_voices-1) //for held notes over scalechanges
 				voice = (MIDIChannel*num_mel_voices)+i //Check if there is a voice available
 				if mel_note_voices[voice]=-1 //A free voice has a value of -1
 					mel_note_voices[voice] = MidiNote
@@ -728,8 +781,8 @@
 		note_to_off = GetNoteState MIDIChannel, MIDINote  
   	SendMIDINoteOff MIDIChannel, note_to_off, MIDIVelocity  
   	SetNoteState MIDIChannel, MIDINote, FALSE
-		if update_held_notes_on_chord_change
-			for i = 0 to (num_mel_voices-1) //for held notes over chord changes
+		if update_held_notes_on_scale_change
+			for i = 0 to (num_mel_voices-1) //for held notes over scalechanges
 				voice = (MidiChannel*num_mel_voices)+i
 				if mel_note_voices[voice]=MIDINote
 					mel_note_voices[voice]=-1
@@ -745,52 +798,49 @@
 @ResetScene
   //# Reset scene: Duration, Txpose, Preset, modes for ch's 1-4, out ch's ON1-4, pgm_chg_msg
   scene_bank[last_pad * sc_size] = [-1,6,0,0,0,0,0,0,0,0,0,-1]
-  chord_slot = (last_pad * 100)
+  scale_slot = (last_pad * 100)
 	for c = 0 to 7
-		chord_bank[(current_scene*100) + (c*10)] = [0,0,0,0]
+		scale_bank[(current_scene*100) + (c*10)] = [0,0,0,0]
 	endfor
 	Call @SetupLayout
 	num_scns_with_dur=last_pad-1 //RND only selects scenes before deleted scn
-	num_chrds_with_dur[current_scene]=0 //del scene also deletes chords
-  //Log {Scene }, last_pad +1, { reset. All chords for scene reset}
+	num_scles_with_dur[current_scene]=0 //del scene also deletes scales
+  //Log {Scene }, last_pad +1, { reset. All scales for scene reset}
 @End
 
-@ResetChord
-	chord_slot = (current_scene * 100) + ((last_pad - 8) * 10)
-  //# 4 chord notes, duration, inv, bass, pattern_msg 
-  chord_bank[chord_slot] = [0,0,0,0]
-	num_chrds_with_dur[current_scene]=last_pad-8-1
-	//reset chord scales
-	chord_scale_slot = (current_scene * 120) + ((current_chord) * 15)
-  //Log {Chord }, last_pad+1, { reset}
+@ResetScale
+	scale_slot = (current_scene * 100) + ((last_pad - 8) * 10)
+  //# 4 scalenotes, duration, inv, bass, pattern_msg 
+  scale_bank[scale_slot] = [0,0,0,0]
+	num_scles_with_dur[current_scene]=last_pad-8-1
+	//Log {Scale }, last_pad+1, { reset}
   Call @SetupLayout
 @End
 
 @CopyPaste
-	//# copy paste scenes and chords
+	//# copy paste scenes and scales
 	if last_pad <=7
 		//Log {Pasting scene to }, current_scene+1 
-		LabelPads {Copied Scene }, copied_scene+1, { to Scene }, last_pad+1
+		//LabelPads {Copied Scene }, copied_scene+1, { to Scene }, last_pad+1
 		CopyArray scene_bank[copied_scene * sc_size], scene_bank[last_pad * sc_size], sc_size
-		CopyArray chord_bank[copied_scene * 100], chord_bank[last_pad * 100], 100
+		CopyArray scale_bank[copied_scene * 100], scale_bank[last_pad * 100], 100
 		//# Exit copy paste
 		songmode = 1
 		mode=0
 		Call @UpdateScenesWithDuration //for rnd scene
-		Call @UpdateChordsWithDuration //for rnd chord
+		Call @UpdateScalesWithDuration //for rnd scale
 	elseif last_pad >= 8
-		//Log {pasting to chord }, last_pad-8
-		LabelPads	{Copied S}, copied_scene+1, { Chord }, copied_chord+1, { to }, {S}, current_scene+1, { Chord }, last_pad-7
-		chord_slot_from = (copied_scene * 100) + (copied_chord * 10)
-		chord_slot_to = (current_scene * 100) + ((last_pad-8) * 10)
-		CopyArray chord_bank[chord_slot_from], chord_bank[chord_slot_to], 10
+		LabelPads	{Copied S}, copied_scene+1, { Scale }, copied_scale+1, { to }, {S}, current_scene+1, { Scale }, last_pad-7
+		scale_slot_from = (copied_scene * 100) + (copied_scale * 10)
+		scale_slot_to = (current_scene * 100) + ((last_pad-8) * 10)
+		CopyArray scale_bank[scale_slot_from], scale_bank[scale_slot_to], 10
 		//# Exit copy paste
 		songmode = 2
 		mode=0
-		Call @UpdateChordsWithDuration
+		Call @UpdateScalesWithDuration
 	endif
 	copied_scene = -1 //# reset
-	copied_chord = -1
+	copied_scale = -1
 	Call @SetupLayout 
 @End
 
@@ -799,7 +849,7 @@
 	SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
 	SetKnobValue 0, 0
 	SetKnobValue 2, TranslateScale rnd_scn_chance, 0, 100, 0, 127
-	SetKnobValue 3, TranslateScale rnd_chrd_chance, 0, 100, 0, 127
+	SetKnobValue 3, TranslateScale rnd_scle_chance, 0, 100, 0, 127
 	Call @LabelSettingsKnobs
 @End
 @KnobChangeSet99 //settings knobs
@@ -823,8 +873,8 @@
 	  endif
   elseif last_knob = 3
 	  val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
-	  if val <> rnd_chrd_chance 	
-		  rnd_chrd_chance = val
+	  if val <> rnd_scle_chance 	
+		  rnd_scle_chance = val
 			Call @LabelSettingsKnobs
 	  endif
 	endif
@@ -836,8 +886,8 @@
 		LabelKnob 0, {mgen# -}
 		endif
 	LabelKnob 1, { }
-	LabelKnob 2, {RndScn}, rnd_scn_chance
-	LabelKnob 3, {RndChrd}, rnd_chrd_chance
+	LabelKnob 2, {RndScne}, rnd_scn_chance
+	LabelKnob 3, {RndScle}, rnd_scle_chance
 	LabelKnobs { }
 	LabelPads {SCALE QUANTIZER : [ SETTINGS ]}
 @End
@@ -878,7 +928,7 @@
 	  if scn_txpose <> scene_bank[(current_scene * sc_size) + sc_txp_slot] 	 
 		  scene_bank[(current_scene * sc_size) + sc_txp_slot] = scn_txpose
 			Call @SetCurrentScale
-			Call @SetupLayout //# re-label all chord pads
+			Call @SetupLayout //# re-label all scalepads
 		endif
   endif
   if last_knob = 2
@@ -902,34 +952,34 @@
 	//# SCALE SETTINGS
 	knob_set = 1
 	Call @LabelSet1Knobs
-	SetKnobValue 0, TranslateScale chrd_duration, 0, 127, 0, 127
-	SetKnobValue 1, TranslateScale chrd_root, 0, 11, 0, 127
-	SetKnobValue 2, TranslateScale chrd_scale, 0, num_scales-1, 0, 127
-	SetKnobValue 3, TranslateScale chrd_oct_adj, -1, 1, 0, 127
+	SetKnobValue 0, TranslateScale scle_duration, 0, 127, 0, 127
+	SetKnobValue 1, TranslateScale scle_root, 0, 11, 0, 127
+	SetKnobValue 2, TranslateScale scle_type, 0, num_scales-1, 0, 127
+	SetKnobValue 3, TranslateScale scle_oct_adj, -1, 1, 0, 127
 @End
 @KnobChangeSet1
 	//# Scale settings
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
+	scale_slot = (current_scene * 100) + ((current_scale) * 10)
 	if last_knob = 0 //DURATION
-	  chrd_duration = (Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127)+1
-	  if chrd_duration <> chord_bank[chord_slot + dur_slot] 
-		  chord_bank[chord_slot + dur_slot] = chrd_duration
-		  Call @UpdateChordsWithDuration
+	  scle_duration = (Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127)+1
+	  if scle_duration <> scale_bank[scale_slot + dur_slot] 
+		  scale_bank[scale_slot + dur_slot] = scle_duration
+		  Call @UpdateScalesWithDuration
 			Call @LabelSet1Knobs
   	endif
   endif
   if last_knob = 1 //SCALE ROOT
 	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 11
-		if val <> chord_bank[chord_slot + root_slot]
-			chord_bank[chord_slot + root_slot] = val
+		if val <> scale_bank[scale_slot + root_slot]
+			scale_bank[scale_slot + root_slot] = val
 			Call @LabelSet1Knobs
 			Call @SetCurrentScale
 		endif
 	else
 		if last_knob = 2 //SCALE TYPE
 			val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, num_scales-1
-			if val <> chord_bank[chord_slot + scale_slot] 
-				chord_bank[chord_slot + scale_slot] = val
+			if val <> scale_bank[scale_slot + scale_type_slot] 
+				scale_bank[scale_slot + scale_type_slot] = val
 				Call @LabelSet1Knobs
 				Call @SetCurrentScale
 			endif
@@ -937,29 +987,33 @@
   endif
   if last_knob = 3 //OCT ADJ
 		val = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 1
-		if val <> chord_bank[chord_slot + oct_adj_slot]
-			chord_bank[chord_slot + oct_adj_slot] = val
+		if val <> scale_bank[scale_slot + oct_adj_slot]
+			scale_bank[scale_slot + oct_adj_slot] = val
 			Call @LabelSet1Knobs
 			Call @SetCurrentScale
 		endif
   endif
-  chrd_to_label = current_chord+8
-  Call @LabelChordPad
+  scle_to_label = current_scale+8
+  Call @LabelScalePad
 @End
 
 @LabelSet1Knobs
-	LabelKnobs {Scale }, current_chord+1, { Setup}
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	chrd_duration = chord_bank[chord_slot + dur_slot]
-	dur_bars = Div chrd_duration, 4
-	dur_beats = (chrd_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
-	chrd_root = chord_bank[chord_slot + root_slot]
-	chrd_scale = chord_bank[chord_slot + scale_slot]
-	chrd_oct_adj = chord_bank[chord_slot + oct_adj_slot]
+	LabelKnobs {Scale }, current_scale+1, { Setup}
+	scale_slot = (current_scene * 100) + ((current_scale) * 10)
+	scle_duration = scale_bank[scale_slot + dur_slot]
+	dur_bars = Div scle_duration, 4
+	dur_beats = (scle_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
+	scle_root = scale_bank[scale_slot + root_slot]
+	scle_type = scale_bank[scale_slot + scale_type_slot]
+	scle_oct_adj = scale_bank[scale_slot + oct_adj_slot]
 	LabelKnob 0 , {Dur }, dur_bars, {.}, dur_beats
-	LabelKnob 1, {Root }, (NoteName chrd_root) 
-	LabelKnob 2, (ScaleName scales_select[chrd_scale])
-	LabelKnob 3, {Oct.Adj}, chrd_oct_adj
+	LabelKnob 1, {Root }, (NoteName scle_root) 
+	if scle_type=8
+		LabelKnob 2, {Locrian} //not in mozaic scales
+	else
+		LabelKnob 2, (ScaleName scale_nums_to_names[scle_type])
+	endif  
+	LabelKnob 3, {Oct.Adj}, scle_oct_adj
 	Call @LabelPadsSQ
 @End
 
@@ -973,10 +1027,10 @@
 		endif	
 	endfor
 @End
-@UpdateChordsWithDuration
-	for c = 0 to 7 //Update number of chords in scene with duration for random selection
-		if chord_bank[(current_scene * 100) + (c * 10) + dur_slot] > 0
-			num_chrds_with_dur[current_scene]=c
+@UpdateScalesWithDuration
+	for c = 0 to 7 //Update number of scales in scene with duration for random selection
+		if scale_bank[(current_scene * 100) + (c * 10) + dur_slot] > 0
+			num_scles_with_dur[current_scene]=c
 		else
 		  Exit
 		endif	
@@ -984,7 +1038,7 @@
 @End
 
 @SetupKnobset3
-	//Midi channel modes - MUTE-SCALE_QUANTIZE-CHORD-THRU
+	//Midi channel modes - MUTE-SCALE_QUANTIZE-SCALE-THRU
 	knob_set = 3
 	SetKnobValue 0, TranslateScale mode_midi_channel, active_ch_min, active_ch_max, 0, 127
 	SetKnobValue 1, TranslateScale midi_chan_modes[mode_midi_channel], 0, 2, 0, 127
@@ -994,7 +1048,7 @@
 	Call @LabelKnobset3
 @End
 @KnobChangeSet3
-	//Midi channel modes - MUTE-SCALE_QUANTIZE-CHORD-THRU
+	//Midi channel modes - MUTE-SCALE_QUANTIZE-SCALE-THRU
 	if last_knob = 0
 	  val = Round TranslateScale (GetKnobValue 0), 0, 127, active_ch_min, active_ch_max
   	if val <> mode_midi_channel
@@ -1064,7 +1118,7 @@
 	endif
 @End
 @LabelKnobset3
-	//Midi channel modes - MUTE-SCALE_QUANTIZE-CHORD-THRU
+	//Midi channel modes - MUTE-SCALE_QUANTIZE-SCALE-THRU
 	LabelKnobs {MIDI CH MODES}
 	LabelKnob 0, {Chan# }, mode_midi_channel+1
 	if midi_chan_modes[mode_midi_channel] = 0
@@ -1115,7 +1169,7 @@
 	if knob_set = 0 
 	  Call @SetupKnobset0 //# scene settings
   elseif knob_set = 1
-  	Call @SetupKnobset1 //# chord settings
+  	Call @SetupKnobset1 //# scalesettings
 	elseif knob_set = 3
   	Call @SetupKnobset3	//# MIDI CHANNEL MODES
 	endif
@@ -1139,7 +1193,7 @@
 	if knob_set = 0 
 	  Call @KnobChangeSet0 //# scene settings
   elseif knob_set = 1
-  	Call @KnobChangeSet1 //# chord settings
+  	Call @KnobChangeSet1 //# scalesettings
 	elseif knob_set = 3
   	Call @KnobChangeSet3	//# MIDI CH modes
 	elseif knob_set = 99 //settings layout
@@ -1171,34 +1225,86 @@
   shift_is_down=FALSE
 @End
 
+@OnTimer
+	//generate random scale progression for current scene
+	temp_sc_roots = [(Random 0,11)]
+	temp_sc_types = [(Random 0,24)]
+	root_change_jumps=[1,2,5,7,11]
+	if rnd_scale_set_for_scene //random set for whole scene
+		for sc = 0 to 7
+			Call @GetRandomScale
+		endfor
+	else //random scale for pad
+		sc=current_scale
+		Call @GetRandomScale
+	endif
+	in_mode_select = FALSE
+	mode = 0
+	knob_set = 1
+	Call @SetupLayout
+	if rnd_scale_set_for_scene
+		LabelPads {RANDOM SCALE SET CREATED FOR SCENE }, current_scene+1
+	else
+		LabelPads {RANDOM SCALE CREATED FOR SLOT }, current_scene+1, {.}, current_scale+1
+	endif
+	StopTimer
+@End
+
+@GetRandomScale
+	if sc=0
+		rnd_sc_root = temp_sc_roots[sc] //first one so use the random root
+		rnd_sc_type = temp_sc_types[sc]			
+	elseif (Random 0,1)=0 //random scale type. root stays the same	
+	  rnd_sc_root = temp_sc_roots[sc-1] //use the previous root
+		rnd_sc_type = Random 0,24
+	else //random root. scale type stays the same
+		rnd_sc_type = temp_sc_types[sc-1] //use the previous root
+		rnd_sc_root_jump = root_change_jumps[(Random 0,4)]
+		rnd_sc_root = (temp_sc_roots[sc-1] + rnd_sc_root_jump)%12 
+	endif
+	temp_sc_roots[sc] = rnd_sc_root
+	temp_sc_types[sc] = rnd_sc_type
+	sc_dur = scale_bank[(current_scene*100) + (sc*10) + dur_slot]
+	if not sc_dur
+		sc_dur =4
+	endif
+	scale_bank[(current_scene*100) + (sc*10)] = [sc_dur, rnd_sc_root, rnd_sc_type, 0] //duration, root, scale, oct_adj
+@End
+
 @SetupSettingsLayout
 	// Mode selection for Knobs n Pads
 	in_mode_select = TRUE
 	for i = 0 to (number_of_modes - 1)
 		ColorPad i, 6
-		LabelPad i, { } //# empty label to overwrite chord info
+		LabelPad i, { } //# empty label to overwrite scaleinfo
 		LatchPad i, NO 
 	endfor
-	settings_pad_cols=[8,4,0,0, 0,6,4,1, 0,0,0,0, 0,0,0,1]
+	settings_pad_cols=[8,4,0,2, 0,6,4,1, 0,0,0,0, 0,0,0,1]
 	if (songmode = 0)
-		LabelPad 0, {PLAYSONG: Active }
+		LabelPad 0, {SONGMODE}
 	elseif (songmode = 1)
-		LabelPad 0, {PLAYSONG: Scene locked}
+		LabelPad 0, {LOCKED TO SCENE}
 	elseif (songmode = 2)
-		LabelPad 0, {PLAYSONG: Chord locked}
+		LabelPad 0, {LOCKED TO SCALE}
 	else
-		LabelPad 0, {PLAYSONG: Disabled}
+		LabelPad 0, {-}
 	endif	
 	LabelPad 1, {SCENES}
 	LabelPad 2, { }
-	LabelPad 3, { }
+	if last_scene_scale_pad_touched<=7
+		LabelPad 3, {GEN RND SCALE SET FOR SCN}, current_scene+1
+		rnd_scale_set_for_scene=TRUE
+	else
+		LabelPad 3, {GEN RND SCALE FOR SLOT }, current_scene+1, {.}, current_scale+1
+		rnd_scale_set_for_scene=FALSE
+	endif  
 	LabelPad 4, { }
 	Call @LabelMidiChModesSettingsPad
-	if last_pad<=7 //# copy scene or chord
+	if last_pad<=7 //# copy scene or scale
 		LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
 		copy_mode=0
 	else
-		LabelPad 6, {COPY/PASTE }, {SCALE }, current_chord+1
+		LabelPad 6, {COPY/PASTE }, {SCALE }, current_scale+1
 		copy_mode=1 
 	endif
 	LabelPad 7, {DELETE  }
@@ -1238,60 +1344,67 @@
 	endif
 @End
 
-@LabelChordPad
-	//# Set chrd_to_label var before calling xlcp
-	chord_slot = (current_scene * 100) + ((chrd_to_label-8) * 10)
-	sd = chord_bank[chord_slot + dur_slot]
-	sn = scales_select[chord_bank[chord_slot + scale_slot]]
+@LabelScalePad
+	//# Set scle_to_label var before calling
+	scale_slot = (current_scene * 100) + ((scle_to_label-8) * 10)
+	sd = scale_bank[scale_slot + dur_slot]
+	sn = scale_bank[scale_slot + scale_type_slot]
 	Call @GetScaleRoot
 	sr = curr_scale_root
-	so = chord_bank[chord_slot + oct_adj_slot]
+	so = scale_bank[scale_slot + oct_adj_slot]
 	sd_bars = Div sd, 4
 	sd_beats = (sd % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
-	if sn=1
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Major}
+	
+	if sn=0
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Major}
+	elseif sn=1
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { NatMin.}
 	elseif sn=2
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Minor}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { MelMin.}
 	elseif sn=3
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { MinMel}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { HarmMin.}
 	elseif sn=4
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { MinHarm}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Dorian}
 	elseif sn=5
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { MajPent}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Phrygian}
 	elseif sn=6
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { MinPent}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Lydian}
 	elseif sn=7
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Aeolian}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Mixolyd.}
 	elseif sn=8
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Dorian}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Locrian}
 	elseif sn=9
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Lydian}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { MajorPent}
 	elseif sn=10
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Mixolyd.}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { MinorPent}
 	elseif sn=11
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Phrygian}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { BluesMin}
 	elseif sn=12
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Blues}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { BluesMaj}
+	elseif sn=13
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Chromatic}
 	elseif sn=14
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Dimin.}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Dimin.}	
 	elseif sn=15
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Bhairavi}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Bhairavi}
 	elseif sn=16
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Gypsy}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Gypsy}
 	elseif sn=17
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Klezmer}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Klezmer}
+	elseif sn=18 //dupe to keep exotic scale numbers same os Mozaic docs
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Klezmer}
 	elseif sn=19
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Andean}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Andean}
 	elseif sn=20
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Iwato}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Iwato}
 	elseif sn=21
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { InSen}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { InSen}
 	elseif sn=22
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Hiraj.}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Hiraj.}
 	elseif sn=23
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Pelog}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Pelog}
 	elseif sn=24
-		LabelPad chrd_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Yo}
+		LabelPad scle_to_label, {[}, sd_bars, {.}, sd_beats, { bars]}, { Root:}, (NoteName sr),{          Oct:}, so, {         }, { Yo}
 	endif
 @End
 
@@ -1316,39 +1429,39 @@
 				scn_pad_cols[i]=1
 	    endif
 	  endfor		  
-	  //# Setup chord pads  
+	  //# Setup scalepads  
     for i = 8 to 15
-	    chord_slot = (current_scene * 100) + ((i-8) * 10)
+	    scale_slot = (current_scene * 100) + ((i-8) * 10)
 	    LatchPad i, NO
-	    if chord_bank[chord_slot + dur_slot] > 0
+	    if scale_bank[scale_slot + dur_slot] > 0
 				scn_pad_cols[i]=2
-	    	chrd_to_label = i
-	    	Call @LabelChordPad
+	    	scle_to_label = i
+	    	Call @LabelScalePad
 	    else 
 				scn_pad_cols[i]=0
 	  		LabelPad i, { }
 	  	endif
 	    if (mode = 3) //del
 				scn_pad_cols[i]=1
-		  elseif (mode=7) and (chord_bank[chord_slot] >= 0)
+		  elseif (mode=7) and (scale_bank[scale_slot] >= 0)
 				scn_pad_cols[i]=1
 		  endif
 	  endfor
-		//# Handle current scene and chord colors
+		//# Handle current scene and scalecolors
 	  if (songmode = 0) //# Playthru no lock
 	  	scn_pad_cols[current_scene]=3
-	  	scn_pad_cols[current_chord+8]=3
+	  	scn_pad_cols[current_scale+8]=3
 	  elseif (songmode = 1) //# Lock to scene
-	    scn_pad_cols[current_chord+8]=3
+	    scn_pad_cols[current_scale+8]=3
 			scn_pad_cols[current_scene]=4
 	  elseif (songmode = 2)
-	    scn_pad_cols[current_chord+8]=4
+	    scn_pad_cols[current_scale+8]=4
 			scn_pad_cols[current_scene]=4
 		endif
-		//# Handle pending chord and scene changes in playback
+		//# Handle pending scaleand scene changes in playback
 	  if HostRunning and (songmode <=2)
-	  	if chord_change_requested >= 0
-				scn_pad_cols[chord_change_requested+8]=6
+	  	if scale_change_requested >= 0
+				scn_pad_cols[scale_change_requested+8]=6
 	  	endif
 	  	if scene_change_requested >= 0
 	  		scn_pad_cols[scene_change_requested]=6
