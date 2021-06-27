@@ -42,6 +42,22 @@
 	endif
 @End
 
+@Description
+  SCALE QUANTIZER:
+	You compose (send midi via SCALE QUANTIZER) in C Major.
+	All notes are transposed to current scale adjusted for root and scale type.
+	Octave and channel remain same.
+	Examples:
+	Send a  C note with current scale F Major results in an F note
+	Send an E note with current scale C Minor results in an Eb/D#
+	C will always result in the root of current scale
+	E & G result in 3rd & 5th scale degrees for non-exotic scales.
+	Scales are like chords. Generate a chord progression with scale types.
+	Use notes of C Major to trigger "chord" notes.
+	CEG will always be the root triad of the scale. In F Major CEG => FAC 
+@End
+
+
 @SysexMessageSetup
 	//QK Sysex messages. from KNTRL to BEATS and from BEATS to midi controllers
 	qk_sysex_header=[0x3F,0x40,0x3F,0x40,0x3F,0x40] //QK messages
@@ -360,7 +376,7 @@
 		note_to_quantize = n 
 		Call @GetQuantizedNote
 	endfor
-	//Call @LogCurrentScale
+	Call @LogCurrentScale
 @End
 
 @LogCurrentScale
@@ -380,8 +396,6 @@
 
 @GetQuantizedNote
 	//requires variable note_to_quantize; sets variable quantized_note 
-	note_to_quantize = MidiNote
-	
 	scale_slot = (current_scene * 100) + ((current_scale) * 10)
 	Call @GetScaleRoot	
 	note_to_idx = note_to_quantize%12
@@ -452,7 +466,7 @@
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			LabelPads {NOT ALLOWED WHEN HOST RUNNING}
 			Exit //# Only return to song allowed in playback
-		elseif (last_pad=2 or last_pad=4) or (last_pad>=8 and last_pad<=13)
+		elseif (last_pad=4) or (last_pad>=8 and last_pad<=13)
 			Exit //# Not in use
 		elseif (HostRunning and last_pad=8)
 			Exit //# Not allowed in playback
@@ -474,6 +488,8 @@
 			mode = 0
 			knob_set = 1
 			Call @SetupLayout
+		elseif last_pad=2
+			ShowLayout 4
 		elseif last_pad=3
 			StartTimer
 			LabelPads {HOLD PAD DOWN TO GENERATE RANDOM SCALE SET FOR SCENE }, current_scene+1
@@ -677,6 +693,12 @@
 		endif
 	elseif MIDIChannel<=15
 	  SendMIDIThru //automation
+	endif
+@End
+
+@OnMidiInput
+	if MIDICommand=0xD0 or MIDICommand=0xE0 //Aftertouch or pitchbend pass through
+		SendMIDIThru 
 	endif
 @End
 
@@ -1206,6 +1228,7 @@
 @End	
 
 @OnShiftDown2
+	ShowLayout 2
 	shift_is_down=TRUE
 	if in_mode_select
 		in_mode_select = FALSE
@@ -1290,7 +1313,7 @@
 		LabelPad 0, {-}
 	endif	
 	LabelPad 1, {SCENES}
-	LabelPad 2, { }
+	LabelPad 2, {[HELP]}
 	if last_scene_scale_pad_touched<=7
 		LabelPad 3, {GEN RND SCALE SET FOR SCN}, current_scene+1
 		rnd_scale_set_for_scene=TRUE
