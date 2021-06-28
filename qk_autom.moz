@@ -55,7 +55,7 @@
 @InitKnobVariables
 	//# Any knobset knob should have a setting here
 	current_scene = 0 // #0-7 Pads 0-7
-	scene_durs=[0,0,0,0,0,0,0,0]
+	scene_durs=[4,0,0,0,0,0,0,0]
 	scene_presets=[]
 	//# Color Scheme
 	col_sel_scene = 4
@@ -79,9 +79,10 @@
 	auto_ramp=0 //# apply a ramp set of automation values to a set of bars
 	auto_adv_bar=0 //# scroll through scene to see automation
 	sel_autom_pad=0 //# selected automation pad for editing
-	autom_setup_mode=0 //0=setup ; 1=control_autom ; 2=record_autom
+	autom_mode=0 //0=setup ; 1=control_autom ; 2=record_autom
 	record_autom_on=FALSE //# record automation 
 	control_autom_on=FALSE // control the autom parameters 
+	send_autom_for_selected_pad=FALSE // in control mode we can disable selected pad or allow automation to play
 	FillArray autom_control_vals, 0, 16
 	FillArray min_vals_rec_cont, 0, 16
 	FillArray max_vals_rec_cont, 127, 16
@@ -227,6 +228,9 @@
 		scene_completed_bars = scene_beat_count % HostBeatsPerMeasure
 		scene_beat_count = scene_completed_bars + HostBeat
 	endif
+	if knob_set=4 and record_autom_on
+		LabelKnobs {RECORDING P}, auto_lane+1
+	endif
 	//Log {---- Host Started ----}
 @End
 
@@ -253,7 +257,9 @@
 		Call @HandleSceneChange
 	endif
 	Call @LogCurrentInfo
-	Call @StoreRecordAutoData
+	if record_autom_on
+		Call @StoreRecordAutoData
+	endif
 @End
 
 @OnMetroPulse
@@ -274,9 +280,10 @@
 @End
 
 @OnMidiCC
-	//# Messages from KONTROLLER to update scene durs and play status for all instances in the KOMPOSER SUITE
 	//Log {MIDI RECEIVED: }, MIDIChannel, MIDIByte2, MIDIByte3 
-	if (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
+	if MIDIChannel <> 15
+		Exit
+	elseif (MIDIByte2>=cc_scene_duration) and (MIDIByte2<=(cc_scene_duration+7)) and (MIDIChannel=15)
 		//# handle scene duration change
 		scene_durs[MIDIByte2-cc_scene_duration] = MIDIByte3
 		if mode=0
@@ -390,7 +397,6 @@
 				songmode=1 // lock to scene
 				Call @HandleSceneChange 
 			endif
-			Call @SetupLayoutScenes	
 		endif
 	endif
 @End
@@ -449,19 +455,26 @@
 			Call @ResetToDefaults
 			LabelPad 2, {VALS RESET TO DEFAULTS}
 		elseif last_pad=3
-			autom_setup_mode = autom_setup_mode+1
-			if autom_setup_mode>2
-				autom_setup_mode=0
+			autom_mode = autom_mode+1
+			if autom_mode>3
+				autom_mode=0
 			endif
-			if autom_setup_mode=0
+			if autom_mode=0 //setup mode
 				record_autom_on=FALSE
 				control_autom_on=FALSE
-			elseif autom_setup_mode=1
+				send_autom_for_selected_pad=TRUE
+			elseif autom_mode=1 //control mode. dont send auto for selected pad
 				record_autom_on=FALSE
 				control_autom_on=TRUE
-			else
+				send_autom_for_selected_pad=FALSE
+			elseif autom_mode=2 //playback mode (can control selected knob).  send auto for selected pad and can control
+				record_autom_on=FALSE
+				control_autom_on=TRUE
+				send_autom_for_selected_pad=TRUE
+			elseif autom_mode=3 //record mode
 				record_autom_on=TRUE
 				control_autom_on=FALSE
+				send_autom_for_selected_pad=FALSE
 			endif
 			FillArray rec_auto_buffer, -1, 16 //empty record auto buffer
 			Call @SetupSettingsLayout
@@ -703,6 +716,13 @@
   if mode=0
 		Call @SetupLayoutScenes
 	endif
+	if record_autom_on=TRUE
+		autom_mode=2 //playback
+		record_autom_on=FALSE
+		control_autom_on=TRUE
+		send_autom_for_selected_pad=TRUE
+		Call @SetupKnobset4
+	endif
 	//Log {----- SCENE CHANGE -----}, {S}, current_scene+1, { -- PLAYBACK BAR: --}
 @End
 
@@ -728,24 +748,30 @@
 	LabelPad 0, {SCENES}
 	LabelPad 1, {RESET VALS TO START S}, edit_scene+1
 	LabelPad 2, {SET VALS TO DEFAULTS}
-	if record_autom_on
-		LabelPads {AUTOM : [ Record autom parameters during playback. Use 'REC' knob in setup ]}
-		LabelPad 3, {MODE=> RECORD}
-		LabelPad 4, {AUTOM RECORD}
-		pad_cols[3]=1
-		pad_cols[4]=1
-	elseif control_autom_on
-	  LabelPads {AUTOM : [ Control autom parameters. Use 'CON' knob. ]}
-		LabelPad 3, {MODE=> CONTROL}
-		LabelPad 4, {AUTOM CONTROL}
-		pad_cols[3]=3
-		pad_cols[4]=3
-	else
-	  LabelPads {AUTOM : [ AUTOMATION SETUP PARAMTERS ] }
+	if autom_mode=0
+	  LabelPads {AUTOM SETUP : [ AUTOMATION SETUP PARAMTERS ] }
 		LabelPad 3, {MODE=> SETUP}
 		LabelPad 4, {AUTOM SETUP}
 		pad_cols[3]=7
 		pad_cols[4]=7
+	elseif autom_mode=1
+	  LabelPads {AUTOM CONTROL : [ Automation paused on selected pad. Use 'CON' knob to control. ]}
+		LabelPad 3, {MODE=> CONTROL}
+		LabelPad 4, {AUTOM CONTROL}
+		pad_cols[3]=4
+		pad_cols[4]=4
+	elseif autom_mode=2
+	  LabelPads {AUTOM PLAYBACK : [ All automation plays. ]}
+		LabelPad 3, {MODE=> PLAYBACK}
+		LabelPad 4, {AUTOM PLAYBACK}
+		pad_cols[3]=3
+		pad_cols[4]=3
+		elseif autom_mode=3
+		LabelPads {AUTOM RECORD : [ Record autom parameters during playback until scene end. Use 'REC' knob in setup ]}
+		LabelPad 3, {MODE=> RECORD}
+		LabelPad 4, {AUTOM RECORD}
+		pad_cols[3]=1
+		pad_cols[4]=1
 	endif 
 	LabelPad 5, {AUTOM EDITOR}
 	if autom_preset=1
@@ -941,14 +967,18 @@
 	a_lbl = automation_labels[sel_autom_pad]
 	a_cc = automation_ccs[sel_autom_pad]
 	a_col = automation_cols[sel_autom_pad]
-	rec_val = rec_auto_buffer[sel_autom_pad]
 	con_val = autom_control_vals[sel_autom_pad]
+	rec_auto_buffer[sel_autom_pad] = con_val // start record at the control knob position
+	rec_val = con_val
 	if edit_mode_active and not record_autom_on
 		LabelPads {AUTOM : [ AUTOMATION SETUP ]}
 		LabelKnobs {AUTOM SETUP P}, auto_lane+1
-	elseif record_autom_on
+	elseif record_autom_on and not HostRunning
 	  LabelPads {AUTOM : [ AUTOMATION RECORD CH:},a_ch+1, { CC#}, a_cc, { ]}
-		LabelKnobs {AUTOM RECORD P}, auto_lane+1
+		LabelKnobs {READY TO RECORD P}, auto_lane+1
+	elseif record_autom_on and not HostRunning
+	  LabelPads {AUTOM : [ AUTOMATION RECORD CH:},a_ch+1, { CC#}, a_cc, { ]}
+		LabelKnobs {RECORDING P}, auto_lane+1
 	elseif control_autom_on
 	  LabelPads {AUTOM : [ AUTOMATION CONTROL CH:},a_ch+1, { CC#}, a_cc, { ]}
 		LabelKnobs {AUTOM CONTROL P}, auto_lane+1
@@ -1400,13 +1430,13 @@
 @End
 
 @SendAutomationData
-	//# Send automation data and set buffer val for HostBeat2
-	rec_or_control_mode = record_autom_on or control_autom_on
+	// Send saved automation data and set buffer val for HostBeat2
+	// Send if a chan and label are set except where its the selected autom pad and we send_autom_for_selected_pad. 
 	if send_automation_data_enabled
 		FillArray interpolation_buffer, -1, 48
 		auto_data_slot = (current_scene*128) + scene_beat_count
 	  next_data_slot = Clip (auto_data_slot+1), 0, 1024
-		if auto_data_ch0[auto_data_slot] >= 0 and automation_labels[0]>0 and not (rec_or_control_mode and sel_autom_pad=0)
+		if auto_data_ch0[auto_data_slot] >= 0 and automation_labels[0]>0 and not (sel_autom_pad=0 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch0[auto_data_slot]
 			bp2 = auto_data_ch0[next_data_slot]
 			ch = automation_chs[0]
@@ -1415,7 +1445,7 @@
 			Call @SetInterpolationBuffer
 			SendMIDICC ch, cc, bp1
 		endif
-		if auto_data_ch1[auto_data_slot] >= 0 and automation_labels[1]>0 and not (rec_or_control_mode and sel_autom_pad=1)
+		if auto_data_ch1[auto_data_slot] >= 0 and automation_labels[1]>0 and not (sel_autom_pad=1 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch1[auto_data_slot]
 			bp2 = auto_data_ch1[next_data_slot]
 			ch = automation_chs[1]
@@ -1424,7 +1454,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch2[auto_data_slot] >= 0 and automation_labels[2]>0 and not (rec_or_control_mode and sel_autom_pad=2)
+		if auto_data_ch2[auto_data_slot] >= 0 and automation_labels[2]>0 and not (sel_autom_pad=2 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch2[auto_data_slot]
 			bp2 = auto_data_ch2[next_data_slot]
 			ch = automation_chs[2]
@@ -1433,7 +1463,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch3[auto_data_slot] >= 0 and automation_labels[3]>0 and not (rec_or_control_mode and sel_autom_pad=3)
+		if auto_data_ch3[auto_data_slot] >= 0 and automation_labels[3]>0 and not (sel_autom_pad=3 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch3[auto_data_slot]
 			bp2 = auto_data_ch3[next_data_slot]
 			ch = automation_chs[3]
@@ -1442,7 +1472,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch4[auto_data_slot] >= 0 and automation_labels[4]>0 and not (rec_or_control_mode and sel_autom_pad=4)
+		if auto_data_ch4[auto_data_slot] >= 0 and automation_labels[4]>0 and not (sel_autom_pad=4 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch4[auto_data_slot]
 			bp2 = auto_data_ch4[next_data_slot]
 			ch = automation_chs[4]
@@ -1451,7 +1481,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch5[auto_data_slot] >= 0 and automation_labels[5]>0 and not (rec_or_control_mode and sel_autom_pad=5)
+		if auto_data_ch5[auto_data_slot] >= 0 and automation_labels[5]>0 and not (sel_autom_pad=5 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch5[auto_data_slot]
 			bp2 = auto_data_ch5[next_data_slot]
 			ch = automation_chs[5]
@@ -1460,7 +1490,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch6[auto_data_slot] >= 0 and automation_labels[6]>0 and not (rec_or_control_mode and sel_autom_pad=6)
+		if auto_data_ch6[auto_data_slot] >= 0 and automation_labels[6]>0 and not (sel_autom_pad=6 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch6[auto_data_slot]
 			bp2 = auto_data_ch6[next_data_slot]
 			ch = automation_chs[6]
@@ -1469,7 +1499,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch7[auto_data_slot] >= 0 and automation_labels[7]>0 and not (rec_or_control_mode and sel_autom_pad=7)
+		if auto_data_ch7[auto_data_slot] >= 0 and automation_labels[7]>0 and not (sel_autom_pad=7 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch7[auto_data_slot]
 			bp2 = auto_data_ch7[next_data_slot]
 			ch = automation_chs[7]
@@ -1478,7 +1508,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch8[auto_data_slot] >= 0 and automation_labels[8]>0 and not (rec_or_control_mode and sel_autom_pad=8)
+		if auto_data_ch8[auto_data_slot] >= 0 and automation_labels[8]>0 and not (sel_autom_pad=8 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch8[auto_data_slot]
 			bp2 = auto_data_ch8[next_data_slot]
 			ch = automation_chs[8]
@@ -1487,7 +1517,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch9[auto_data_slot] >= 0 and automation_labels[9]>0 and not (rec_or_control_mode and sel_autom_pad=9)
+		if auto_data_ch9[auto_data_slot] >= 0 and automation_labels[9]>0 and not (sel_autom_pad=9 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch9[auto_data_slot]
 			bp2 = auto_data_ch9[next_data_slot]
 			ch = automation_chs[9]
@@ -1496,7 +1526,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch10[auto_data_slot] >= 0 and automation_labels[10]>0 and not (rec_or_control_mode and sel_autom_pad=10)
+		if auto_data_ch10[auto_data_slot] >= 0 and automation_labels[10]>0 and not (sel_autom_pad=10 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch10[auto_data_slot]
 			bp2 = auto_data_ch10[next_data_slot]
 			ch = automation_chs[10]
@@ -1505,7 +1535,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch11[auto_data_slot] >= 0 and automation_labels[11]>0 and not (rec_or_control_mode and sel_autom_pad=11)
+		if auto_data_ch11[auto_data_slot] >= 0 and automation_labels[11]>0 and not (sel_autom_pad=11 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch11[auto_data_slot]
 			bp2 = auto_data_ch11[next_data_slot]
 			ch = automation_chs[11]
@@ -1514,7 +1544,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch12[auto_data_slot] >= 0 and automation_labels[12]>0 and not (rec_or_control_mode and sel_autom_pad=12)
+		if auto_data_ch12[auto_data_slot] >= 0 and automation_labels[12]>0 and not (sel_autom_pad=12 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch12[auto_data_slot]
 			bp2 = auto_data_ch12[next_data_slot]
 			ch = automation_chs[12]
@@ -1523,7 +1553,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch13[auto_data_slot] >= 0 and automation_labels[13]>0 and not (rec_or_control_mode and sel_autom_pad=13)
+		if auto_data_ch13[auto_data_slot] >= 0 and automation_labels[13]>0 and not (sel_autom_pad=13 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch13[auto_data_slot]
 			bp2 = auto_data_ch13[next_data_slot]
 			ch = automation_chs[13]
@@ -1532,7 +1562,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch14[auto_data_slot] >= 0 and automation_labels[14]>0 and not (rec_or_control_mode and sel_autom_pad=14)
+		if auto_data_ch14[auto_data_slot] >= 0 and automation_labels[14]>0 and not (sel_autom_pad=14 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch14[auto_data_slot]
 			bp2 = auto_data_ch14[next_data_slot]
 			ch = automation_chs[14]
@@ -1541,7 +1571,7 @@
 			SendMIDICC ch, cc, bp1
 			Call @SetInterpolationBuffer
 		endif
-		if auto_data_ch15[auto_data_slot] >= 0 and automation_labels[15]>0 and not (rec_or_control_mode and sel_autom_pad=15)
+		if auto_data_ch15[auto_data_slot] >= 0 and automation_labels[15]>0 and not (sel_autom_pad=15 and not send_autom_for_selected_pad)
 			bp1 = auto_data_ch15[auto_data_slot]
 			bp2 = auto_data_ch15[next_data_slot]
 			ch = automation_chs[15]
