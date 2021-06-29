@@ -230,7 +230,8 @@
 	elseif MIDIChannel <> 15
 		Exit //other cc's must be on ch16 (1-16)
 		
-	elseif MIDIByte2<=17 or MIDIByte2>=117 //MIXER CONTROLS  curr_ch (21<>113)
+	elseif (MIDIByte2<=17 or MIDIByte2>=117) and not (MIDIByte2=0 or MIDIByte2=5) //cc0&5 transport handled in scenes 
+		//MIXER CONTROLS  curr_ch (21<>113)
 		//ModWheel & mod source msgs + Mixer(Vol,Gain,Pan,M/S,SendA,SendB,HPF,LPF,EQ) 
 		SendMIDIThruOnCh chan_midi_chs[curr_chan]
 		//Log {-- THRU TO: MIXER KNTRL CH:}, chan_midi_chs[curr_chan],{ cc}, MIDIByte2, { - }, MIDIByte3
@@ -318,9 +319,7 @@
 		in_mode_select=FALSE	
 		last_pad = MIDIByte2-109
 		Call @PadDownScenesMode
-		
-	else
-	  SendMIDIThru
+	
 	endif
 @End
 
