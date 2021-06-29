@@ -99,7 +99,10 @@
 		Exit //other cc's must be on ch16 (1-16)
 		
 	elseif MIDIByte2=0 or MIDIByte2=5 //TRANSPORT on CH16 - Aum: STOP, PLAY
-		SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
+		SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3
+		if MIDIByte2=0
+			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3, 100 //if stop then reset to bar with second stop msg
+		endif
 			
 	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7) //SCENE CHANGE CH16 CC100 only vals0-7
 		last_pad = MIDIByte3
@@ -427,6 +430,7 @@
 	//# Transport buttons handling
 	if last_pad=14 
 		SendMIDICC 15,0,127 //STOP
+		SendMIDICC 15,0,127, 10 //STOP again to reset to bar not just pause
 		ColorPad 15, 0
 		msg_type=sx_scene_change //sysex scene change
 		msg_data=[current_scene] 
