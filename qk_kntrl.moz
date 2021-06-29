@@ -341,9 +341,6 @@
 			  Call @OnPadUp2
 			endif
 		endif
-	elseif MIDIChannel=15
-		SendMIDIThruOnCh chan_midi_chs[curr_chan]
-		//Log {Notes on other channels thru}
 	endif
 @End
 
@@ -1334,13 +1331,15 @@
 	//# INTRUMENT KONTROL MODE with locked layouts active
 	knob_set=4
 	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + edit_pad
-	SetKnobValue 0, TranslateScale inst_mins[pad_slot], 0, 127, 0, 127
-	SetKnobValue 1, TranslateScale inst_maxs[pad_slot], 0, 127, 0, 127
 	if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
+		SetKnobValue 0, TranslateScale chan_lsb[curr_chan], 0, 15, 0, 127
+		SetKnobValue 1, TranslateScale chan_msb[curr_chan], 0, 15, 0, 127	
 		SetKnobValue 2, TranslateScale chan_pgm[curr_chan], 0, chan_pgm_max[curr_chan], 0, 127
 	else
 		val = inst_state[pad_slot] //Value knob2
 		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
+		SetKnobValue 0, TranslateScale inst_mins[pad_slot], 0, 127, 0, 127
+		SetKnobValue 1, TranslateScale inst_maxs[pad_slot], 0, 127, 0, 127
 	endif
 	SetKnobValue 3, TranslateScale inst_curr_page[curr_chan], 0, 3, 0, 127
 	Call @LabelInstrumentKnobsLocked
@@ -1352,16 +1351,24 @@
 	pad_to_label=edit_pad 
 	chan_to_label=curr_chan
 	if last_knob = 0 // MIN
-		inst_mins[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
-		val = inst_state[pad_slot]
-		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
-		inst_state[pad_slot] = Clip val, inst_mins[pad_slot], inst_maxs[pad_slot]
+		if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG
+				chan_lsb[curr_chan] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+		else
+			inst_mins[pad_slot] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127
+			val = inst_state[pad_slot]
+			SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
+			inst_state[pad_slot] = Clip val, inst_mins[pad_slot], inst_maxs[pad_slot]
+		endif
 	endif
 	if last_knob = 1 // MAX
-		inst_maxs[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127 //MAX VALUE
-		val = inst_state[pad_slot]
-		SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
-		inst_state[pad_slot] = Clip val, inst_mins[pad_slot], inst_maxs[pad_slot]
+		if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG
+			chan_msb[curr_chan] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
+		else
+			inst_maxs[pad_slot] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 127 //MAX VALUE
+			val = inst_state[pad_slot]
+			SetKnobValue 2, TranslateScale val, inst_mins[pad_slot], inst_maxs[pad_slot], 0, 127
+			inst_state[pad_slot] = Clip val, inst_mins[pad_slot], inst_maxs[pad_slot]
+		endif
 	endif
 	if last_knob=2 // VALUE CC or PGM CHG
 		if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //PGM CHG
@@ -1402,8 +1409,13 @@
 	else
 	  LabelKnobs {CH:}, chan_midi_chs[edit_chan]+1, { CC#}, inst_ccs[pad_slot]
 	endif
-	LabelKnob 0, {MIN }, inst_mins[pad_slot]
-	LabelKnob 1, {MAX }, inst_maxs[pad_slot]
+	if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
+		LabelKnob 0, {LSB }, chan_lsb[curr_chan] // only one per channel
+		LabelKnob 1, {MSB }, chan_msb[curr_chan] // only one per channel
+	else
+		LabelKnob 0, {MIN }, inst_mins[pad_slot]
+		LabelKnob 1, {MAX }, inst_maxs[pad_slot]
+	endif
 	if inst_labels[pad_slot]=lbl_num_pgm_dec or inst_labels[pad_slot]=lbl_num_pgm_inc //pgm chg message type
 		LabelKnob 2, {Pgm }, chan_pgm[curr_chan]
 	elseif inst_msg_type[pad_slot]=1
