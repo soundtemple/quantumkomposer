@@ -544,6 +544,8 @@
 				for i = active_ch_min to active_ch_max
 					if midi_chan_modes[i]=2 or midi_chan_modes[i]=3  //send chords to channels set up with mode chords
 						chord_note_ch = i 
+						// can only have one chord note per channel playing at any one time, so make sure turned off first
+						Call @TurnOffChordNotes 
 						midi_note=8 //chord notes mode. send the chord
 						trigger_note_oct_adj = 0 //pad down trigger uses default octave
 						inv_adjs=[0,0,0,0] //used for gated chords only. pad down we use inv set in chord
