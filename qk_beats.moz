@@ -21,7 +21,7 @@
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		use_turn_around = TRUE //# last pattn as turn around on last bar of scene
-		mgen_device_id=4 //used for midi control of pads. each mgen instance is assigned a number
+		mgen_device_id=5 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		shift_is_down=FALSE
@@ -195,7 +195,7 @@
 		scale_slot = sel_scale*50
 		notes_in_set=8
 		ch_start_notes=[0,2,4,6]
-		mgen_device_id=4
+		mgen_device_id=5
 		if sel_scale=3 // DC Patt
 			notes_in_set=16
 			ch_start_notes=[0,0,0,0]
