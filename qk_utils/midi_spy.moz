@@ -95,7 +95,7 @@
 		Log MidiCommand, {-}, MIDIByte2, {-}, MIDIByte3
 	endif
 	if log_pgm_chg and MIDICommand=0xC0
-		Log {PGM CHG: }, MidiCommand, {-}, MIDIByte2, {-}, MIDIByte3
+		Log {PGM CHG:  CH:}, MIDIChannel+1, {-}, MIDIByte2
 	endif
 @End
 	
