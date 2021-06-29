@@ -28,6 +28,8 @@
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
 		shift_is_down=FALSE
+		SetTimerInterval 1000
+		timer_task=1 //variable to manage different tasks used by the timer
 		Call @GetAutoRamps
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SysexMessageSetup
@@ -157,6 +159,10 @@
 			autom_control_vals[i] = default_vals[i]
 		endif
 	endfor
+	timer_task=1 //setup settings layout
+	ColorPad 2, 3
+	LabelPad 2, {Done!}
+	StartTimer
 @End
 
 @ResetAutomToPosition
@@ -211,6 +217,10 @@
 		SendMIDICC automation_chs[15], automation_ccs[15], (Clip auto_data_ch15[reset_position], 0, 127)
 	endif
 	FillArray interpolation_buffer, -1, 48
+	timer_task=1 //setup settings layout
+	ColorPad 1, 3
+	LabelPad 1, {Done!}
+	StartTimer
 @End
 
 @OnHostStart
@@ -448,12 +458,13 @@
 			Call @SetupKnobset0
 			Call @SetupLayoutScenes
 		elseif last_pad=1
-			reset_position = edit_scene*128
-			Call @ResetAutomToPosition
-			LabelPad 1, {VALS RESET TO START S}, edit_scene+1
+			timer_task=4 //Reset autom to beginning of scene
+			LabelPads {HOLD TO APPLY AUTOMATION.}
+			StartTimer
 		elseif last_pad=2
-			Call @ResetToDefaults
-			LabelPad 2, {VALS RESET TO DEFAULTS}
+			timer_task=5 //Reset autom to default values
+			LabelPads {HOLD TO APPLY AUTOMATION.}
+			StartTimer
 		elseif last_pad=3
 			autom_mode = autom_mode+1
 			if autom_mode>3
@@ -489,24 +500,25 @@
 			edit_mode_active = TRUE
 			mode=2 //AUTOMATION
 			in_mode_select = FALSE
+			autom_mode=2
+			record_autom_on=FALSE
+			control_autom_on=TRUE
+			send_autom_for_selected_pad=TRUE
 			Call @LabelAutomationPads
 			Call @SetupKnobset4 //# AUTOM and thru to editing
 			LatchPad sel_autom_pad, YES
 		elseif last_pad=6
-			autom_preset = autom_preset+1
-			if autom_preset > 3
-				autom_preset=0 //0empty; 1drums/bass; 2lead/harm; 3mixbus
-			endif
-			Call @InitPresetVals
-			Call @SetupSettingsLayout	
-			Call @SetupKnobset1
+			timer_task=2
+			LabelPads {HOLD TO CHANGE PRESET. NEW PRESET RESETS AUTOMATION DATA}
+			StartTimer
 		elseif last_pad=7
 			send_automation_data_enabled = not send_automation_data_enabled
 		  Call @SetupSettingsLayout
 		elseif last_pad>=8
 		  // AUTOM SCENE SET TASKS
-			scene_task=last_pad 
-			Call @AutomSceneTasks
+			timer_task=3 //Apply autom scene tasks
+			LabelPads {HOLD TO APPLY AUTOMATION.}
+			StartTimer
 		endif
 	elseif NOT in_mode_select
 		if mode=0  //SCENES MODE
@@ -524,8 +536,11 @@
 @End
 
 @OnPadUp2
-  //pass
 	pad_is_down = FALSE
+	if timer_task>1
+		StopTimer
+		timer_task=-1
+	endif
 @End
 
 @AutomSceneTasks
@@ -596,14 +611,36 @@
 	pad_to_label=scene_task
 	pad_color=3
 	Call @UpdateSinglePad
+	timer_task=1 //setup settings layout
 	LabelPad scene_task, {Done!}
-	SetTimerInterval 1000
 	StartTimer
 @End
 
 @OnTimer
-  Call @SetupSettingsLayout
-	StopTimer
+	if timer_task=1 //complete autom task from settings menu
+	  Call @SetupSettingsLayout
+		StopTimer
+	elseif timer_task=2 // change preset
+		autom_preset = autom_preset+1
+		if autom_preset > 3
+			autom_preset=0 //0empty; 1drums/bass; 2lead/harm; 3mixbus
+		endif
+		Call @InitPresetVals
+		Call @SetupSettingsLayout	
+		Call @SetupKnobset1
+		StopTimer
+	elseif timer_task=3 // apply automation task
+	  scene_task=last_pad
+		StopTimer //@AutomSceneTasks also uses timer so reset here		
+		Call @AutomSceneTasks
+	elseif timer_task=4 // reset autom to beginning of scene
+		reset_position = edit_scene*128
+		StopTimer
+		Call @ResetAutomToPosition
+	elseif timer_task=5 // reset autom to defaults
+		StopTimer
+		Call @ResetToDefaults
+	endif
 @End
 
 
@@ -681,8 +718,12 @@
 		Call @SetupLayoutAutom
 		Call @SetupKnobset5 //# AUTOM. Edit indiv steps with 20knobs layout	
 	else
-		if last_pad_again
+		if last_pad_again and autom_mode=3 //record
 			rec_auto_buffer[sel_autom_pad] = -1 // reset record for pad if double tapped
+			autom_mode=1
+			record_autom_on=FALSE
+			control_autom_on=TRUE
+			send_autom_for_selected_pad=TRUE
 		endif
 		Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
 		for i = 0 to 15
@@ -737,7 +778,7 @@
 	in_mode_select = TRUE
 	ShowLayout 2
 	LabelPads {AUTOM : [ SETTINGS ]}
-	pad_cols = [4,5,5,7,7,3,0,0,  2,2,2,2,2,1,1,1]
+	pad_cols = [4,2,2,6,6,7,0,0,  2,2,2,2,2,1,1,1]
 	ch=automation_chs[sel_autom_pad]+1
 	cc=automation_ccs[sel_autom_pad]
 	scn=edit_scene+1
@@ -752,8 +793,8 @@
 	  LabelPads {AUTOM SETUP : [ AUTOMATION SETUP PARAMTERS ] }
 		LabelPad 3, {MODE=> SETUP}
 		LabelPad 4, {AUTOM SETUP}
-		pad_cols[3]=7
-		pad_cols[4]=7
+		pad_cols[3]=6
+		pad_cols[4]=6
 	elseif autom_mode=1
 	  LabelPads {AUTOM CONTROL : [ Automation paused on selected pad. Use 'CON' knob to control. ]}
 		LabelPad 3, {MODE=> CONTROL}
@@ -789,10 +830,10 @@
 	endif
 	if send_automation_data_enabled
 		LabelPad 7, {AUTOM ENABLED}
-		pad_cols[7]=2
+		pad_cols[7]=3
 	else
 	  LabelPad 7, {AUTOM DISABLED}
-		pad_cols[7]=0
+		pad_cols[7]=1
 	endif
 	LabelPad 8, {SCN}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MIN }, min
 	LabelPad 9, {SCN}, scn, {  A}, sap, {       CH}, ch, { CC}, cc, {  =>MID }, mid
@@ -809,6 +850,7 @@
 @UpdateAllPadColours
 	//update pad colours and send midi feedback for LED lighting
 	for i = 0 to 15
+		LatchPad i, FALSE
 		pad_to_label=i
 		pad_color=pad_cols[i]
 		Call @UpdateSinglePad
@@ -1602,10 +1644,6 @@
 @LabelAutomPad
 	pad_color=automation_cols[pad_slot]
 	ColorPad pad_to_label, automation_cols[pad_slot]
-	if record_autom_on and rec_auto_buffer[pad_slot] >= 0
-		ColorPad pad_to_label, 1 //red its recording or armed to record bc buffer has a val
-		pad_color=1
-	endif
 	if mgen_device_id=mgen_sel_dev
 		SendMIDINoteOn 15, pad_to_label+led_index, pad_color
 	endif
@@ -1643,9 +1681,9 @@
 	elseif (label_num=14)
 		LabelPad pad_to_label, {SHIMMER}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=15)
-		LabelPad pad_to_label, {LPFX}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {MID}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=16)
-		LabelPad pad_to_label, {HPFX}, { __________ }, { ch},ch, { cc}, cc
+		LabelPad pad_to_label, {GAIN}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=17)
 		LabelPad pad_to_label, {RESNTOR}, { __________ }, { ch},ch, { cc}, cc
 	elseif (label_num=18)
