@@ -30,6 +30,7 @@
 		shift_is_down=FALSE
 		SetTimerInterval 1000
 		timer_task=1 //variable to manage different tasks used by the timer
+		highlight_pad=-1 //used for replicating latch pad on the launchpad ie: white pad
 		Call @GetAutoRamps
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SysexMessageSetup
@@ -123,7 +124,7 @@
 		automation_cols   = [6,6,6,6,      1,1,2,2,      2,2,2,2,      4,4,4,4]
 		default_vals      = [0,20,0,127,   0,127,0,127,  0,127,0,127,  0,127,0,127]
 		mgen_device_id=4
-		SetShortName {AUTOM3}
+		SetShortName {AUTOMD}
 	elseif autom_preset=2 //Lead-scaps-rizer-harmony
 		automation_labels = [51,6,51,6,    56,6,55,40,   52,6,54,6,    53,6,57,6]
 		automation_chs    = [6,6,7,7,      3,3,3,3,      8,8,9,9,      10,10,11,11]
@@ -131,7 +132,7 @@
 		automation_cols   = [4,4,4,4,      6,6,6,6,      3,3,3,3,      3,3,3,3]
 		default_vals      = [0,127,0,127,  0,127,0,0,    0,127,0,127,  0,127,0,127]
 		mgen_device_id=4
-		SetShortName {AUTOM4}
+		SetShortName {AUTOML}
 	elseif autom_preset=3 //Mixbus1-4: HPF-LPF-FX1-FX2
 		automation_labels = [42,43,44,45,  42,43,44,45,  42,43,44,45,  42,43,44,45]
 		automation_chs    = [12,12,12,12,  12,12,12,12,  12,12,12,12,  12,12,12,12]
@@ -139,7 +140,7 @@
 		automation_cols   = [2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5]
 		default_vals      = [0,127,0,0,    0,127,0,0,    0,127,0,0,    0,127,0,0]
 		mgen_device_id=4
-		SetShortName {AUTOM9}
+		SetShortName {AUTOMB}
 	else //empty template
 		FillArray automation_labels, 0, 16
 		FillArray automation_chs, 0, 16
@@ -459,11 +460,11 @@
 			Call @SetupLayoutScenes
 		elseif last_pad=1
 			timer_task=4 //Reset autom to beginning of scene
-			LabelPads {HOLD TO APPLY AUTOMATION.}
+			LabelPads {HOLD TO APPLY AUTOMATION}
 			StartTimer
 		elseif last_pad=2
 			timer_task=5 //Reset autom to default values
-			LabelPads {HOLD TO APPLY AUTOMATION.}
+			LabelPads {HOLD TO APPLY AUTOMATION}
 			StartTimer
 		elseif last_pad=3
 			autom_mode = autom_mode+1
@@ -517,7 +518,7 @@
 		elseif last_pad>=8
 		  // AUTOM SCENE SET TASKS
 			timer_task=3 //Apply autom scene tasks
-			LabelPads {HOLD TO APPLY AUTOMATION.}
+			LabelPads {HOLD TO APPLY AUTOMATION}
 			StartTimer
 		endif
 	elseif NOT in_mode_select
@@ -726,10 +727,14 @@
 			send_autom_for_selected_pad=TRUE
 		endif
 		Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
+		highlight_pad=sel_autom_pad
 		for i = 0 to 15
-			LatchPad i, no 
+			LatchPad i, no
+			pad_to_label=i
+			Call @ColorAutomPad
 		endfor
 		LatchPad sel_autom_pad, YES
+		highlight_pad=-1
 	endif
 	last_pad_again=FALSE
 @End
@@ -1118,12 +1123,14 @@
 @End
 
 @LabelAutomationPads
+	highlight_pad=sel_autom_pad
 	for i = 0 to 15
 		LabelPad i, { }
 		pad_to_label=i
 		pad_slot=i
 		Call @LabelAutomPad
 	endfor
+	highlight_pad=-1
 	if record_autom_on or control_autom_on
 		LabelKnob 0, {MIN }, min_vals_rec_cont[sel_autom_pad]
 		LabelKnob 1, {MAX }, max_vals_rec_cont[sel_autom_pad]
@@ -1640,13 +1647,22 @@
 		//Log {b-ch:}, b_ch, { vals: }, interpolation_buffer[(b_ch * 3)], {-}, interpolation_buffer[(b_ch * 3)+1], {-}, interpolation_buffer[(b_ch * 3)+2]
 	endif
 @End
+
+@ColorAutomPad
+	pad_color=automation_cols[pad_to_label]
+	if highlight_pad=pad_to_label
+		color_for_pad=8
+	else
+		color_for_pad=automation_cols[pad_to_label]
+	endif
+	ColorPad pad_to_label, color_for_pad 
+	if mgen_device_id=mgen_sel_dev
+		SendMIDINoteOn 15, pad_to_label+led_index, color_for_pad
+	endif
+@End
  
 @LabelAutomPad
-	pad_color=automation_cols[pad_slot]
-	ColorPad pad_to_label, automation_cols[pad_slot]
-	if mgen_device_id=mgen_sel_dev
-		SendMIDINoteOn 15, pad_to_label+led_index, pad_color
-	endif
+	Call @ColorAutomPad
 	label_num = automation_labels[pad_slot] // any pad any label except cc in protected range
 	ch=automation_chs[pad_slot]+1
 	cc=automation_ccs[pad_slot]
