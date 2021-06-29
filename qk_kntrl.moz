@@ -200,7 +200,7 @@
 		CopyArray custom_knobs, msg_data, 9
 		len_data=9
 		Call @SendSysex //update QK2KBS so it can send midi feedback to controller
-	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and MIDIByte2=custom_knobs[5] or MIDIByte2=custom_knobs[6] or MIDIByte2=custom_knobs[7] or MIDIByte2=custom_knobs[8]  
+	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and (MIDIByte2=custom_knobs[5] or MIDIByte2=custom_knobs[6] or MIDIByte2=custom_knobs[7] or MIDIByte2=custom_knobs[8])
 		//custom selected mgen device knobs
 		if MIDIByte2=custom_knobs[5] 
 			last_knob=0
@@ -213,7 +213,7 @@
 		endif
 		SendMIDICC 15, mgen_ccs[last_knob], MIDIByte3
 		
-	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and MIDIByte2=custom_knobs[1] or MIDIByte2=custom_knobs[2] or MIDIByte2=custom_knobs[3] or MIDIByte2=custom_knobs[4]  
+	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and (MIDIByte2=custom_knobs[1] or MIDIByte2=custom_knobs[2] or MIDIByte2=custom_knobs[3] or MIDIByte2=custom_knobs[4])
 		//custom selected kntrl device knobs
 		if MIDIByte2=custom_knobs[1] 
 			last_knob=0
