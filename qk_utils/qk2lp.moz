@@ -100,9 +100,9 @@
 	pink=53
 	yellow=14
 	//messages from KNTRL will send a color 0-9 as value MIDIBYTE3. Map to controller colours here:
-	to_pad_col = [off, ddred, orange, pgreen, pblue, purple, mauve, pink, white, beige, pred, grey] 
+	to_pad_col = [off, ddred, orange, pgreen, pblue, purple, mauve, pink, white, beige, pred, grey, off] 
 	
-	colors[91] = [yellow,	off,		ddred,	dgreen, 	pgreen, grey, 	grey, grey,		off] //drambo, transport, mode
+	colors[91] = [yellow,	off,		ddred,	dgreen, 	pgreen, grey, 	grey, grey,		off] //transport, mode buttons
 	colors[81] = [orange, orange, orange, orange, orange, orange, orange, orange,	off] //mgen select
 	colors[71] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
 	colors[61] = [off, 		off, 		off, 		off, 		off, 		off, 		off, 		off,		off] //mgen pads
