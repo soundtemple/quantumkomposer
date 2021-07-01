@@ -2707,7 +2707,7 @@
 	elseif label_view_mode=4
 		LabelPad 15, {SEQ VIEW     }, {  CHANNEL}
 	endif
-	settings_pad_cols=[7,4,0,5,5,5,4,1, ncol,ncol,ncol,ncol,ncol,1,0,2]
+	settings_pad_cols=[7,4,ncol,5,5,5,4,1, 6,3,3,3, 3,1,0,2]
 	if mode>=3 and mode<=5
 		settings_pad_cols[mode]=8
 	endif	
@@ -2881,16 +2881,16 @@
 	elseif sel_pad_type=0 and steps_record_mode //# recsteps on
 		padColor=1
 	elseif sel_pad_type=2
-		padColor=4
-	endif
+		padColor=5 //extended notes [blue][purple][purple] etc
+ 	endif
 	if (step_mutation[(current_scene*4) + seq_ch]>=1) and (mutate_step[seq_ch]=sel_pad) 
-			padColor=6 //# highlight mutating step
+			padColor=7 //# highlight mutating step
 	endif
 	if (mode=7) and (sel_pad_type>0) //# delete reset pads mode
 		padColor=1
 	endif
 	if sel_pad >= pattn_length //# Off pads past pattn length
-		padColor = 5
+		padColor=2
 	endif
 	if (sel_pad=sel_step) and mode=9 and seq_type<4
 		padColor=3
