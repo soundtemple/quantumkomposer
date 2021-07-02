@@ -1933,57 +1933,14 @@
   knob_set = 6
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { STEPS} 
   euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
-  euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
-  if euc_type=0 //#notes
-  	k2min=0
-  	k2max=16
-  elseif euc_type=1 //#rotation
-  	k2min=0
-  	k2max=15
-  elseif euc_type=2 //#length
-  	k2min=0
-  	k2max=15
-  elseif euc_type=3 //#rate
-  	k2min=0
-  	k2max=4
- 	endif
-	//# euc_type: #notes, rotation, length, rate	
+  //# euc_type: #notes, rotation, length, rate	
   if Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3 <> seq_ch
 	  SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
   endif
-  SetKnobValue 1, TranslateScale euc_type, 0, 3, 0, 127
-  SetKnobValue 2, TranslateScale euc_vals[euc_slot + euc_type], k2min, k2max, 0, 127
+  SetKnobValue 1, TranslateScale euc_vals[euc_slot + 2], 0, 15, 0, 127 //length
+  SetKnobValue 2, TranslateScale euc_vals[euc_slot + 3], 0, 4, 0, 127 //rate
   SetKnobValue 3, TranslateScale steps_record_mode, 0, 1, 0, 127
-  LabelKnob 0, {CH: }, seq_ch+1
-  if euc_type=0
-		LabelKnob 1, {#NOTES}
-	elseif euc_type=1
-		LabelKnob 1, {ROT}	
-	elseif euc_type=2
-		LabelKnob 1, {LENGTH}	
-	elseif euc_type=4
-		LabelKnob 1, {RATE}	
-	endif
-  if euc_type=2
-	  LabelKnob 2, {Steps:}, (16 - euc_vals[euc_slot + euc_type])
-	elseif euc_type=3 and euc_vals[euc_slot + euc_type]=0
-		LabelKnob 2, {16ths}
-	elseif euc_type=3 and euc_vals[euc_slot + euc_type]=1
-  	LabelKnob 2, {8ths}
-  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=2
-  	LabelKnob 2, {1/4Notes}
-  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=3
-  	LabelKnob 2, {1/2Notes}
-  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=4
-		LabelKnob 2, {1/1Notes}
-  else
-  	LabelKnob 2, {Val }, euc_vals[euc_slot + euc_type]
-  endif
-  if steps_record_mode
-	  LabelKnob 3, {RecON}
-	else
-		LabelKnob 3, {RecOFF}
-	endif
+	Call @LabelKnobset6
 @End
 
 @KnobChangeSet6 //# EUCLIDEAN STEP SEQ and PRESETSxs6
@@ -1991,42 +1948,23 @@
 	euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
   if last_knob = 0 //# seq ch to edit
   	seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
-	  SetKnobValue 2, TranslateScale euc_vals[euc_slot+euc_type], k2min, k2max, 0, 127
-	Call @LabelAllSequencePads
+		SetKnobValue 1, TranslateScale euc_vals[euc_slot + 2], 0, 15, 0, 127 //length
+  	SetKnobValue 2, TranslateScale euc_vals[euc_slot + 3], 0, 4, 0, 127 //rate
+	  Call @LabelKnobset6
+		Call @LabelAllSequencePads
   endif
   if last_knob = 1 //# type to edit
-  	euc_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
-		SetKnobValue 2, TranslateScale euc_vals[euc_slot+euc_type], k2min, k2max, 0, 127
-	if euc_type=0 //#notes
-	  	k2min=0
-	  	k2max=16
-	  elseif euc_type=1 //#rotation
-	  	k2min=0
-	  	k2max=15
-	  elseif euc_type=2 //#length
-	  	k2min=1
-	  	k2max=15
-	  elseif euc_type=3 //#rate
-	  	k2min=0
-	  	k2max=4
-	  endif
+  	length = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 15
+  	if length <> euc_vals[euc_slot+2]
+  		euc_vals[euc_slot+2] = length
+  		Call @SetupLayout
+		endif 
   endif
   if last_knob = 2
-	  e_val = Round TranslateScale (GetKnobValue 2), 0, 127, k2min, k2max	
-  	if e_val <> euc_vals[euc_slot+euc_type]
-  		euc_vals[euc_slot+euc_type] = e_val
-  		rotation  = euc_vals[euc_slot+1]
-  		if euc_type <> 3 //# Rate
-	  		num_notes = euc_vals[euc_slot]
-				num_steps = (16 - euc_vals[euc_slot+2]) //# length
-				if num_notes>0
-					Call @GetEuclideanSteps
-  			else
-  				new_notes = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
-  			endif
-  			Call @ApplyEuclideanSteps
-  			Call @SetupLayout
-  		endif
+	  rate = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 4
+  	if rate <> euc_vals[euc_slot+3]
+  		euc_vals[euc_slot+3] = rate
+  		Call @LabelKnobset6
   	endif
   endif
   if last_knob = 3
@@ -2036,65 +1974,28 @@
   		Call @LabelAllSequencePads
   	endif
   endif
-  LabelKnob 0, {CH: }, seq_ch+1
-  if euc_type=0
-		LabelKnob 1, {#NOTES}
-	elseif euc_type=1
-		LabelKnob 1, {ROT}	
-	elseif euc_type=2
-		LabelKnob 1, {LENGTH}	
-	elseif euc_type=3
-		LabelKnob 1, {RATE}	
-	endif
-  if euc_type=2
-	  LabelKnob 2, {Steps:}, (16 - euc_vals[euc_slot + euc_type])
-	elseif euc_type=3 and euc_vals[euc_slot + euc_type]=0
+  sel_pad = sel_step
+@End
+
+@LabelKnobset6
+	LabelPads {SEQUENCE: Set rate and step size for each channel. Tap to add/remove steps}
+	LabelKnob 0, {CH: }, seq_ch+1
+  LabelKnob 1, {Length }, (16- euc_vals[euc_slot + 2])
+  if euc_vals[euc_slot + 3]=0
 		LabelKnob 2, {16ths}
-	elseif euc_type=3 and euc_vals[euc_slot + euc_type]=1
+	elseif euc_vals[euc_slot + 3]=1
   	LabelKnob 2, {8ths}
-  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=2
+  elseif euc_vals[euc_slot + 3]=2
   	LabelKnob 2, {1/4Notes}
-  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=3
+  elseif euc_vals[euc_slot + 3]=3
   	LabelKnob 2, {1/2Notes}
-  elseif euc_type=3 and euc_vals[euc_slot + euc_type]=4
-  	LabelKnob 2, {1/1Notes}
-  else
-  	LabelKnob 2, {Val }, euc_vals[euc_slot + euc_type]
-  endif
+  elseif euc_vals[euc_slot + 3]=4
+		LabelKnob 2, {1/1Notes}
+	endif
   if steps_record_mode
 	  LabelKnob 3, {RecON}
 	else
 		LabelKnob 3, {RecOFF}
-	endif
-  sel_pad = sel_step
-@End
-
-@GetEuclideanSteps //# calc euc steps based on 3 inputs
-	new_notes = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
-  width = num_notes / num_steps
-  prev_step = 1
-  for i = 0 to num_steps - 1
-    curr_step = RoundDown ( i * width )
-    if curr_step <> prev_step
-      pos = (i + rotation) % num_steps
-      new_notes[pos] = 1
-    endif
-    prev_step = curr_step
-  endfor
-  CopyArray new_notes, n, 16
-  Log n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7],n[8],n[9],n[10],n[11],n[12],n[13],n[14],n[15]   
-@End
-
-@ApplyEuclideanSteps //# apply euc steps to a seq_steps location xaes
-	step_slot=(current_scene*128)+(current_pattn*16)		
-	if seq_ch=0
-		CopyArray new_notes, seq0_steps[step_slot], 16 
-	elseif seq_ch=1
-		CopyArray new_notes, seq1_steps[step_slot], 16
-	elseif seq_ch=2
-		CopyArray new_notes, seq2_steps[step_slot], 16
-	elseif seq_ch=3
-		CopyArray new_notes, seq3_steps[step_slot], 16
 	endif
 @End
 
@@ -2686,7 +2587,7 @@
 	if (mode>=8 or mode<=1)
 		LabelPad 7, {DELETE  }
 	endif
-	LabelPad 8, {EUC SEQ}
+	LabelPad 8, {LENGTH RATE}
 	LabelPad 9, {STEP EDIT}	
 	LabelPad 10, {MUTATE}
 	LabelPad 11, {SEQ GEN }, seq_ch+1
@@ -2707,7 +2608,7 @@
 	elseif label_view_mode=4
 		LabelPad 15, {SEQ VIEW     }, {  CHANNEL}
 	endif
-	settings_pad_cols=[7,4,ncol,5,5,5,4,1, 6,3,3,3, 3,1,0,2]
+	settings_pad_cols=[7,4,ncol,5,5,5,4,1, 3,3,3,3, 3,1,0,2]
 	if mode>=3 and mode<=5
 		settings_pad_cols[mode]=8
 	endif	
@@ -2821,7 +2722,6 @@
 	if mode = 8
 	  Call @SetupKnobset6 //# SEQUENCE STEPS EDIT
 	  label_style=4
-	  LabelPads {EUCLIDEAN SEQUENCER: Knobs generate pattern steps, length & rate. Pads toggle state or record steps}
 	elseif mode = 9
 		label_style=label_view_mode
 	  Call @SetupKnobset5 //# SEQUENCE EDIT ALL TYPES
