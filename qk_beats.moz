@@ -2654,10 +2654,10 @@
 	  p1=seq1_notes[step_slot]+1
 	  p2=seq2_notes[step_slot]+1
 	  p3=seq3_notes[step_slot]+1
+		p=[p0,p1,p2,p3]
 	endif
 	n=[n0,n1,n2,n3]
-	p=[p0,p1,p2,p3]
-  v0=seq0_velos[step_slot]
+	v0=seq0_velos[step_slot]
   v1=seq1_velos[step_slot]
   v2=seq2_velos[step_slot]
   v3=seq3_velos[step_slot]
