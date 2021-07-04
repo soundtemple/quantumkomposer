@@ -1999,7 +1999,7 @@
 	endif
 	//# Off pads past pattn length
 	if sel_pad >= pattn_length
-		padColor = 5
+		padColor = 2
 	endif
 	if mode=10 //trigger play mode
 		if current_playing_patterns[seq_ch] = sel_pad
@@ -2039,7 +2039,9 @@
 	  ptn_num=ap[seq_ch]+1
 		nn=ap[seq_ch] + trigger_method_offset[seq_ch]
 	endif
-	if trigger_method[seq_ch]=0 //NOTE MODE
+	if (sel_pad >= pattn_length) and mode<>10
+		LabelPad sel_pad, { }
+	elseif trigger_method[seq_ch]=0 //NOTE MODE
 		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10  //trigger mode 16pads available
 			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { }, (NoteName nn, TRUE), { (}, nn, {)}
 		else
@@ -2051,8 +2053,8 @@
 		else
 		  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
 		endif
-	elseif trigger_method[seq_ch]=2  //CC VAL mode
-		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10 //trigger mode 16pads available
+	elseif trigger_method[seq_ch]=2  //CC VAL mode (mode=10 //trigger mode 16pads available)
+		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10 
 			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { cc#}, trigger_method_offset[seq_ch], {-}, ap[seq_ch]
 		else
 		  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
