@@ -15,7 +15,7 @@
 		pattn_change_requested = -1 //# on pad down has next pattn number
 		scene_change_pattn_reset = TRUE //# Goto pattn 0 when user changes scene
 		scene_changed = FALSE
-		in_mode_select = FALSE //# Toggle for changing modes mode
+		in_mode_select = TRUE //# Toggle for changing modes mode
 		number_of_modes = 16 //# Change in operational mode 
 		in_seq_mode = FALSE //# editing pattern steps mode
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
@@ -25,6 +25,7 @@
 		mgen_sel_dev=0 //used for midi control of pads
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		shift_is_down=FALSE
+		pad_is_down=FALSE
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id)
 		mchnce=100
@@ -37,8 +38,7 @@
 		Call @LoadDrumPatterns
 		Call @LoadRampPatterns
 		Call @SetupScales
-		Call @SetupKnobset0
-		Call @SetupLayout
+		Call @SetupSettingsLayout
 	endif 
 @End
 
@@ -527,6 +527,7 @@
 
 @OnPadDown2 //# Splitting this event into separate handlers
 	shift_is_down=FALSE //protect against unwanted shift releases not happening
+	pad_is_down=TRUE
 	if in_mode_select and (last_pad <= (number_of_modes - 1))
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
@@ -650,6 +651,7 @@
 		elseif mode=1
 			LabelPads {[ BEATS ]  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
 			in_seq_mode = FALSE
+			Call @SetupKnobset0
 		endif
 		Call @SendMidiCCBackToKnobs
 		Call @SetupLayout
@@ -788,6 +790,7 @@
 
 @OnPadUp
 	last_pad=LastPad
+	pad_is_down=FALSE
   Call @OnPadUp2
 @End
 
@@ -1300,15 +1303,15 @@
 	SetKnobValue 3, 0
 @End
 @KnobChangeSet0 //# scene settings
-	if last_knob = 0 and shift_is_down
+	if last_knob = 0 and pad_is_down
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_durs[current_scene] 	
 		  scene_durs[current_scene] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
 			Call @UpdateScenesWithDuration
 	  endif
-	elseif last_knob = 0 and NOT shift_is_down
-		LabelPads {Normally controlled by Scene Master. Hold SHIFT to change.}
+	elseif last_knob = 0 and NOT pad_is_down
+		LabelPads {Normally controlled by Scene Master. Hold PAD DOWN to change.}
   endif
   if last_knob = 1
 	  scn_swing = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 100

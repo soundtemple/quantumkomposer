@@ -17,7 +17,7 @@
 		scene_beat_count = -1
 		scene_changed = FALSE
 	  scene_change_chord_reset = TRUE //# Goto chord 0 when user changes scene
-	  in_mode_select = FALSE //# Toggle for changing modes mode
+	  in_mode_select = TRUE //# Toggle for changing modes mode
 	  number_of_modes = 16 //# Change in operational mode 
 	  base_starting_note = 48 //# centre point for notes out
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
@@ -29,6 +29,7 @@
 		mgen_device_id=8 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		shift_is_down=FALSE
+		pad_is_down=FALSE
 	  led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
@@ -39,8 +40,9 @@
 	  Call @InitKnobVariables //# All knob settings on start
 		Call @SysexMessageSetup
 	  Call @SetupChordsScenes
-	  Call @SetupKnobset0
-	  Call @SetupLayout
+	  knob_set=99
+		Call @SetupKnobset99 //settings knobs
+	  Call @SetupSettingsLayout
 	endif
 @End
 
@@ -456,6 +458,7 @@
 @OnPadDown2
 	//# Splitting this event into separate handlers
 	shift_is_down=FALSE //protect against unwanted shift releases not happening
+	pad_is_down=TRUE
 	if in_mode_select and (last_pad <= (number_of_modes - 1))
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			LabelPads {NOT ALLOWED WHEN HOST RUNNING}
@@ -576,6 +579,7 @@
 @End
 
 @OnPadUp2
+	pad_is_down=FALSE
 	if NOT HostRunning and (last_pad >= 8)
 		current_chord_duration = chord_bank[chord_slot + dur_slot]
 		if current_chord_duration>0
@@ -1104,13 +1108,16 @@
 			//aka chord_formed we can send chord notes
 			index_to_chord_notes=[0,4,7,11]
 			//inv_adjs passed in from onMidiNoteOn. array len 4, each cell -12, 0 or +12
-			for i = 0 to 3  
+			num_chrd_notes_to_play=2 // a triad
+			if chord_bank[chord_slot + 3] >= 0 //7th note in current chord 
+				num_chrd_notes_to_play=3 //a tetrad
+			endif
+			Log {chord_bank[chord_slot + 3] = }, chord_bank[chord_slot + 3]
+			for i = 0 to num_chrd_notes_to_play  
 				note_in_velo = 90
 				Call @HumanizeVelocity
-				if current_chord_scale[index_to_chord_notes[i]] > 0
-					SendMIDINoteOn chord_note_ch, (current_chord_scale[index_to_chord_notes[i]] + inv_adjs[i]), velocity
-					SetNoteState chord_note_ch, i, (current_chord_scale[index_to_chord_notes[i]] + inv_adjs[i])
-				endif
+				SendMIDINoteOn chord_note_ch, (current_chord_scale[index_to_chord_notes[i]] + inv_adjs[i]), velocity
+				SetNoteState chord_note_ch, i, (current_chord_scale[index_to_chord_notes[i]] + inv_adjs[i])
 			endfor
 		endif
 	elseif (curr_mode=3 and midi_note=5) //NOTES OF CHORD mode incoming note=F
@@ -1541,15 +1548,15 @@
 @End
 @KnobChangeSet0
 	//# scene settings
-	if last_knob = 0 and shift_is_down
+	if last_knob = 0 and pad_is_down
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_bank[current_scene * sc_size] 	
 		  scene_bank[current_scene * sc_size] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
 			Call @UpdateScenesWithDuration
 	  endif
-	elseif last_knob = 0 and NOT shift_is_down
-		LabelPads {Normally controlled by Scene Master. Hold SHIFT to change.}
+	elseif last_knob = 0 and NOT pad_is_down
+		LabelPads {Normally controlled by Scene Master. Hold PAD DOWN to change.}
   endif
   if last_knob = 1
 	  scn_txpose = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 12

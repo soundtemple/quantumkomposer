@@ -938,11 +938,11 @@
 			LabelKnob 1, {Bars }, scene_durs[edit_scene]
 		endif
 	endif
-	if last_knob = 1 and shift_is_down
+	if last_knob = 1 and pad_is_down
 		scn_duration = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32
 		scene_durs[edit_scene] = scn_duration
-	elseif last_knob = 1 and NOT shift_is_down
-		LabelPads {Normally controlled by Scene Master. Hold SHIFT to change.}
+	elseif last_knob = 1 and NOT pad_is_down
+		LabelPads {Normally controlled by Scene Master. Hold PAD DOWN to change.}
 	endif
 	scn_to_label = current_scene
 	Call @SetupLayoutScenes

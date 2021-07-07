@@ -346,6 +346,8 @@
 		scene_changing = TRUE
 		next_scene = scene_change_requested
 		songmode = 1
+	elseif sequencing_paused
+		scene_changing = FALSE
 	elseif scene_beat_count+1 >= current_scene_duration
 		if (songmode > 0) //locked to scene
 	  	next_scene = current_scene
@@ -388,6 +390,8 @@
 		pattn_changing = TRUE
 		next_pattn = pattn_change_requested
 		songmode = 2
+	elseif sequencing_paused
+		pattn_changing = FALSE
 	elseif (time_for_turnaround)
 		pattn_changing = TRUE
 		next_pattn = 7 //# play last pattn for one bar as a turn around before scene change
@@ -461,6 +465,7 @@
 
 @OnPadDown2 //# Splitting this event into separate handlers
 	shift_is_down=FALSE //protect against unwanted shift releases not happening
+	pad_is_down=TRUE
 	if in_mode_select 
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			Exit //# Only return to song allowed in playback
@@ -800,6 +805,7 @@
 
 @OnPadUp
 	last_pad=LastPad
+	pad_is_down=FALSE
   Call @OnPadUp2
 @End
 
@@ -1276,7 +1282,7 @@
 @End
 @KnobChangeSet0 
 	// scene / sequence durations
-	if last_knob = 0 and shift_is_down
+	if last_knob = 0 and pad_is_down
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_durs[current_scene] 	
 		  scene_durs[current_scene] = scn_duration
@@ -1285,8 +1291,8 @@
 	  endif
 		scn_to_label = current_scene
 		Call @LabelScenePad
-	elseif last_knob = 0 and NOT shift_is_down
-		LabelPads {Normally controlled by Scene Master. Hold SHIFT to change.}
+	elseif last_knob = 0 and NOT pad_is_down
+		LabelPads {Normally controlled by Scene Master. Hold PAD DOWN to change.}
   endif
 	if last_knob = 2
 	  pattn_duration = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 16
