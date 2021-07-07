@@ -26,10 +26,12 @@
 		mgen_sel_dev=0 //used for midi control of pads on LP. The currently selected instance
 		led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		shift_is_down=FALSE
+		pad_is_down=FALSE
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id)
 		pattn_beat_count = 0
 		scene_beat_count = 0
+		ch_offset=1 //QSEQ 8 ch's from 0-7 communicated with LK, ATOM etc. Use offset to change eg: 1-8
 		trigger_pattern_before_beat=TRUE //Trigger pattern before beat (mgen quant>0) or onBeat and (mgen quant=0)
 		sequencing_paused=FALSE //Dont send new triggers out for any channels. trigger mode only
 		SetTimerInterval 1000
@@ -37,8 +39,8 @@
 		Call @InitKnobVariables //# All knob settings on load
 		Call @SysexMessageSetup
 		Call @SetupSequences
-		Call @SetupLayout
-		Call @SetupKnobset0
+		Call @SetupSettingsLayout
+		Call @SetupKnobset99
 	endif 
 @End
 
@@ -295,13 +297,13 @@
 	//TRIGGER THE ACTUAL PATTERN	
 	if (not sequencing_paused) or pattern_triggered_by_user 
 		if ptn_triggered_for_ch>=0 and ch_trigger_method=0 //NOTE
-			SendMIDINoteOn ptn_triggered_for_ch, pattern_num_to_trigger + offset, 127
-			SendMIDINoteOff ptn_triggered_for_ch, pattern_num_to_trigger + offset, 64, 1
+			SendMIDINoteOn ptn_triggered_for_ch + ch_offset, pattern_num_to_trigger + offset, 127
+			SendMIDINoteOff ptn_triggered_for_ch + ch_offset, pattern_num_to_trigger + offset, 64, 1
 			//Log {sent midi: ch}, ptn_triggered_for_ch, { #}, pattern_num_to_trigger + offset
 		elseif ptn_triggered_for_ch>=0 and ch_trigger_method=1 //CC NUM
-			SendMIDICC ptn_triggered_for_ch, pattern_num_to_trigger + offset, 127
+			SendMIDICC ptn_triggered_for_ch + ch_offset, pattern_num_to_trigger + offset, 127
 		elseif ptn_triggered_for_ch>=0 and ch_trigger_method=2 //CC VAL
-			SendMIDICC ptn_triggered_for_ch, offset, pattern_num_to_trigger
+			SendMIDICC ptn_triggered_for_ch + ch_offset, offset, pattern_num_to_trigger
 		endif
 		if mode=10 and ptn_triggered_for_ch=seq_ch and in_seq_mode //we want to see the current pattn highlighted
 			Call @LabelAllSequencePads
