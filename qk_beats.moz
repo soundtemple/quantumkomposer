@@ -1332,20 +1332,19 @@
   patt_dur = pattn_durs[pattn_slot]
   patt_bars = Div patt_dur, 4
   patt_beats = (patt_dur % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
-  patt_oct = pattn_octs[pattn_slot]
-  SetKnobValue 2, TranslateScale patt_dur, 0, 127, 0, 127
+  SetKnobValue 2, TranslateScale patt_dur, 0, 31, 0, 127
   SetKnobValue 3, TranslateScale patt_oct, -1, 1, 0, 127
   SetKnobValue 0, 0
   SetKnobValue 1, 0
   LabelKnob 2, {DUR: }, patt_bars, {.}, patt_beats
-  LabelKnob 3, {OCT: }, patt_oct
+  LabelKnob 3, { }
   LabelKnob 0, { }
   LabelKnob 1, { }
 @End
 @KnobChangeSet1 //# PATTN SETUP KNOBS
   pattn_slot = (current_scene * 8) + current_pattn
   if last_knob = 2
-	  pattn_duration = (Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127)+1
+	  pattn_duration = (Round TranslateScale (GetKnobValue 2), 0, 127, 0, 31)+1
 	  if pattn_duration <> pattn_durs[pattn_slot] 
 		  pattn_durs[pattn_slot] = pattn_duration
 		  dur_bars = Div pattn_duration, 4
@@ -1354,13 +1353,6 @@
 			scene_to_check=current_scene
 			Call @UpdatePattnsWithDuration
   	endif
-  endif
-  if last_knob = 3
-    patt_oct = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 1
-    if patt_oct <> pattn_octs[pattn_slot] 
-    	pattn_octs[pattn_slot] = patt_oct
-    	LabelKnob 3, {OCT: }, patt_oct
-    endif
   endif
   if last_knob = 0
 		LabelKnob 0, { }
