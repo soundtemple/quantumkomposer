@@ -2809,10 +2809,10 @@
 	euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
 	pattn_length = (16 - euc_vals[euc_slot+2])
   x=15
-	o0=seq0_octs[step_slot]
-	o1=seq1_octs[step_slot]
-	o2=seq2_octs[step_slot]
-	o3=seq3_octs[step_slot]
+	o0=seq0_octs[step_slot]+1
+	o1=seq1_octs[step_slot]+1
+	o2=seq2_octs[step_slot]+1
+	o3=seq3_octs[step_slot]+1
 	n0=curr_scale[seq0_notes[step_slot]] + (12 * o0) 
   n1=curr_scale[seq1_notes[step_slot]] + (12 * o1)
   n2=curr_scale[seq2_notes[step_slot]] + (12 * o2)
