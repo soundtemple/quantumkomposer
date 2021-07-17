@@ -1417,6 +1417,7 @@
 
 @SuggestChord
 	//# Make a chord suggestion based on previous chord. Update current chord slot
+	chord_slot = (current_scene * 100) + (current_chord * 10) //# chord to update
 	suggested_chord_notes=[]
 	n1=0 //prev_root
 	n2=4 //prev_3rd
@@ -1438,7 +1439,7 @@
 		n2=chord_bank[prev_chord_slot+1]%12
 		n3=chord_bank[prev_chord_slot+2]%12
 		n4=chord_bank[prev_chord_slot+3]%12
-		d=chord_bank[prev_chord_slot+4]%12
+		d=chord_bank[prev_chord_slot+4]
 		i=chord_bank[prev_chord_slot+5]%12
 	elseif current_chord>0
 		prev_chord_slot = ((current_scene) * 100) + ((current_chord-1) * 10)
@@ -1446,7 +1447,7 @@
 		n2=chord_bank[prev_chord_slot+1]%12
 		n3=chord_bank[prev_chord_slot+2]%12
 		n4=chord_bank[prev_chord_slot+3]%12
-		d=chord_bank[prev_chord_slot+4]%12
+		d=chord_bank[prev_chord_slot+4]
 		i=chord_bank[prev_chord_slot+5]%12
 	endif
 	
@@ -1472,7 +1473,6 @@
 	chord_suggest_bank[16*10] = [(n1+9)%12, (n1+12)%12, (n2+12)%12, -1,         d,i,(n1+9)%12] //chords root-3rd 
 	
 	//# Update the current chord with suggested notes
-	chord_slot = (current_scene * 100) + (current_chord * 10) //# chord to update
 	CopyArray chord_suggest_bank[chrd_sugg*10], chord_bank[chord_slot], 7
 	chrd_to_label = current_chord+8
 	Call @LabelChordPad		
@@ -1604,7 +1604,7 @@
 	LabelKnob 0, {Duration}	
 	LabelKnob 2, {Inv }, chrd_inversion
 	LabelKnob 3, { }
-	SetKnobValue 0, TranslateScale chrd_duration, 0, 127, 0, 127
+	SetKnobValue 0, TranslateScale chrd_duration, 0, 31, 0, 127
 	SetKnobValue 2, TranslateScale chrd_inversion, -4, 4, 0, 127
 	SetKnobValue 3, 0
 @End
@@ -1613,7 +1613,7 @@
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	chord_to_set=current_chord
 	if last_knob = 0
-	  chrd_duration = (Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127)+1
+	  chrd_duration = (Round TranslateScale (GetKnobValue 0), 0, 127, 0, 31)+1
 	  if chrd_duration <> chord_bank[chord_slot + dur_slot] 
 		  chord_bank[chord_slot + dur_slot] = chrd_duration
 		  dur_bars = Div chrd_duration, 4
