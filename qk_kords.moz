@@ -35,6 +35,7 @@
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
 		txpose_w_circle_fifths=FALSE
 		copy_mode=-1
+		generate_random_chord=FALSE
 		SetTimerInterval 1000
 		Call @TransposeCalcArrays
 	  Call @InitKnobVariables //# All knob settings on start
@@ -491,7 +492,7 @@
 			in_mode_select = FALSE
 		elseif last_pad=5
 			StartTimer
-			LabelPads {HOLD PAD DOWN TO GENERATE RANDOM CHORD PROGRESSION FOR SCENE }, current_scene+1
+			LabelPads {HOLD PAD DOWN TO GENERATE CHORD PROGRESSION FOR SCENE }, current_scene+1
 			Exit
 		elseif (last_pad>=8 and last_pad<=12)
     	//# midi setup modes - dont exit in_select_mode
@@ -1112,7 +1113,6 @@
 			if chord_bank[chord_slot + 3] >= 0 //7th note in current chord 
 				num_chrd_notes_to_play=3 //a tetrad
 			endif
-			Log {chord_bank[chord_slot + 3] = }, chord_bank[chord_slot + 3]
 			for i = 0 to num_chrd_notes_to_play  
 				note_in_velo = 90
 				Call @HumanizeVelocity
@@ -2147,7 +2147,7 @@
 	LabelPad 2, {+CHORDS: Select}
 	LabelPad 3, {+CHORDS: Construct}
 	LabelPad 4, {+CHORDS: Record}
-	LabelPad 5, {GEN RND CHORD PROG.}
+	LabelPad 5, {GENERATE CHORD PROG.}
 	if last_pad<=7 //# copy scene or chord
 		LabelPad 6, {COPY/PASTE }, {SCENE }, current_scene+1
 		copy_mode=0
@@ -2179,7 +2179,7 @@
 @End
 
 @OnTimer
-	//generate random chord progression for current scene
+	//generate chord progression for current scene
 	generate_random_chord=TRUE
 	if current_chord_scale[0]>=0 and current_chord_scale[4]>=0 and current_chord_scale[7]>=0
 		new_root_choices = [current_chord_scale[0], current_chord_scale[4], current_chord_scale[5], current_chord_scale[7]]
