@@ -83,9 +83,9 @@
 	//Store your layout info here
 	//Pads from top left to bottom right
 	
-	layouts =        [1,18,0,3, 4,5,4,5, 5,16,5,5, 0,0,0,0] // Layout to use with each keyboard
-	keybd_channels = [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15] //default midi channel use if not specified in layout
-	kntrl_keyboard_selection=[0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15] //on KNTRL Instr. channel change - select a keyboard 
+	layouts =        [1,18,0,3, 4,5,4,5, 5,3, 5, 5,  0,0,0,0] // Layout to use with each keyboard
+	keybd_channels = [0,1 ,2,3, 4,5,6,7, 8, 9,10,11, 12,13,14,15] //default midi channel use if not specified in layout
+	kntrl_kb_selct = [0,1, 2,3, 4,5,6,7, 8, 9,10,11, 12,13,14,15] //on KNTRL Instr. channel change - select a keyboard 
 	
 	for i = 0 to number_of_keyboards
 		keyboard_to_build = i 
@@ -116,10 +116,10 @@
 		colors[kb2b*16] = [4,4,4,4, 0,0,0,0, 2,2,2,2, 3,3,3,3]
 		pad_channels[kb2b*16] = [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]
 	elseif layouts[kb2b] = 3 //name: FX
-		labels[kb2b*16] = [11,13,-1,-1, 39,39,39,39, -1,-1,-1,-1,-1,-1,-1,-1]	
-		notes[kb2b*16] =  [49,51,-1,-1, 54,56,58,61, -1,-1,-1,-1,-1,-1,-1,-1]
-		colors[kb2b*16] = [4,4,0,0, 5,5,5,5, 0,0,0,0,0,0,0,0]
-		FillArray pad_channels[kb2b*16], 3, 16
+		labels[kb2b*16] = [11,13,12,-1, 39,39,39,39, -1,-1,-1,-1,-1,-1,-1,-1]	
+		notes[kb2b*16] =  [48,49,50,-1, 51,52,53,54, -1,-1,-1,-1,-1,-1,-1,-1]
+		colors[kb2b*16] = [4,4,6,0, 5,5,5,5, 0,0,0,0,0,0,0,0]
+		FillArray pad_channels[kb2b*16], 9, 16
 	elseif layouts[kb2b] = 4 //name: KORDS:MELODY CHANNEL KEYBOARD
 		labels[kb2b*16] = [24,28,25,28,26,28,27,24,24,28,25,28,26,28,27,24]
 		notes[kb2b*16] = [60,62,64,65,67,69,71,72, 48,50,52,53, 55,57,59,60]
@@ -261,8 +261,8 @@
 	endif
 	if MIDIByte2=24 and MIDIByte3<=15
 		// updates the selected keyboard based on the current channel in KNTRL
-		// map KNTRL channels to KB-1 keyboards using kntrl_keyboard_selection array
-		keyboard=kntrl_keyboard_selection[MIDIByte3]
+		// map KNTRL channels to KB-1 keyboards using kntrl_kb_selct array
+		keyboard=kntrl_kb_selct[MIDIByte3]
 		keyboard_to_build=keyboard
 		Call @BuildKeyboardLayout
 		Call @LabelLayout
@@ -331,37 +331,35 @@
   last_note_pad = (keyboard*16)+last_pad //access ch, note, label for last pad hit in a layout
 	if knob_set=2 //dont send notes - in pad setup mode
 		Call @UnlatchAllPads
-		Call @SetupKnobSet 
-	else 
-		if pad_channels[last_note_pad]>=0
-			chan = pad_channels[last_note_pad]
-		else
-			chan = keybd_channels[keyboard]
-		endif
-		note = Clip (notes[last_note_pad] + (oct_adjustments[keyboard]*12) + txpose_adjustments[keyboard]), 0, 127
-		rnd_vel_amt = Random 0, random_vel_amts[keyboard]
-		if global_vel=0 //THRU
-			velo = MIDIByte3 or 100 //if note on velocity is 0 then use 100
-		else
-		  velo = Clip (global_velo + rnd_vel_amt), 0, 127
-		endif
-		// SEND THE NOTE and store note data for note off msg
-		if notes[last_note_pad] >= 0
-			SendMIDINoteOn chan, note, velo
-		endif
-		note_on_store[last_pad] = note
-		chan_on_store[last_pad] = chan
-		
-		//color held pad white
-		pad_to_label=last_pad
-		pad_color=8
-		Call @UpdateSinglePad
-		
-		if log_notes
-			Log {Pad: }, last_pad, { Ch: }, chan, { Note: }, (NoteName note, YES), { Velo: }, velo, { Keyboard: }, Keyboard, { Layout: }, layouts[keyboard]
-		endif
-		Call @SetupKnobSet
+	endif 
+	if pad_channels[last_note_pad]>=0
+		chan = pad_channels[last_note_pad]
+	else
+		chan = keybd_channels[keyboard]
 	endif
+	note = Clip (notes[last_note_pad] + (oct_adjustments[keyboard]*12) + txpose_adjustments[keyboard]), 0, 127
+	rnd_vel_amt = Random 0, random_vel_amts[keyboard]
+	if global_vel=0 //THRU
+		velo = MIDIByte3 or 100 //if note on velocity is 0 then use 100
+	else
+	  velo = Clip (global_velo + rnd_vel_amt), 0, 127
+	endif
+	// SEND THE NOTE and store note data for note off msg
+	if notes[last_note_pad] >= 0
+		SendMIDINoteOn chan, note, velo
+	endif
+	note_on_store[last_pad] = note
+	chan_on_store[last_pad] = chan
+	
+	//color held pad white
+	pad_to_label=last_pad
+	pad_color=8
+	Call @UpdateSinglePad
+	
+	if log_notes
+		Log {Pad: }, last_pad, { Ch: }, chan, { Note: }, (NoteName note, YES), { Velo: }, velo, { Keyboard: }, Keyboard, { Layout: }, layouts[keyboard]
+	endif
+	Call @SetupKnobSet
 @End
 
 @OnPadUp
@@ -372,19 +370,15 @@
 
 
 @OnPadUp2
-	if knob_set=2 //dont send notes - in pad setup mode
-		Exit
-	else
-	  // SEND NOTE OFF
-		if notes[last_note_pad] >= 0
-			SendMIDINoteOff chan_on_store[last_pad], note_on_store[last_pad], 127
-		endif
-		//re-color white pad back to pad color
-		LatchPad last_pad, FALSE
-		pad_to_label=last_pad
-		pad_color=colors[(keyboard*16)+last_pad]
-		Call @UpdateSinglePad
+  // SEND NOTE OFF
+	if notes[last_note_pad] >= 0
+		SendMIDINoteOff chan_on_store[last_pad], note_on_store[last_pad], 127
 	endif
+	//re-color white pad back to pad color
+	LatchPad last_pad, FALSE
+	pad_to_label=last_pad
+	pad_color=colors[(keyboard*16)+last_pad]
+	Call @UpdateSinglePad
 @End
 
 @OnShiftDown
