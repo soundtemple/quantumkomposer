@@ -974,7 +974,7 @@
 	//# SCALE SETTINGS
 	knob_set = 1
 	Call @LabelSet1Knobs
-	SetKnobValue 0, TranslateScale scle_duration, 0, 127, 0, 127
+	SetKnobValue 0, TranslateScale scle_duration, 0, 31, 0, 127
 	SetKnobValue 1, TranslateScale scle_root, 0, 11, 0, 127
 	SetKnobValue 2, TranslateScale scle_type, 0, num_scales-1, 0, 127
 	SetKnobValue 3, TranslateScale scle_oct_adj, -1, 1, 0, 127
@@ -983,7 +983,7 @@
 	//# Scale settings
 	scale_slot = (current_scene * 100) + ((current_scale) * 10)
 	if last_knob = 0 //DURATION
-	  scle_duration = (Round TranslateScale (GetKnobValue 0), 0, 127, 0, 127)+1
+	  scle_duration = (Round TranslateScale (GetKnobValue 0), 0, 127, 0, 31)+1
 	  if scle_duration <> scale_bank[scale_slot + dur_slot] 
 		  scale_bank[scale_slot + dur_slot] = scle_duration
 		  Call @UpdateScalesWithDuration
@@ -1315,10 +1315,10 @@
 	LabelPad 1, {SCENES}
 	LabelPad 2, {[HELP]}
 	if last_scene_scale_pad_touched<=7
-		LabelPad 3, {GEN RND SCALE SET FOR SCN}, current_scene+1
+		LabelPad 3, {GENERATE SCALE SET FOR SCN}, current_scene+1
 		rnd_scale_set_for_scene=TRUE
 	else
-		LabelPad 3, {GEN RND SCALE FOR SLOT }, current_scene+1, {.}, current_scale+1
+		LabelPad 3, {GENERATE SCALE FOR SLOT }, current_scene+1, {.}, current_scale+1
 		rnd_scale_set_for_scene=FALSE
 	endif  
 	LabelPad 4, { }
