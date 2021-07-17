@@ -61,7 +61,7 @@
 @InitKnobVariables
 	//# Any knobset knob should have a setting here
 	current_scene = 0 // #0-7 Pads 0-7
-	scene_durs=[4,4,4,4, 4,4,4,4]
+	scene_durs=[8,8,8,8, 8,8,8,8]
 	scene_names=[0,1,2,3,4,5,6,7]
 	scene_presets[0*8]=[1,2,2,1,0,0,0,0]
 	scene_presets[1*8]=[4,8,16,16, 8,16,8,4]
