@@ -74,7 +74,7 @@
 	pattn_duration = 0
 	//# select 0-15 -- display 1-16 so 9 shows as 10
 	seq_ch=0 //# the sequence lane 0-3
-	seq_type=4 //# sequence lane to edit. Step, Note, Velo, CC
+	seq_type=0 //# sequence lane to edit. Step, Note, Velo, CC
 	euc_type=0
 	rot_type=0
 	timer_intervals=[500, 700, 150, 150, 700]
@@ -85,7 +85,7 @@
   preset_num=0
   move_all_dir=0
 	rot_dir=1
-	move_all=0 //boolean to move all or move 1 in step edit
+	move_all=FALSE //boolean to move all or move 1 in step edit
 	last_pad=0
   step_val=0
   copy_paste_status=0 //# Copy paste 0=off; 1=Copied; 2=Paste
@@ -585,9 +585,13 @@
 				else
 					LabelPad 14, {NO TRIGGER PAD ON TAP}
 				endif
+			elseif last_pad=1
+				mode = last_pad
+				in_mode_select=FALSE
+	    	Call @OnPadDown_KnobSetSelect
 			else
 				mode = last_pad
-	    	Call @OnPadDown_KnobSetSelect
+				Call @OnPadDown_KnobSetSelect
 			endif
 			for i = 0 to (number_of_modes - 1)
 				ColorPad i, settings_pad_cols[i]
@@ -666,6 +670,7 @@
 		elseif mode=1
 			LabelPads {[ NOTES ]  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
 			in_seq_mode = FALSE
+			Call @OnPadDown_KnobSetSelect
 		endif
 		Call @SendMidiCCBackToKnobs
 		Call @SetupLayout
@@ -722,9 +727,7 @@
 		if trigger_pad_on_tap and (mode=8 or mode=9 or mode=10 or mode=11) and not move_all
 			Call @TriggerPadOnTap
 		endif
-		if mode=8 and not steps_record_mode//# Step sequence mode
-			Call @UpdateSelStepType //# 0=off; 1=on; 2=sustain prev
-  	elseif (mode=9 and seq_type=4) and not move_all
+		if (mode=9 and not move_all) //STEP EDIT MODE ONLY MODE TO UPDATE STEPS BY TAPPING
 		  Call @UpdateSelStepType //# 0=off; 1=on;
 		elseif (mode=9 and move_all)
 			if last_pad=14
@@ -736,19 +739,15 @@
 			else 
 				move_all_dir=0
 			endif
-		elseif (mode>=11 and mode<=13)
-			if mode=12 //rotate sequence
-				if last_pad=14
-					rot_dir=-1
-				elseif last_pad=15
-					rot_dir=1
-				else 
-					rot_dir=0
-				endif
-				Call @RotateSequence
-			else
-				Call @UpdateSelStepType //# 0=off; 1=on;
+		elseif mode=12 //rotate sequence
+			if last_pad=14
+				rot_dir=-1
+			elseif last_pad=15
+				rot_dir=1
+			else 
+				rot_dir=0
 			endif
+			Call @RotateSequence
   	elseif mode=8 and steps_record_mode
   		step_slot=(current_scene*128)+(current_pattn*16)
 			if seq_ch=0
@@ -774,18 +773,19 @@
 @End
 
 @TriggerPadOnTap
+	oct_adj=12
 	step_slot=(current_scene*128)+(current_pattn*16)+last_pad
 	if seq_ch=0 //get note to play for seq pad pressed
-		note_val = (seq0_octs[step_slot]*12) + (curr_scale[seq0_notes[step_slot]])
+		note_val = (seq0_octs[step_slot]*12) + (curr_scale[seq0_notes[step_slot]]) + oct_adj
 		velo_val = seq0_velos[step_slot]
 	elseif seq_ch=1
-		note_val = (seq1_octs[step_slot]*12) + (curr_scale[seq1_notes[step_slot]])
+		note_val = (seq1_octs[step_slot]*12) + (curr_scale[seq1_notes[step_slot]]) + oct_adj
 		velo_val = seq1_velos[step_slot]
 	elseif seq_ch=2
-		note_val = (seq2_octs[step_slot]*12) + (curr_scale[seq2_notes[step_slot]])
+		note_val = (seq2_octs[step_slot]*12) + (curr_scale[seq2_notes[step_slot]]) + oct_adj
 		velo_val = seq2_velos[step_slot]
 	elseif seq_ch=3
-		note_val = (seq3_octs[step_slot]*12) + (curr_scale[seq3_notes[step_slot]])
+		note_val = (seq3_octs[step_slot]*12) + (curr_scale[seq3_notes[step_slot]]) + oct_adj
 		velo_val = seq3_velos[step_slot]
 	endif
 	SendMIDINoteOn midi_out_chs[seq_ch], note_val, velo_val //allow user press to send note
@@ -817,15 +817,12 @@
   	endif
   endif
 	Call @SetupLayout	
+	Call @OnPadDown_KnobSetSelect 
 @End
 
 @OnPadDown_KnobSetSelect //# choose a knob set based on pad type xopdk
   if (NOT in_mode_select) and (NOT in_seq_mode)
-    if last_pad <= 7
-      Call @SetupKnobset0 //# Scenepads
-    elseif last_pad >= 8 
-      Call @SetupKnobset1 //# Pattern pads
-    endif
+		Call @SetupKnobset0 //# Scene and pattern pads
   elseif (NOT in_mode_select) and in_seq_mode
   	if mode=8
   		Call @SetupKnobset6
@@ -1291,23 +1288,25 @@
 	LabelKnobs { }
 	LabelPads {NOTES : [ SETTINGS ]      SCENE}, current_scene+1, { PATTERN}, current_pattn+1
 @End
-@SetupKnobset0 //# Scene settings
+@SetupKnobset0 //# Scene & Pattern settings
 	knob_set = 0
-	LabelKnobs {Scene }, current_scene+1, { setup}
-	LabelKnob 0, {Duration}
-	LabelKnob 1, {Swing }, scene_swing[current_scene], {%}
-	LabelKnob 2, { }
-	LabelKnob 3, { }
+	pattn_slot = (current_scene * 8) + current_pattn
+  patt_dur = pattn_durs[pattn_slot]
+  patt_bars = Div patt_dur, 4
+  patt_beats = (patt_dur % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
 	SetKnobValue 0, TranslateScale scene_durs[current_scene], 0, 32, 0, 127
 	SetKnobValue 1, TranslateScale scene_swing[current_scene], 0, 100, 0, 127
-	SetKnobValue 3, 0
+	SetKnobValue 2, TranslateScale patt_dur, 0, 31, 0, 127
+	Call @LabelSet0
 @End
-@KnobChangeSet0 //# scene settings xs0
+@KnobChangeSet0 //# scene and pattern settings 
 	if last_knob = 0 and pad_is_down
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_durs[current_scene]
 		  scene_durs[current_scene] = scn_duration
-	  	LabelKnob 0 , {Dur }, scn_duration
+	  	Call @LabelSet0
+			scn_to_label = current_scene
+			Call @LabelScenePad
 			Call @UpdateScenesWithDuration
 	  endif
 	elseif last_knob = 0 and NOT pad_is_down
@@ -1317,61 +1316,32 @@
 	  scn_swing = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 100
 	  if scn_swing <> scene_swing[current_scene] 	
 		  scene_swing[current_scene] = scn_swing
-	  	LabelKnob 1, {Swing }, scene_swing[current_scene], {%}
 	  	SetMetroSwing scene_swing[current_scene]
+			Call @LabelSet0
+			scn_to_label = current_scene
+			Call @LabelScenePad
 	  endif
+		pattn_slot = (current_scene * 8) + current_pattn
   endif
-  scn_to_label = current_scene
-  Call @LabelScenePad
-@End
-
-@SetupKnobset1 //# PATTN SETUP KNBS
-  knob_set = 1
-  LabelKnobs {Pattern }, current_pattn+1, { setup} 
-  pattn_slot = (current_scene * 8) + current_pattn
-  patt_dur = pattn_durs[pattn_slot]
-  patt_bars = Div patt_dur, 4
-  patt_beats = (patt_dur % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
-  patt_oct = pattn_octs[pattn_slot]
-  SetKnobValue 2, TranslateScale patt_dur, 0, 31, 0, 127
-  SetKnobValue 3, TranslateScale patt_oct, -1, 1, 0, 127
-  SetKnobValue 0, 0
-  SetKnobValue 1, 0
-  LabelKnob 2, {DUR: }, patt_bars, {.}, patt_beats
-  LabelKnob 3, {OCT: }, patt_oct
-  LabelKnob 0, { }
-  LabelKnob 1, { }
-@End
-
-@KnobChangeSet1 //# PATTN SETUP KNOBS
-  pattn_slot = (current_scene * 8) + current_pattn
-  if last_knob = 2
 	  pattn_duration = (Round TranslateScale (GetKnobValue 2), 0, 127, 0, 31)+1
-	  if pattn_duration <> pattn_durs[pattn_slot] 
-		  pattn_durs[pattn_slot] = pattn_duration
-		  dur_bars = Div pattn_duration, 4
-			dur_beats = (pattn_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
-	  	LabelKnob 2 , {Dur }, dur_bars, {.}, dur_beats
-			Call @UpdatePattnsWithDuration
-  	endif
-  endif
-  if last_knob = 3
-    patt_oct = Round TranslateScale (GetKnobValue 3), 0, 127, -1, 1
-    if patt_oct <> pattn_octs[pattn_slot] 
-    	pattn_octs[pattn_slot] = patt_oct
-    	LabelKnob 3, {OCT: }, patt_oct
-    endif
-  endif
-  if last_knob = 0 //# not in use
-    LabelKnob 0, { }
-  endif
-  if last_knob = 1 //# not in use
-    LabelKnob 1, { }
-  endif
-  pattn_to_label = current_pattn+8
-  Call @LabelPatternPad
+	if pattn_duration <> pattn_durs[pattn_slot] 
+	  pattn_durs[pattn_slot] = pattn_duration
+	  dur_bars = Div pattn_duration, 4
+		dur_beats = (pattn_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
+  	Call @LabelSet0
+		pattn_to_label = current_pattn+8
+		Call @LabelPatternPad
+		Call @UpdatePattnsWithDuration
+	endif
 @End
-
+@LabelSet0
+	LabelKnobs {Scene }, current_scene+1, { P}, current_pattn+1, { setup}
+	LabelPads {[ NOTES ]  Scene: }, current_scene+1, { Pattern: }, current_pattn+1
+	LabelKnob 0, {Scn}, current_scene+1, { Dur. }
+	LabelKnob 1, {Swing %}
+	LabelKnob 2, {Patt}, current_pattn+1, { Dur. }
+  LabelKnob 3, { }
+@End
 @UpdateScenesWithDuration
 	for s = 0 to 7 //Update number of scenes with duration for random selection
 		if scene_durs[s] > 0
@@ -1660,9 +1630,9 @@
   if Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3 <> seq_ch
 	  SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
   endif	
-  SetKnobValue 1, TranslateScale seq_type, 0, 4, 0, 127
+  SetKnobValue 1, TranslateScale seq_type, 0, 3, 0, 127
   SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
-  SetKnobValue 3, TranslateScale move_all, 0, 1, 0, 127
+  SetKnobValue 3, TranslateScale sel_step, 0, 32, 0, 127 //sel_step to edit or 16 for all steps
 	move_all_dir=0
   Call @LabelSet5Knobs
 @End
@@ -1677,7 +1647,7 @@
 		Call @SetupLayout
   endif
   if last_knob = 1 //# SEQ_TO_EDIT
-    seq_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 4
+    seq_type = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
     Call @GetStepVal
     SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
   endif
@@ -1696,9 +1666,15 @@
 		endif
   endif
   if (last_knob=3) //# ALL STEPS
-    val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
-  	if move_all <> val
-  		move_all=val
+    val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 32
+  	if sel_step <> val
+  		sel_step=val
+			FlashPad sel_step
+			if val>=16
+				move_all=TRUE
+			else
+			  move_all=FALSE
+			endif
 		endif	
   endif
   Call @LabelSet5Knobs
@@ -1888,10 +1864,8 @@
 	  LabelPads {STEP EDIT ALL: Knob sets a value for all pads. Increment with <<PAD15 PAD16>>}
 		FlashPad 14
 		FlashPad 15
-	elseif move_all=0 and seq_type=4
-		LabelPads {STEP EDIT ONE: Tap Step to toggle on/off state}
 	else
-	  LabelPads {STEP EDIT ONE: Tap Step. Select "TYPE" to edit. Edit value for selected pad}
+	  LabelPads {STEP EDIT: Tap to toggle state. Knob4 change step to edit or edit All}
 	endif
 	LabelKnobs {CH}, seq_ch+1, { SC}, current_scene+1, { PT}, current_pattn+1, { STEP}, sel_step+1
 	LabelKnob 0, {CH: }, seq_ch+1
@@ -1927,9 +1901,9 @@
 		LabelKnob 3, { }
 	else 
 		if move_all=1
-		  LabelKnob 3, {<< ALL >>}
+		  LabelKnob 3, {EditAll}
 		else
-			LabelKnob 3, {< Move1 >}
+			LabelKnob 3, {Edit# }, sel_step+1
 		endif
 	endif
 @End
@@ -2490,9 +2464,7 @@
 @OnKnobChange2 //# Knob change router xokc
   if knob_set = 0 
     Call @KnobChangeSet0 //# scene settings
-  elseif knob_set = 1
-    Call @KnobChangeSet1 //# pattn settings
-  elseif knob_set = 2
+	elseif knob_set = 2
     Call @KnobChangeSet2 //# MIDI OUT CHANNELS
   elseif knob_set = 3
     Call @KnobChangeSet3 //# scale / instr type
@@ -2587,9 +2559,13 @@
 		LabelPad 6, {COPY/PASTE }, {STEP }, sel_step+1
 	elseif mode=11
 		LabelPad 6, {COPY/PASTE }, {SEQ CH}, seq_ch+1
+	else 
+		LabelPad 6, { }
 	endif
 	if (mode>=8 or mode<=1)
 		LabelPad 7, {DELETE  }
+	else
+	  LabelPad 7, { }
 	endif
 	LabelPad 8, {LENGTH RATE}
 	LabelPad 9, {STEP EDIT}	
@@ -2795,9 +2771,6 @@
 	endif
 	if sel_pad >= pattn_length //# Off pads past pattn length
 		padColor=2
-	endif
-	if (sel_pad=sel_step) and mode=9 and seq_type<4
-		padColor=3
 	endif
 	if mgen_device_id=mgen_sel_dev
 		SendMIDINoteOn 15, sel_pad+led_index, padColor //LED FEEDBACK
