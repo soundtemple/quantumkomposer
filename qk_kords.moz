@@ -149,19 +149,19 @@
 	FillArray chord_notes_w_inv, -1, 1024 //store for the playable chord note pitches for each chord post inversion + txpose
 	curr_chord_notes=[-1,-1,-1,-1,-1,-1] //lo, root, 3rd, 5th, 7th current chord post txpose, inversion, raw octave
 	mode_midi_channel=0 //editing the midi channel mode
-	//map incoming note to get inversion.... C = inversion -4
-	inversions_for_gated_chord=[-4,-3,-2,-1,0,1,2,3,4,0,0,0] //[C-C#-D-D#=-4to-1]; [E=RootInv]; [F-F#-G-G#=1to4]
+	//map incoming note to get inversion....C=root invert up or down from C
+	inversions_for_gated_chord=  [0,1,2,3,4,0,0,0,-4,-3,-2,-1]
 	//triad inversions
 	//we use these for mode2 gated chord for quick access to adjust chord_scale notes for inversion 
-	triad_inversion_adjustments[0] = [-12,-12,-12,0] //inversion -4  C
-	triad_inversion_adjustments[4] = [-12,-12,-12,0] //inversion -3 C#
-	triad_inversion_adjustments[8] = [0,-12,-12,0] //inversion -2 D
-	triad_inversion_adjustments[12]= [0,0,-12,0] //inversions -1 D#
-	triad_inversion_adjustments[16]= [0,0,0,0] //root inversion E
-	triad_inversion_adjustments[20]= [12,0,0,0] //1st inversion F
-	triad_inversion_adjustments[24]= [12,12,0,0] //2nd inversion F#
-	triad_inversion_adjustments[28]= [12,12,12,0] //3rd inversion G
-	triad_inversion_adjustments[32]= [12,12,12,0] //4th inversion G#
+	triad_inversion_adjustments[0] = [-12,-12,-12,0] //inversion -4 
+	triad_inversion_adjustments[4] = [-12,-12,-12,0] //inversion -3 
+	triad_inversion_adjustments[8] = [0,-12,-12,0] //inversion -2 
+	triad_inversion_adjustments[12]= [0,0,-12,0] //inversions -1 
+	triad_inversion_adjustments[16]= [0,0,0,0] //root inversion 
+	triad_inversion_adjustments[20]= [12,0,0,0] //1st inversion 
+	triad_inversion_adjustments[24]= [12,12,0,0] //2nd inversion 
+	triad_inversion_adjustments[28]= [12,12,12,0] //3rd inversion 
+	triad_inversion_adjustments[32]= [12,12,12,0] //4th inversion 
 	//tetrad inversions 
 	tetrad_inversion_adjustments[0] = [-12,-12,-12,-12] //inversion -4
 	tetrad_inversion_adjustments[4] = [0,-12,-12,-12] //inversion -3
@@ -174,7 +174,7 @@
 	tetrad_inversion_adjustments[32]= [12,12,12,12] //4th inversion
 	//Modes for processing incoming notes 0:Off 1:Harmonize 2:GatedChord 3:ChordNotes 4:OFF
 	midi_chan_modes=[0,0,0,0, 1,2,1,2, 2,3,3,3, 0,0,0,0] 
-	set_all_mc_to=9 //Setting all midi channels to x harmonization style
+	set_all_mc_to=1 //Setting all midi channels to x def is thru
 	active_ch_range=4 //limit active channels for better cpu 0-3; 0-7; 4-11; 0-11; 0-15
 	active_ch_min=0 //for setting active_ch_range 
 	active_ch_max=15 //for setting active_ch_range
@@ -542,24 +542,28 @@
     	//Log {Reset chord called}
     	Call @ResetChord
   	endif
-		if NOT HostRunning and (last_pad >= 8) 
+		if NOT HostRunning and (last_pad >= 8)
+			chord_slot = (current_scene * 100) + ((current_chord) * 10)
 			current_chord_duration = chord_bank[chord_slot + dur_slot]
+			chord_formed = curr_chord_notes[0]>=0 and curr_chord_notes[1]>=0 and curr_chord_notes[2]>=0
 			if current_chord_duration>0
-				for i = active_ch_min to active_ch_max
-					if midi_chan_modes[i]=2 or midi_chan_modes[i]=3  //send chords to channels set up with mode chords
-						chord_note_ch = i 
+				for ch = active_ch_min to active_ch_max
+					if midi_chan_modes[ch]=2 or midi_chan_modes[ch]=3  //send chords to channels set up with mode chords
 						// can only have one chord note per channel playing at any one time, so make sure turned off first
+						chord_note_ch = ch
 						Call @TurnOffChordNotes 
-						midi_note=8 //chord notes mode. send the chord
-						trigger_note_oct_adj = 0 //pad down trigger uses default octave
-						inv_adjs=[0,0,0,0] //used for gated chords only. pad down we use inv set in chord
-		  			Call @SendOutChordNotes
+						for n = 0 to 3  
+							if curr_chord_notes[n] > 0
+								SendMIDINoteOn ch, curr_chord_notes[n], 100
+								SetNoteState ch, n, curr_chord_notes[n]
+							endif
+						endfor
 					endif
 				endfor
 			endif
   	endif
 	endif
-@End
+@End			
 
 @AllNotesOff //send midi note off for all channels - handle stuck notes
 	for ch = 0 to 15
@@ -1070,7 +1074,8 @@
 		chord_note_ch=MIDIChannel
 		Call @TurnOffChordNotes // can only have one chord note per channel playing at any one time
 		gated_chord_inversion = inversions_for_gated_chord[MIDINote%12] //a number from -4 to 4
-		if current_chord_scale[11]=-1 //ie current_chord is a triad
+		chord_slot = (current_scene * 100) + ((current_chord) * 10)
+		if chord_bank[chord_slot + 3] = -1 //ie current_chord is a triad
 			//inv_adjs is an array len 4, each cell -12, 0 or +12
 			CopyArray triad_inversion_adjustments[(gated_chord_inversion+4)*4], inv_adjs, 4 
 		else
@@ -1120,7 +1125,7 @@
 				SetNoteState chord_note_ch, i, (current_chord_scale[index_to_chord_notes[i]] + inv_adjs[i])
 			endfor
 		endif
-	elseif (curr_mode=3 and midi_note=5) //NOTES OF CHORD mode incoming note=F
+	elseif (curr_mode=3 and midi_note=5) //NOTES OF CHORD mode incoming note=F play chord
 		if curr_chord_notes[0]>=0 and curr_chord_notes[1]>=0 and curr_chord_notes[2]>=0 
 			//aka chord_formed we can send chord notes	
 			for i = 0 to 3  
@@ -1131,18 +1136,20 @@
 				endif
 			endfor
 		endif
-	elseif curr_mode=3 and (midi_note=0 or midi_note=4 or midi_note=7 or midi_note=9 or midi_note=11)  
-		//Send a single note of the chord based on incoming note root-3rd-5th-lowest-highest
-		Call @HumanizeVelocity
+	elseif curr_mode=3 and (midi_note=0 or midi_note=2 or midi_note=4 or midi_note=7 or midi_note=9 or midi_note=11)  
+		//Root(C) 3rd(E) 5th(G) 7th(B) Lo(D) Chord(F) Hi(A)
+		Call @HumanizeVelocity 
 		if midi_note=0
 			note_to_play = curr_chord_notes[0] //root
 		elseif midi_note=4
 		  note_to_play = curr_chord_notes[1] //3rd
 		elseif midi_note=7
 		  note_to_play = curr_chord_notes[2] //5th
-		elseif midi_note=9
-		  note_to_play = curr_chord_notes[4] //lowest
 		elseif midi_note=11
+		  note_to_play = curr_chord_notes[3] //7th
+		elseif midi_note=2
+		  note_to_play = curr_chord_notes[4] //lowest
+		elseif midi_note=9
 		  note_to_play = curr_chord_notes[5] //highest
 		endif
 		if note_to_play > 0
@@ -1171,7 +1178,7 @@
 		note_in=midi_note%12
 		oct_in=Div midi_note, 12
 		note_out=current_chord_scale[note_in]
-		oct_out=(oct_in*12)-60
+		oct_out=(oct_in*12)-48
 		note_to_send=oct_out+note_out
 		//# save calculated harmony note to locker for note off recall
 		SetNoteState melody_note_ch, midi_note, note_to_send
@@ -1919,7 +1926,7 @@
 	knob_set = 3
 	SetKnobValue 0, TranslateScale mode_midi_channel, active_ch_min, active_ch_max, 0, 127
 	SetKnobValue 1, TranslateScale midi_chan_modes[mode_midi_channel], 0, 4, 0, 127
-	SetKnobValue 2, TranslateScale set_all_mc_to, 0, 4, 0, 127
+	SetKnobValue 2, TranslateScale set_all_mc_to, 0, 5, 0, 127
 	SetKnobValue 3, TranslateScale active_ch_range, 0, 4, 0, 127
 	mode_changed_for_ch=FALSE
 	Call @LabelKnobset3
@@ -1943,19 +1950,22 @@
 			Call @SendMidiOffForCh //send off notes to avoid stuck notes on new mode
 		endif
 	elseif last_knob = 2
-  	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 4
+  	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 5
   	if val <> set_all_mc_to
 			set_all_mc_to = val
 			my_fave_modes=[0,0,0,0, 1,2,1,2, 2,3,3,3, 0,0,0,0]
 			for i = 0 to 14
 				if i>=active_ch_min and i<=active_ch_max
-					if set_all_mc_to=4
+					if set_all_mc_to=5
 						midi_chan_modes[i]=my_fave_modes[i]
 					else
 					  midi_chan_modes[i]=set_all_mc_to
 					endif
 				endif
 			endfor
+			SetKnobValue 1, TranslateScale midi_chan_modes[mode_midi_channel], 0, 4, 0, 127
+			mode_changed_for_ch=TRUE
+			Call @AllNotesOff
 			Call @LabelKnobset3
 		endif
 	elseif last_knob = 3
@@ -2006,10 +2016,10 @@
 		LabelPads {MODE 1: Incoming notes for channel are transposed to chord notes}
 	elseif midi_chan_modes[mode_midi_channel] = 2
 		LabelKnob 1, {Chord}
-		LabelPads {MODE 2: Incoming note triggers current chord & determines inversion [-4 to 4] [C-C#-D-D# E F-F#-G-G#]}
+		LabelPads {MODE 2: Note in triggers current chord. C=root. Invert chord up or down from C}
 	elseif midi_chan_modes[mode_midi_channel] = 3
 		LabelKnob 1, {ChdNotes}
-		LabelPads {MODE 3: Incoming note triggers current chord Root(C)-3rd(E)-5th(G)-Chord(F)-Lowest(A)-Highest(B)}
+		LabelPads {MODE 3: C Major notes trigger current chord. Root(C) 3rd(E) 5th(G) 7th(B) Lo(D) Chord(F) Hi(A)}
 	elseif midi_chan_modes[mode_midi_channel] = 4
 		LabelKnob 1, {Thru}
 		LabelPads {MODE 8: Midi passes thru without transposition}
