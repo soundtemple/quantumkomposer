@@ -719,13 +719,6 @@
 		Call @SetupLayoutAutom
 		Call @SetupKnobset5 //# AUTOM. Edit indiv steps with 20knobs layout	
 	else
-		if last_pad_again and autom_mode=3 //record
-			rec_auto_buffer[sel_autom_pad] = -1 // reset record for pad if double tapped
-			autom_mode=1
-			record_autom_on=FALSE
-			control_autom_on=TRUE
-			send_autom_for_selected_pad=TRUE
-		endif
 		Call @SetupKnobset4 //# AUTOM. Set up 16 parameters
 		highlight_pad=sel_autom_pad
 		for i = 0 to 15
