@@ -650,7 +650,7 @@
 	endif
 	device_gui_num=[0,0,0,0, 0,0,0,0]
 	if quick_config=0
-		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
+		ch_names= [ska, fxs, bss, plk, 	 led, arp, pad, kit]
 		ch_destns=[ilk, ilk, ilk, ilk,   ilk, ilk, ilk, ilk]
 	elseif quick_config=1
 		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
