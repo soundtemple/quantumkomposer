@@ -111,6 +111,7 @@
 @SetupChordsScenes
 	current_scene = 0 // #0-7 Pads 0-7
   current_chord = 0 // #0-7 Pads 8-15
+	chord_slot=0
 	//# scene config: [duration, txpose, preset, mg1-4_modes, out_ch1-4 modes]
   //# MG Modes determine how harmonization occurs per scene
   sc_txp_slot = 1
@@ -573,9 +574,9 @@
 
 @SendMidiOffForCh //send midi note off for a channel (ch) - handle stuck notes
 	for n = 0 to 127
-		SendMIDINoteOn ch, n, 0
-		SendMIDINoteOff ch, n, 64 //handle stuck notes
+		SendMIDINoteOff ch, n, 64, (n*5) //handle stuck notes with 5ms delay on send
 	endfor
+	Log {Notes off for ch:}, ch
 @End
 
 @OnPadUp
@@ -1089,7 +1090,7 @@
 	elseif midi_chan_modes[MIDIChannel]=3 //NOTES OF CHORD
 		chord_note_ch=MIDIChannel
 		note_in_velo = MIDIVelocity
-		midi_note=MIDINote%12
+		midi_note=MIDINote
 		Call @TurnOffChordNotes // can only have one chord note per channel playing at any one time
 		Call @SendOutChordNotes
 		if update_held_notes_on_chord_change //held note tracking for update on chord change
@@ -1125,36 +1126,45 @@
 				SetNoteState chord_note_ch, i, (current_chord_scale[index_to_chord_notes[i]] + inv_adjs[i])
 			endfor
 		endif
-	elseif (curr_mode=3 and midi_note=5) //NOTES OF CHORD mode incoming note=F play chord
+	elseif (curr_mode=3 and midi_note%12=5) //NOTES OF CHORD mode incoming note=F play chord
 		if curr_chord_notes[0]>=0 and curr_chord_notes[1]>=0 and curr_chord_notes[2]>=0 
 			//aka chord_formed we can send chord notes	
+			oct_in=Div midi_note, 12
+			oct_out=(oct_in*12)-48
 			for i = 0 to 3  
 				Call @HumanizeVelocity
 				if curr_chord_notes[i] > 0
-					SendMIDINoteOn chord_note_ch, curr_chord_notes[i], velocity
-					SetNoteState chord_note_ch, i, curr_chord_notes[i]
+					SendMIDINoteOn chord_note_ch, curr_chord_notes[i]+oct_out, velocity
+					SetNoteState chord_note_ch, i, curr_chord_notes[i]+oct_out
 				endif
 			endfor
 		endif
-	elseif curr_mode=3 and (midi_note=0 or midi_note=2 or midi_note=4 or midi_note=7 or midi_note=9 or midi_note=11)  
+	elseif curr_mode=3 and (midi_note%12=0 or midi_note%12=2 or midi_note%12=4 or midi_note%12=7 or midi_note%12=9 or midi_note%12=11)  
 		//Root(C) 3rd(E) 5th(G) 7th(B) Lo(D) Chord(F) Hi(A)
-		Call @HumanizeVelocity 
-		if midi_note=0
-			note_to_play = curr_chord_notes[0] //root
-		elseif midi_note=4
-		  note_to_play = curr_chord_notes[1] //3rd
-		elseif midi_note=7
-		  note_to_play = curr_chord_notes[2] //5th
-		elseif midi_note=11
-		  note_to_play = curr_chord_notes[3] //7th
-		elseif midi_note=2
-		  note_to_play = curr_chord_notes[4] //lowest
-		elseif midi_note=9
-		  note_to_play = curr_chord_notes[5] //highest
-		endif
-		if note_to_play > 0
-			SendMIDINoteOn chord_note_ch, note_to_play, velocity
-			SetNoteState chord_note_ch, 0, note_to_play
+		
+		note_in=midi_note%12
+		oct_in=Div midi_note, 12
+		oct_out=(oct_in*12)-48
+		
+		Call @HumanizeVelocity
+		chrd_note_to_play=0	
+		if note_in=0
+			chrd_note_to_play = curr_chord_notes[0] //root
+		elseif note_in=4
+		  chrd_note_to_play = curr_chord_notes[1] //3rd
+		elseif note_in=7
+		  chrd_note_to_play = curr_chord_notes[2] //5th
+		elseif note_in=11
+		  chrd_note_to_play = curr_chord_notes[3] //7th
+		elseif note_in=2
+		  chrd_note_to_play = curr_chord_notes[4] //lowest
+		elseif note_in=9
+		  chrd_note_to_play = curr_chord_notes[5] //highest
+		endif 
+		if chrd_note_to_play > 0
+			note_out=oct_out+chrd_note_to_play
+			SendMIDINoteOn chord_note_ch, note_out, velocity
+			SetNoteState chord_note_ch, 0, note_out
 		endif
 	endif
 @End
@@ -1164,8 +1174,8 @@
 	for i = 0 to 3
 		//# stored in 1st 4 note slots (0-3) on each channel
 		if (GetNoteState chord_note_ch, i)
-			SendMIDINoteOff chord_note_ch, (GetNoteState chord_note_ch, i), 127
-	  	SetNoteState chord_note_ch, i, FALSE
+			SendMIDINoteOff chord_note_ch, (GetNoteState chord_note_ch, i), 127, 5
+			SetNoteState chord_note_ch, i, FALSE
   	endif
   endfor
 @End
