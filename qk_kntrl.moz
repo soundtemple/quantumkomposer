@@ -564,6 +564,7 @@
 			//copy inst last inst pad pressed
 			copied_pad=[curr_chan, inst_curr_page[curr_chan], last_inst_pad, inst_labels[pad_slot], inst_colors[pad_slot], inst_ccs[pad_slot], inst_mins[pad_slot], inst_maxs[pad_slot], inst_def_vals[pad_slot], inst_msg_type[pad_slot]]
 			inst_pad_copied = TRUE
+			Call @PrintPreset
 			Call @SetupSettingsLayout	
 		elseif last_pad=13 and (NOT HostRunning) 
 			Call @PrintPreset
@@ -1853,12 +1854,12 @@
 	//Create a mixer layout on page 4 for all channels as a default. can be overwritten
 	def_colors[16*0] = [2,2,6,6,3,3,3,3,4,4,4,4,0,0,0,0]			
 	def_labels[16*0] = [0, 1,4, 5,  10, 8, 9,11, 12,13,14,15, 124,125,126,127]			
-	def_ccs[16*0]    = [7 ,6,10,11, 16,14,15,17, 12,13,14,15, 124,125,126,127]
+	def_ccs[16*0]    = [7 ,6,10,11, 16,14,15,17, 117,118,119,120, 124,125,126,127]
 	def_vals[16*0]   = [100,64,0,0,   0,64,64,127, 0,0,0,0, 0,0,0,0]
-	def_colors[16*1] = [6,0,0,0,4,0,2,2, 4,4,4,4,4,4,4,4]			
-	def_labels[16*1] = [35,64,65,66,0,124,57,58, 38,38,38,38,38,38,38,38]			
-	def_vals[16*1]   = [0,0,0,0,0,0,0,0,   0,0,0,0,90,0,0,0]			
-	def_ccs[16*1]    = [1,121,122,123, 43,44,45,46, 30,31,32,33, 34,35,36,37]
+	def_labels[16*1] = [35,64,65,66,0,124,57,58,38,38,38,38,38,38,38,38]
+	def_colors[16*1] = [6,0,0,0,4,0,2,2,4,4,4,4,4,4,4,4]
+	def_vals[16*1]   = [0,0,0,0,0,0,0,0,0,0,0,0,90,0,0,0]
+	def_ccs[16*1]    = [1,121,122,123,43,124,45,46,30,31,32,33,34,35,36,37]
 @End
 
 @SetupLayoutChannels
