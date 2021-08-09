@@ -310,16 +310,6 @@
 			SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3, 10 //open new mgen gui
 		endif
 		
-	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7) //SCENE CHANGE CH16 CC100 only vals0-7
-		last_pad = MIDIByte3
-		Call @PadDownScenesMode
-		
-	elseif (MIDIByte2>=109) and (MIDIByte2<=116) and (MIDIByte3=127) //SCENE CHANGE CH16 CC109-116 val127
-		mode=0
-		in_mode_select=FALSE	
-		last_pad = MIDIByte2-109
-		Call @PadDownScenesMode
-	
 	endif
 @End
 
