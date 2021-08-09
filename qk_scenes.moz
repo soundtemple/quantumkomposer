@@ -412,6 +412,7 @@
 		for i = 0 to 7
 			SendMIDICC 15, cc_scene_duration+i, scene_durs[i]
 		endfor
+		LabelPad 10,{Done!}
 	elseif mode=0 and last_pad=11
 		if scene_copied //handle paste scene
 			LabelPads {Copied scene }, copied_scene+1, { contents to scene }, edit_scene+1, { for all QK midi generators}
