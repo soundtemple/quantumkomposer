@@ -1839,12 +1839,12 @@
 		constructed_3rd = 0
 	endif
 	
-	if root_5th_interval > 7
+	if root_5th_interval=7
+		constructed_5th = 1
+	elseif root_5th_interval > 7
 		constructed_5th = 2
 	elseif (root_5th_interval < 7)
 		constructed_5th = 0
-	else
-		constructed_5th = 1
 	endif
 	
 	if root_7th_interval = 8
@@ -1996,9 +1996,9 @@
 				active_ch_max=11
 			elseif active_ch_range=4 //active 0-15
 				active_ch_min=0
-				active_ch_max=15	
+				active_ch_max=14	
 			endif
-			for i = 0 to 15
+			for i = 0 to 14
 				if i<active_ch_min
 					midi_chan_modes[i]=0
 					ch=i
