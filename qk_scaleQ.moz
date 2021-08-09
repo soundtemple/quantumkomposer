@@ -27,6 +27,7 @@
 		mgen_device_id=8 //used for midi control of pads. each mgen instance is assigned a number
 		mgen_sel_dev=0 //used for midi control of pads
 		shift_is_down=FALSE
+		pad_is_down=FALSE
 	  led_index=20 // notes 20-46 used for updating LED feedback on 16pads 
 		send_cc_back_to_knobs = TRUE
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
@@ -462,15 +463,14 @@
 @OnPadDown2
 	//# Splitting this event into separate handlers xopd
 	shift_is_down=FALSE //protect against unwanted shift releases not happening
+	pad_is_down=TRUE
 	if in_mode_select and (last_pad <= (number_of_modes - 1))
 		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
 			LabelPads {NOT ALLOWED WHEN HOST RUNNING}
 			Exit //# Only return to song allowed in playback
-		elseif (last_pad=4) or (last_pad>=8 and last_pad<=13)
+		elseif (last_pad=4) or (last_pad>8 and last_pad<=14)
 			Exit //# Not in use
-		elseif (HostRunning and last_pad=8)
-			Exit //# Not allowed in playback
-		elseif (HostRunning and last_pad=0)
+		elseif (HostRunning and last_pad=0) or (songmode>0 and last_pad=8)
     	//# Return to song mode requested
     	return_to_song_mode_requested = TRUE
     	scene_change_requested = current_scene
@@ -551,6 +551,7 @@
 @End
 
 @OnPadUp2
+	pad_is_down=FALSE
 	StopTimer
 @End
 
@@ -935,15 +936,15 @@
 @End
 @KnobChangeSet0
 	//# scene settings
-	if last_knob = 0 and shift_is_down
+	if last_knob = 0 and pad_is_down
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_bank[current_scene * sc_size] 	
 		  scene_bank[current_scene * sc_size] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
 			Call @UpdateScenesWithDuration
 	  endif
-	elseif last_knob = 0 and NOT shift_is_down
-		LabelPads {Normally controlled by Scene Master. Hold SHIFT to change.}
+	elseif last_knob = 0 and NOT pad_is_down
+		LabelPads {Normally controlled by Scene Master. Hold PAD DOWN to change.}
   endif
   if last_knob = 1
 	  scn_txpose = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 12
@@ -1304,7 +1305,7 @@
 	endfor
 	settings_pad_cols=[8,4,0,2, 0,6,4,1, 0,0,0,0, 0,0,0,1]
 	if (songmode = 0)
-		LabelPad 0, {SONGMODE}
+		LabelPad 0, {IN SONGMODE}
 	elseif (songmode = 1)
 		LabelPad 0, {LOCKED TO SCENE}
 	elseif (songmode = 2)
@@ -1331,7 +1332,11 @@
 		copy_mode=1 
 	endif
 	LabelPad 7, {DELETE  }
-	LabelPad 8, { }
+	if songmode>0
+		LabelPad 8, {=> RTN TO SONGMODE}
+	else
+	  LabelPad 8, { }
+	endif
 	LabelPad 9, { }
 	LabelPad 10, { }
 	LabelPad 11, { }
@@ -1436,7 +1441,7 @@
   	Exit
   else
 		//# Setup scene pads
-		Call @SetupKnobset1
+		//Call @SetupKnobset1
 		FillArray scn_pad_cols, 0, 16
 		for i = 0 to 7  
 	    if scene_bank[i * sc_size] > 0
