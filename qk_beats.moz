@@ -114,14 +114,6 @@
 	FillArray seq1_ccs, -1, 1024
 	FillArray seq2_ccs, -1, 1024
 	FillArray seq3_ccs, -1, 1024
-	//# Euclydian mode settings per channel, per scene, per pattern
-	//# euc_slot=(current_scene*128)+(current_pattn*16)+(seq_ch*4)
-	//# All info stored in euc_vals. Each sequence has the following...
-	e_note_pos=0 //# number of euc notes ON in the sequence
-	e_rot_pos=1   //# Rotation for a sequence 0-15
-	e_len_pos=2 //# Length of the sequence 1-16 steps
-	e_rate_pos=3  //# Rate division for seq. see pulses_per_note
-	euc_vals=[]
 	//# access using eg: euc_vals[euc_slot + e_rot_pos] 
 	//# MetroPulse settings
 	curr_steps=[0,0,0,0] //# current note 
@@ -133,12 +125,9 @@
 	//# stored at time midi note on is sent. see @OnMetroPulse
 	playing_notes=[-1,-1,-1,-1]
 	steps_record_mode=FALSE //# steps mode: tap on step or tap any step record step at playhead
-	pattn_length=0	
+	pattn_length=0
+	euc_vals=[]
 	//# MEL & SEQ GENERATION
-	mg_density=0
-	mg_range=0
-	mg_notelen=0
-	mg_gen=0
 	sg_type=[0,2,3,5]
 	sg_lo=64
 	sg_hi=127
