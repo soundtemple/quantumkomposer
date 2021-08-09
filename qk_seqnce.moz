@@ -324,7 +324,7 @@
 	if scene_changing
 		Call @HandleSceneChange //will then handle pattn change
 	elseif pattn_changing
-		Call @HandleSceneChange
+		Call @HandlePattnChange
 	endif
 	if mode=1
 		LabelKnobs {[ SCENES ] Bar }, (Div scene_beat_count, HostBeatsPerMeasure)+1,  {.}, HostBeat+1
@@ -348,6 +348,7 @@
 		scene_changing = TRUE
 		next_scene = scene_change_requested
 		songmode = 1
+		//Log {scene changing: }, { user request}
 	elseif sequencing_paused
 		scene_changing = FALSE
 	elseif scene_beat_count+1 >= current_scene_duration
@@ -370,7 +371,6 @@
 			endif
 		endif
 	endif
-	//Log {Scene for next beat: }, next_scene+1
 	Call @GetPattnForNextBeat
 @End
 
@@ -400,7 +400,6 @@
 	elseif (pattn_beat_count+1 >= current_pattn_duration) and (current_pattn_duration>0)
 		if (songmode = 2) //# Loop current pattn & Scene
 	    next_pattn = current_pattn
-			scene_changing = TRUE
 	  elseif pattn_durs[pattn_slot+1]>0
 	    pattn_changing = TRUE
 			next_pattn = (current_pattn + 1)%8 //next or back to first
@@ -434,6 +433,7 @@
 		return_to_song_mode_requested = FALSE
 	endif
 	current_scene = next_scene
+	//Log {handled a scene change:  scene_beat_count = 0}
 	scene_beat_count = 0
 	pattn_beat_count = 0
   Call @HandlePattnChange //# Scene change effect pattn change
@@ -834,12 +834,7 @@
   	endif
   endif
 	if not HostRunning
-		pad_down_trigger_all_ready_for_playback=TRUE
-		for i = 0 to 7
-			ch=i
-			Call @TriggerPattern
-		endfor
-		pad_down_trigger_all_ready_for_playback=FALSE
+		Call @SendPatternTriggersToAll
 	endif
 	Call @SetupLayout	
 @End
@@ -938,6 +933,7 @@
   	Call @SetupLayout
 		ColorPad current_scene, 3
     ColorPad current_pattn+8, 3
+		Call @SendPatternTriggersToAll
 		if mgen_device_id=mgen_sel_dev
 			SendMIDINoteOn 15, current_scene+led_index, 3
 			SendMIDINoteOn 15, 8+led_index, 3
@@ -1008,16 +1004,20 @@
 				Call @HandleSceneChange 
 			endif
 			if not HostRunning 
-				pad_down_trigger_all_ready_for_playback=TRUE
-				for i = 0 to 7
-					ch=i
-					Call @TriggerPattern
-				endfor
-				pad_down_trigger_all_ready_for_playback=FALSE
+				Call @SendPatternTriggersToAll		
 			endif
 			Call @SetupLayout
 		endif
 	endif
+@End
+@SendPatternTriggersToAll
+	//use to update piano roll clips/patterns to a scene usually when host stopped
+	pad_down_trigger_all_ready_for_playback=TRUE
+	for i = 0 to 7
+		ch=i
+		Call @TriggerPattern
+	endfor
+	pad_down_trigger_all_ready_for_playback=FALSE
 @End
 
 @ReverseSequence //# reverse a sequence
