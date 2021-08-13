@@ -251,6 +251,9 @@
 	elseif (MIDIByte2>=26 and MIDIByte2<=35)
 		//General purpose cc's available for mapping. forward message on.
 		//See midi implementation chart for purpose
+		if MIDIByte2=31 //Toggle LP GUI
+			SendMIDICC 1, 101, 127 //hack to match CLIPSEQ gui toggle cc's
+		endif
 		SendMIDICC 15, MIDIByte2, MIDIByte3
 		
 	elseif MIDIByte2>=36 and MIDIByte2<=39 //KNTRL Knobs on CH16
