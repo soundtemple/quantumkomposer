@@ -46,7 +46,7 @@
 @InitKnobVariables
 	keyboard=0 //current keyboard
 	number_of_keyboards=16 //number of keyboards
-	num_layouts=18 //Each keyboard can have a generic layout assigned
+	num_layouts=19 //Each keyboard can have a generic layout assigned
 	num_labels=40
 	last_note_pad=0 //the last pad hit in a keyboard layout
 	note=60 //the note number to play on pad press after oct_adj and txpose
@@ -195,6 +195,12 @@
 		colors[kb2b*16] = [2,2,2,2, 2,2,2,2, 1,1,2,2, 3,3,4,4]
 		labels[kb2b*16] = [40,40,40,40,40,40,40,40, 1,2,3,4,5,6,7,15]
 		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
+	elseif layouts[kb2b] = 19 //name: DRAMBO DRUMS 
+		FillArray labels[kb2b*16], 36, 16
+		notes[kb2b*16] = [44,45,46,47, 48,49,50,51, 36,37,38,39, 40,41,42,43]
+		colors[kb2b*16] = [6,6,6,6, 6,6,6,6, 1,1,2,2, 3,3,4,4]
+		labels[kb2b*16] = [9,9,9,9,14,14,14,14, 1,2,3,4,5,6,7,15]
+		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
 	else //name: default keyboard
 		labels[kb2b*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]	
 		notes[kb2b*16] = [56,57,58,59,60,61,62,63, 48,49,50,51,52,53,54,55]
@@ -209,7 +215,7 @@
 	if layout_num=0
 		LabelPads keyboard+1, { - }, {EMPTY}
 	elseif layout_num=1
-	  LabelPads keyboard+1, { - }, {DRUM KIT}
+	  LabelPads keyboard+1, { - }, {DRUMS 16}
 	elseif layout_num=2
 		LabelPads keyboard+1, { - }, {KLEVGR SKAKA}
 	elseif layout_num=3
@@ -244,6 +250,8 @@
 		LabelPads keyboard+1, { - }, {SLICED LOOP#1}
 	elseif layout_num=18
 		LabelPads keyboard+1, { - }, {HAMMERHEAD}
+	elseif layout_num=19
+		LabelPads keyboard+1, { - }, {DRAMBO DRUMS}
 	else
 	  LabelPads keyboard+1, { - }, {ANOTHER LAYOUT}
 	endif
@@ -496,7 +504,7 @@
 	LabelKnob 2, {RndV+/- }, random_vel_amts[keyboard]
 	LabelKnob 3, {DefCh }, keybd_channels[keyboard]+1
 	SetKnobValue 0, TranslateScale keyboard, 0, number_of_keyboards-1, 0, 127
-	SetKnobValue 1, TranslateScale layouts[keyboard], 0, 17, 0, 127
+	SetKnobValue 1, TranslateScale layouts[keyboard], 0, num_layouts, 0, 127
 	SetKnobValue 2, TranslateScale random_vel_amts[keyboard], 0, 64, 0, 127
 	SetKnobValue 3, TranslateScale keybd_channels[keyboard], 0, 15, 0, 127 
 @End
@@ -511,7 +519,7 @@
 			Call @SetupKnobSet
 		endif
 	elseif last_knob=1
-	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 17
+	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_layouts
 		if val <> layouts[keyboard]
 			layouts[keyboard] = val
 			keyboard_to_build = keyboard
