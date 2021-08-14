@@ -1283,7 +1283,7 @@
   patt_beats = (patt_dur % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
   SetKnobValue 0, TranslateScale scene_durs[current_scene], 0, 32, 0, 127
 	SetKnobValue 1, TranslateScale scene_swing[current_scene], 0, 100, 0, 127
-	SetKnobValue 2, TranslateScale patt_dur, 0, 31, 0, 127
+	SetKnobValue 2, TranslateScale patt_bars, 0, 31, 0, 127
   SetKnobValue 3, 0
 	Call @LabelSet0
 @End
@@ -1312,7 +1312,7 @@
   endif
 	pattn_slot = (current_scene * 8) + current_pattn
   if last_knob = 2
-	  pattn_duration = (Round TranslateScale (GetKnobValue 2), 0, 127, 0, 31)+1
+	  pattn_duration = ((Round TranslateScale (GetKnobValue 2), 0, 127, 0, 31)+1)*4
 	  if pattn_duration <> pattn_durs[pattn_slot] 
 		  pattn_durs[pattn_slot] = pattn_duration
 		  dur_bars = Div pattn_duration, 4
@@ -2439,7 +2439,7 @@
 	cd = pattn_durs[pattn_slot]
 	cd_bars = Div cd, 4
 	lc_beats = (cd % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
-	LabelPad pattn_to_label, {[}, cd_bars, {.}, lc_beats, { bars]}
+	LabelPad pattn_to_label, {____P}, pattn_to_label-7, {____ }, { [}, cd_bars, { bars]}
 	ColorPad pattn_to_label, 2
 	if mgen_device_id=mgen_sel_dev
 		SendMIDINoteOn 15, pattn_to_label+led_index, 2
