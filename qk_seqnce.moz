@@ -17,7 +17,7 @@
 		scene_change_pattn_reset = TRUE //# Goto pattn 0 when user changes scene
 		scene_changing = FALSE
 		pattn_changing = FALSE
-		in_mode_select = FALSE //# Toggle for changing modes mode
+		in_mode_select = TRUE //# Toggle for changing modes mode
 		in_seq_mode = FALSE //# editing pattern steps mode+
 		allow_mode_chg_playbk = TRUE //# Mode change during playback
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
@@ -31,7 +31,7 @@
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id)
 		pattn_beat_count = 0
 		scene_beat_count = 0
-		ch_offset=1 //QSEQ 8 ch's from 0-7 communicated with LK, ATOM etc. Use offset to change eg: 1-8
+		ch_offset=0 //QSEQ 8 ch's from 0-7 communicated with LK, ATOM etc. Use offset to change eg: 1-8
 		trigger_pattern_before_beat=TRUE //Trigger pattern before beat (mgen quant>0) or onBeat and (mgen quant=0)
 		sequencing_paused=FALSE //Dont send new triggers out for any channels. trigger mode only
 		SetTimerInterval 1000
@@ -648,20 +648,22 @@
 	if quick_config > 3
 		quick_config=0
 	endif
+	ch_offset=0
 	device_gui_num=[0,0,0,0, 0,0,0,0]
 	if quick_config=0
 		ch_names= [ska, fxs, bss, plk, 	 led, arp, pad, kit]
 		ch_destns=[ilk, ilk, ilk, ilk,   ilk, ilk, ilk, ilk]
+		ch_offset=1 //LK - cant use ch1 for LK due it not being able to filter out midi from LP
 	elseif quick_config=1
 		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
-		ch_destns=[drm, drm, drm, drm,   drm, drm, drm, drm]
+		ch_destns=[drm, drm, drm, drm,   drm, drm, drm, drm] //drambo
 	elseif quick_config=2
 		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
-		ch_destns=[atm, atm, atm, atm,   atm, atm, atm, atm]
+		ch_destns=[atm, atm, atm, atm,   atm, atm, atm, atm] //atom
 		device_gui_num=[0,1,2,3, 4,5,6,7]
 	elseif quick_config=3
 		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
-		ch_destns=[hel, hel, hel, hel,   hel, hel, hel, hel]
+		ch_destns=[hel, hel, hel, hel,   hel, hel, hel, hel] //helium
 		device_gui_num=[0,0,0,0, 1,1,1,1]
 	endif	
 	Call @SetupSettingsLayout
@@ -796,7 +798,7 @@
   	copy_paste_status=2 //# PASTE
   	Call @CopyPaste
   	copy_paste_status=0 //# CP OFF
-	elseif (mode = 7)
+	elseif (mode = 9)
 		reset_type=2 //# reset a sequence pad
   	Call @ResetScenePatternSequence
 	endif
@@ -854,8 +856,10 @@
   		Call @SetupKnobset5 //# EDIT
   	endif
   elseif in_mode_select
-		if last_pad=3 or last_pad=4 or last_pad=8
+		if last_pad=4 or last_pad=8
       Call @SetupKnobset2 //# TRIGGER CONFIG
+		elseif last_pad=3
+			Call @SetupKnobset99
 		elseif last_pad=5
 		  Call @SetupKnobset3 //# NAME CHANNELS
 		else
@@ -877,7 +881,7 @@
 
 @HandleGuiRequest
 	if last_pad=8 //GUI TOGGLE
-		SendMIDICC device_gui_num[seq_ch], 101, 127
+		SendMIDICC ch_offset + device_gui_num[seq_ch], 101, 127
 	endif
 	FlashPad last_pad
 	Call @SetupSettingsLayout
@@ -1222,7 +1226,7 @@
 
 @SetupKnobset99
 	SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
-	SetKnobValue 1, TranslateScale seq_ch, 0, 7, 0, 127
+	SetKnobValue 1, TranslateScale ch_offset, 0, 7, 0, 127
 	SetKnobValue 2, TranslateScale rnd_scn_chance, 0, 100, 0, 127
 	SetKnobValue 3, TranslateScale rnd_ptn_chance, 0, 100, 0, 127
 	Call @LabelSettingsKnobs
@@ -1240,12 +1244,14 @@
 		endif
 	elseif last_knob = 0 and not shift_is_down
 	  LabelPads {HOLD SHIFT DOWN TO CHANGE MGEN DEVICE ID!!!!}
-	elseif last_knob = 1
+	elseif last_knob = 1 and shift_is_down
 	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 7
-	  if val <> seq_ch	
-		  seq_ch = val
+	  if val <> ch_offset	
+		  ch_offset = val
 			Call @SetupSettingsLayout
 	  endif
+	elseif last_knob = 1 and not shift_is_down
+	  LabelPads {HOLD SHIFT DOWN TO CHANGE MIDI CH. OFFSET FOR ALL CHANNELS}
 	elseif last_knob = 2
 	  val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 100
 	  if val <> rnd_scn_chance 	
@@ -1266,7 +1272,7 @@
 	else
 		LabelKnob 0, {mgen# -}
 		endif
-	LabelKnob 1, {CH# }, seq_ch+1
+	LabelKnob 1, {ChOffset:}, ch_offset
 	LabelKnob 2, {RndScn}, rnd_scn_chance
 	LabelKnob 3, {RndPtn}, rnd_ptn_chance
 	LabelKnobs { }
@@ -1844,7 +1850,7 @@
 	endif
 	LabelPad 11, {SEQUENCE} //sequence pattern trigggers
 	LabelPad 12, {TRIGGER} //Interrupt sequence with pattern trigger or play without sequence
-	LabelPad 13, {MAKE SEQ1 SCN}, current_scene+1, { TRIGGER}
+	LabelPad 13, {MAKE SEQ1    A SCN}, current_scene+1, { TRIGGER}
 	LabelPad 14, {ROTATE}
 	LabelPad 15, {REVERSE     }, {S},current_scene+1, { P},current_pattn+1, { CH}, seq_ch+1
 	Call @UpdateSettingsPadColors
@@ -1855,15 +1861,15 @@
 
 @LabelDestinationInfoPads
 	if ch_destns[seq_ch]=1
-		LabelPad 8, { ___ATOM___ }, { ch}, device_gui_num[seq_ch]+1, { cc101 }, {  }
+		LabelPad 8, { ___ATOM___ }, { ch}, ch_offset + device_gui_num[seq_ch]+1, { cc101 }, {  }
 	elseif ch_destns[seq_ch]=2
-	  LabelPad 8, { ____LK____ }, { ch}, device_gui_num[seq_ch]+1, { cc101 }, {  }
+	  LabelPad 8, { ____LK____ }, { ch}, ch_offset + device_gui_num[seq_ch]+1, { cc101 }, {  }
 	elseif ch_destns[seq_ch]=3
-	  LabelPad 8, { __HELIUM__ }, { ch}, device_gui_num[seq_ch]+1, { cc101 }, {  }
+	  LabelPad 8, { __HELIUM__ }, { ch}, ch_offset + device_gui_num[seq_ch]+1, { cc101 }, {  }
 	elseif ch_destns[seq_ch]=4
-	  LabelPad 8, { _DRAMBO_ }, { ch}, device_gui_num[seq_ch]+1, { cc101 }, {  }
+	  LabelPad 8, { _DRAMBO_ }, { ch}, ch_offset + device_gui_num[seq_ch]+1, { cc101 }, {  }
 	else	
-		LabelPad 8, { ___GUI___ }, { ch}, device_gui_num[seq_ch]+1, { cc101 }, {  } 
+		LabelPad 8, { ___GUI___ }, { ch}, ch_offset + device_gui_num[seq_ch]+1, { cc101 }, {  } 
 	endif
 @End
 
