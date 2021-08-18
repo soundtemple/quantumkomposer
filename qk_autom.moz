@@ -84,6 +84,7 @@
 	sel_autom_pad=0 //# selected automation pad for editing
 	autom_mode=0 //0=setup ; 1=control_autom ; 2=record_autom
 	record_autom_on=FALSE //# record automation 
+	record_knob_has_moved=FALSE // dont start recording until record knob has been moved by user
 	control_autom_on=FALSE // control the autom parameters 
 	send_autom_for_selected_pad=FALSE // in control mode we can disable selected pad or allow automation to play
 	FillArray autom_control_vals, 0, 16
@@ -248,12 +249,13 @@
 @OnHostStop
   scene_beat_count = 0
 	record_autom_on=FALSE
+	record_knob_has_moved=FALSE
 	FillArray rec_auto_buffer, -1, 16 //empty record auto buffer
   //Log {---- Host Stopped ---- }, scene_beat_count, { - }
 @End 
 
 @OnNewBeat
-	//# increment beat counts xonb
+	//# increment beat counts
 	scene_beat_count = scene_beat_count + 1
 	//# Handle Scene and Chord changes
 	current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
@@ -268,7 +270,7 @@
 		Call @HandleSceneChange
 	endif
 	Call @LogCurrentInfo
-	if record_autom_on
+	if record_autom_on and record_knob_has_moved
 		Call @StoreRecordAutoData
 	endif
 @End
@@ -418,6 +420,7 @@
 	
 @OnShiftDown2
 	shift_is_down=TRUE
+	record_knob_has_moved=FALSE //must be leaving record mode
 	Log {MODE: }, mode
 	if in_mode_select //# Exit SHIFT MODE
 		in_mode_select = FALSE	
@@ -451,6 +454,7 @@
 @OnPadDown2
 	shift_is_down=FALSE //protect against unwanted shift releases not happening
 	pad_is_down = TRUE
+	record_knob_has_moved=FALSE //moved to new pad
 	//# Pad Down actions
 	if in_mode_select
 		if last_pad=0
@@ -758,6 +762,7 @@
 	if record_autom_on=TRUE
 		autom_mode=2 //playback
 		record_autom_on=FALSE
+		record_knob_has_moved=FALSE
 		control_autom_on=TRUE
 		send_autom_for_selected_pad=TRUE
 		Call @SetupKnobset4
@@ -1016,7 +1021,7 @@
 	elseif record_autom_on and not HostRunning
 	  LabelPads {AUTOM : [ AUTOMATION RECORD CH:},a_ch+1, { CC#}, a_cc, { ]}
 		LabelKnobs {READY TO RECORD P}, auto_lane+1
-	elseif record_autom_on and not HostRunning
+	elseif record_autom_on and HostRunning
 	  LabelPads {AUTOM : [ AUTOMATION RECORD CH:},a_ch+1, { CC#}, a_cc, { ]}
 		LabelKnobs {RECORDING P}, auto_lane+1
 	elseif control_autom_on
@@ -1085,6 +1090,7 @@
 			//here we send the cc and add bp to a buffer which during rec is add to each beat once there is a value
 			rec_auto_buffer[sel_autom_pad] = break_point //stored even when host stopped so can record value on host start
 			SendMIDICC automation_chs[sel_autom_pad], automation_ccs[sel_autom_pad], break_point
+			record_knob_has_moved=TRUE
 			//Log {Recording CH:}, automation_chs[sel_autom_pad]+1, { CC:}, automation_ccs[sel_autom_pad], { VAL:}, break_point
 		elseif control_autom_on
 		  val = Round TranslateScale (GetKnobValue 2), 0, 127, min_vals_rec_cont[sel_autom_pad], max_vals_rec_cont[sel_autom_pad]
