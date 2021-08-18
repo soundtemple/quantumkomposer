@@ -90,9 +90,10 @@
 	chan_pgm=[]
 	FillArray chan_pgm_max, 127, 16
 	// Default setup for Channels - midi chs are fixed
-	chan_labels =  [1,17,0,0,3,10,5,8,6,15,0,0,20,21,22,23]
-	chan_colors =  [2,2,0,0,4,3,4,3,6,6,0,0,5,5,5,0]
+	chan_labels =  [1,21,17,17,3,4,5,5,9,6,8,18,13,14,15,16]
+	chan_colors =  [2,2,2,2,1,1,4,4,3,3,3,6,5,5,5,0]
 	chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	chan_layouts =  [6,7,5,5,1,1,1,1,1,10,1,1,2,3,4,0]
 	chan_layouts =  [6,7,5,5,1,1,1,1,1,10,1,1,2,3,4,0]
 	FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
@@ -254,9 +255,9 @@
 		if MIDIByte2=31 //Toggle LP GUI
 			SendMIDICC 1, 101, 127 //hack to match CLIPSEQ gui toggle cc's
 		elseif MIDIByte2=33
-			SendMIDICC 13, 34, 127 //toggle Send A gui
+			SendMIDICC 13, 42, 127 //toggle Send A gui
 		elseif MIDIByte2=34
-			SendMIDICC 13, 50, 127 //toggle Send B gui
+			SendMIDICC 13, 58, 127 //toggle Send B gui
 		else
 			SendMIDICC 15, MIDIByte2, MIDIByte3
 		endif
@@ -1134,7 +1135,7 @@
 	elseif layout = 11
 		LabelKnob 3, {4CopyUtil}
 	endif
-	SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 22, 0, 127
+	SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 26, 0, 127
 	SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 6, 0, 127
 	SetKnobValue 2, TranslateScale chan_midi_chs[edit_chan], 0, 15, 0, 127
 	SetKnobValue 3, TranslateScale chan_layouts[edit_chan], 0, 11, 0, 127 
@@ -1143,7 +1144,7 @@
 @KnobChangeSet1
 	//# channels Setup - 12MIXBUS, 13RETURNS, 14MASTER, 15KNTRL are fixed
 	if last_knob=0 and edit_chan<12
-		kval = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 22
+		kval = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 26
 		if kval <> chan_labels[edit_chan]
 			chan_labels[edit_chan]=kval
 			Call @SetupKnobset1
@@ -1750,43 +1751,32 @@
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
 			clr=i+1 
-			def_labels[16*i] = [0,1,77,61, 4,5,10,11, 38,38,71,72, 73,64,65,66]
-			def_colors[16*i] = [clr,clr,clr,0, 6,6,4,4,     5,5,clr,clr,clr,0,0,0]
+			def_labels[16*i] = [0,1,77,125, 4,5,10,11, 38,38,38,38, 61,64,65,66]
+			def_colors[16*i] = [clr,clr,clr,0, 6,6,4,4,     clr,clr,clr,clr,0,0,0,0]
 			def_vals[16*i]   = [90,64,127,0,    0,0,0,127, 0,0,64,64,  64,0,0,0]
 			def_ccs[(16*i)+3] = mixbuseq_gui[i]
 		endfor	
 	elseif chan_layouts[edit_chan]=3
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Returns}
-		fx_param_name=[52,51,52,51]
 		for i = 0 to 3
 			for p = 0 to 15
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
 			clr=i+1 
-			def_labels[16*i] = [0,1,2,125, 126,127,10,11, 38,fx_param_name[i],71,72, 73,64,65,66]
-			def_colors[16*i] = [clr,clr,clr,0, 0,0,clr,clr,        5,5,clr,clr,   clr,0,0,0]
+			def_labels[16*i] = [0,1,2,125, 126,127,10,11, 38,38,38,38, 38,64,65,66]
+			def_colors[16*i] = [clr,clr,clr,0, 0,0,clr,clr,        clr,clr,clr,clr,   clr,0,0,0]
 			def_vals[16*i]   = [90,64,0,0,    0,0,0,127,      0,30,64,64,         64,0,0,0] 	
 		endfor
 	elseif chan_layouts[edit_chan]=4
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Master}
-		def_labels[16*0] = [0,1,-1,-1, 4,5,10,11, 71,72,73,125, -1,64,65,66]
-		def_colors[16*0] = [2,2,0,0,   6,6,4,4,   2,2,2,7,      0,0,0,0]
-		def_vals[16*0]   = [64,64,0,0, 0,0,0,127, 64,64,64,0,   0,0,0,0]
-		def_ccs[16*0]    = [7,8,32,33, 4,5,10,11, 38,39,40,125, 42,121,122,123]
-		
-		def_labels[16*1] = [46,51,34,47, 52,-1,22,12, 49,53,68,-1, 10,25,11,25]
-		def_colors[16*1] = [4,4,4,6,     6,0,2,2,     5,5,5,0,     3,3,3,3]
-		def_vals[16*1]   = [0,40,25,0,   64,0,64,0,   0,64,80,0,   0,10,127,10]
-		
-		def_labels[16*2] = [18,18,18,18,18,18,18,18,  53,40,-1,28,31,1,18,120]
-		def_colors[16*2] = [0,0,0,0,0,0,0,0,     4,4,0,4,4,4,4,0]
-		def_ccs[16*2] = 	 [63,64,65,66,67,68,69,126, 71,72,73,74,75,76,77,127]
-		def_vals[16*2]   = [64,64,64,64,64,64,64,0,111,20,15,12,112,64,0,0]
-		
-		def_labels[16*3] = [1,-1,28,31,-1,-1,-1,124,126,12,13,-1,127,14,15,-1]
-		def_colors[16*3] = [1,0,4,4,0,0,0,0,0,0,0,0,0,0,0,0]
-		def_vals[16*3]   = [0,5,37,51,0,127,0,0,0,0,0,0,0,0,0,0]
-		def_ccs[16*3]    = [78,79,80,81,82,83,84,124,86,87,88,89,90,91,92,93]
+		def_labels[16*0] = [0,1,125,126,120,124,10,11,38,38,38,38,38,64,65,66]
+		def_colors[16*0] = [2,2,0,0,5,5,4,4,6,6,6,6,6,0,0,0]
+		def_vals[16*0]   = [64,64,0,0,0,0,0,127,64,64,64,0,0,0,0,0]
+		def_ccs[16*0]    = [7,8,125,126,127,124,10,11,38,39,40,0,42,121,122,123]
+		def_labels[16*1] = [18,18,18,18,18,18,18,18,38,38,38,38,38,38,38,38]
+		def_colors[16*1] = [6,6,6,6,6,6,6,6,4,4,4,4,4,4,4,4]
+		def_vals[16*1]   = [0,0,0,0,0,0,0,0,0,0,0,0,90,0,0,0]
+		def_ccs[16*1]    = [1,121,122,123,43,124,45,46,30,31,32,33,34,35,36,37]
 	elseif chan_layouts[edit_chan]=5 //DRUMS
 		def_labels[16*2] = [1,22,29,67,1,22,29,67,1,22,29,67,1,22,29,67] //Pad control x4
 		def_colors[16*2] = [4,4,4,4, 5,5,5,5, 6,6,6,6, 7,7,7,7]
@@ -1967,29 +1957,35 @@
 	elseif (label_num=11)
 		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {STRINGS }	
 	elseif (label_num=12)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {FX }	
-	elseif (label_num=13)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {LOOPS }	
-	elseif (label_num=14)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {NOISE FX }	
-	elseif (label_num=15)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {TEXTURE }	
-	elseif (label_num=16)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {KICK }	
-	elseif (label_num=17)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SHAKERS }	
-	elseif (label_num=18)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {VOCALS}	
-	elseif (label_num=19)
 		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SYNTH BUS }	
-	elseif (label_num=20)
+	elseif (label_num=13)
 		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {MIXBUS A-D }	
-	elseif (label_num=21)
+	elseif (label_num=14)
 		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {RETURNS }
-	elseif (label_num=22)
+	elseif (label_num=15)
 		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {MASTER }
-	elseif (label_num=23)
+	elseif (label_num=16)
 		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {RSVD KNTRL}
+	elseif (label_num=17)
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {LOOPS }	
+	elseif (label_num=18)
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {NOISE FX }	
+	elseif (label_num=19)
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {TEXTURE }	
+	elseif (label_num=20)
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {KICK }	
+	elseif (label_num=21)
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SHAKERS }	
+	elseif (label_num=22)
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {VOCALS}	
+	elseif (label_num=23)
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {BELLS}	
+	elseif (label_num=24)
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {PIANO}	
+	elseif (label_num=25)
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {ORGAN}	
+	elseif (label_num=26)
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {FX }	
 	endif
 @End
 
@@ -2040,7 +2036,7 @@
 	label_num = inst_labels[pad_slot] // any pad any label except cc in protected range
 	if (label_num=0) and chan_layouts[edit_chan]=2 //MIX BUS
 		note_labels=[9,11,0,2]
-		LabelPad pad_to_label, {VOL MIX }, (NoteName(note_labels[inst_curr_page[curr_chan]]))  //MIXER
+		LabelPad pad_to_label, {VOL MIX}, (NoteName(note_labels[inst_curr_page[curr_chan]]))  //MIXER
 	elseif (label_num=0) and chan_layouts[edit_chan]=16 //RETURNS 
 		note_labels=[9,11,12,14]
 		LabelPad pad_to_label, {VOL RTN }, (NoteName(note_labels[inst_curr_page[curr_chan]])) //MIXER
@@ -2208,9 +2204,9 @@
 		LabelPad pad_to_label, {[CMPRSR]} //CUSTOM
 	elseif (label_num=123) 
 		LabelPad pad_to_label, (NoteName inst_state[pad_slot], TRUE), { (}, inst_state[pad_slot], {)} //Send note
-	elseif (label_num=124) and (chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=16) 
+	elseif (label_num=124) and (chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=3) 
 		LabelPad pad_to_label, {[EFFECT]} //OPEN GUI
-	elseif (label_num=124) and chan_layouts[curr_chan]=17
+	elseif (label_num=124) and chan_layouts[curr_chan]=4
 		LabelPad pad_to_label, {[LIMITER]} //OPEN GUI
 	elseif (label_num=124)
 		LabelPad pad_to_label, {[INSTR]} //OPEN GUI
