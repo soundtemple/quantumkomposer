@@ -61,8 +61,8 @@
 @InitKnobVariables
 	//# Any knobset knob should have a setting here
 	current_scene = 0 // #0-7 Pads 0-7
-	scene_durs=[8,8,8,8, 8,8,8,8]
-	scene_names=[0,1,2,3,4,5,6,7]
+	scene_durs=[16,16,16,16,16,16,16,16]
+	scene_names=[0,1,2,3,2,3,4,5]
 	scene_presets[0*8]=[1,2,2,1,0,0,0,0]
 	scene_presets[1*8]=[4,8,16,16, 8,16,8,4]
 	scene_presets[2*8]=[16,16,32,32, 16,32,32,16]
@@ -579,15 +579,11 @@
 	knob_set = 0
 	LabelPads {[ SCENE MASTER : SCENES ]}
 	LabelKnobs {SCENE SETUP}
-	LabelKnob 0, {Scene }, edit_scene+1
-	LabelKnob 1, {Bars }, scene_durs[edit_scene]
-	//LabelKnob 2, {Preset }, scene_preset+1
-	LabelKnob 2, { }
-	LabelKnob 3, {Swing }, global_swing
 	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
 	SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
 	SetKnobValue 2, TranslateScale scene_preset, 0, 7, 0, 127
 	SetKnobValue 3, TranslateScale global_swing, 0, 100, 0, 127 
+	Call @LabelSet0
 @End
 
 @KnobChangeSet0
@@ -597,26 +593,39 @@
 		if val <> edit_scene
 			edit_scene = val
 			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
+			Call @LabelSet0
+			FlashPad edit_scene
 		endif
 	endif
 	if last_knob = 1
 		scn_duration = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32
 		scene_durs[edit_scene] = scn_duration
 		SendMIDICC 15, cc_scene_duration+edit_scene, scene_durs[edit_scene] 
+		Call @SetupLayoutScenes
+		Call @LabelSet0
+	endif
+	if last_knob = 2
+		val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 8
+		if val <> scene_names[edit_scene]
+			scene_names[edit_scene] = val
+		endif
+		Call @SetupLayoutScenes
+		Call @LabelSet0
 	endif
 	if last_knob = 3
 		val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 100
 		if val <> global_swing
 			global_swing = val
 			SendMIDICC 15, cc_swing, global_swing
+			Call @LabelSet0
 		endif
 	endif
-	scn_to_label = current_scene
-	Call @SetupLayoutScenes
+	scn_to_label = current_scene	
+@End
+@LabelSet0
 	LabelKnob 0, {Scene }, edit_scene+1
 	LabelKnob 1, {Bars }, scene_durs[edit_scene]
-	//LabelKnob 2, {Preset }, scene_preset+1
-	LabelKnob 2, { }
+	LabelKnob 2, {Name }, scene_names[edit_scene]
 	LabelKnob 3, {Swing }, global_swing
 @End
 
@@ -699,5 +708,24 @@
 @LabelScenePad
 	//# Set scn_to_label var before calling
 	sc_dur = scene_durs[scn_to_label]
-	LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}
+	sn_name = scene_names[scn_to_label]
+	if sn_name=0
+		LabelPad scn_to_label, { INTRO }, { ------},scn_to_label+1,{------ }, { [}, sc_dur, { bars]}
+	elseif sn_name=1
+	  LabelPad scn_to_label, { BUILD }, { ------},scn_to_label+1,{------ }, { [}, sc_dur, { bars]}
+	elseif sn_name=2
+	  LabelPad scn_to_label, { MAIN }, { ------},scn_to_label+1,{------ }, { [}, sc_dur, { bars]}
+	elseif sn_name=3
+	  LabelPad scn_to_label, { BREAK }, { ------},scn_to_label+1,{------ }, { [}, sc_dur, { bars]}
+	elseif sn_name=4
+	  LabelPad scn_to_label, { UNBUILD }, { ------},scn_to_label+1,{------ }, { [}, sc_dur, { bars]}
+	elseif sn_name=5
+	  LabelPad scn_to_label, { OUTRO }, { ------},scn_to_label+1,{------ }, { [}, sc_dur, { bars]}
+	elseif sn_name=6
+	  LabelPad scn_to_label, { VERSE }, { ------},scn_to_label+1,{------ }, { [}, sc_dur, { bars]}
+	elseif sn_name=7
+	  LabelPad scn_to_label, { CHORUS }, { ------},scn_to_label+1,{------ }, { [}, sc_dur, { bars]}
+	elseif sn_name=7
+	  LabelPad scn_to_label, { BRIDGE }, { ------},scn_to_label+1,{------ }, { [}, sc_dur, { bars]}
+	endif	
 @End
