@@ -1287,11 +1287,12 @@
 	allow_edit_page=FALSE
 	if allow_restricted_page_editing or chan_layouts[curr_chan]=0 //free layout 
 		allow_edit_page=TRUE
-	elseif chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=3
-	  allow_edit_page=FALSE
 	elseif inst_curr_page[curr_chan]>=2
 		allow_edit_page=TRUE
+	elseif inst_ccs[pad_slot]>17 and inst_ccs[pad_slot]<117 // not a mixer control (<=17 or >=117)
+	  allow_edit_page=TRUE
 	endif
+	Log {allow editing updated for pad }, edit_pad
 @End 
 @KnobChangeSet2
 	//# INSTRUMENT KONTROL MODE 
@@ -1361,7 +1362,7 @@
 	endif
 	Call @LabelInstrumentKnobs
 	if not allow_edit_page
-		LabelPads {Editing page }, inst_curr_page[curr_chan]+1, { of this layout is not allowed}
+		LabelPads {Editing pad }, edit_pad+1, { on page }, inst_curr_page[curr_chan]+1, { of this layout is not allowed}
 	endif
 @End
 
