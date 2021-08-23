@@ -160,7 +160,7 @@
 	fixed_notesets[6*50] = [48,49,50,51,52,53,54,55, 56,57,58,59,60,61,62,63] // [Digistix]
 	fixed_notesets[7*50] = [36,37,38,39,40,41,42,43, 44,45,46,47,48,49,50,51] // [FAC Drum kit]  
 	fixed_notesets[8*50] = [48,49,50,51, 52,53,54,55] //[DrPERCS]
-	fixed_notesets[9*50] = [49,51,54,56, 58,61,63,66, 24,25,26,27, 28,29,30,31] //# [HAMMERHEAD]
+	fixed_notesets[9*50] = [49,51,54,56, 58,61,63,66] //# [HAMMERHEAD]
 	fixed_notesets[10*50]= [48,49,50,51, 52,53,54,55] //# [DrDRUMS]
 	s_noteset=[48,49,50,51] //# Single noteset (always 4 notes long, 1 for each channel)
 	Call @GetMidiINPUTScale //# set up init scale for midi input	
@@ -204,7 +204,7 @@
 			midi_out_chs=[1,1,1,1]
 			ch_start_notes=[0,2,4,6]
 		elseif sel_scale=9 //HAMMERHEAD
-			notes_in_set=16
+			notes_in_set=8
 			midi_out_chs=[0,0,0,0]
 			ch_start_notes=[0,2,4,6]
 		elseif sel_scale=10 //DrDRUMS
