@@ -126,6 +126,8 @@
 	playing_notes=[-1,-1,-1,-1]
 	steps_record_mode=FALSE //# steps mode: tap on step or tap any step record step at playhead
 	pattn_length=0
+	e_len_pos=2 //# Length of the sequence 1-16 steps
+	e_rate_pos=3  //# Rate division for seq. see pulses_per_note
 	euc_vals=[]
 	//# MEL & SEQ GENERATION
 	sg_type=[0,2,3,5]
@@ -522,8 +524,6 @@
 			Exit //# Only return to song allowed in playback
 		elseif last_pad=2
 			Exit //# Not in use
-		elseif (HostRunning and (last_pad>=3 and last_pad<=5))
-			Exit //# Not allowed in playback
 		elseif (last_pad=6) and not (mode=9 or mode=11 or mode<=1)
 			Exit //# COPY PASTE not allowed
 		elseif (last_pad=7) and not (mode<=1 or mode>=8)
@@ -1447,7 +1447,7 @@
 	if note_set_type=0
   	LabelPad 3, {NOTESET       }, (NoteName scale_root), { Chromatic}
   elseif note_set_type=1
-		SetShortName {DRUMS}
+		SetShortName {BEATS}
   	if sel_scale=0
 	  	LabelPad 3, {NOTESET   [RuisDEF]}
   	elseif sel_scale=1
