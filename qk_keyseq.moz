@@ -1,9 +1,9 @@
 //# QUANTUM KONTROLLER SUITE
-//# SCALE QUANTIZER APP
+//# SEQUENCE KEY CHANGES and QUANTIZE C MAJOR TO CURRENT KEY
 @OnLoad 
   ShowLayout 2
-  LabelPads {[ QK:SCALEQ ]}
-  SetShortName {SCALEQ}
+  LabelPads {[ QK:KEYSEQ ]}
+  SetShortName {KEYSEQ}
 	if unassigned scene_bank //# duration in first scene
 		ResetNoteStates FALSE // #reset the locker with the value FALSE!
 	  mode = 0 //# See @HandleModeChange for modes
@@ -44,8 +44,8 @@
 @End
 
 @Description
-  SCALE QUANTIZER:
-	You compose (send midi via SCALE QUANTIZER) in C Major.
+  KEY SEQUENCER
+	You compose (send midi via KEY SEQUENCER) in C Major.
 	All notes are transposed to current scale adjusted for root and scale type.
 	Octave and channel remain same.
 	Examples:
@@ -556,7 +556,7 @@
 @End
 
 @LabelPadsSQ
-	LabelPads {[ SCALE QUANTIZER ]    Scene}, current_scene+1, {.}, current_scale+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration)
+	LabelPads {[ KEY SEQUENCER ]    Scene}, current_scene+1, {.}, current_scale+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration)
 @End
 
 @HandleModeChange
@@ -912,7 +912,7 @@
 	LabelKnob 2, {RndScne}, rnd_scn_chance
 	LabelKnob 3, {RndScle}, rnd_scle_chance
 	LabelKnobs { }
-	LabelPads {SCALE QUANTIZER : [ SETTINGS ]}
+	LabelPads {KEY SEQUENCER : [ SETTINGS ]}
 @End
 
 @SetupKnobset0
