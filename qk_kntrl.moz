@@ -95,7 +95,7 @@
 	chan_labels =  [1,21,17,17,3,4,5,5,9,6,8,18,13,14,15,16]
 	chan_colors =  [2,2,2,2,1,1,6,4,3,4,6,2,5,5,5,0]
 	chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	chan_layouts =  [5,7,11,11,12,12,13,12,1,12,13,10,2,3,4,0]
+	chan_layouts =  [5,7,11,11,12,14,13,14,1,14,13,10,2,3,4,0]
 	FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
 	FillArray chan_arm, FALSE, 16
@@ -122,7 +122,7 @@
 	
 	index_to_inst_labels = [-1, 75, 28, 36, 56, 49, 67, 29, 46, 68, 17, 48, 27, 63, 32, 9, 8, 24, 25, 51, 54, 13, 12, 15, 14]
 	index_to_inst_labels[26] = [1, 39, 73, 10, 74, 45, 34, 44, 43, 71, 11, 38, 55, 72, 3, 18, 40, 41, 33, 35, 37, 21, 23, 16, 19, 20]
-	index_to_inst_labels[53] = [2, 50, 22, 53, 31, 47, 62, 4, 5, 6, 7, 52, 76, 30, 42, 26, 69, 70, 0, 77, 66, 120, 125, 126, 127, 124, 64, 123, 57, 58, 61, 60, 59, 65,78,89,80]
+	index_to_inst_labels[53] = [2, 50, 22, 53, 31, 47, 62, 4, 5, 6, 7, 52, 76, 30, 42, 26, 69, 70, 0, 77, 66, 120, 125, 126, 127, 124, 64, 123, 57, 58, 61, 60, 59, 65,78,89,80,81,82]
 	// label number vars. Update these if @LabelInstr changes	
 	lbl_num_pgm_dec=57
 	lbl_num_pgm_inc=58
@@ -1167,11 +1167,13 @@
 		LabelKnob 3, {Moogish}
 	elseif layout = 13
 		LabelKnob 3, {LaGrange}
+	elseif layout = 14
+		LabelKnob 3, {Ana.Poly}
 	endif
 	SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, 26, 0, 127
 	SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 6, 0, 127
 	SetKnobValue 2, TranslateScale chan_midi_chs[edit_chan], 0, 15, 0, 127
-	SetKnobValue 3, TranslateScale chan_layouts[edit_chan], 0, 13, 0, 127 
+	SetKnobValue 3, TranslateScale chan_layouts[edit_chan], 0, 14, 0, 127 
 @End
 
 @KnobChangeSet1
@@ -1196,7 +1198,7 @@
 		ColorPad edit_chan, chan_colors[edit_chan]
 	endif
 	if last_knob=3 and edit_chan<12
-		kval = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 13
+		kval = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 14
 		if kval <> chan_layouts[edit_chan]
 			chan_layouts[edit_chan]=kval
 			Call @BuildLayoutPages 
@@ -1272,7 +1274,7 @@
 	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + edit_pad
 	SetKnobValue 2, TranslateScale inst_msg_type[pad_slot], 0, 1, 0, 127 // MSG Type 0=cc; 1=Note	
 	if use_instr_knobset_a // Label : Color : Value : CC#
-		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 127, 0, 89
+		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 127, 0, 91
 		SetKnobValue 1, TranslateScale inst_colors[pad_slot], 0, 6, 0, 127
 		SetKnobValue 3, TranslateScale inst_curr_page[curr_chan], 0, 3, 0, 127
 	else 
@@ -1305,7 +1307,7 @@
 	chan_to_label=curr_chan
 	if last_knob=0 and allow_edit_page // LABEL : LSB / CC#
 		if use_instr_knobset_a
-			val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 89
+			val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 91
 			if index_to_inst_labels[val] <> inst_labels[pad_slot]
 				inst_labels[pad_slot] = index_to_inst_labels[val] 
 				Call @LabelInstrPad
@@ -1793,12 +1795,12 @@
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Free}
 	elseif chan_layouts[edit_chan]=1 
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Generic Synth}
-		def_labels[16*2] = [24,25,32,27,28,29,30,31,24,25,32,27,26,26,44,44]
-		def_colors[16*2] = [3,1,6,2,4,4,4,4,3,1,6,2,4,4,7,7]
-		def_vals[16*2]   = [24,68,9,5,55,33,0,15,0,0,0,27,78,0,0,0]
-		def_colors[16*3] = [3,4,1,6,2,2,2,2,3,3,3,3,4,4,4,4]			
-		def_labels[16*3] = [19,20,76,21,28,29,30,31,     16,23,40,40,16,23,40,40]	
-		def_vals[16*3]   = [100,0,0,0,  0,64,20,20,  64,64,0,0, 64,64,0,0]
+		def_labels[16*2] = [28,29,30,31,28,29,30,31,24,25,32,27,24,25,32,27]
+		def_colors[16*2] = [3,3,3,3,4,4,4,4,3,1,6,2,4,1,6,2]
+		def_vals[16*2]   = [0,32,64,16,0,16,64,32,32,48,64,64,32,48,64,64]
+		def_labels[16*3] = [16,20,23,19,28,29,30,31,16,20,54,19,16,23,54,19]
+		def_colors[16*3] = [3,3,3,3,2,2,2,2,4,4,4,4,6,6,6,6]
+		def_vals[16*3]   = [64,64,64,127,8,64,32,32,64,64,64,64,64,64,64,0]
 	elseif chan_layouts[edit_chan]=2
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:MIXBUS 1-4}
 		mixbuseq_gui=[124,125,126,127]
@@ -1807,7 +1809,7 @@
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
 			clr=i+1 
-			def_labels[16*i] = [0,1,77,125, 4,5,10,11, 38,38,38,38, 61,64,65,66]
+			def_labels[16*i] = [0,1,3,125, 4,5,10,11, 38,38,38,38, 61,64,65,66]
 			def_colors[16*i] = [clr,clr,clr,0, 6,6,4,4,     clr,clr,clr,clr,0,0,0,0]
 			def_vals[16*i]   = [90,64,64,0,    0,0,0,127, 0,0,0,0,  64,0,0,0]
 			def_ccs[(16*i)+3] = mixbuseq_gui[i]
@@ -1896,25 +1898,35 @@
 		def_labels[16*3] = [22,34,28,31,22,34,28,31,22,34,28,31,22,34,28,31]
 		def_vals[16*3]   = [64,127,0,127, 64,127,0,127, 64,127,0,127, 64,127,0,127]
 	elseif chan_layouts[edit_chan]=12 //MOOGISH
-		def_labels[16*1] = [35,39,43,43,0,124,57,58,40,40,40,40,26,49,46,47]
+		def_labels[16*1] = [35,39,17,77,0,124,57,58,40,40,40,40,26,49,46,47]
 		def_colors[16*1] = [6,6,6,6,4,0,2,2,1,1,1,1,5,5,5,5]
-		def_vals[16*1]   = [0,0,20,23,64,0,0,0,64,64,64,64,0,0,0,0]
-		def_labels[16*2] = [26,24,25,27,28,29,30,31,32,28,29,30,31,69,27,77]
-		def_colors[16*2] = [4,3,1,2,4,4,4,4,6,3,3,3,3,0,0,0]
-		def_vals[16*2]   = [46,19,37,66,55,33,0,15,80,0,48,2,14,64,0,127]
-		def_labels[16*3] = [16,20,16,20,54,16,20,54,23,19,23,40,19,23,19,21]
-		def_colors[16*3] = [3,3,4,4,4,5,5,5,3,2,4,4,2,5,2,1]
-		def_vals[16*3]   = [64,64,0,64,64,64,64,64,64,127,64,0,64,64,0,0]
+		def_vals[16*1]   = [0,0,0,0,64,0,0,0,64,64,64,64,0,0,0,0]
+		def_labels[16*2] = [28,29,30,31,28,29,30,31,24,25,32,27,45,43,45,43]
+		def_colors[16*2] = [3,3,3,3,4,4,4,4,3,1,6,2,4,4,4,4]
+		def_vals[16*2]   = [0,32,64,16,0,16,64,32,32,48,64,64,64,64,64,64]
+		def_labels[16*3] = [16,20,23,19,28,29,30,31,16,20,54,19,16,23,54,19]
+		def_colors[16*3] = [3,3,3,3,2,2,2,2,4,4,4,4,6,6,6,6]
+		def_vals[16*3]   = [64,64,64,127,8,64,32,32,64,64,64,64,64,64,64,0]
 	elseif chan_layouts[edit_chan]=13 //LAGRANGE
-		def_labels[16*1] = [35,19,19,21,0,124,57,58,28,29,30,31,46,53,53,51]
-		def_colors[16*1] = [6,4,4,1,4,0,2,2,4,4,4,4,5,5,5,5]
-		def_vals[16*1]   = [0,83,0,0,64,0,0,0,1,44,127,13,0,22,41,45]
+		def_labels[16*1] = [35,39,81,82,0,124,57,58,38,38,38,38,46,53,53,51]
+		def_colors[16*1] = [6,6,6,6,4,0,2,2,4,4,4,4,5,5,5,5]
+		def_vals[16*1]   = [0,0,0,0,64,0,0,0,0,0,0,64,0,0,0,0]
 		def_labels[16*2] = [24,32,28,29,30,31,25,27,24,32,28,29,30,31,25,27]
 		def_colors[16*2] = [6,4,5,5,5,5,1,1,6,4,5,5,5,5,1,1]
 		def_vals[16*2]   = [127,64,0,44,0,44,0,0,127,64,0,41,0,42,0,0]
 		def_labels[16*3] = [26,40,32,23,54,17,32,26,26,40,32,23,54,17,32,24]
 		def_colors[16*3] = [2,2,2,6,6,6,6,1,2,2,2,6,6,6,6,1]
 		def_vals[16*3]   = [0,64,64,64,64,58,64,0,0,64,64,64,64,64,64,64]
+	elseif chan_layouts[edit_chan]=14 //ANA.POLY (MAGELLAN 2)
+		def_labels[16*1] = [35,39,81,82,0,124,57,58,38,38,17,69,12,52,68,77]
+		def_colors[16*1] = [6,6,6,6,4,0,2,2,4,4,2,2,5,1,1,1]
+		def_vals[16*1]   = [0,0,0,0,64,0,0,0,0,0,0,64,127,64,0,0]
+		def_labels[16*2] = [28,29,30,31,28,29,30,31,24,25,32,27,24,25,32,27]
+		def_colors[16*2] = [3,3,3,3,4,4,4,4,3,1,6,2,4,1,6,2]
+		def_vals[16*2]   = [0,32,64,16,0,16,64,32,32,48,64,64,32,48,64,64]
+		def_labels[16*3] = [16,20,23,19,28,29,30,31,16,20,54,19,16,23,54,19]
+		def_colors[16*3] = [3,3,3,3,2,2,2,2,4,4,4,4,6,6,6,6]
+		def_vals[16*3]   = [64,64,64,127,8,64,32,32,64,64,64,64,64,64,64,0]
 	endif	
 	pad_slot = (64*edit_chan)
 	CopyArray def_labels, inst_labels[pad_slot], 64 //4pages of 16pads
@@ -1934,10 +1946,10 @@
 	def_colors[16*0] = [2,2,2,3,3,3,3,3,0,0,0,6,6,0,0,0]
 	def_vals[16*0]   = [64,64,64,0,64,64,64,127,0,0,0,0,0,0,0,0]
 	def_ccs[16*0]    = [7,6,8,16,14,9,15,17,121,122,123,10,11,124,125,126]
-	def_labels[16*1] = [35,36,36,36,0,124,57,58,38,38,38,38,12,13,14,15]
-	def_colors[16*1] = [6,6,6,6,4,0,2,2,4,4,4,4,5,5,5,5]
-	def_vals[16*1]   = [0,0,0,0,64,0,0,0,0,0,0,0,0,0,0,0]
-	def_ccs[16*1]    = [1,2,3,4,43,124,45,46,30,31,32,33,117,118,119,120]
+	def_labels[16*1] = [35,39,81,82,0,124,57,58,38,38,40,40,48,49,46,47]
+	def_colors[16*1] = [6,6,6,6,4,0,2,2,4,4,3,3,5,5,5,5]
+	def_vals[16*1]   = [0,0,0,0,64,0,0,0,0,0,0,64,0,0,0,0]
+	def_ccs[16*1]    = [1,2]
 @End
 
 @SetupLayoutChannels
@@ -2257,13 +2269,17 @@
 	elseif (label_num=76)
 		LabelPad pad_to_label, {SUB} //CUSTOM
 	elseif (label_num=77)
-		LabelPad pad_to_label, {WIDTH} //CUSTOM
+		LabelPad pad_to_label, {SPREAD} //CUSTOM
 	elseif (label_num=78)
 		LabelPad pad_to_label, {SWING} //CUSTOM
 	elseif (label_num=79)
 		LabelPad pad_to_label, {GLITCH} //CUSTOM
 	elseif (label_num=80)
 		LabelPad pad_to_label, {MUTATE} //CUSTOM
+	elseif (label_num=81)
+		LabelPad pad_to_label, {-X-} //CUSTOM
+	elseif (label_num=82)
+		LabelPad pad_to_label, {-Y-} //CUSTOM
 	elseif (label_num=119)	
 		LabelPad pad_to_label, {[DRAMBO]} //CUSTOM
 	elseif (label_num=120)	
