@@ -616,16 +616,16 @@
 	cym=3
 	prc=4
 	kit=5
-	bss=6
-	led=7
+	bsr=6
+	bsp=7
 	pad=8
 	plk=9
-	arp=10
-	ar2=11
+	lds=10
+	ldl=11
 	mel=12
 	har=13
 	key=14
-	drn=15
+	arp=15
 	swl=16
 	chd=17
 	fxs=18
@@ -648,18 +648,18 @@
 	ch_offset=0
 	device_gui_num=[0,0,0,0, 0,0,0,0]
 	if quick_config=0
-		ch_names= [ska, fxs, bss, plk, 	 led, arp, pad, kit]
+		ch_names= [kit, bsr, bsp, lds,   ldl, key, pad, arp]
 		ch_destns=[ilk, ilk, ilk, ilk,   ilk, ilk, ilk, ilk]
 		ch_offset=1 //LK - cant use ch1 for LK due it not being able to filter out midi from LP
 	elseif quick_config=1
-		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
+		ch_names= [kit, bsr, bsp, lds,   ldl, key, pad, arp]
 		ch_destns=[drm, drm, drm, drm,   drm, drm, drm, drm] //drambo
 	elseif quick_config=2
-		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
+		ch_names= [kit, bsr, bsp, lds,   ldl, key, pad, arp]
 		ch_destns=[atm, atm, atm, atm,   atm, atm, atm, atm] //atom
 		device_gui_num=[0,1,2,3, 4,5,6,7]
 	elseif quick_config=3
-		ch_names= [kit, ska, fxs, bss,   plk, led, arp, pad]
+		ch_names= [kit, bsr, bsp, lds,   ldl, key, pad, arp]
 		ch_destns=[hel, hel, hel, hel,   hel, hel, hel, hel] //helium
 		device_gui_num=[0,0,0,0, 1,1,1,1]
 	endif	
@@ -2095,17 +2095,17 @@
 	elseif ch_names[label_chan]=5
 		LabelPads {[  CH}, label_chan+1, {: DRUMS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=6
-		LabelPads {[  CH}, label_chan+1, {: BASS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: BASS-RYTM}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=7
-		LabelPads {[  CH}, label_chan+1, {: LEAD}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: BASS-PAD}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=8
 		LabelPads {[  CH}, label_chan+1, {: PADS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=9
 		LabelPads {[  CH}, label_chan+1, {: PLUCK}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=10
-		LabelPads {[  CH}, label_chan+1, {: ARP1}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: LEAD-SHORT}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=11
-		LabelPads {[  CH}, label_chan+1, {: ARP2}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: LEAD-LONG}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=12
 		LabelPads {[  CH}, label_chan+1, {: MELODY}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=13
@@ -2113,7 +2113,7 @@
 	elseif ch_names[label_chan]=14
 		LabelPads {[  CH}, label_chan+1, {: KEYS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=15
-		LabelPads {[  CH}, label_chan+1, {: DRONE}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: ARP}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=16
 		LabelPads {[  CH}, label_chan+1, {: SWELL}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=17
