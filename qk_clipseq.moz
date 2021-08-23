@@ -1,9 +1,9 @@
 //# QUANTUM KONTROLLER SUITE
-//# QSEQ PATTERN SEQUENCER
+//# MASTER PATTERN/CLIP SEQUENCER SEQUENCER
 @OnLoad
 	ShowLayout 2
-	LabelPads {[ QK:QSEQ ]}
-	SetShortName {QSEQ}
+	LabelPads {[ QK:CLIPSEQ ]}
+	SetShortName {CLIPSQ}
 	if unassigned scene_durs
 		//in the code a pattern refers to what is called a Sequence in the GUI
 		//in the code a sequence step contains a pattern to trigger
@@ -31,7 +31,7 @@
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id)
 		pattn_beat_count = 0
 		scene_beat_count = 0
-		ch_offset=0 //QSEQ 8 ch's from 0-7 communicated with LK, ATOM etc. Use offset to change eg: 1-8
+		ch_offset=0 //CLIPSEQ 8 ch's from 0-7 communicated with LK, ATOM etc. Use offset to change eg: 1-8
 		trigger_pattern_before_beat=TRUE //Trigger pattern before beat (mgen quant>0) or onBeat and (mgen quant=0)
 		sequencing_paused=FALSE //Dont send new triggers out for any channels. trigger mode only
 		SetTimerInterval 1000
@@ -111,9 +111,6 @@
 	FillArray trigger_method_offset , 0, 8 //Starting note num or CC num for CCV mode
 	FillArray sequence_lengths, 4, 8 //sequence lengths for all channels 
 	FillArray chan_max_patterns, 16, 8
-	FillArray chan_mute_states, FALSE, 8 //default state for a channel is unmuted 0
-	FillArray chan_solo_states, FALSE, 8 //default state for a channel is unmuted 0
-	FillArray chan_launch_states, TRUE, 8 //default state for a channel is launched 1
 	quick_config=4 //see @QuickConfig
 	Call @QuickConfig
 	
@@ -2086,47 +2083,47 @@
 	//Label pads  with channel name
 	// if adding to this list update num_ch_names in @InitKnobVariables
 	if ch_names[label_chan]=0
-		LabelPads {[  CH}, label_chan+1, {: KICK/LO-TOM}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: KICK/LO-TOM}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=1
-		LabelPads {[  CH}, label_chan+1, {: SNARE/CLAP}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: SNARE/CLAP}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=2
-		LabelPads {[  CH}, label_chan+1, {: HATS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: HATS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=3
-		LabelPads {[  CH}, label_chan+1, {: HAT2/RIDE}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: HAT2/RIDE}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=4
-		LabelPads {[  CH}, label_chan+1, {: PERCS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: PERCS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=5
-		LabelPads {[  CH}, label_chan+1, {: DRUMS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: DRUMS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=6
-		LabelPads {[  CH}, label_chan+1, {: BASS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: BASS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=7
-		LabelPads {[  CH}, label_chan+1, {: LEAD}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: LEAD}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=8
-		LabelPads {[  CH}, label_chan+1, {: PADS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: PADS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=9
-		LabelPads {[  CH}, label_chan+1, {: PLUCK}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: PLUCK}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=10
-		LabelPads {[  CH}, label_chan+1, {: ARP1}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: ARP1}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=11
-		LabelPads {[  CH}, label_chan+1, {: ARP2}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: ARP2}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=12
-		LabelPads {[  CH}, label_chan+1, {: MELODY}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: MELODY}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=13
-		LabelPads {[  CH}, label_chan+1, {: HARMONY}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: HARMONY}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=14
-		LabelPads {[  CH}, label_chan+1, {: KEYS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: KEYS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=15
-		LabelPads {[  CH}, label_chan+1, {: DRONE}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: DRONE}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=16
-		LabelPads {[  CH}, label_chan+1, {: SWELL}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: SWELL}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=17
-		LabelPads {[  CH}, label_chan+1, {: CHORDS}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: CHORDS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=18
-		LabelPads {[  CH}, label_chan+1, {: FX}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: FX}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=19
-		LabelPads {[  CH}, label_chan+1, {: SCAPE}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: SCAPE}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=20
-		LabelPads {[  CH}, label_chan+1, {: SKAKA}, {  ]   QSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {[  CH}, label_chan+1, {: SKAKA}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	endif
 @End
 
