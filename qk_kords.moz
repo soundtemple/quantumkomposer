@@ -174,7 +174,7 @@
 	tetrad_inversion_adjustments[28]= [12,12,12,0] //3rd inversion
 	tetrad_inversion_adjustments[32]= [12,12,12,12] //4th inversion
 	//Modes for processing incoming notes 0:Off 1:Harmonize 2:GatedChord 3:ChordNotes 4:OFF
-	midi_chan_modes=[0,0,0,0, 1,2,1,2, 2,3,3,3, 0,0,0,0] 
+	midi_chan_modes=[0,0,0,0, 1,1,1,1, 3,2,2,0, 0,0,0,0] 
 	set_all_mc_to=1 //Setting all midi channels to x def is thru
 	active_ch_range=4 //limit active channels for better cpu 0-3; 0-7; 4-11; 0-11; 0-15
 	active_ch_min=0 //for setting active_ch_range 
