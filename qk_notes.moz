@@ -526,13 +526,13 @@
 				note_set_type=1 //to instrument
 				mgen_device_id=7
 			elseif notes_instance_type=4
-				midi_out_chs=[2,2,2,2]
+				midi_out_chs=[2,2,3,3]
 				SetShortName {LOOPS}
 				sel_scale=0 // Chromatic
 				note_set_type=1 //to instrument
 				mgen_device_id=7
 			elseif notes_instance_type=5
-				midi_out_chs=[3,3,3,3]
+				midi_out_chs=[11,11,11,11]
 				SetShortName {FX}
 				sel_scale=0 // Chromatic
 				note_set_type=1 //to instrument
