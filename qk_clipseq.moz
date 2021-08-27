@@ -60,9 +60,10 @@
 	//# Any knobset knob should have a setting here
 	scn_duration = 0 
 	pattn_duration = 0
+	num_chs=8
 	seq_ch=0 //# the sequence lane 0-3 
 	seq_type=3 //# sequence lane to edit. Step, Note, Velo, CC
-	num_ch_names=20 //the number of labels we have for naming a channel
+	num_ch_names=22 //the number of labels we have for naming a channel
 	num_ch_dests=4 //number of names we have for midi destinations gui, atom, lk, helium, drambo
 	step_val=0
   copy_paste_status=0 //# Copy paste 0=off; 1=Copied; 2=Paste
@@ -482,10 +483,10 @@
 			timer_type=1
 			Exit
 		elseif last_pad=9
-			for i = 0 to 7
-				SendMIDINoteOn 14, i, 127 //stop all clips button for each channel	
+			for i = 0 to num_chs-1
+				SendMIDINoteOn 14, i+ch_offset, 127 //stop all clips button for each channel	
 			endfor
-			LabelPad last_pad, {Done!   }, {     Sent ch15 Notes0-7}
+			LabelPad last_pad, {Done!   }, {     Sent ch15 Notes}, ch_offset, {-}, ch_offset+num_chs-1
 			Exit
 		elseif (last_pad>=3 and last_pad<=5) or (last_pad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
@@ -631,6 +632,8 @@
 	fxs=18
 	scp=19
 	ska=20
+	lp1=21
+	lp2=22
 	//destination names (midi generating piano rolls)
 	gui=0
 	atm=1
@@ -642,28 +645,50 @@
 	trigger_method_offset=[0,0,0,0, 0,0,0,0]
 	//Channel name  to be sequenced	 
 	quick_config = quick_config+1
-	if quick_config > 3
+	if quick_config > 4
 		quick_config=0
 	endif
 	ch_offset=0
+	num_chs=8
 	device_gui_num=[0,0,0,0, 0,0,0,0]
 	if quick_config=0
-		ch_names= [kit, bsr, bsp, lds,   ldl, key, pad, arp]
-		ch_destns=[ilk, ilk, ilk, ilk,   ilk, ilk, ilk, ilk]
+		ch_names= [bsr, bsp, lds, ldl,   key, pad, arp, fxs]
+		ch_destns=[ilk, ilk, ilk, ilk,   ilk, ilk, ilk, ilk] // LK 8 SYNTHS
 		ch_offset=1 //LK - cant use ch1 for LK due it not being able to filter out midi from LP
 	elseif quick_config=1
-		ch_names= [kit, bsr, bsp, lds,   ldl, key, pad, arp]
-		ch_destns=[drm, drm, drm, drm,   drm, drm, drm, drm] //drambo
+		ch_names= [kit, prc, bsr, ldl, 	 key, pad, arp, fxs]
+		ch_destns=[ilk, ilk, ilk, ilk,   ilk, ilk, ilk, ilk] //LK FULL
+		ch_offset=1 //LK - cant use ch1 for LK due it not being able to filter out midi from LP
 	elseif quick_config=2
-		ch_names= [kit, bsr, bsp, lds,   ldl, key, pad, arp]
-		ch_destns=[atm, atm, atm, atm,   atm, atm, atm, atm] //atom
+		ch_names= [kit, prc, bsr, ldl, 	 key, pad, arp, fxs]
+		ch_destns=[atm, atm, atm, atm,   atm, atm, atm, atm] //atom FULL
 		device_gui_num=[0,1,2,3, 4,5,6,7]
+		ch_offset=1 //LK - cant use ch1 for LK due it not being able to filter out midi from LP
 	elseif quick_config=3
-		ch_names= [kit, bsr, bsp, lds,   ldl, key, pad, arp]
-		ch_destns=[hel, hel, hel, hel,   hel, hel, hel, hel] //helium
-		device_gui_num=[0,0,0,0, 1,1,1,1]
+		ch_names= [kit, prc, bsr, ldl, 	 key, pad, arp, fxs]
+		ch_destns=[hel, hel, hel, hel,   hel, hel, hel, hel] //helium FULL
+		ch_offset=1 //LK - cant use ch1 for LK due it not being able to filter out midi from LP
+	elseif quick_config=4
+		ch_names= [kit, ska, lp1, lp2]
+		ch_destns=[ilk, ilk, ilk, ilk] //LK 4 Perc channels
+		ch_offset=9
+		num_chs=4
 	endif	
 	Call @SetupSettingsLayout
+@End
+
+@LabelQuickConfigPad
+	if quick_config=0
+		LabelPad 3, {CONFIG#}, quick_config+1, { LK 8SYN }
+	elseif quick_config=1
+	  LabelPad 3, {CONFIG#}, quick_config+1, { LK 8SONG }
+	elseif quick_config=2
+	  LabelPad 3, {CONFIG#}, quick_config+1, { ATOM 8x8 }
+	elseif quick_config=3
+	  LabelPad 3, {CONFIG#}, quick_config+1, { HELIUM }
+	elseif quick_config=4
+	  LabelPad 3, {CONFIG#}, quick_config+1, { LK 4PERC }	
+	endif
 @End
 
 @HandleReturnToSongMode
@@ -1223,7 +1248,7 @@
 
 @SetupKnobset99
 	SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
-	SetKnobValue 1, TranslateScale ch_offset, 0, 7, 0, 127
+	SetKnobValue 1, TranslateScale ch_offset, 0, 8, 0, 127
 	SetKnobValue 2, TranslateScale rnd_scn_chance, 0, 100, 0, 127
 	SetKnobValue 3, TranslateScale rnd_ptn_chance, 0, 100, 0, 127
 	Call @LabelSettingsKnobs
@@ -1242,7 +1267,7 @@
 	elseif last_knob = 0 and not shift_is_down
 	  LabelPads {HOLD SHIFT DOWN TO CHANGE MGEN DEVICE ID!!!!}
 	elseif last_knob = 1 and shift_is_down
-	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 7
+	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 8
 	  if val <> ch_offset	
 		  ch_offset = val
 			Call @SetupSettingsLayout
@@ -1360,7 +1385,7 @@
 @KnobChangeSet2
 	// SETUP 8 SEQUENCE CHANNELS
 	if last_knob = 0 //the sequence channel to edit
-    val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+    val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, num_chs-1
 		if val <> seq_ch
 			seq_ch = val
 			Call @LabelKnobSet2
@@ -1407,7 +1432,7 @@
 		LabelKnob 3, {FROM: }, trigger_method_offset[seq_ch]
 	endif
   
-	SetKnobValue 0, TranslateScale seq_ch, 0, 7, 0, 127
+	SetKnobValue 0, TranslateScale seq_ch, 0, num_chs-1, 0, 127
   SetKnobValue 1, TranslateScale device_gui_num[seq_ch], 0, 7, 0, 127
   SetKnobValue 2, TranslateScale trigger_method[seq_ch], 0, 2, 0, 127
   SetKnobValue 3, TranslateScale trigger_method_offset[seq_ch], 0, 119, 0, 127
@@ -1423,7 +1448,7 @@
 @KnobChangeSet3
 	// SETUP 8 SEQUENCE CHANNELS
 	if last_knob = 0 //the sequence channel to edit
-    val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+    val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, num_chs-1
 		if val <> seq_ch
 			seq_ch = val
 			Call @LabelKnobSet3
@@ -1457,7 +1482,7 @@
   LabelKnob 1, {NAME: }, ch_names[seq_ch]+1
 	LabelKnob 2, {DEST: }, ch_destns[seq_ch]+1
 	LabelKnob 3, { }
-	SetKnobValue 0, TranslateScale seq_ch, 0, 7, 0, 127
+	SetKnobValue 0, TranslateScale seq_ch, 0, num_chs-1, 0, 127
   SetKnobValue 1, TranslateScale ch_names[seq_ch], 0, num_ch_names, 0, 127
   SetKnobValue 2, TranslateScale ch_destns[seq_ch], 0, num_ch_dests, 0, 127
   SetKnobValue 3, 0
@@ -1517,8 +1542,8 @@
   knob_set = 5
   step_slot=(current_scene*128)+(current_pattn*16)+sel_step
 	Call @GetStepVal //# the pattern number associated with this step
-	if Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7 <> seq_ch
-	  SetKnobValue 0, TranslateScale seq_ch, 0, 7, 0, 127
+	if Round TranslateScale (GetKnobValue 0), 0, 127, 0, num_chs-1 <> seq_ch
+	  SetKnobValue 0, TranslateScale seq_ch, 0, num_chs-1, 0, 127
   endif	
 	SetKnobValue 1, TranslateScale sequence_rates[seq_ch], 0, 1, 0, 127
   SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
@@ -1528,7 +1553,7 @@
 @KnobChangeSet5 //# PATTERN EDIT currently selected step/pad (out of 16) in a pattern
 	step_slot=(current_scene*128)+(current_pattn*16)+sel_step
 	if last_knob = 0 //# SEQ_CH
-    seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+    seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, num_chs-1
 		Call @GetStepVal
     SetKnobValue 2, TranslateScale step_val, seq_type_min, seq_type_max, 0, 127
 		Call @SetupLayout
@@ -1591,8 +1616,8 @@
 	//# TRIGGER PLAY MODE
   knob_set = 6
   step_slot=(current_scene*128)+(current_pattn*16)+sel_step
-	if Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7 <> seq_ch
-	  SetKnobValue 0, TranslateScale seq_ch, 0, 7, 0, 127
+	if Round TranslateScale (GetKnobValue 0), 0, 127, 0, num_chs-1 <> seq_ch
+	  SetKnobValue 0, TranslateScale seq_ch, 0, num_chs-1, 0, 127
   endif	
 	SetKnobValue 1, 0
   SetKnobValue 2, 0
@@ -1602,7 +1627,7 @@
 @KnobChangeSet6 //# PATTERN EDIT currently selected step/pad (out of 16) in a pattern
 	step_slot=(current_scene*128)+(current_pattn*16)+sel_step
 	if last_knob = 0 //# SEQ_CH
-    seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+    seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, num_chs-1
 		Call @SetupLayout
 		Call @LabelSet6Knobs
 		sel_pad = sel_step
@@ -1711,7 +1736,7 @@
 @KnobChangeSet9
   //# ROTATION xs9
   if last_knob = 0
-    new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+    new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, num_chs-1
 		if new_seq_ch <> seq_ch
 			seq_ch=new_seq_ch
 			Call @LabelAllSequencePads
@@ -1814,7 +1839,7 @@
 		LabelPad 2, {TRIGGER ON BEAT}
 		tbb_col=1
 	endif
-	LabelPad 3, {QUICK CONFIG #}, quick_config+1
+	Call @LabelQuickConfigPad
 	LabelPad 4, {TRIGGER CONFIG}
 	Call @LabelKnobSet3
 	LabelPad 6, { }
@@ -2054,19 +2079,19 @@
 		LabelPad sel_pad, { }
 	elseif trigger_method[seq_ch]=0 //NOTE MODE
 		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10  //trigger mode 16pads available
-			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { }, (NoteName nn, TRUE), { (}, nn, {)}
+			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1+ch_offset, { }, (NoteName nn, TRUE), { (}, nn, {)}
 		else
 			LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
 		endif
 	elseif trigger_method[seq_ch]=1 //CC NUM mode
 		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10 //trigger mode 16pads available
-			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { cc#}, { }, nn
+			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1+ch_offset, { cc#}, { }, nn
 		else
 		  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
 		endif
 	elseif trigger_method[seq_ch]=2  //CC VAL mode (mode=10 //trigger mode 16pads available)
 		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10 
-			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1, { cc#}, trigger_method_offset[seq_ch], {-}, ap[seq_ch]
+			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1+ch_offset, { cc#}, trigger_method_offset[seq_ch], {-}, ap[seq_ch]
 		else
 		  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
 		endif
@@ -2124,6 +2149,10 @@
 		LabelPads {[  CH}, label_chan+1, {: SCAPE}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=20
 		LabelPads {[  CH}, label_chan+1, {: SKAKA}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+	elseif ch_names[label_chan]=21
+		LabelPads {[  CH}, label_chan+1, {: SEGMENTS 1}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+	elseif ch_names[label_chan]=22
+		LabelPads {[  CH}, label_chan+1, {: SEGMENTS 2}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	endif
 @End
 
