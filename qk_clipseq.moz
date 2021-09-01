@@ -112,7 +112,7 @@
 	FillArray trigger_method_offset , 0, 8 //Starting note num or CC num for CCV mode
 	FillArray sequence_lengths, 4, 8 //sequence lengths for all channels 
 	FillArray chan_max_patterns, 16, 8
-	quick_config=4 //see @QuickConfig
+	quick_config=0 //see @QuickConfig
 	Call @QuickConfig
 	
 	//# MetroPulse settings
