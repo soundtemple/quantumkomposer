@@ -198,7 +198,7 @@
 			ch_start_notes=[0,1,2,4]
 		elseif sel_scale=7 // FAC Drumkit
 			notes_in_set=16
-			ch_start_notes=[0,4,8,12]
+			ch_start_notes=[0,2,4,6]
 		elseif sel_scale=8 // DrPERCS
 			notes_in_set=8
 			midi_out_chs=[1,1,1,1]

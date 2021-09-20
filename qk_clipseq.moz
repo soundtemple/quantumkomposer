@@ -31,6 +31,7 @@
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id)
 		pattn_beat_count = 0
 		scene_beat_count = 0
+		stop_all_clips_note=1 //ch15
 		ch_offset=0 //CLIPSEQ 8 ch's from 0-7 communicated with LK, ATOM etc. Use offset to change eg: 1-8
 		trigger_pattern_before_beat=TRUE //Trigger pattern before beat (mgen quant>0) or onBeat and (mgen quant=0)
 		sequencing_paused=FALSE //Dont send new triggers out for any channels. trigger mode only
@@ -483,10 +484,8 @@
 			timer_type=1
 			Exit
 		elseif last_pad=9
-			for i = 0 to num_chs-1
-				SendMIDINoteOn 14, i+ch_offset, 127 //stop all clips button for each channel	
-			endfor
-			LabelPad last_pad, {Done!   }, {     Sent ch15 Notes}, ch_offset, {-}, ch_offset+num_chs-1
+			SendMIDINoteOn 14, stop_all_clips_note, 127 //stop all clips button
+			LabelPad last_pad, {Done!   }
 			Exit
 		elseif (last_pad>=3 and last_pad<=5) or (last_pad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
