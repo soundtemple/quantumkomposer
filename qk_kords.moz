@@ -149,7 +149,6 @@
 	FillArray current_chord_scale, -1, 12 //the active chord_scale copied from all_chord_scales
 	FillArray all_inv_chord_scales, -1, 1024 //store for the playable chord note pitches for each chord post inversion + txpose
 	FillArray curr_inv_chord_scale, -1, 12 //Inverted chord note scale 0,4,7,11 indexes for chord notes
-	mode_midi_channel=0 //editing the midi channel mode
 	//map incoming note to get inversion....C=root invert up or down from C
 	inversions_for_gated_chord=  [0,1,2,3,4,0,0,0,-4,-3,-2,-1]
 	//triad inversions
@@ -177,8 +176,9 @@
 	midi_chan_modes=[0,0,0,0, 3,3,1,1, 2,2,2,0, 0,0,0,0] 
 	set_all_mc_to=1 //Setting all midi channels to x def is thru
 	active_ch_range=2 //limit active channels for better cpu 0-3; 0-7; 4-11; 0-11; 0-15
-	active_ch_min=0 //for setting active_ch_range 
-	active_ch_max=15 //for setting active_ch_range
+	active_ch_min=4 //for setting active_ch_range 
+	active_ch_max=11 //for setting active_ch_range
+	mode_midi_channel=active_ch_min //editing the midi channel mode
 	FillArray mel_note_velos, 100, 127 //default value for stored velocity when re-trig mel notes on chord change 
 	apn_adj=0 //apn_adj allow passing notes  0:no 1:yes
   //# Scale definitions for midi in key, scale handling
@@ -485,7 +485,7 @@
 			endif
 		elseif (last_pad = 1)
 			in_mode_select = FALSE
-			mode = 0
+			mode = songmode
 			knob_set = 1
 			Call @SetupLayout
 		elseif (last_pad>=2 and last_pad<=4) //# +CHORDS MODES
@@ -2062,7 +2062,7 @@
 		LabelPads {MODE 0: No midi sent thru to instrument}
 	elseif midi_chan_modes[mode_midi_channel] = 1
 		LabelKnob 1, {Harm'ze1}
-		LabelPads {MODE 1: C Notes trigger current chord notes (excl. inv.) (C-ROOT) (E-3RD) (G-5TH) (B-7TH)}
+		LabelPads {MODE 1: Notes trigger current chord notes (excl. inv.) (C-ROOT) (E-3RD) (G-5TH) (B-7TH)}
 	elseif midi_chan_modes[mode_midi_channel] = 2
 		LabelKnob 1, {Chord}
 		LabelPads {MODE 2: Note in triggers current chord. C=root. Invert chord up or down from C}
