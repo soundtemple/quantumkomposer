@@ -1856,11 +1856,11 @@
 
 @LabelSet5Knobs
 	if move_all=1
-	  LabelPads {STEP EDIT ALL: Knob sets a value for all pads. Increment with <<PAD15 PAD16>>}
+	  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] STEP EDIT ALL: Knob sets a value for all pads. Increment with <<PAD15 PAD16>>}
 		FlashPad 14
 		FlashPad 15
 	else
-	  LabelPads {STEP EDIT: Tap to toggle state. Knob4 change step to edit or edit All}
+	  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] STEP EDIT: Tap to toggle state. Knob4 change step to edit or edit All}
 	endif
 	LabelKnobs {CH}, seq_ch+1, { SC}, current_scene+1, { PT}, current_pattn+1, { STEP}, sel_step+1
 	LabelKnob 0, {CH: }, seq_ch+1
@@ -1951,7 +1951,7 @@
 @End
 
 @LabelKnobset6
-	LabelPads {SEQUENCE: Set rate and step size for each channel. Tap to add/remove steps}
+	LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] SEQUENCE: Set rate and step size for each channel. Tap to add/remove steps}
 	LabelKnob 0, {CH: }, seq_ch+1
   LabelKnob 1, {Length }, (16- euc_vals[euc_slot + 2])
   if euc_vals[euc_slot + 3]=0
@@ -1974,7 +1974,7 @@
 
 @SetupKnobset7 //# MUTATION 
   knob_set = 7
-  LabelPads {MUTATION: Evolving Velocity, CC, & Step mutation - per scene }
+  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] MUTATION: Evolving Velocity, CC, & Step mutation - per scene }
   LabelKnobs {MUTATION AMOUNT S}, current_scene+1  
   SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
   SetKnobValue 1, TranslateScale step_mutation[(current_scene*4) + seq_ch], 0, 100, 0, 127
@@ -1996,11 +1996,12 @@
   if last_knob = 0
     new_seq_ch = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 3
     if new_seq_ch <> seq_ch
-		seq_ch=new_seq_ch
-		Call @LabelAllSequencePads
-		SetKnobValue 1, TranslateScale step_mutation[(current_scene*4) + seq_ch], 0, 100, 0, 127
-		SetKnobValue 2, TranslateScale velo_mutation[(current_scene*4) + seq_ch], 0, 64, 0, 127
-		SetKnobValue 3, TranslateScale cc_mutation[(current_scene*4) + seq_ch], 0, 127, 0, 127
+			seq_ch=new_seq_ch
+			Call @LabelAllSequencePads
+			SetKnobValue 1, TranslateScale step_mutation[(current_scene*4) + seq_ch], 0, 100, 0, 127
+			SetKnobValue 2, TranslateScale velo_mutation[(current_scene*4) + seq_ch], 0, 64, 0, 127
+			SetKnobValue 3, TranslateScale cc_mutation[(current_scene*4) + seq_ch], 0, 127, 0, 127
+			LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] MUTATION: Evolving Velocity, CC, & Step mutation - per scene }
     endif
   endif
   if last_knob = 1
@@ -2027,7 +2028,7 @@
 @SetupKnobset8 //# SEQ GENERATION for Steps, Notes, Velo, CC
   knob_set = 8
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { SEQ GEN}
-  LabelPads {SEQUENCE GENERATION CH}, seq_ch+1, {: Select CH, SEQ TYPE, [...HI, LO]. Gen! knob generates}
+  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] SEQUENCE GENERATION CH}, seq_ch+1, {: Select CH, SEQ TYPE, [...HI, LO]. Gen! knob generates}
   SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
   SetKnobValue 1, TranslateScale sg_type[seq_ch], 0, 5, 0, 127
   if sg_type[seq_ch]>=1
@@ -2108,29 +2109,29 @@
 
 @LabelSeqGenKnobs
 	LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { SEQ GEN}
-	LabelPads {SEQUENCE GENERATION CH}, seq_ch+1
+	LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] SEQUENCE GENERATION CH}, seq_ch+1
 	if sg_type[seq_ch]=0
 		LabelKnob 1, {SET RANGE}
 		label_style=4
  	elseif sg_type[seq_ch]=1
  		LabelKnob 1, {RYTM}
- 		LabelPads {RHYTHM GENERATION} 
+ 		LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] RHYTHM GENERATION} 
 		label_style=4
 	elseif sg_type[seq_ch]=2
 		LabelKnob 1, {MELO}
-		LabelPads {MELODY GENERATION [influenced by rhythm, so add rhythm first!!]} 
+		LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] MELODY GENERATION [influenced by rhythm, so add rhythm first!!]} 
 		label_style=1
 	elseif sg_type[seq_ch]=3
  		LabelKnob 1, {ARP}
-		LabelPads {ARPEGIATOR GENERATION}
+		LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] ARPEGIATOR GENERATION}
  		label_style=1
 	elseif sg_type[seq_ch]=4
  		LabelKnob 1, {VELO}
-		LabelPads {VELOCITY RAMP GENERATION [use min / max]} 
+		LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] VELOCITY RAMP GENERATION [use min / max]} 
  		label_style=2
  	elseif sg_type[seq_ch]=5
  		LabelKnob 1, {CC}
-		LabelPads {CC RAMP GENERATION [use min / max]} 
+		LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] CC RAMP GENERATION [use min / max]} 
  		label_style=3
  	endif
  	LabelKnob 0, {CH: }, seq_ch+1
@@ -2429,6 +2430,7 @@
 		if new_seq_ch <> seq_ch
 			seq_ch=new_seq_ch
 			Call @LabelAllSequencePads
+			LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] ROTATE SEQUENCE: Select CH. Tap  <<pad15 or pad16>> to rotate.}
 		endif
 	endif
 	if last_knob = 1
@@ -2709,7 +2711,7 @@
 	elseif mode = 12
 	    label_style=label_view_mode
 	  Call @SetupKnobset9 //# ROTATE
-	  LabelPads {ROTATE SEQUENCE: Select CH. Tap  <<pad15 or pad16>> to rotate.}
+	  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] ROTATE SEQUENCE: Select CH. Tap  <<pad15 or pad16>> to rotate.}
 	endif 
 	Call @LabelAllSequencePads
 @End

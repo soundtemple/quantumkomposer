@@ -1882,11 +1882,11 @@
 @end
 @LabelSet5Knobs
 	if move_all=1
-	  LabelPads {STEP EDIT ALL: Knob sets a value for all pads. Increment with <<PAD15 PAD16>>}
+	  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] STEP EDIT ALL: Knob sets a value for all pads. Increment with <<PAD15 PAD16>>}
 		FlashPad 14
 		FlashPad 15
 	else
-	  LabelPads {STEP EDIT: Tap to toggle state. Knob4 change step to edit or edit All}
+	  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] STEP EDIT: Tap to toggle state. Knob4 change step to edit or edit All}
 	endif
 	LabelKnobs {CH}, seq_ch+1, { SC}, current_scene+1, { PT}, current_pattn+1, { STEP}, sel_step+1
 	LabelKnob 0, {CH: }, seq_ch+1
@@ -1979,7 +1979,7 @@
 @End
 
 @LabelKnobset6
-	LabelPads {SEQUENCE: Set rate and step size for each channel. Tap to add/remove steps}
+	LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] SEQUENCE: Set rate and step size for each channel. Tap to add/remove steps}
 	LabelKnob 0, {CH: }, seq_ch+1
   LabelKnob 1, {Length }, (16- euc_vals[euc_slot + 2])
   if euc_vals[euc_slot + 3]=0
@@ -2002,7 +2002,7 @@
 
 @SetupKnobset7 //# MUTATION xs7
   knob_set = 7
-  LabelPads {MUTATION: Evolving Velocity, CC, & Step mutation - per scene }
+  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] MUTATION: Evolving Velocity, CC, & Step mutation - per scene }
   LabelKnobs {MUTATION AMOUNT S}, current_scene+1 
   SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
   SetKnobValue 1, TranslateScale step_mutation[(current_scene*4) + seq_ch], 0, 100, 0, 127
@@ -2054,7 +2054,7 @@
 @SetupKnobset8 //# SEQ GENERATION for Steps, Notes, Velo, CC
   knob_set = 8
   LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { SEQ GEN}
-  LabelPads {SEQUENCE GENERATION CH}, seq_ch+1, {: Select CH, SEQ TYPE, [...HI, LO]. Gen! knob generates}
+  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] SEQUENCE GENERATION CH}, seq_ch+1, {: Select CH, SEQ TYPE, [...HI, LO]. Gen! knob generates}
   
   SetKnobValue 0, TranslateScale seq_ch, 0, 3, 0, 127
   SetKnobValue 1, TranslateScale sg_type[seq_ch], 0, 6, 0, 127
@@ -2123,7 +2123,7 @@
 
 @LabelSeqGenKnobs
 	LabelKnobs {CH}, seq_ch+1, { S}, current_scene+1, { P}, current_pattn+1, { SEQ GEN}
-	LabelPads {SEQUENCE GENERATION CH}, seq_ch+1, {: Select a CH, SEQ TYPE, [...HI, LO]. Gen! knob generates}
+	LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] SEQUENCE GENERATION CH}, seq_ch+1, {: Select a CH, SEQ TYPE, [...HI, LO]. Gen! knob generates}
 	if sg_type[seq_ch]=0
 		LabelKnob 1, {SET RANGE}
 		label_style=4
@@ -2519,7 +2519,7 @@
 	if mode = 8
 	  Call @SetupKnobset6 //# SEQUENCE STEPS EDIT
 	  label_style=4
-	  LabelPads {EUCLIDEAN SEQUENCER: Knobs generate pattern steps, length & rate. Pads toggle state or record steps}
+	  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] SEQUENCE: Knobs generate pattern steps, length & rate. Pads toggle state or record steps}
 	elseif mode = 9
 		label_style=label_view_mode
 	  Call @SetupKnobset5 //# SEQUENCE EDIT ALL TYPES
@@ -2532,7 +2532,7 @@
 	elseif mode = 12
 	    label_style=label_view_mode
 	  Call @SetupKnobset9 //# ROTATE
-	  LabelPads {ROTATE SEQUENCE: Select CH. Tap  <<pad15 or pad16>> to rotate.}
+	  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] ROTATE SEQUENCE: Select CH. Tap  <<pad15 or pad16>> to rotate.}
 	endif 
 	Call @LabelAllSequencePads
 @End
