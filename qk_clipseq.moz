@@ -32,7 +32,6 @@
 		pattn_beat_count = 0
 		scene_beat_count = 0
 		stop_all_clips_note=1 //ch15
-		ch_offset=0 //CLIPSEQ 8 ch's from 0-7 communicated with LK, ATOM etc. Use offset to change eg: 1-8
 		trigger_pattern_before_beat=TRUE //Trigger pattern before beat (mgen quant>0) or onBeat and (mgen quant=0)
 		sequencing_paused=FALSE //Dont send new triggers out for any channels. trigger mode only
 		SetTimerInterval 1000
@@ -62,10 +61,11 @@
 	scn_duration = 0 
 	pattn_duration = 0
 	num_chs=8
+	chan_midi_chans=[0,1,2,3,4,5,6,7] //midi channel to send triggers on. 
 	seq_ch=0 //# the sequence lane 0-3 
 	seq_type=3 //# sequence lane to edit. Step, Note, Velo, CC
 	num_ch_names=22 //the number of labels we have for naming a channel
-	num_ch_dests=4 //number of names we have for midi destinations gui, atom, lk, helium, drambo
+	num_ch_dests=4 //number of names we have for midi destinations gui, atom, lk, helium, instrument
 	step_val=0
   copy_paste_status=0 //# Copy paste 0=off; 1=Copied; 2=Paste
   return_to_mode=0 //# Copy paste on completion
@@ -113,7 +113,7 @@
 	FillArray trigger_method_offset , 0, 8 //Starting note num or CC num for CCV mode
 	FillArray sequence_lengths, 4, 8 //sequence lengths for all channels 
 	FillArray chan_max_patterns, 16, 8
-	quick_config=0 //see @QuickConfig
+	quick_config=3 //see @QuickConfig
 	Call @QuickConfig
 	
 	//# MetroPulse settings
@@ -294,15 +294,16 @@
 	endif
 	
 	//TRIGGER THE ACTUAL PATTERN	
+	midi_ch = chan_midi_chans[ptn_triggered_for_ch]
 	if (not sequencing_paused) or pattern_triggered_by_user 
 		if ptn_triggered_for_ch>=0 and ch_trigger_method=0 //NOTE
-			SendMIDINoteOn ptn_triggered_for_ch + ch_offset, pattern_num_to_trigger + offset, 127
-			SendMIDINoteOff ptn_triggered_for_ch + ch_offset, pattern_num_to_trigger + offset, 64, 1
+			SendMIDINoteOn midi_ch, pattern_num_to_trigger + offset, 127
+			SendMIDINoteOff midi_ch, pattern_num_to_trigger + offset, 64, 1
 			//Log {sent midi: ch}, ptn_triggered_for_ch, { #}, pattern_num_to_trigger + offset
 		elseif ptn_triggered_for_ch>=0 and ch_trigger_method=1 //CC NUM
-			SendMIDICC ptn_triggered_for_ch + ch_offset, pattern_num_to_trigger + offset, 127
+			SendMIDICC midi_ch, pattern_num_to_trigger + offset, 127
 		elseif ptn_triggered_for_ch>=0 and ch_trigger_method=2 //CC VAL
-			SendMIDICC ptn_triggered_for_ch + ch_offset, offset, pattern_num_to_trigger
+			SendMIDICC midi_ch, offset, pattern_num_to_trigger
 		endif
 		if mode=10 and ptn_triggered_for_ch=seq_ch and in_seq_mode //we want to see the current pattn highlighted
 			Call @LabelAllSequencePads
@@ -638,7 +639,7 @@
 	atm=1
 	ilk=2
 	hel=3
-	drm=4
+	ins=4 //instrument
 	//trigger_method: 0:NOTE  1:CCV 
 	trigger_method=[0,0,0,0, 0,0,0,0]
 	trigger_method_offset=[0,0,0,0, 0,0,0,0]
@@ -647,46 +648,42 @@
 	if quick_config > 4
 		quick_config=0
 	endif
-	ch_offset=0
 	num_chs=8
 	device_gui_num=[0,0,0,0, 0,0,0,0]
+	chan_midi_chans=[0,1,2,3,4,5,6,7]
 	if quick_config=0
 		ch_names= [bsr, bsp, lds, ldl,   key, pad, arp, fxs]
 		ch_destns=[ilk, ilk, ilk, ilk,   ilk, ilk, ilk, ilk] // LK 8 SYNTHS
-		ch_offset=1 //LK - cant use ch1 for LK due it not being able to filter out midi from LP
+		chan_midi_chans=[1,2,3,4,5,6,7,8]
 	elseif quick_config=1
 		ch_names= [kit, prc, bsr, ldl, 	 key, pad, arp, fxs]
 		ch_destns=[ilk, ilk, ilk, ilk,   ilk, ilk, ilk, ilk] //LK FULL
-		ch_offset=1 //LK - cant use ch1 for LK due it not being able to filter out midi from LP
+		chan_midi_chans=[1,2,3,4,5,6,7,8]
 	elseif quick_config=2
 		ch_names= [kit, prc, bsr, ldl, 	 key, pad, arp, fxs]
 		ch_destns=[atm, atm, atm, atm,   atm, atm, atm, atm] //atom FULL
-		device_gui_num=[0,1,2,3, 4,5,6,7]
-		ch_offset=1 //LK - cant use ch1 for LK due it not being able to filter out midi from LP
 	elseif quick_config=3
 		ch_names= [kit, prc, bsr, ldl, 	 key, pad, arp, fxs]
 		ch_destns=[hel, hel, hel, hel,   hel, hel, hel, hel] //helium FULL
-		ch_offset=1 //LK - cant use ch1 for LK due it not being able to filter out midi from LP
 	elseif quick_config=4
-		ch_names= [kit, ska, lp1, lp2]
-		ch_destns=[ilk, ilk, ilk, ilk] //LK 4 Perc channels
-		ch_offset=9
-		num_chs=4
+		ch_names= [kit, prc, bsr, ldl, 	 key, pad, arp, fxs]
+		ch_destns=[ins, ins, hel, ins,   hel, hel, hel, hel] //LK 4 Perc channels
+		chan_midi_chans=[0,3,4,6, 8,9,10,11]
 	endif	
 	Call @SetupSettingsLayout
 @End
 
 @LabelQuickConfigPad
 	if quick_config=0
-		LabelPad 3, {CONFIG#}, quick_config+1, { LK 8SYN }
+		LabelPad 3, {SETUP#}, quick_config+1, { LK 8SYN }
 	elseif quick_config=1
-	  LabelPad 3, {CONFIG#}, quick_config+1, { LK 8SONG }
+	  LabelPad 3, {SETUP#}, quick_config+1, { LK 8SONG }
 	elseif quick_config=2
-	  LabelPad 3, {CONFIG#}, quick_config+1, { ATOM 8x8 }
+	  LabelPad 3, {SETUP#}, quick_config+1, { ATOM 8x8 }
 	elseif quick_config=3
-	  LabelPad 3, {CONFIG#}, quick_config+1, { HELIUM }
+	  LabelPad 3, {SETUP#}, quick_config+1, { HELIUM }
 	elseif quick_config=4
-	  LabelPad 3, {CONFIG#}, quick_config+1, { LK 4PERC }	
+	  LabelPad 3, {SETUP#}, quick_config+1, { CUSTOM }	
 	endif
 @End
 
@@ -819,7 +816,7 @@
   	copy_paste_status=2 //# PASTE
   	Call @CopyPaste
   	copy_paste_status=0 //# CP OFF
-	elseif (mode = 9)
+	elseif (mode = 7)
 		reset_type=2 //# reset a sequence pad
   	Call @ResetScenePatternSequence
 	endif
@@ -872,6 +869,8 @@
   		Call @SetupKnobset9 //# ROTATION
   	elseif mode=6 and return_to_mode=9
   		Call @SetupKnobset5 //# EDIT
+		elseif mode=7 and return_to_mode=9
+		  Call @SetupKnobset5 //#DELETE
 		else
   		mode=9
   		Call @SetupKnobset5 //# EDIT
@@ -902,7 +901,8 @@
 
 @HandleGuiRequest
 	if last_pad=8 //GUI TOGGLE
-		SendMIDICC ch_offset + device_gui_num[seq_ch], 101, 127
+		m_ch=chan_midi_chans[seq_ch]
+		SendMIDICC m_ch, 101+device_gui_num[seq_ch], 127
 	endif
 	FlashPad last_pad
 	Call @SetupSettingsLayout
@@ -1247,7 +1247,7 @@
 
 @SetupKnobset99
 	SetKnobValue 0, TranslateScale mgen_device_id, 0, 9, 0, 127
-	SetKnobValue 1, TranslateScale ch_offset, 0, 8, 0, 127
+	SetKnobValue 1, 0
 	SetKnobValue 2, TranslateScale rnd_scn_chance, 0, 100, 0, 127
 	SetKnobValue 3, TranslateScale rnd_ptn_chance, 0, 100, 0, 127
 	Call @LabelSettingsKnobs
@@ -1265,14 +1265,6 @@
 		endif
 	elseif last_knob = 0 and not shift_is_down
 	  LabelPads {HOLD SHIFT DOWN TO CHANGE MGEN DEVICE ID!!!!}
-	elseif last_knob = 1 and shift_is_down
-	  val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 8
-	  if val <> ch_offset	
-		  ch_offset = val
-			Call @SetupSettingsLayout
-	  endif
-	elseif last_knob = 1 and not shift_is_down
-	  LabelPads {HOLD SHIFT DOWN TO CHANGE MIDI CH. OFFSET FOR ALL CHANNELS}
 	elseif last_knob = 2
 	  val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 100
 	  if val <> rnd_scn_chance 	
@@ -1293,7 +1285,7 @@
 	else
 		LabelKnob 0, {mgen# -}
 		endif
-	LabelKnob 1, {ChOffset:}, ch_offset
+	LabelKnob 1, { }
 	LabelKnob 2, {RndScn}, rnd_scn_chance
 	LabelKnob 3, {RndPtn}, rnd_ptn_chance
 	LabelKnobs { }
@@ -1417,7 +1409,7 @@
 	endif	
 @End
 @LabelKnobSet2
-	LabelKnobs {TRIGGER CONFIG} 
+	LabelKnobs {CONFIG-A} 
   LabelKnob 0, {CH: }, seq_ch+1
 	LabelKnob 1, {GUI# }, device_gui_num[seq_ch]+1	
 	if trigger_method[seq_ch]=1 //trigger methods 0-2; Note, CC_NUM; CC_VAL
@@ -1473,21 +1465,30 @@
 			Call @LabelChannel
 			Call @LabelDestinationInfoPads
 		endif
+	elseif last_knob = 3
+   	val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 15
+		if val <> chan_midi_chans[seq_ch]
+			chan_midi_chans[seq_ch] = val
+			Call @LabelKnobSet3
+			label_chan=seq_ch
+			Call @LabelChannel
+			Call @LabelDestinationInfoPads
+		endif
 	endif	
 @End
 @LabelKnobSet3
-	LabelKnobs {NAME CHANNELS} 
+	LabelKnobs {CONFIG-B} 
   LabelKnob 0, {CH: }, seq_ch+1
   LabelKnob 1, {NAME: }, ch_names[seq_ch]+1
 	LabelKnob 2, {DEST: }, ch_destns[seq_ch]+1
-	LabelKnob 3, { }
+	LabelKnob 3, {MIDI CH}
 	SetKnobValue 0, TranslateScale seq_ch, 0, num_chs-1, 0, 127
   SetKnobValue 1, TranslateScale ch_names[seq_ch], 0, num_ch_names, 0, 127
   SetKnobValue 2, TranslateScale ch_destns[seq_ch], 0, num_ch_dests, 0, 127
-  SetKnobValue 3, 0
-  CopyArray  ch_names, n, 8
+  SetKnobValue 3, TranslateScale chan_midi_chans[seq_ch], 0, 15, 0, 127
+  CopyArray  chan_midi_chans, n, 8
 	LabelPads {Select a CHANNEL NAME and a DESTINATION NAME for each channel...}
-	LabelPad 5, {_NAMES_ }, { [}, n[0]+1,{-}, n[1]+1,{-}, n[2]+1,{-}, n[3]+1,{] }, { [}, n[4]+1,{-}, n[5]+1,{-}, n[6]+1,{-}, n[7]+1,{] }  
+	LabelPad 5, {__CONFIG__}, { [}, n[0]+1,{-}, n[1]+1,{-}, n[2]+1,{-}, n[3]+1,{] }, { [}, n[4]+1,{-}, n[5]+1,{-}, n[6]+1,{-}, n[7]+1,{] }  
 @End
 
 @GetStepVal 
@@ -1839,7 +1840,7 @@
 		tbb_col=1
 	endif
 	Call @LabelQuickConfigPad
-	LabelPad 4, {TRIGGER CONFIG}
+	LabelPad 4, {__CONFIG__}, { TRIGGER }, { METHODS } 
 	Call @LabelKnobSet3
 	LabelPad 6, { }
 	if mode<=1
@@ -1881,16 +1882,17 @@
 @End
 
 @LabelDestinationInfoPads
+	m_ch=chan_midi_chans[seq_ch]
 	if ch_destns[seq_ch]=1
-		LabelPad 8, { ___ATOM___ }, { ch}, ch_offset + device_gui_num[seq_ch]+1, { cc101 }, {  }
+		LabelPad 8, { ___ATOM___ }, { ch}, m_ch+1, { cc}, 101+device_gui_num[seq_ch], {  }
 	elseif ch_destns[seq_ch]=2
-	  LabelPad 8, { ____LK____ }, { ch}, ch_offset + device_gui_num[seq_ch]+1, { cc101 }, {  }
+	  LabelPad 8, { ____LK____ }, { ch}, m_ch+1, { cc}, 101+device_gui_num[seq_ch], {  }
 	elseif ch_destns[seq_ch]=3
-	  LabelPad 8, { __HELIUM__ }, { ch}, ch_offset + device_gui_num[seq_ch]+1, { cc101 }, {  }
+	  LabelPad 8, { __HELIUM__ }, { ch}, m_ch+1, { cc}, 101+device_gui_num[seq_ch], {  }
 	elseif ch_destns[seq_ch]=4
-	  LabelPad 8, { _DRAMBO_ }, { ch}, ch_offset + device_gui_num[seq_ch]+1, { cc101 }, {  }
+	  LabelPad 8, { __INSTR.__ }, { ch}, m_ch+1, { cc}, 101+device_gui_num[seq_ch], {  }
 	else	
-		LabelPad 8, { ___GUI___ }, { ch}, ch_offset + device_gui_num[seq_ch]+1, { cc101 }, {  } 
+		LabelPad 8, { ___GUI___  }, { ch}, m_ch+1, { cc}, 101+device_gui_num[seq_ch], {  } 
 	endif
 @End
 
@@ -1911,7 +1913,7 @@
 
 @LabelScenePad //# Set scn_to_label var before calling
 	sc_dur = scene_durs[scn_to_label]
-	LabelPad scn_to_label, { Scene }, scn_to_label+1, {    }, { [}, sc_dur, { bars]}
+	LabelPad scn_to_label, { Scene }, scn_to_label+1, {   }, { [}, sc_dur, { bars]}
 	ColorPad scn_to_label, 2
 	if mgen_device_id=mgen_sel_dev
 		SendMIDINoteOn 15, scn_to_label+led_index, 2
@@ -1920,7 +1922,7 @@
 
 @LabelPatternPad //# Set pattn_to_label var before calling 
 	pattn_slot = (current_scene * 8) + pattn_to_label
-	LabelPad pattn_to_label+8, { Sequence }, pattn_to_label+1, {    }, {[}, pattn_durs[pattn_slot], { bars]}
+	LabelPad pattn_to_label+8, { Sequence }, pattn_to_label+1, { MidiCh:}, m_ch, {   }, {[}, pattn_durs[pattn_slot], { bars]}
 	ColorPad pattn_to_label+8, 2
 	if mgen_device_id=mgen_sel_dev
 		SendMIDINoteOn 15, pattn_to_label+8+led_index, 2
@@ -2058,6 +2060,7 @@
 @LabelSequencePad //# label sequence pads 
 	sequence_num=(current_scene*128) + (current_pattn*16) + seq_ch
 	pattn_length = sequence_lengths[sequence_num]
+	m_ch=chan_midi_chans[seq_ch]+1
 	ap0=a0_pattns[step_slot]
 	ap1=a1_pattns[step_slot]
 	ap2=a2_pattns[step_slot] 
@@ -2078,19 +2081,21 @@
 		LabelPad sel_pad, { }
 	elseif trigger_method[seq_ch]=0 //NOTE MODE
 		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10  //trigger mode 16pads available
-			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1+ch_offset, { }, (NoteName nn, TRUE), { (}, nn, {)}
+			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, m_ch, { }, (NoteName nn, TRUE), { (}, nn, {)}
 		else
 			LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
 		endif
 	elseif trigger_method[seq_ch]=1 //CC NUM mode
 		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10 //trigger mode 16pads available
-			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1+ch_offset, { cc#}, { }, nn
+			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, m_ch, { cc#}, { }, nn
 		else
 		  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
 		endif
 	elseif trigger_method[seq_ch]=2  //CC VAL mode (mode=10 //trigger mode 16pads available)
-		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) or mode=10 
-			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, seq_ch+1+ch_offset, { cc#}, trigger_method_offset[seq_ch], {-}, ap[seq_ch]
+		if ((ap[seq_ch] >= 0) and (sel_pad<pattn_length)) and mode<>10
+			LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, m_ch, { cc#}, trigger_method_offset[seq_ch], {-}, ap[seq_ch]
+		elseif mode=10
+		  	LabelPad sel_pad, { ___P}, ptn_num, {___ }, { ch}, m_ch, { cc#}, trigger_method_offset[seq_ch], {-}, sel_pad
 		else
 		  LabelPad sel_pad, {_____}, {X_____  }, { No Trigger }
 		endif
@@ -2106,52 +2111,53 @@
 @LabelChannel
 	//Label pads  with channel name
 	// if adding to this list update num_ch_names in @InitKnobVariables
+	m_ch=chan_midi_chans[seq_ch]+1
 	if ch_names[label_chan]=0
-		LabelPads {[  CH}, label_chan+1, {: KICK/LO-TOM}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {KICK/LO-TOM}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=1
-		LabelPads {[  CH}, label_chan+1, {: SNARE/CLAP}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {SNARE/CLAP}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=2
-		LabelPads {[  CH}, label_chan+1, {: HATS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {HATS}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=3
-		LabelPads {[  CH}, label_chan+1, {: HAT2/RIDE}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {HAT2/RIDE}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=4
-		LabelPads {[  CH}, label_chan+1, {: PERCS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {PERCS}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=5
-		LabelPads {[  CH}, label_chan+1, {: DRUMS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {DRUMS}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=6
-		LabelPads {[  CH}, label_chan+1, {: BASS-RYTM}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {BASS-RYTM}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=7
-		LabelPads {[  CH}, label_chan+1, {: BASS-PAD}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {BASS-PAD}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=8
-		LabelPads {[  CH}, label_chan+1, {: PADS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {PADS}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=9
-		LabelPads {[  CH}, label_chan+1, {: PLUCK}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {PLUCK}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=10
-		LabelPads {[  CH}, label_chan+1, {: LEAD-SHORT}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {LEAD-SHORT}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=11
-		LabelPads {[  CH}, label_chan+1, {: LEAD-LONG}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {LEAD-LONG}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=12
-		LabelPads {[  CH}, label_chan+1, {: MELODY}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {MELODY}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=13
-		LabelPads {[  CH}, label_chan+1, {: HARMONY}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {HARMONY}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=14
-		LabelPads {[  CH}, label_chan+1, {: KEYS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {KEYS}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=15
-		LabelPads {[  CH}, label_chan+1, {: ARP}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {ARP}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=16
-		LabelPads {[  CH}, label_chan+1, {: SWELL}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {SWELL}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=17
-		LabelPads {[  CH}, label_chan+1, {: CHORDS}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {CHORDS}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=18
-		LabelPads {[  CH}, label_chan+1, {: FX}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {FX}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=19
-		LabelPads {[  CH}, label_chan+1, {: SCAPE}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {SCAPE}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=20
-		LabelPads {[  CH}, label_chan+1, {: SKAKA}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {SKAKA}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=21
-		LabelPads {[  CH}, label_chan+1, {: SEGMENTS 1}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {SEGMENTS 1}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	elseif ch_names[label_chan]=22
-		LabelPads {[  CH}, label_chan+1, {: SEGMENTS 2}, {  ]   CLIPSEQ Scene: }, current_scene+1, { Sequence: }, current_pattn+1
+		LabelPads {SEGMENTS 2}, { [MidiCh:}, m_ch, {] Scene: }, current_scene+1, { Sequence: }, current_pattn+1
 	endif
 @End
 
