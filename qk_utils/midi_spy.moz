@@ -1,0 +1,118 @@
+@OnLoad
+  SetShortName {M-SPY}
+	ShowLayout 2
+	log_note_on=TRUE
+	log_note_off=TRUE
+	log_cc=TRUE
+	log_pgm_chg=TRUE
+	log_aftertouch=FALSE
+	log_pitchbend=FALSE
+	Call @LabelAllPads
+@End 
+
+@LabelAllPads
+	LabelPads {MIDI SPY - Toggle message types on/off}
+	LabelPad 0, {NOTE ON}
+	LabelPad 1, {NOTE OFF}
+	LabelPad 2, {CC}
+	LabelPad 3, {PGM CHG}
+	LabelPad 4, {AFTERTOUCH}
+	LabelPad 5, {PITCH BEND}
+	LabelPad 8, {LOG LINE BREAK}
+	
+	if log_note_on	
+		ColorPad 0, 3
+	else
+		ColorPad 0, 1
+	endif
+	if log_note_off
+		ColorPad 1, 3
+	else
+		ColorPad 1, 1
+	endif
+	if log_cc
+		ColorPad 2, 3
+	else
+		ColorPad 2, 1
+		endif
+	if log_pgm_chg
+		ColorPad 3, 3
+	else
+		ColorPad 3, 1
+	endif
+	if log_aftertouch
+		ColorPad 4, 3
+	else
+		ColorPad 4, 1
+	endif
+	if log_pitchbend	
+		ColorPad 5, 3
+	else
+		ColorPad 5, 1
+	endif
+@End
+
+@OnPadDown
+  if LastPad=0
+		log_note_on = not log_note_on
+	elseif LastPad=1
+		log_note_off = not log_note_off
+	elseif LastPad=2
+		log_cc = not log_cc
+	elseif LastPad=3
+		log_pgm_chg = not log_pgm_chg
+	elseif LastPad=4
+		log_aftertouch = not log_aftertouch
+	elseif LastPad=5
+		log_pitchbend = not log_pitchbend
+	elseif LastPad=8
+		Log {-----LINE BREAK-----}
+	endif
+	Call @LabelAllPads
+@End
+
+
+@OnMidiNoteOn
+	if log_note_on
+		Log {NOTE ON:  }, MIDICommand, { ch:}, MIDIChannel+1, { }, (NoteName MIDIByte2, YES), { [}, MIDIByte2, {]}, { v:}, MIDIByte3 
+	endif  
+@End
+
+@OnMidiNoteOff
+  if log_note_off
+	  Log {NOTE OFF: }, MIDICommand, { ch:}, MIDIChannel+1, { }, (NoteName MIDIByte2, YES), { [}, MIDIByte2, {]}, { v:}, MIDIByte3 
+	endif
+@End
+
+@OnMidiCC
+	if log_cc
+	  Log {CH: }, MIDIChannel+1, {  cc}, MIDIByte2, {-}, MIDIByte3 
+	endif
+@End 
+
+@OnMidiInput
+	if log_aftertouch and MIDICommand=0xD0 
+		Log MidiCommand, {-}, MIDIByte2, {-}, MIDIByte3
+	endif
+	if log_pitchbend and MIDICommand=0xE0 
+		Log MidiCommand, {-}, MIDIByte2, {-}, MIDIByte3
+	endif
+	if log_pgm_chg and MIDICommand=0xC0
+		Log {PGM CHG:  CH:}, MIDIChannel+1, {-}, MIDIByte2
+	endif
+@End
+	
+@OnHostStart
+  Log { }
+  Log { }
+  Log { }
+  Log { ----- HOST STARTED -----}
+@End 
+
+@OnNewBeat
+  // Log { ---- NEW BEAT ----}, HostBeat 
+@End 
+
+@OnNewBar
+  // Log { ---- NEW BAR ----}, HostBar 
+@End 

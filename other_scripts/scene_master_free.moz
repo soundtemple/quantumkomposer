@@ -1,0 +1,427 @@
+//# SCENEMASTER - Master scene control
+//# By Soundtemple 2021
+//# Keeps other apps like LK and Drambo in scene sync
+//# SongMode, Jam Mode, MidiControl
+//# Synchronised scene change...  
+@OnLoad
+	ShowLayout 2
+	LabelPads {[ SCENEMASTER ]}
+	SetShortName {SCN-M}
+	if unassigned scene_durs // duration in first scene 
+		mode = 0 //# 0Scenes, 1Channels, 2Kontrol, 3Autom., 4LFOS
+		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
+		edit_mode_active=FALSE
+		log_current_info=TRUE //logs current scene and beat data. 
+		SetMetroPPQN 4
+		ppqn = 4
+		edit_scene=0
+		locked_to_scene=0
+		scene_change_requested = -1 //# on pad down has next scene number
+		in_mode_select = FALSE //# Toggle for changing modes mode
+		return_to_song_mode_requested = FALSE //# used for switching on new bar 
+		loop_song_mode=FALSE
+		Call @InitKnobVariables //# All knob settings on start
+		Call @SetupKnobset0
+		Call @SetupLayoutScenes
+		ShowLayout 4
+	endif
+@End
+
+@InitKnobVariables
+	//CC's used to communicate with other apps
+	cc_change_scene=109 //109-116 for scene 1-8 
+	cc_play=5
+	cc_stop=0
+	
+	cc_scene_duration=101 //+ scene_num0-7 ie ccs101-108 only for AUTOM
+	send_cc21_for_spa=FALSE // chg SPA pattern when script changes scene	
+
+	//# Any knobset knob should have a setting here
+	current_scene = 0 // #0-7 Pads 0-7
+	scene_durs=[4,8,0,0,0,0,0,0] //default scene durations on load
+	scene_beat_count=0
+	//# Color Scheme
+	col_scene = 2
+	col_sel_scene = 4
+	col_pending = 3
+	loop_col = 6
+	col_unused = 0
+	
+@End
+
+@OnMidiCC //SM midi implementation. Receive only CH16 - output to active channel
+  // Commands (hex#) NoteOn=0x90;NoteOff=0x80;CC=0xB0;ProgramChange=0xC0;Aftertouch=0xD0;Pitchbend=0xE0
+	// CC0 and CC5 used for transport - must map these if intending to use
+	// CC21 OUT: StepPolyArpUnit change pattern
+	// CCs101-108 OUT: scene duration update. IN: SCENE CHANGE REQ	
+	// CCs109-116: scene change - this is how SM communicates with other QK devices for scene update
+	if MIDIChannel <> 15
+		Exit //other cc's must be on ch16 (1-16)
+		
+	elseif MIDIByte2=0 or MIDIByte2=5 //TRANSPORT on CH16 - Aum: STOP, PLAY
+		SendMIDICC MIDIChannel, MIDIByte2, MIDIByte3 
+
+	elseif (MIDIByte2=100) and (MIDIChannel=15) and (MIDIByte3<=7) //SCENE CHANGE CH16 CC100 only vals0-7
+		last_pad = MIDIByte3
+		mode=0
+		Call @PadDownScenesMode
+		
+	elseif (MIDIByte2>=109) and (MIDIByte2<=116) and (MIDIByte3=127) //SCENE CHANGE CH16 CC109-116 val127
+		last_pad = MIDIByte2-109
+		mode=0
+		Call @PadDownScenesMode	
+	else
+	  SendMIDIThru
+	endif
+@End
+
+@OnMidiNote //Ony on CH16 the lowest notes can control the pads and shift button
+	if MIDIChannel=15 and MIDINote<=16 //NoteOn or NoteOff SM PADS
+		// lowest notes on any channel used to trigger SM pads 0-15
+		if MIDINote=16
+			if MIDICommand=0x90 //noteOn	
+				Call @OnShiftDown2
+			endif
+		else
+			if MIDICommand=0x90 //noteOn
+				last_pad = MIDINote
+				Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mosaic
+			elseif MIDICommand=0x80 //Note off
+			  Call @OnPadUp2
+			endif
+		endif
+	endif
+@End
+
+@OnHostStart
+	//# keep track of scene progress
+	//Log HostBar, { : }, HostBeat, { = }, (HostBeatsPerMeasure * HostBar) + HostBeat
+	if (HostBeat = 0) and (HostBar = 0)
+		//# starting playback from beginning		
+		scene_beat_count = -1
+		scene_changed = FALSE
+		if (songmode = 0)
+			current_scene = 0
+		endif
+	else
+		//# continuing playback
+		scene_completed_bars = scene_beat_count % HostBeatsPerMeasure
+		scene_beat_count = scene_completed_bars + HostBeat
+	endif
+	if mode=0 or mode=1 or mode=6
+		ColorPad 15, 3
+	endif
+	//Log {---- Host Started ----}
+@End
+
+@OnHostStop
+  scene_beat_count = 0
+	Call @SetupLayoutScenes
+  //Log {---- Host Stopped ---- }, scene_beat_count, { - }
+@End 
+
+
+@OnNewBeat
+	//# increment beat counts
+	scene_beat_count = scene_beat_count + 1
+	//# Handle Scene and Chord changes
+	current_scene_duration = scene_durs[current_scene]  * HostBeatsPerMeasure //# IN BEATS!
+	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
+	if (scene_change_requested > -1) and (HostBeat = 0)
+		//# user requested scene change and its a new bar (& return to song)
+		//# Log {Handling scene change request. It a new bar}
+		Call @HandleSceneChange
+	elseif (scene_beat_count >= current_scene_duration)
+		Call @HandleSceneChange
+	endif
+	Call @LogCurrentInfo
+@End
+
+@Description
+	..:: SCENEMASTER ::..
+	Map scene selection 1-8 in LK, Drambo etc to cc109-116 (configurable)
+	Set Drambo/LK scenes to change instantaneously (no quantized change)
+	
+	Touch to select scene...
+	When host is stopped SceneMaster will change scene instantly
+	When in playback SceneMaster will send scene change message on first beat of new bar
+	Tapping a scene will lock and loop that scene
+	The "To Songmode" button will return to progress through scenes
+	
+	In Song Mode Active it will progress through all scenes, 
+	sending scene change messages after scene duration
+	
+	Loop song on will return to scene1 after last scene with a duration
+	Loop song off will trigger host stop message if mapped
+	
+	Update all scenes and scene duration change will update scene durations 
+	in other QK:Sequencers - BEATS, NOTES, AUTOM
+	
+	All CC values can be updated in  @InitKnobVariables
+	
+	Press SHIFT to exit
+@End
+
+
+@OnShiftDown
+  Call @OnShiftDown2 //simply to allow midi note in simulation of SHIFT Note16 any channel
+@End
+
+@OnShiftDown2
+	//Log {MODE: }, mode
+	scene_copied=FALSE
+	mode=0 //scenes
+	ShowLayout 2
+	Call @SetupKnobset0
+	Call @SetupLayoutScenes
+@End
+
+@OnShiftUp
+@End
+
+@OnPadDown
+  last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
+	Call @OnPadDown2 //midi input cant trigger @OnPadDown, It calls @OnPadDown2
+@End
+
+@OnPadDown2 // for midi in as well notes 0-15 on any channel
+	//# Pad Down actions
+	Call @PadDownScenesMode
+@End
+
+@PadDownScenesMode
+	if last_pad >= 0 and last_pad <= 7 //SCENES MODE
+		//Log { SCENE CHANGE REQUESTED }
+		scene_change_requested = last_pad
+		//qk devices manage own pattern timing. Others LK, Drambo we use instant change in HandleSceneChange
+		songmode=1 //# Lock to selected scene
+		edit_scene=last_pad
+		locked_to_scene=last_pad
+		if NOT HostRunning //# immediate change else newbeat/bar handles
+			Call @HandleSceneChange 
+		endif
+		Call @SetupKnobset0
+		Call @SetupLayoutScenes
+	elseif mode=0 and last_pad=11
+		ShowLayout 4
+	elseif mode=0 and last_pad=12
+		for ch = 0 to 15
+			for n = 0 to 127
+				SendMIDINoteOff ch, n, 127 // handle stuck notes
+			endfor
+		endfor
+		Log {ALL notes off!!}
+	elseif mode=0 and last_pad=13 //toggle loop song / play song n stop
+		loop_song_mode = not loop_song_mode
+		Call @SetupLayoutScenes
+	elseif mode=0 and last_pad>=14 and last_pad<=15
+		Call @HandleTransportRequest
+	elseif mode=0 and last_pad=9 // return to song mode
+		return_to_song_mode_requested = TRUE
+  	scene_change_requested = current_scene
+		if NOT HostRunning
+			scene_change_requested = current_scene
+			if HostBar = 0
+				scene_change_requested = 0
+			endif
+			Call @HandleSceneChange
+		endif
+  	songmode = 0
+  	ColorPad 0, col_pending
+    ColorPad 8, col_pending
+		LabelPads { [ LOOPING SONG ] }
+		Call @SetupKnobset0
+		Call @SetupLayoutScenes
+	elseif mode=0 and last_pad=10 //#update all scene durations
+		for i = 0 to 7
+			SendMIDICC 15, cc_scene_duration+i, scene_durs[i]
+		endfor
+	endif
+@End
+
+@HandleTransportRequest
+	//# Transport buttons handling
+	if last_pad=14 
+		SendMIDICC 15, cc_stop, 127 //STOP
+		ColorPad 15, 0
+		SendMIDICC 15, current_scene+cc_change_scene, 127//go to scene on stop
+	elseif last_pad=15
+		SendMIDICC 15, cc_play, 127 //PLAY
+		ColorPad 15, 3
+	endif
+@End
+
+@HandleSceneChange
+	//# Work out which scene is next
+	scene_changed = TRUE
+  if scene_change_requested > -1
+  	current_scene = scene_change_requested
+  	if return_to_song_mode_requested
+  		songmode = 0
+			ColorPad current_scene, col_pending
+		else
+	  	songmode = 1 //# lock to scene if user requests
+  	endif
+  	return_to_song_mode_requested = FALSE
+		scene_change_requested = -1
+  elseif (songmode > 0)
+		Log {Song mode = 0 - lock current scene}
+  	current_scene = current_scene
+  elseif (current_scene = 7) //# End of song. Loop back to beginning
+    current_scene = 0 
+		if not loop_song_mode
+			SendMIDICC 15, 109, 127 // Pattern change
+			SendMIDICC 15, 0, 127 // transport stop
+		endif
+  elseif scene_durs[current_scene + 1] <= 0
+  	//# also song end
+  	current_scene = 0 //# no duration in next scene return to beginning
+		if not loop_song_mode
+			SendMIDICC 15, 109, 127 // Pattern change
+			SendMIDICC 15, 0, 127 // transport stop	
+		endif
+  else
+		current_scene = current_scene + 1 //# Going to next
+		Log {GOING TO NEXT Scene:}, current_scene+1
+  endif
+	if send_cc21_for_spa
+		SendMIDICC 15, 21, current_scene // Pattern change for StepPolyArpUnit
+	endif
+	SendMIDICC 15, current_scene+cc_change_scene, 127 // Scene change non QK devices
+  scene_beat_count = 0
+  Log {----- SCENE CHANGE -----}, {S}, current_scene+1
+	if mode=0
+		Call @SetupLayoutScenes
+	endif
+@End
+
+@LogCurrentInfo
+	if log_current_info
+		current_scene_duration = scene_durs[current_scene]
+		Log {Playing: Scene: }, current_scene+1, { }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure), { beats}, { HostBeat: }, HostBeat+1
+		LabelPads {Scene}, current_scene+1, {   Bar }, (Div scene_beat_count, HostBeatsPerMeasure)+1, {.}, HostBeat+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration * HostBeatsPerMeasure) 
+	endif
+@End
+
+@OnKnobChange
+	// so midi input can simulate knob chnge even it calls @OnKnobChange2 directly 
+	last_knob = LastKnob
+  Call @OnKnobChange2 
+@End
+
+@OnKnobChange2
+	if knob_set = 0 
+	  Call @KnobChangeSet0 //# scene settings
+	endif
+@End
+
+@UpdateCurrentKnobset
+	//# On entering select mode the following need knobsets selected
+	Call @SetupKnobset0 //# scene settings
+@End
+
+@SetupKnobset0
+	//# Scene settings
+	knob_set = 0
+	LabelPads {[ SCENES ]}
+	LabelKnobs {SCENE SETUP}
+	LabelKnob 0, {Scene }, edit_scene+1
+	LabelKnob 1, {Bars }, scene_durs[edit_scene]
+	LabelKnob 2, { }
+	LabelKnob 3, { }
+	SetKnobValue 0, TranslateScale edit_scene, 0, 7, 0, 127
+	SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
+	SetKnobValue 2, 0
+	SetKnobValue 3, 0 
+@End
+
+@KnobChangeSet0
+	//# scene settings xs0
+	if last_knob = 0
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 7
+		if val <> edit_scene
+			edit_scene = val
+			SetKnobValue 1, TranslateScale scene_durs[edit_scene], 0, 32, 0, 127
+		endif
+	endif
+	if last_knob = 1
+		scn_duration = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 32
+		scene_durs[edit_scene] = scn_duration
+		SendMIDICC 15, cc_scene_duration+edit_scene, scene_durs[edit_scene] 
+	endif
+	if last_knob = 2
+	endif
+	if last_knob = 3
+		//unused
+	endif
+	scn_to_label = current_scene
+	Call @SetupLayoutScenes
+	LabelKnob 0, {Scene }, edit_scene+1
+	LabelKnob 1, {Bars }, scene_durs[edit_scene]
+	LabelKnob 2, { }
+@End
+
+@SetupLayoutScenes
+	//setup layout for Scenes mode
+	ShowLayout 2
+	if mode=0 or mode=1
+		//# Setup scene pads
+		for i = 0 to 7
+			if scene_durs[i] > 0
+				ColorPad i, col_scene
+				scn_to_label = i
+				Call @LabelScenePad
+			else
+				ColorPad i, col_unused
+				LabelPad i, { }
+			endif
+			LatchPad i, NO
+	  endfor
+		ColorPad current_scene, col_sel_scene
+		if scene_change_requested>-1
+			ColorPad scene_change_requested, col_pending
+		endif
+		for i = 8 to 15
+			LatchPad i, NO
+	    ColorPad i, col_unused
+			LabelPad i, { }
+		endfor
+	elseif mode=2
+		for i = 0 to 15
+	  	ColorPad i, 2
+			LabelPad i, {mode??}
+		endfor
+	endif
+	if (songmode = 0)
+		LabelPad 8, {SONG MODE ACTIVE}
+		LabelPad 9, {-}
+		LatchPad 8, YES
+	elseif (songmode = 1)
+		LabelPad 8, {LOCKED TO S}, locked_to_scene+1
+		LatchPad 8, NO
+		LabelPad 9, {TO SONGMODE}
+		LatchPad locked_to_scene, YES
+	endif
+	LabelPad 10, {UPDATE ALL SCENES}
+	LabelPad 11, {HELP}
+	LabelPad 12, {ALL NOTES OFF}
+	ColorPad 13, col_unused
+	ColorPad 14, col_unused
+	ColorPad 15, col_unused
+	if HostRunning
+		ColorPad 15, 3
+	endif
+	if loop_song_mode
+		LabelPad 13, {LOOP SONG MODE}
+	else
+	  LabelPad 13, {LOOP SONG OFF}
+	endif
+	LabelPad 14, {[STOP]}, {    [cc}, cc_stop, {]}
+	LabelPad 15, {PLAY>}, {     [cc}, cc_play, {]}
+@End
+
+@LabelScenePad
+	//# Set scn_to_label var before calling
+	sc_dur = scene_durs[scn_to_label]
+	LabelPad scn_to_label, {S}, scn_to_label+1, { [}, sc_dur, { bars]}
+@End

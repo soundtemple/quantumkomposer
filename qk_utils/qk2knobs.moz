@@ -1,0 +1,98 @@
+//Script simply to provide feedback to the KNOB controller (MIDI FIGHTER TWISTER)
+//Making this a separate script to avoid conflicts and unwanted feedback being sent 
+//to the KNOB controller
+//This script should be the only script that sends midi to the pad controller
+//It should receive midi from all QK instances 
+
+@OnLoad
+  SetShortName {QK2KBS}
+	ShowLayout 2
+	LabelPads {QK2KNOBS - Handles midi feedback to the KNOBS controller (MF TWISTER)} 
+	Log {QK2KNOBS - Handles midi feedback to the KNOBS controller}
+	out_ch=15 //the channel to send feedback to the controller on
+	kkntrl=[36,37,38,39] //cc's used to control the knobs in KNTRL. Feedback comes from KNTRL
+	kmgen=[40,41,42,43] //cc's used to control the knobs on the selected MGEN device. FB from sel. MGEN
+	custom_knobs=[-1, 1,2,3,4, 5,6,7,8] //midi ch for custom knobs. 4KNTRL knobs. 4MGEN knobs
+	Call @SysexMessageSetup
+@End
+
+@OnMidiCC
+	mb2=MIDIByte2
+	mb3=MIDIByte3
+	//Log MIDIChannel, {-}, mb2, {-}, mb3
+	if MIDIChannel=15 //only receive on this channel. KNTRL and MGEN devices send lots of midi on other channels
+		if mb2=kkntrl[0] or mb2=kkntrl[1] or mb2=kkntrl[2] or mb2=kkntrl[3] //a KNTRL KNOB
+			Call @SendFeedbackCC //send feedback to KNTRL KNOB
+			//Log {KNTRL FEEDBACK}
+		elseif mb2=kmgen[0] or mb2=kmgen[1] or mb2=kmgen[2] or mb2=kmgen[3] //a sel. MGEN knob
+			Call @SendFeedbackCC //send feedback to MGEN KNOB
+			//Log {MGEN FEEDBACK}
+		elseif mb2=87 //master vol
+			Call @SendFeedbackCC //send feedback to Top Row knobs Twister
+			//Log {MGEN Top ROW}
+		elseif mb2<=17 or mb2>=118 //mixer controls
+			Call @SendFeedbackCC //send feedback to 2nd row knobs Twister
+			//Log {MGEN BTM ROW}
+		elseif mb2>=76 and  mb2<=80 //mix bus volumes
+			Call @SendFeedbackCC //send feedback to 2nd row knobs Twister
+			//Log {MGEN BTM ROW}
+		endif
+	endif
+@End
+
+@SendFeedbackCC
+	SendMIDICC out_ch, mb2, mb3 //send feedback to knob controller
+	cmb=-1
+	//conditionally send midi feedback to the custom controller if mapped and ch > -1
+	if custom_knobs[0]>=0 and custom_knobs[0]<15
+		if MIDIByte2=kkntrl[0] //kntrl knob1
+			cmb2 = custom_knobs[1]
+		elseif MIDIByte2=kkntrl[1] //kntrl knob2
+		  cmb2 = custom_knobs[2]
+		elseif MIDIByte2=kkntrl[2] //kntrl knob3
+			cmb2 = custom_knobs[3]
+		elseif MIDIByte2=kkntrl[3] //kntrl knob4
+			cmb2 = custom_knobs[4]
+		elseif MIDIByte2=kmgen[0] //mgen knob1
+			cmb2 = custom_knobs[5]
+		elseif MIDIByte2=kmgen[1] //mgen knob2
+			cmb2 = custom_knobs[6]
+		elseif MIDIByte2=kmgen[2] //mgen knob3
+			cmb2 = custom_knobs[7]
+		elseif MIDIByte2=kmgen[3] //mgen knob4
+			cmb2 = custom_knobs[8]
+		endif
+		if cmb2 >=0
+			SendMIDICC custom_knobs[0], cmb2, mb3 //send custom midi cc msg
+		endif
+	endif
+@End
+
+@SysexMessageSetup //QK Sysex messages. from KNTRL to BEATS and from BEATS to midi controllers
+	qk_sysex_header=[0x3F,0x40,0x3F,0x40,0x3F,0x40] //QK messages
+	len_header=6 
+	//QK message types 
+	sx_custom_knobs_update=63 //Send channel and 4kntrl knobs and 4 mgen knobs to QK2KBS for led feedback
+@End
+
+@OnSysex
+	Log {QK2KNOBS has received sysex}
+  ReceiveSysex sysex_msg
+  qk_msg=YES
+  for i = 0 to len_header-1 //check header make sure its a QK sysex message
+    if sysex_msg[i] <> qk_sysex_header[i]
+      qk_msg=NO
+    endif 
+  endfor
+  if qk_msg 
+		msg_start=len_header+1 //where msg_data starts
+		msg_end=SysexSize-1 //where msg_data ends
+		qk_msg_type=sysex_msg[len_header] //the message type received
+		if qk_msg_type = sx_custom_knobs_update //handle msg types...
+			CopyArray sysex_msg[msg_start], custom_knobs, 9
+			for i = 0 to 8
+				Log {Custom Knobs update received: [}, i, {] = }, custom_knobs[i]
+			endfor
+		endif
+	endif
+@End
