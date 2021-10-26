@@ -46,7 +46,7 @@
 @InitKnobVariables
 	keyboard=0 //current keyboard
 	number_of_keyboards=16 //number of keyboards
-	num_layouts=19 //Each keyboard can have a generic layout assigned
+	num_layouts=20 //Each keyboard can have a generic layout assigned
 	num_labels=40
 	last_note_pad=0 //the last pad hit in a keyboard layout
 	note=60 //the note number to play on pad press after oct_adj and txpose
@@ -83,9 +83,9 @@
 	//Store your layout info here
 	//Pads from top left to bottom right
 	
-	layouts =        [1, 2, 19,19,4,4,4,4, 16,5, 5, 3, 0,0,0,0] // Layout to use with each keyboard
-	keybd_channels = [0, 1, 2, 3, 4,5,6,7, 8, 9,10,11, 12,13,14,15] //default midi channel use if not specified in layout
-	kntrl_kb_selct = [0, 1, 2, 3, 4,5,6,7, 8, 9,10,11, 12,13,14,15] //on KNTRL Instr. channel change - select a keyboard 
+	layouts =        [20, 2, 19,19,4,4,4,4, 16,5, 5, 3, 0,0,0,0] // Layout to use with each keyboard
+	keybd_channels = [0,  1, 2, 3, 4,5,6,7, 8, 9,10,11, 12,13,14,15] //default midi channel use if not specified in layout
+	kntrl_kb_selct = [0,  1, 2, 3, 4,5,6,7, 8, 9,10,11, 12,13,14,15] //on KNTRL Instr. channel change - select a keyboard 
 	
 	for i = 0 to number_of_keyboards
 		keyboard_to_build = i 
@@ -200,6 +200,11 @@
 		colors[kb2b*16] = [1,1,1,1, 2,2,2,2, 3,3,3,3, 4,4,4,4]
 		labels[kb2b*16] = [14,14,14,14, 14,14,14,14, 14,14,14,14, 14,14,14,14]
 		pad_channels[kb2b*16] = [3,3,3,3,3,3,3,3, 3,3,3,3,3,3,3,3]
+	elseif layouts[kb2b] = 20 //name: DIGISTIX2
+		notes[kb2b*16] = [48,49,50,51, 52,53,54,55, 56,57,58,59, 60,61,62,63]
+		colors[kb2b*16] = [1,2,3,3, 1,2,5,5, 6,6,6,6, 4,7,6,6]
+		labels[kb2b*16] = [1,3,5,6, 2,4,9,9, 10,10,10,10, 11,8,9,9]
+		pad_channels[kb2b*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
 	else //name: default keyboard
 		labels[kb2b*16] = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]	
 		notes[kb2b*16] = [56,57,58,59,60,61,62,63, 48,49,50,51,52,53,54,55]
@@ -210,7 +215,7 @@
 
 @SetLayoutName
 	// Set your layout names here. 
-	layout_num=layouts[keyboard] 
+	layout_num=layouts[keyboard]
 	if layout_num=0
 		LabelPads keyboard+1, { - }, {EMPTY}
 	elseif layout_num=1
@@ -251,6 +256,8 @@
 		LabelPads keyboard+1, { - }, {HAMMERHEAD}
 	elseif layout_num=19
 		LabelPads keyboard+1, { - }, {LOOPS}
+	elseif layout_num=20
+		LabelPads keyboard+1, { - }, {DIGISTIX2}
 	else
 	  LabelPads keyboard+1, { - }, {ANOTHER LAYOUT}
 	endif
@@ -345,7 +352,7 @@
 	note = Clip (notes[last_note_pad] + (oct_adjustments[keyboard]*12) + txpose_adjustments[keyboard]), 0, 127
 	rnd_vel_amt = Random 0, random_vel_amts[keyboard]
 	if global_vel=0 //THRU
-		velo = MIDIByte3 or 100 //if note on velocity is 0 then use 100
+		velo = MIDIByte3
 	else
 	  velo = Clip (global_velo + rnd_vel_amt), 0, 127
 	endif
