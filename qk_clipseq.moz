@@ -484,11 +484,16 @@
 			LabelPads {HOLD PAD DOWN TO CHANGE}
 			timer_type=1
 			Exit
+		elseif last_pad=3
+			StartTimer
+			LabelPads {HOLD PAD DOWN TO CHANGE}
+			timer_type=3
+			Exit
 		elseif last_pad=9
 			SendMIDINoteOn 14, stop_all_clips_note, 127 //stop all clips button
 			LabelPad last_pad, {Done!   }
 			Exit
-		elseif (last_pad>=3 and last_pad<=5) or (last_pad=15)
+		elseif (last_pad=4 or last_pad=5 or last_pad=15)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
 			Call @HandleSettingsModeActions
 		elseif (last_pad=6) and not (mode=9 or mode=11 or mode<=1)
@@ -567,6 +572,8 @@
   	in_seq_mode = TRUE
 		Call @LabelAllSequencePads
 		Call @SetupKnobset5
+	elseif timer_type=3
+		Call @QuickConfig
 	endif
 @End
 
