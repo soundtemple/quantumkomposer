@@ -82,7 +82,7 @@
 
 @SetupSequences
 	cc_vals=[1,2,3,4]
-  scene_durs = [8,0,0,0,0,0,0,0]
+  scene_durs = [16,0,0,0,0,0,0,0]
   in_seq_mode = FALSE
 	current_scene = 0 // #0-7 Pads 0-7
   current_pattn = 0 // #0-7 Pads 8-15
@@ -107,11 +107,11 @@
 	def_sequence_length=16 //16 steps
 	def_sequence_rate=1 //index to mpulses_per_seq_step ie 1 bar per step as index to mpulses_per_seq_step=[4,16]
 	//initial values
-	pattn_durs[0]=4 //# Pattern durations in beats
+	pattn_durs[0]=16 //# Pattern durations in beats Scene 1 init
 	FillArray device_gui_num, 0, 8 // each channel can load a different GUI or just one GUI for all channels or mix
 	FillArray trigger_method, 0, 8  //Switching between Note & CCV as trigger_method per channel
 	FillArray trigger_method_offset , 0, 8 //Starting note num or CC num for CCV mode
-	FillArray sequence_lengths, 4, 8 //sequence lengths for all channels 
+	// ?? FillArray sequence_lengths, 4, 8 //sequence lengths for all channels 
 	FillArray chan_max_patterns, 16, 8
 	quick_config=3 //see @QuickConfig
 	Call @QuickConfig
@@ -127,7 +127,7 @@
 	pattn_length=16
 	next_scene=0 //for calculation before beat triggering
 	next_pattn=0 //for calculation before beat triggering
-	Call @MakeFirstSequenceSceneTriggerAllScenes
+	// Call @MakeFirstSequenceSceneTriggerAllScenes // uncomment to ...  MakeFirstSequenceSceneTriggerAllScenes
 	pad_down_trigger_all_ready_for_playback=FALSE //when host stopped we can send pattern triggers 
 @End
 		
@@ -294,7 +294,7 @@
 	endif
 	
 	//TRIGGER THE ACTUAL PATTERN	
-	midi_ch = chan_midi_chans[ptn_triggered_for_ch]
+	midi_ch = chan_midi_chans[ch]
 	if (not sequencing_paused) or pattern_triggered_by_user 
 		if ptn_triggered_for_ch>=0 and ch_trigger_method=0 //NOTE
 			SendMIDINoteOn midi_ch, pattern_num_to_trigger + offset, 127
@@ -1929,7 +1929,7 @@
 
 @LabelPatternPad //# Set pattn_to_label var before calling 
 	pattn_slot = (current_scene * 8) + pattn_to_label
-	LabelPad pattn_to_label+8, { Sequence }, pattn_to_label+1, { MidiCh:}, m_ch, {   }, {[}, pattn_durs[pattn_slot], { bars]}
+	LabelPad pattn_to_label+8, { Sequence }, pattn_to_label+1, { MidiCh:}, m_ch, {   }, {  [}, pattn_durs[pattn_slot], { bars]}
 	ColorPad pattn_to_label+8, 2
 	if mgen_device_id=mgen_sel_dev
 		SendMIDINoteOn 15, pattn_to_label+8+led_index, 2
