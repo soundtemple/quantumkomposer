@@ -93,10 +93,10 @@
 	FillArray chan_pgm_max, 127, 16
 	// Default setup for Channels - midi chs are fixed
 	num_chan_labels=25
-	chan_labels =  [1,2,17,17,3,4,5,5,9,6,8,16,13,14,15,99]
-	chan_colors =  [1,2,2,2,3,3,6,4,1,4,6,7,5,5,5,0]
+	chan_labels =  [1,18,2,17,3,4,5,5,10,6,8,16,13,14,15,99]
+	chan_colors =  [1,2,2,2,3,3,6,6,4,4,4,7,5,5,5,0]
 	chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	chan_layouts =  [11,7,11,11,14,14,13,14,1,14,13,15,2,3,4,0]
+	chan_layouts =  [11,7,11,11,14,16,13,16,1,14,13,15,2,3,4,0]
 	FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
 	FillArray chan_arm, FALSE, 16
@@ -1177,7 +1177,7 @@
 	elseif layout = 15
 		LabelKnob 3, {FX Txtrs}
 	elseif layout = 16
-		LabelKnob 3, {Moogish}
+		LabelKnob 3, {Polymer2}
 	endif
 	SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, num_chan_labels, 0, 127
 	SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 7, 0, 127
@@ -1932,13 +1932,15 @@
 		def_labels[16*3] = [19,19,51,46,34,32,32,86,22,28,29,46,51,47,52,87]
 		def_colors[16*3] = [3,3,6,6,1,1,1,6,2,2,2,3,3,4,4,6]
 		def_vals[16*3]   = [64,39,38,64,64,99,99,64,64,0,64,64,64,64,64,64]
-	elseif chan_layouts[edit_chan]=16 //MOOGISH
-		def_labels[16*2] = [28,29,30,31,28,29,30,31,24,25,32,27,45,43,45,43]
-		def_colors[16*2] = [3,3,3,3,4,4,4,4,3,1,6,2,4,4,4,4]
-		def_vals[16*2]   = [0,32,64,16,0,16,64,32,32,48,64,64,64,64,64,64]
-		def_labels[16*3] = [16,20,23,19,28,29,30,31,16,20,54,19,16,23,54,19]
-		def_colors[16*3] = [3,3,3,3,2,2,2,2,4,4,4,4,6,6,6,6]
-		def_vals[16*3]   = [64,64,64,127,8,64,32,32,64,64,64,64,64,64,64,0]
+	elseif chan_layouts[edit_chan]=16 //POLYMER2
+		def_labels[16*2] = [32,32,32,-1,28,29,30,31,24,25,27,-1,-1,-1,-1,-1]
+		def_colors[16*2] = [3,1,2,0,4,4,4,4,3,1,2,0,0,0,0,0]
+		def_vals[16*2]   = [64,64,64,0, 4,64,32,32, 48,32,32,0,0,0,0,0]
+		def_ccs[16*2]    = [62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77]
+		def_labels[16*3] = [16,40,67,19,28,29,30,31, 17,77,18,19, 33,34,19,21]
+		def_colors[16*3] = [3,3,3,3,2,2,2,2,4,4,4,4,6,6,6,5]
+		def_vals[16*3]   = [0,0,0,90,8,48,32,32, 64,64,64,0, 0,127,0,0]
+		def_ccs[16*3]    = [78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93]
 	endif	
 	pad_slot = (64*edit_chan)
 	CopyArray def_labels, inst_labels[pad_slot], 64 //4pages of 16pads
@@ -1958,10 +1960,10 @@
 	def_colors[16*0] = [2,2,3 ,3,  5,5,5,5, 6,6,6,6,4,0,0,0]
 	def_vals[16*0]   = [64,64,0,127,0,0,0,0, 0,0,0,0, 0,0,0,0]
 	def_ccs[16*0]    = [7,8,16,17, 117,118,119,120, 10,11,12,13,1,121,122,123]
-	def_labels[16*1] = [40,41,43,44, 0,39,57,58,38,38,81,82,48,49,46,47]
+	def_labels[16*1] = [43,44,32,32,0,39,57,58,38,38,81,82,48,46,51,53]
 	def_colors[16*1] = [6,6,6,6, 4,4,2,2,3,3,4,4,5,5,5,5]
-	def_vals[16*1]   = [0,0,0,0,64,64,0,0,0,0,0,0,0,0,0,0]
-	def_ccs[16*1]    = [1,2,3,4, 50,51,52,53, 54,55,56,57, 58,59,60,61]
+	def_vals[16*1]   = [64,127,64,64,64,64,0,0,0,0,0,0,0,0,0,0]
+	def_ccs[16*1]    = [46,47,48,49, 50,51,52,53, 54,55,56,57, 58,59,60,61]
 @End
 
 @SetupLayoutChannels
@@ -2054,7 +2056,7 @@
 	elseif (label_num=17)
 		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {LOOPS }	
 	elseif (label_num=18)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {DR.LOOPS}	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {DRONE}	
 	elseif (label_num=19)
 		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {TEXTURE }	
 	elseif (label_num=20)
