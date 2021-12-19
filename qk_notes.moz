@@ -26,6 +26,7 @@
 		mgen_sel_dev=0 //used for midi control of pads
 		shift_is_down=FALSE
 	  send_cc_back_to_knobs = TRUE
+		last_seq_pad=99 //seq mode press once to select pad, same pad again to toggle pad play state 
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
 		mchnce=100
 		pattn_beat_count = 0
@@ -1860,7 +1861,7 @@
 		FlashPad 14
 		FlashPad 15
 	else
-	  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] STEP EDIT: Tap to toggle state. Knob4 change step to edit or edit All}
+	  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] STEP EDIT: Tap to select. Tap again to toggle state. Knob4: selct'd or edit All}
 	endif
 	LabelKnobs {CH}, seq_ch+1, { SC}, current_scene+1, { PT}, current_pattn+1, { STEP}, sel_step+1
 	LabelKnob 0, {CH: }, seq_ch+1
@@ -2488,6 +2489,7 @@
 
 @OnShiftDown2 //handle mode selection
 	shift_is_down=TRUE
+	last_seq_pad=99 // reset last selected sequence pad
 	if in_mode_select
 		in_mode_select = FALSE
 		if mode>=8
@@ -2717,17 +2719,21 @@
 @End
 
 @UpdateSelStepType //# change a seq pad from on to off to sus_prev
-	step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
-	if seq_ch=0
-		seq0_steps[step_slot] = (seq0_steps[step_slot]+1)%3 
-	elseif seq_ch=1
-		seq1_steps[step_slot] = (seq1_steps[step_slot]+1)%3
-	elseif seq_ch=2
-		seq2_steps[step_slot] = (seq2_steps[step_slot]+1)%3
-	elseif seq_ch=3
-		seq3_steps[step_slot] = (seq3_steps[step_slot]+1)%3
+	if last_seq_pad=sel_pad
+		step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
+		if seq_ch=0
+			seq0_steps[step_slot] = (seq0_steps[step_slot]+1)%3 
+		elseif seq_ch=1
+			seq1_steps[step_slot] = (seq1_steps[step_slot]+1)%3
+		elseif seq_ch=2
+			seq2_steps[step_slot] = (seq2_steps[step_slot]+1)%3
+		elseif seq_ch=3
+			seq3_steps[step_slot] = (seq3_steps[step_slot]+1)%3
+		endif
+		Call @LabelSequencePad
+	else
+	  last_seq_pad=sel_pad
 	endif
-	Call @LabelSequencePad
 @End
 
 @LabelAllSequencePads //# label all sequence pads 
