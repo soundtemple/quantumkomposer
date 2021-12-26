@@ -673,8 +673,8 @@
 		ch_names= [kit, prc, bsr, ldl, 	 key, pad, arp, fxs]
 		ch_destns=[hel, hel, hel, hel,   hel, hel, hel, hel] //helium FULL
 	elseif quick_config=4
-		ch_names= [kit, prc, bsr, ldl, 	 key, pad, arp, fxs]
-		ch_destns=[ins, ins, hel, ins,   hel, hel, hel, hel] //LK 4 Perc channels
+		ch_names= [kit, prc, bsr, ldl, 	 plk, pad, arp, fxs]
+		ch_destns=[ins, ins, ins, ins,   ins, ins, ins, ins] //Custom#5
 		chan_midi_chans=[0,3,4,6, 8,9,10,11]
 	endif	
 	Call @SetupSettingsLayout
