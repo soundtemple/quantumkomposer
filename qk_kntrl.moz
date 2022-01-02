@@ -124,13 +124,13 @@
 	lbl_num_res_inst=60
 	lbl_num_ch_num=62
 	lbl_num_drum_ch=63
-	// MIXER - Vol,Pan,Gain,M/S, SendsA-D, EQ LO,EQ HI, LPF,HPF,  Mute,Solo,Arm, [instr],[eq],[fx1],[fx2]
+	// MIXER - Vol,Pan,Gain,M/S, SendsA-B, HPF,LPF, EQLO,EQHI,EQ3/4,  Mute,Solo,Arm, [instr],[eq],[fx1],[fx2]
 	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO, [instr],[eq],[fx1],[fx2]
-	mixer_state=[] //the main container for mixer cc values
-	chan_mx_ccs =   [7,8,6,9,   10,11,12,13, 14,15,16,17, 117,118,119,120, 121,122,123, 124,125,126,127]
-	inst_mx_slots = [0,1,-1,-1, 8,9,10,11,   -1,-1,2,3,   4,5,6,7,   13,14,15, -1,-1,-1,-1] //rev rel ch mixer to inst.
-	chan_mx_def_vals = [64,64,64,64, 0,0,0,0, 64,64,0,127, 0,0,0,0, 0,0,0] //def values for mixer params
-	protected_cc_to_label=[-1,35,36,37,38,-1, 1,0,2,3, 4,5,6,7] 
+	mixer_state=[] //the main container for mixer cc values. 
+	chan_mx_ccs =   [7,8,6 , 9, 10,11,16,17, 14,15,12,13, 117,118,119,120, 121,122,123, 124,125,126,127]
+	inst_mx_slots = [0,1,13,-1, 2 ,3 ,8 ,12,  9,11,10,-1, 4,5,6,7,   14,15,-1, -1,-1,-1,-1] //pos in layout of above cc.
+	chan_mx_def_vals = [64,64,64,64, 0,0,0,127, 64,64,64,64, 0,0,0,0, 0,0,0] //def values for mixer params
+	protected_cc_to_label=[-1,35,36,37,38,-1, 1,0,2,3, 4,5,6,7]
 	protected_cc_to_label[113]=[8,9,10,11, 12,13,14,15, 64,65,66, 124,125,126,127]
 	lower_mx_ccs_max=14
 	upper_mx_ccs_min=113
@@ -554,7 +554,7 @@
 							inst_state[(64*curr_chan) + inst_mx_slots[i]] = chan_mx_def_vals[i]
 							//Log i,{.  pos: }, inst_mx_slots[i], { def val: }, chan_mx_def_vals[i]
 						endif
-						if inst_mx_slots[i]>=13 and inst_mx_slots[i]<=15 //mute solo arm positions in layout p1
+						if inst_mx_slots[i]>=14 and inst_mx_slots[i]<=15 //mute solo arm positions in layout p1
 							inst_colors[(64*curr_chan) + inst_mx_slots[i]] = 0
 						endif
 					endfor
@@ -985,8 +985,8 @@
 		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {RESET MXR} 
 	endif
 	LabelPad 8, { __MIXER__ }, {VOL PAN} //channels Vol, Gain, Pan, Mid/Side
-	LabelPad 9, { __MIXER__ }, {SENDS} //HPF LPF SEND A SEND B
-	LabelPad 10,{ __MIXER__ }, {EQ FILT}
+	LabelPad 9, { __MIXER__ }, {SENDS FILT} //HPF LPF SEND A SEND B
+	LabelPad 10,{ __MIXER__ }, {EQ}
 	LabelPad 11,{ __MIXER__ }, {FX}
 	LabelPad 12,{ __MIXER__ }, {MUTE SOLO} //mute solo
 	
@@ -1265,7 +1265,9 @@
 	elseif layout = 9
 		LabelPads {KNTRL : [ RUISMAKER FM CH#}, curr_chan+1, { ]}
 	elseif layout = 10
-		LabelPads {KNTRL : [ TEXTURES }, curr_chan+1, { ]}
+		LabelPads {KNTRL : [ DRUMS }, curr_chan+1, { ]}
+	elseif layout = 15
+		LabelPads {KNTRL : [ FX/TEXTURES }, curr_chan+1, { ]}
 	else
 		LabelPads {KNTRL : [ INSTRUMENT }, curr_chan+1, { ]}
 	endif
@@ -1567,15 +1569,15 @@
 	  LabelPads {KNTRL : [ SENDS ]}
 		LabelKnob 0, {SENDA }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
 		LabelKnob 1, {SENDB }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
-		LabelKnob 2, {SENDC }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
-		LabelKnob 3, {SENDD }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
+		LabelKnob 2, {HPF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
+		LabelKnob 3, {LPF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
 	elseif mixer_mode=2
 	  mixer_mode=2 
 		LabelPads {KNTRL : [ EQ ] }
-		LabelKnob 0, {LO EQ }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
-		LabelKnob 1, {HI EQ }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
-		LabelKnob 2, {HPF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
-		LabelKnob 3, {LPF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
+		LabelKnob 0, {LO }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
+		LabelKnob 1, {HI }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
+		LabelKnob 2, {MID }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
+		LabelKnob 3, {EQ4 }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
 	elseif mixer_mode=3
 		LabelPads {KNTRL : [ FX ] }
 		LabelKnob 0, {FX1 }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
@@ -1954,10 +1956,10 @@
 
 @CreateGenericPage1and2
 	//Create a mixer layout on page 4 for all channels as a default. can be overwritten
-	def_labels[16*0] = [0,2,10,11,12,13,14,15,4,5,8,9,1,64,65,66]
-	def_colors[16*0] = [2,2,3,3,5,5,5,5,6,6,3,3,3,0,0,0]
-	def_vals[16*0]   = [64,64,0,127,0,0,0,0,0,0,64,64,64,0,0,0]
-	def_ccs[16*0]    = [7,8,16,17,117,118,119,120,10,11,14,15,6,121,122,123]
+	def_labels[16*0] = [0,2,4,5,12,13,14,15,10,8,6,9,11,1,64,65]
+	def_colors[16*0] = [2,2,6,6,5,5,5,5,4,3,3,3,4,3,0,0]
+	def_vals[16*0]   = [64,64,0,0,0,0,0,0,0,64,64,64,127,64,0,0]
+	def_ccs[16*0]    = [7,8,10,11,117,118,119,120,16,14,12,15,17,6,121,122]
 	def_labels[16*1] = [43,44,32,32,0,39,57,58,38,38,81,82,48,46,51,53]
 	def_colors[16*1] = [6,6,6,6, 4,4,2,2,3,3,4,4,5,5,5,5]
 	def_vals[16*1]   = [64,127,64,64,64,64,0,0,0,0,0,0,0,0,0,0]
@@ -2137,9 +2139,9 @@
 	elseif (label_num=5)
 		LabelPad pad_to_label, {SEND 2} //MIXER
 	elseif (label_num=6)
-		LabelPad pad_to_label, {SEND 3} //MIXER
+		LabelPad pad_to_label, {EQ MID} //MIXER
 	elseif (label_num=7)
-		LabelPad pad_to_label, {SEND 4} //MIXER
+		LabelPad pad_to_label, {EQ 4} //MIXER
 	elseif (label_num=8)
 		LabelPad pad_to_label, {EQ LO} //MIXER
 	elseif (label_num=9)
@@ -2269,11 +2271,11 @@
 	elseif (label_num=70)
 		LabelPad pad_to_label, {VELOCITY} //CUSTOM
 	elseif (label_num=71)
-		LabelPad pad_to_label, {LOW} //CUSTOM
+		LabelPad pad_to_label, {FREE} //CUSTOM
 	elseif (label_num=72)
-		LabelPad pad_to_label, {EQ MID} //CUSTOM
+		LabelPad pad_to_label, {FREE} //CUSTOM
 	elseif (label_num=73)
-		LabelPad pad_to_label, {HIGH} //CUSTOM
+		LabelPad pad_to_label, {FREE} //CUSTOM
 	elseif (label_num=74)
 		LabelPad pad_to_label, {HUMANIZE} //CUSTOM SKAKA
 	elseif (label_num=75)
