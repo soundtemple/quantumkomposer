@@ -814,7 +814,7 @@
 		if mgen_sel_dev= mgen_device_id
 			Call @OnShiftDown2 //will trigger layout setup for settings and other modes
 		endif
-	elseif MIDIChannel<=15
+	elseif MIDIChannel<15
 	  SendMIDIThru //automation
 	endif
 @End
