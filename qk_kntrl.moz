@@ -200,6 +200,7 @@
 		CopyArray custom_knobs, msg_data, 9
 		len_data=9
 		Call @SendSysex //update QK2KBS so it can send midi feedback to controller
+	
 	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and (MIDIByte2=custom_knobs[5] or MIDIByte2=custom_knobs[6] or MIDIByte2=custom_knobs[7] or MIDIByte2=custom_knobs[8])
 		//custom selected mgen device knobs
 		if MIDIByte2=custom_knobs[5] 
@@ -246,24 +247,25 @@
 		mode=1
 		Call @PadDownChannelsMode
 		
-	elseif MIDIByte2=25
+	elseif MIDIByte2=25 or MIDIByte2=26
 		if MIDIByte3>0
-			SendMIDICC 15, 25, 127 //Toggle KNTRL gui 
+			SendMIDICC 15, MIDIByte2, 127 //Toggle KNTRL gui, Drambo GUI
 		endif
-			
-	elseif (MIDIByte2>=26 and MIDIByte2<=35)
-		//General purpose cc's available for mapping. forward message on.
-		//See midi implementation chart for purpose
-		if MIDIByte2=31 //Toggle LP GUI
-			SendMIDICC 1, 101, 127 //hack to match CLIPSEQ gui toggle cc's
-		elseif MIDIByte2=33 and MIDIByte3>0
-			SendMIDICC 13, 35, 127 //toggle Send A gui
-		elseif MIDIByte2=34 and MIDIByte3>0
-			SendMIDICC 13, 51, 127 //toggle Send B gui
-		else
-			SendMIDICC 15, MIDIByte2, MIDIByte3
+	
+	elseif MIDIByte2=31
+		if MIDIByte3>0
+			SendMIDICC 14, 101, 127 //Drambo Main change ch no midi learn on ch16 to drambo 
 		endif
-		
+	
+	elseif MIDIByte2>=28 and MIDIByte2<=30
+	  mode=7 //MIXER MODES
+		in_mode_select = FALSE
+		sel_mixer_mode=[0,1,4,2,3]
+		mixer_mode=sel_mixer_mode[MIDIByte2-28]
+		Call @SetupLayoutChannels
+		Call @SetupKnobset7
+		Call @SendMidiCCBackToKnobs		
+					
 	elseif MIDIByte2>=36 and MIDIByte2<=39 //KNTRL Knobs on CH16
 		last_knob = MIDIByte2-36 //simulate  LastPad action
 		SetKnobValue last_knob, MIDIByte3 // change knob position
@@ -283,15 +285,7 @@
 		inst_state[pad_slot] = MIDIByte3
 	elseif MIDIByte2=80 //Channel Volume Kick Bus
 		SendMIDICC 15, 80, MIDIByte3
-		
-	elseif MIDIByte2>=82 and MIDIByte2<=86
-	  mode=7 //MIXER MODES
-		in_mode_select = FALSE
-		Call @SetupLayoutChannels
-		mixer_mode=MIDIByte2-82
-		Call @SetupKnobset7
-		Call @SendMidiCCBackToKnobs
-			
+				
 	elseif MIDIByte2=87 //Master Volume
 		SendMIDICC 14, MIDIByte2-80, MIDIByte3
 		mixer_state[(14*20)+ mixer_cc_slots[MIDIByte2-13]] = MIDIByte3
@@ -1567,7 +1561,7 @@
 		LabelKnob 3, {M/S } , mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
 	elseif mixer_mode=1
 		mixer_mode=1 
-	  LabelPads {KNTRL : [ SENDS ]}
+	  LabelPads {KNTRL : [ SENDS + FILTERS ]}
 		LabelKnob 0, {SENDA }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
 		LabelKnob 1, {SENDB }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
 		LabelKnob 2, {HPF }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
@@ -1816,7 +1810,7 @@
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
 			clr=pg_cols[i]
-			def_labels[16*i] = [0,8,6,9,   4,5,10,11, 38,38,38,38, 61,64,65,1]
+			def_labels[16*i] = [0,8,6,9,   4,5,10,11, 12,13,14,15, 61,64,65,1]
 			def_colors[16*i] = [clr,3,3,3, 6,6,4,4,     5,5,5,5, 0,0,0,clr]
 			def_vals[16*i]   = [127,64,64,64,    0,0,0,127, 0,0,0,0,  0,0,0,64]
 			def_ccs[(16*i)+12] = mixbuseq_gui[i]
@@ -1830,7 +1824,7 @@
 				def_ccs[(16*i)+p] = 30 + (16*i) + p
 			endfor
 			clr=pg_cols[i]
-			def_labels[16*i] = [0,8,6,9, 125,126,10,11, 38,38,38,38, 61,64,65,1]
+			def_labels[16*i] = [0,8,6,9, 125,126,10,11, 12,13,14,15, 61,64,65,1]
 			def_colors[16*i] = [clr,3,3,3, 0,0,4,4,        5,5,5,5, 0,0,0,clr]
 			def_vals[16*i]   = [127,64,64,64,    0,0,0,127,      0,0,0,0,         0,0,0,64] 	
 			def_ccs[(16*i)+12] = send_gui[i]
@@ -2160,7 +2154,7 @@
 	elseif (label_num=13)
 		LabelPad pad_to_label, {FX2 AMT} //MIXER
 	elseif (label_num=14)
-		LabelPad pad_to_label, {FX3 D/W} //MIXER
+		LabelPad pad_to_label, {FX3 AMT} //MIXER
 	elseif (label_num=15)
 		LabelPad pad_to_label, {FX4 AMT} //MIXER
 	elseif (label_num=16)
