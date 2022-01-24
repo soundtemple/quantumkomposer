@@ -24,3 +24,6 @@ All scripts are united by a common sequencing setup that includes 8 scenes. Each
 
 ### INSTALLATION
 Scripts can be opened in the Mozaic app on your iPad and saved in the Mozaic Presets folder. Then in your DAW of choice insert instances of Mozaic where requried into a midi channel and open the desired preset.
+
+### USER GUIDE
+https://soundtemple.notion.site/QNTM-KNTRL-v2-905046565ced40f3a5217ebfca5c873f

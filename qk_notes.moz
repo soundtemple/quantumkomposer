@@ -26,6 +26,7 @@
 		mgen_sel_dev=0 //used for midi control of pads
 		shift_is_down=FALSE
 	  send_cc_back_to_knobs = TRUE
+		last_seq_pad=99 //seq mode press once to select pad, same pad again to toggle pad play state 
 		knobs_controller=[15,40,41,42,43] //midi controller ch & 4 base ccs. cc's=cc's+(4xmgen_device_id
 		mchnce=100
 		pattn_beat_count = 0
@@ -115,9 +116,9 @@
 	FillArray seq2_steps, 0, 1024
 	FillArray seq3_steps, 0, 1024
 	FillArray seq0_notes, 0, 1024 //# NOTES
-	FillArray seq1_notes, 4, 1024
-	FillArray seq2_notes, 7, 1024
-	FillArray seq3_notes, 11, 1024
+	FillArray seq1_notes, 0, 1024
+	FillArray seq2_notes, 0, 1024
+	FillArray seq3_notes, 0, 1024
 	FillArray seq0_octs, 3, 1024 //# OCTS
 	FillArray seq1_octs, 3, 1024
 	FillArray seq2_octs, 3, 1024
@@ -162,7 +163,7 @@
 @End
 
 @SetupScales //# Scale definitions for midi out key, scale handling
-	note_set_type=0 //# type of input selected 
+	note_set_type=1 //# DEPRECATED - type of input selected to KORDS or INSTR. Show scales for all 
 	noteset_len=13 //# array length for a scale. see common scales below...
 	scale_root = 0 // # root note of sel scale 
 	sel_scale = 0 // # an index to some scale types
@@ -182,7 +183,7 @@
 	common_scales[10*12] = [0,0,2,4,4,4,7,7, 9, 9, 9, 9] //#	Major Pent
 	common_scales[11*12] = [0,0,3,3,3,5,7,7,10,10,10,10] //#	Minor Pent
 	common_scales[12*12] = [0,0,3,3,3,5,6,7,10,10,10,10] //#	Blues
-	common_scales[13*12] = [0,0,0,1,1,1,2,2, 2, 3, 3, 3] //#	Harmony Trigger
+	common_scales[13*12] = [8,9,10,11,0,0,0,1,2,3,4,4]  //#	KORDS chord inversion trigger
 	//# Melody generation scale degrees
 	starting_indexes = [0,2,4,6] //# ie Root
 	mel_gen_scales[0]     = [0,2,4,5,7,9,11] //#	Chromatic use major
@@ -502,51 +503,9 @@
 		elseif (last_pad=7) and not (mode<=1 or mode>=8)
 			Exit //# DELETE not allowed
 		elseif (last_pad=2)
-			scale_root=0 //we will set a scale based on notes_instance_type selected
-			notes_instance_type = notes_instance_type + 1
-			if notes_instance_type = 6
-				notes_instance_type=0
-			endif
-			if notes_instance_type=1
-				midi_out_chs=[4,5,6,7]
-				SetShortName {MELODY}
-				sel_scale=1 // major
-				note_set_type=0 //via KORDS
-				mgen_device_id=6
-			elseif notes_instance_type=2
-				midi_out_chs=[8,9,10,11]
-				SetShortName {HARMNY}
-				sel_scale=1 // MAJOR
-				note_set_type=0 //via KORDS
-				mgen_device_id=7
-			elseif notes_instance_type=3
-				midi_out_chs=[1,1,1,1]
-				SetShortName {PERCS}
-				sel_scale=0 // Chromatic
-				note_set_type=1 //to instrument
-				mgen_device_id=7
-			elseif notes_instance_type=4
-				midi_out_chs=[2,2,3,3]
-				SetShortName {LOOPS}
-				sel_scale=0 // Chromatic
-				note_set_type=1 //to instrument
-				mgen_device_id=7
-			elseif notes_instance_type=5
-				midi_out_chs=[11,11,11,11]
-				SetShortName {FX}
-				sel_scale=0 // Chromatic
-				note_set_type=1 //to instrument
-				mgen_device_id=7
-			elseif notes_instance_type=0
-				midi_out_chs=[0,1,2,3]
-				SetShortName {NOTES}
-				sel_scale=0 // Chromatic
-				note_set_type=1 //to instrument
-				mgen_device_id=6
-			endif
-			Call @GetMidiINPUTScale //setup the new scale type
-			Call @LabelSettingsPads
-			Call @SetupKnobset99 //settings knobs
+			StartTimer
+			LabelPads {HOLD PAD DOWN TO CHANGE. RESETS ALL NOTES}
+			Exit
 		elseif (last_pad>=3 and last_pad<=5) or (last_pad=13 or last_pad=15 or last_pad=14)
     	//# Settings modes. Dont exit. Scale, MidiOut, CCVals,
     	LabelPad 6, { } //# CopyPaste not allowed
@@ -767,6 +726,61 @@
   endif
 @End
 
+@OnTimer
+	//Change QK:NOTES MODE
+  scale_root=0 //we will set a scale based on notes_instance_type selected
+	notes_instance_type = notes_instance_type + 1
+	if notes_instance_type = 6
+		notes_instance_type=0
+	endif
+	if notes_instance_type=1
+		midi_out_chs=[4,5,6,7]
+		SetShortName {MELODY}
+		sel_scale=1 // major
+		mgen_device_id=6
+	elseif notes_instance_type=2
+		midi_out_chs=[8,9,10,11]
+		SetShortName {HARMNY}
+		sel_scale=13 // KORDS Chord inversion trigger
+		mgen_device_id=7
+	elseif notes_instance_type=3
+		midi_out_chs=[1,1,1,1]
+		SetShortName {PERCS}
+		sel_scale=0 // Chromatic
+		mgen_device_id=7
+	elseif notes_instance_type=4
+		midi_out_chs=[2,2,3,3]
+		SetShortName {LOOPS}
+		sel_scale=0 // Chromatic
+		mgen_device_id=7
+	elseif notes_instance_type=5
+		midi_out_chs=[11,11,11,11]
+		SetShortName {FX}
+		sel_scale=0 // Chromatic
+		mgen_device_id=7
+	elseif notes_instance_type=0
+		midi_out_chs=[0,1,2,3]
+		SetShortName {NOTES}
+		sel_scale=0 // Chromatic
+		mgen_device_id=6
+	endif
+	if notes_instance_type=2
+		FillArray seq0_notes, 5, 1024 //# CHORD INVERSION TRIGGER  xyz
+		FillArray seq1_notes, 5, 1024
+		FillArray seq2_notes, 5, 1024
+		FillArray seq3_notes, 5, 1024
+	else
+		FillArray seq0_notes, 0, 1024 //# NOTES
+		FillArray seq1_notes, 0, 1024
+		FillArray seq2_notes, 0, 1024
+		FillArray seq3_notes, 0, 1024
+	endif
+	Call @GetMidiINPUTScale //setup the new scale type
+	Call @LabelSettingsPads
+	Call @SetupKnobset99 //settings knobs
+@End
+
+
 @TriggerPadOnTap
 	oct_adj=12
 	step_slot=(current_scene*128)+(current_pattn*16)+last_pad
@@ -794,6 +808,7 @@
 
 @OnPadUp2
   pad_is_down=FALSE
+	StopTimer
 @End
 
 @OnPadDown_ScenePatternChange
@@ -1382,44 +1397,25 @@
 
 @SetupKnobset3 //# NOTE SET
   knob_set = 3
+	note_set_type=1 //removed option - always show all scales
   LabelPads {Select Key/Scale. Routing via KORDS or direct to instrument}
-	SetKnobValue 0, TranslateScale note_set_type, 0, 1, 0, 127
-	SetKnobValue 1, TranslateScale scale_root, 0, 11, 0, 127
+	SetKnobValue 0, TranslateScale scale_root, 0, 11, 0, 127
+	SetKnobValue 1, 0
+	SetKnobValue 2, TranslateScale sel_scale, 0, num_common_scales, 0, 127
 	SetKnobValue 3, 0
-	if note_set_type=0 //# via KORDS
-		SetKnobValue 2, TranslateScale sel_scale, 0, 2, 0, 127
-  else
-		SetKnobValue 2, TranslateScale sel_scale, 0, num_common_scales-1, 0, 127
-  endif
 	Call @LabelSet3
 @End
 
 @KnobChangeSet3 //# NOTE SET
   if last_knob = 0
-  	ns_type = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 1
-	  if ns_type <> note_set_type
-	    note_set_type=ns_type
-	    Call @GetMidiINPUTScale
-	  endif
-	  if note_set_type=0 //# via KORDS
-	  	SetKnobValue 2, TranslateScale sel_scale, 0, 2, 0, 127
-	  else //# direct to instrument full scale set
-			SetKnobValue 2, TranslateScale sel_scale, 0, num_common_scales-1, 0, 127
-	  endif
-  endif
-  if last_knob = 1
-		sr = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 11
+		sr = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
 		if sr <> scale_root
 			scale_root=sr
 			Call @GetMidiINPUTScale
 		endif
   endif
   if last_knob = 2
-    if note_set_type=0
-	    scale = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
-	  else
-	    scale = Round TranslateScale (GetKnobValue 2), 0, 127, 0, num_common_scales-1
-		endif
+		scale = Round TranslateScale (GetKnobValue 2), 0, 127, 0, num_common_scales
 		if scale <> sel_scale
     	sel_scale=scale
     	Call @GetMidiINPUTScale
@@ -1457,17 +1453,13 @@
   elseif sel_scale=12
   	LabelPad 3, {KEY/SCALE       }, (NoteName scale_root), { Blues}
   elseif sel_scale=13
-  	LabelPad 3, {KEY/SCALE       }, { QK:HRMNY}
+  	LabelPad 3, {QK:KORDS       }, { INV.TRIGGER}
 	endif
   if knob_set=3
   	LabelKnobs {KEY/SCALE}
-  	LabelKnob 1, {Key }, (NoteName scale_root)
+  	LabelKnob 0, {Key }, (NoteName scale_root)
+		LabelKnob 1, { }
 		LabelKnob 2, {Scale}
-		if note_set_type=0 //# Restricted scale set sending via KORDS
-		  LabelKnob 0, {via KORDS}  	
-	  elseif note_set_type=1 //# Sending direct to instrument allows expanded scale set
-	  	LabelKnob 0, {to INSTR.}
-		endif
 	  LabelKnob 3, { }
   endif
 @End
@@ -1860,7 +1852,7 @@
 		FlashPad 14
 		FlashPad 15
 	else
-	  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] STEP EDIT: Tap to toggle state. Knob4 change step to edit or edit All}
+	  LabelPads {[MidiCh# }, midi_out_chs[seq_ch]+1, {] STEP EDIT: Tap to select. Tap again to toggle state. Knob4: selct'd or edit All}
 	endif
 	LabelKnobs {CH}, seq_ch+1, { SC}, current_scene+1, { PT}, current_pattn+1, { STEP}, sel_step+1
 	LabelKnob 0, {CH: }, seq_ch+1
@@ -2488,6 +2480,7 @@
 
 @OnShiftDown2 //handle mode selection
 	shift_is_down=TRUE
+	last_seq_pad=99 // reset last selected sequence pad
 	if in_mode_select
 		in_mode_select = FALSE
 		if mode>=8
@@ -2717,17 +2710,21 @@
 @End
 
 @UpdateSelStepType //# change a seq pad from on to off to sus_prev
-	step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
-	if seq_ch=0
-		seq0_steps[step_slot] = (seq0_steps[step_slot]+1)%3 
-	elseif seq_ch=1
-		seq1_steps[step_slot] = (seq1_steps[step_slot]+1)%3
-	elseif seq_ch=2
-		seq2_steps[step_slot] = (seq2_steps[step_slot]+1)%3
-	elseif seq_ch=3
-		seq3_steps[step_slot] = (seq3_steps[step_slot]+1)%3
+	if last_seq_pad=sel_pad
+		step_slot=(current_scene*128)+(current_pattn*16)+sel_pad
+		if seq_ch=0
+			seq0_steps[step_slot] = (seq0_steps[step_slot]+1)%3 
+		elseif seq_ch=1
+			seq1_steps[step_slot] = (seq1_steps[step_slot]+1)%3
+		elseif seq_ch=2
+			seq2_steps[step_slot] = (seq2_steps[step_slot]+1)%3
+		elseif seq_ch=3
+			seq3_steps[step_slot] = (seq3_steps[step_slot]+1)%3
+		endif
+		Call @LabelSequencePad
+	else
+	  last_seq_pad=sel_pad
 	endif
-	Call @LabelSequencePad
 @End
 
 @LabelAllSequencePads //# label all sequence pads 

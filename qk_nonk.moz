@@ -83,7 +83,7 @@
 	//Store your layout info here
 	//Pads from top left to bottom right
 	
-	layouts =        [20, 2, 19,19,4,4,4,4, 16,5, 5, 3, 0,0,0,0] // Layout to use with each keyboard
+	layouts =        [16, 16,16,16,4,4,4,4, 5, 5,5 ,4,  0,0,0,0] // Layout to use with each keyboard
 	keybd_channels = [0,  1, 2, 3, 4,5,6,7, 8, 9,10,11, 12,13,14,15] //default midi channel use if not specified in layout
 	kntrl_kb_selct = [0,  1, 2, 3, 4,5,6,7, 8, 9,10,11, 12,13,14,15] //on KNTRL Instr. channel change - select a keyboard 
 	
@@ -178,11 +178,11 @@
 		notes[kb2b*16] = [60,64,67,71, 72,76,79,83,  36,40,43,47, 48,52,55,59]
 		colors[kb2b*16] = [4,3,3,3, 4,3,3,3, 4,3,3,3, 4,3,3,3]
 		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
-	elseif layouts[kb2b] = 16 //name: NOTES OF CHORD MODE
-		labels[kb2b*16] = [-1,-1,-1,-1,-1,-1,-1,-1, 24,25,26,27, -1,29,37,38]
-		notes[kb2b*16] =  [-1,-1,-1,-1,-1,-1,-1,-1, 48,52,55,59, -1,53,50,57]
-		colors[kb2b*16] = [0,0,0,0, -1,0,0,0, 3,3,3,3, 0,4,6,6]
-		FillArray pad_channels[kb2b*16], keybd_channels[keyboard_to_build], 16 //fill with default midi ch
+	elseif layouts[kb2b] = 16 //name: DRAMBO SINGLETON DRUMS
+		notes[kb2b*16] = [36,38,36,38, 36,38,36,38, -1,-1,-1,-1,-1,-1,-1,-1]
+		colors[kb2b*16] = [1,1,2,2, 3,3,4,4, 0,0,0,0, 0,0,0,0]
+		labels[kb2b*16] = [1,2,3,4,5,6,7,15, -1,-1,-1,-1,-1,-1,-1,-1]
+		pad_channels[kb2b*16] = [0,0,1,1, 2,2,3,3, 0,0,0,0, 0,0,0,0]
 	elseif layouts[kb2b] = 17 //name: SLICED LOOP#1
 		FillArray labels[kb2b*16], 36, 16
 		notes[kb2b*16] = [36,37,38,39, 40,41,42,43, 44,45,46,47, 48,49,50,51]
@@ -249,7 +249,7 @@
 	elseif layout_num=15
 		LabelPads keyboard+1, { - }, {KORDS: MELODY CHORD NOTES ONLY}
 	elseif layout_num=16
-	  LabelPads keyboard+1, { - }, {KORDS: NOTES OF CHORD MODE}
+	  LabelPads keyboard+1, { - }, {DRAMBO: SINGLETON DRUMS 1-4}
 	elseif layout_num=17
 		LabelPads keyboard+1, { - }, {SLICED LOOP#1}
 	elseif layout_num=18
