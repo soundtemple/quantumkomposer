@@ -97,7 +97,7 @@
 	chan_labels =  [20,23,24,2,3,0,5,0,10,6,8,16,13,14,15,99]
 	chan_colors =  [2,2,2,2,3,0,6,0,4,4,4,7,5,5,5,0]
 	chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-	chan_layouts =  [10,10,10,10,16,16,16,16,16,16,16,15,2,3,4,0]
+	chan_layouts =  [9,10,10,10,16,16,16,16,16,16,16,15,2,3,4,0]
 	FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
 	FillArray chan_arm, FALSE, 16
@@ -117,7 +117,7 @@
 	//index toinstrument labels to get the mess of instr labels into alphabetical order
 	index_to_inst_labels = [-1, 75, 28, 36, 56, 49, 67, 29, 46, 68, 17, 48, 27, 63, 32, 9, 8, 24, 25, 51, 54, 13, 12, 15, 14]
 	index_to_inst_labels[26] = [1, 39, 73, 10, 74, 45, 34, 44, 43, 71, 11, 38, 55, 72, 3, 18, 40, 41, 33, 35, 37, 21, 23, 16, 19, 20]
-	index_to_inst_labels[53] = [2, 50, 22, 53, 31, 47, 62, 4, 5, 6, 7, 52, 76, 30, 42, 26, 69, 70, 0, 77, 66, 120, 125, 126, 127, 124, 64, 123, 57, 58, 61, 60, 59, 65,78,89,90,80,81,82,83]
+	index_to_inst_labels[53] = [2, 50, 22, 53, 31, 47, 62, 4, 5, 6, 7, 52, 76, 30, 42, 26, 69, 70, 0, 77, 66, 120, 125, 126, 127, 124, 64, 123, 57, 58, 61, 60, 59, 65,78,89,90,80,81,82,83,91,92,93,94,95]
 	// label number vars. Update these if @LabelInstr changes	
 	lbl_num_pgm_dec=57
 	lbl_num_pgm_inc=58
@@ -1145,16 +1145,16 @@
 		LabelKnob 3, {Master}
 	elseif layout = 5	
 		LabelKnob 3, {DrumsHH}
-	elseif layout = 6	
-		LabelKnob 3, {Drums8}
-	elseif layout = 7	
+	elseif layout = 6
 		LabelKnob 3, {KLEVGR}
-	elseif layout = 8	
+	elseif layout = 7	
 		LabelKnob 3, {RuisMkr}
-	elseif layout = 9
+	elseif layout = 8
 		LabelKnob 3, {RuisFM}
+	elseif layout = 9
+		LabelKnob 3, {KI:QK}
 	elseif layout = 10
-		LabelKnob 3, {Drums2}
+		LabelKnob 3, {PER:QK}
 	elseif layout = 11
 		LabelKnob 3, {Koala}
 	elseif layout = 12
@@ -1166,7 +1166,7 @@
 	elseif layout = 15
 		LabelKnob 3, {FX Txtrs}
 	elseif layout = 16
-		LabelKnob 3, {SYN:QK2}
+		LabelKnob 3, {SYN:QK}
 	endif
 	SetKnobValue 0, TranslateScale chan_labels[edit_chan], 0, num_chan_labels, 0, 127
 	SetKnobValue 1, TranslateScale chan_colors[edit_chan], 0, 7, 0, 127
@@ -1252,14 +1252,12 @@
 	elseif layout = 5	
 		LabelPads {KNTRL : [ DRUMS CH# }, curr_chan+1, { ]}
 	elseif layout = 6	
-		LabelPads {KNTRL : [ DRUMS CH# }, curr_chan+1, { ]}
-	elseif layout = 7	
 		LabelPads {KNTRL : [ KLEVG INST. CH# }, curr_chan+1, { ]}
-	elseif layout = 8	
+	elseif layout = 7	
 		LabelPads {KNTRL : [ RUISMAKER CH# }, curr_chan+1, { ]}
-	elseif layout = 9
+	elseif layout = 8
 		LabelPads {KNTRL : [ RUISMAKER FM CH#}, curr_chan+1, { ]}
-	elseif layout = 10
+	elseif layout = 9 or layout = 10
 		LabelPads {KNTRL : [ DRUMS }, curr_chan+1, { ]}
 	elseif layout = 15
 		LabelPads {KNTRL : [ FX/TEXTURES }, curr_chan+1, { ]}
@@ -1274,7 +1272,7 @@
 	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + edit_pad
 	SetKnobValue 2, TranslateScale inst_msg_type[pad_slot], 0, 1, 0, 127 // MSG Type 0=cc; 1=Note	
 	if use_instr_knobset_a // Label : Color : Value : CC#
-		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 127, 0, 91
+		SetKnobValue 0, TranslateScale inst_labels[pad_slot], -1, 127, 0, 96
 		SetKnobValue 1, TranslateScale inst_colors[pad_slot], 0, 7, 0, 127
 		SetKnobValue 3, TranslateScale inst_curr_page[curr_chan], 0, 3, 0, 127
 	else 
@@ -1307,7 +1305,7 @@
 	chan_to_label=curr_chan
 	if last_knob=0 and allow_edit_page // LABEL : LSB / CC#
 		if use_instr_knobset_a
-			val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 91
+			val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 96
 			if index_to_inst_labels[val] <> inst_labels[pad_slot]
 				inst_labels[pad_slot] = index_to_inst_labels[val] 
 				Call @LabelInstrPad
@@ -1831,10 +1829,10 @@
 		endfor
 	elseif chan_layouts[edit_chan]=4
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Master}
-		def_labels[16*0] = [0,1,10,11, 124,125,126,127, 38, 12,13,14, 15,64,65,66]
-		def_colors[16*0] = [2,2,4 ,4,  1,3,5,6, 7,6,6,6, 6,0,0,0]
-		def_vals[16*0]   = [64,64,0,127, 0,0,0,0, 0,0,0,0, 0,0,0,0]
-		def_ccs[16*0]    = [7,6,16,17, 124,125,126,127, 42,117,118,119, 120,121,122,123]
+		def_labels[16*0] = [0,8,6,9,1,125,126,124,12,13,14,10,11,64,65,66]
+		def_colors[16*0] = [2,3,3,3,2,3,6,1,6,6,6,4,4,0,0,0]
+		def_vals[16*0]   = [90,64,64,64,64,0,0,0,0,0,0,0,127,0,0,0]
+		def_ccs[16*0]    = [7,14,12,15,6,125,126,127,117,118,119,16,17,122,123]
 		def_labels[16*1] = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 		def_colors[16*1] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 		def_vals[16*1]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -1845,22 +1843,15 @@
 		def_labels[16*3] = [22,40,53,29,18,24,29,42,22,40,53,29,18,24,29,42]
 		def_colors[16*3] = [2,2,2,2,3,3,3,6,2,2,2,2,3,3,3,6]
 		def_vals[16*3]   = [64,64,64,127,0,64,64,0,64,64,64,127,0,64,64,0]
-	elseif chan_layouts[edit_chan]=6 //DRUMS8 4params 8 drums sounds
-		def_labels[16*2] = [22,40,29,0,22,40,29,0,22,12,29,0,22,12,29,0]
-		def_colors[16*2] = [1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4]
-		def_vals[16*2]   = [64,64,98,64,64,64,99,64,64,0,64,64,64,0,64,64]
-		def_labels[16*3] = [22,12,29,0,22,12,29,0,22,12,29,0,22,12,29,0]
-		def_colors[16*3] = [5,5,5,5,6,6,6,6,7,7,7,7,2,2,2,2]
-		def_vals[16*3]   = [64,0,64,64,64,0,64,64,64,0,64,64,64,0,64,64]
-	elseif chan_layouts[edit_chan]=7
-		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:SKAKA}
+	elseif chan_layouts[edit_chan]=6
+		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:KLEVGR}
 		def_labels[16*2] = [22,34,74,11,22,34,74,11,22,34,74,11,22,34,74,11]
 		def_colors[16*2] = [1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4]
 		def_vals[16*2]   = [64,127,0,127,64,127,0,127,64,127,0,127,64,127,0,127]
 		def_labels[16*3] = [22,34,74,11,22,34,74,11,22,34,74,11,22,34,74,11]
 		def_colors[16*3] = [5,5,5,5,6,6,6,6,7,7,7,7,4,4,4,4]
 		def_vals[16*3]   = [64,127,0,127,64,127,0,127,64,127,0,127,64,127,0,127]
-	elseif chan_layouts[edit_chan]=8
+	elseif chan_layouts[edit_chan]=7
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:Ruismkr}
 		def_labels[16*2] = [62,-1,53,51,-1,124,47,0,22,29,67,27,48,46,2,0]
 		def_colors[16*2] = [0,0,4,4,0,0,4,4,6,6,6,6,6,6,6,6]
@@ -1872,7 +1863,7 @@
 		def_vals[16*3]   = [0,0,0,0,0,0,0,0,64,64,64,64,64,64,64,64]
 		def_ccs[16*3]    = [22,23,24,25,26,27,28,29,33,41,49,57,66,74,82,90]
 		def_maxs[16*3]   = [7,7,7,7,7,7,7,7,127,127,127,127,127,127,127,127]
-	elseif chan_layouts[edit_chan]=9
+	elseif chan_layouts[edit_chan]=8
 		//LabelPads {[ INSTRUMENT }, curr_chan+1, { ] Layout:RuisFM}
 		def_labels[16*2] = [16,26,62,10,25,124,47,1,22,41,40,28,29,48,2,0]
 		def_colors[16*2] = [4,4,0,5,5,0,5,5,6,6,6,6,6,6,6,6]
@@ -1883,15 +1874,28 @@
 		def_colors[16*3] = [0,0,0,0,0,0,0,0, 1,2,3,4,5,6,0,0]
 		def_vals[16*3]   = [0,0,0,0,0,0,0,0, 100,100,100,100,100,100,0,64]
 		def_ccs[16*3]    = [79,80,81,82, 83,84,85,86,39,51,63,76,88,100,52,124]
-	elseif chan_layouts[edit_chan]=10 //Drums 2 instruments kik/tom, snr/clp, hats, percs
-		def_labels[16*1] = [42,34,29,32,22,0,0,0,2,40,12,10,11,28,29,1]
-		def_colors[16*1] = [5,5,5,5,5,2,2,2,2,2,3,3,3,4,4,3]
-		def_vals[16*1]   = [64,127,64,64,64,64,64,64,64,64,0,0,127,0,64,64]
+	elseif chan_layouts[edit_chan]=9 //Drums kik/tom KI:QK
+		def_labels[16*1] = [91,92,34,21,42,32,91,29, 91,92,34,21,42,32,91,29]
+		def_colors[16*1] = [3,3,4,4,4,1,1,1, 3,3,4,4,4,1,1,1]
+		def_vals[16*1]   = [64,0,64,32,32,64,48,64,64,0,64,32,32,64,48,64]
 		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61]
-		def_labels[16*2] = [42,34,29,32,22,0,0,0,2,40,12,10,11,28,29,1]
-		def_colors[16*2] = [6,6,6,6,6,2,2,2,2,2,3,3,3,4,4,3]
-		def_vals[16*2]   = [64,127,64,64,64,64,64,64,64,64,0,0,127,0,64,64]
-		def_ccs[16*2]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61]
+		def_labels[16*2] = [-1,-1,0,0,0,12,10,11, -1,-1,0,0,0,12,10,11]
+		def_colors[16*2] = [0,0,2,2,2,4,3,3, 0,0,2,2,2,4,3,3]
+		def_vals[16*2]   = [0,0,64,64,64,0,0,127,0,0,64,64,64,0,0,127]
+		def_labels[16*3] = [34,-1,2,43,44,28,29,1,34,-1,2,43,44,28,29,1]
+		def_colors[16*3] = [6,0,1,1,1,4,4,3,6,0,1,1,1,4,4,3]
+		def_vals[16*3]   = [64,0,64,64,0,0,64,64,64,0,64,64,0,0,64,64]
+	elseif chan_layouts[edit_chan]=10 //Drums PER:QK 2 snr/clp, hats, percs
+		def_labels[16*1] = [91,92,34,21,42,93,22,29, 91,92,34,21,42,93,22,29]
+		def_colors[16*1] = [3,3,4,4,4,1,1,1, 3,3,4,4,4,1,1,1]
+		def_vals[16*1]   = [64,0,64,32,32,64,48,64,64,0,64,32,32,64,48,64]
+		def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61]
+		def_labels[16*2] = [94,95,0,0,0,12,10,11, 94,95,0,0,0,12,10,11]
+		def_colors[16*2] = [1,1,2,2,2,4,3,3, 1,1,2,2,2,4,3,3]
+		def_vals[16*2]   = [64,64,64,64,64,0,0,127,64,64,64,64,64,0,0,127]
+		def_labels[16*3] = [34,-1,2,43,44,28,29,1,34,-1,2,43,44,28,29,1]
+		def_colors[16*3] = [6,0,1,1,1,4,4,3,6,0,1,1,1,4,4,3]
+		def_vals[16*3]   = [64,0,64,64,0,0,64,64,64,0,64,64,0,0,64,64]
 	elseif chan_layouts[edit_chan]=11 //Koala
 		def_labels[16*2] = [2,34,28,31,2,34,28,31,2,34,28,31,2,34,28,31]
 		def_colors[16*2] = [1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4]
@@ -2169,7 +2173,7 @@
 		LabelPad pad_to_label, {PULSE WIDTH} //OSC
 	elseif (label_num=21)
 		LabelPad pad_to_label, {NOISE} //OSC
-	elseif (label_num=22) and chan_layouts[curr_chan]=7 //SKAKA
+	elseif (label_num=22) and chan_layouts[curr_chan]=6 //KLEVGR
 		LabelPad pad_to_label, {PITCH [}, (NoteName((Div pad_to_label,4)+((inst_curr_page[curr_chan]-2)*4))), {]} //OSC
 	elseif (label_num=22)
 		LabelPad pad_to_label, {PITCH} //OSC
@@ -2276,7 +2280,7 @@
 	elseif (label_num=73)
 		LabelPad pad_to_label, {FREE} //CUSTOM
 	elseif (label_num=74)
-		LabelPad pad_to_label, {HUMANIZE} //CUSTOM SKAKA
+		LabelPad pad_to_label, {HUMANIZE} //CUSTOM KLEVGR
 	elseif (label_num=75)
 		LabelPad pad_to_label, {ARP RATE} //CUSTOM
 	elseif (label_num=76)
@@ -2309,6 +2313,16 @@
 		LabelPad pad_to_label, {SCENE} //CUSTOM
 	elseif (label_num=90)
 		LabelPad pad_to_label, {STEPS} //CUSTOM
+	elseif (label_num=91)
+		LabelPad pad_to_label, {TUNE} //CUSTOM
+	elseif (label_num=92)
+		LabelPad pad_to_label, {OFFSET} //CUSTOM
+	elseif (label_num=93)
+		LabelPad pad_to_label, {BASE} //CUSTOM
+	elseif (label_num=94)
+		LabelPad pad_to_label, {POSITION} //CUSTOM
+	elseif (label_num=95)
+		LabelPad pad_to_label, {MATERIAL} //CUSTOM
 	elseif (label_num=119)	
 		LabelPad pad_to_label, {[DRAMBO]} //CUSTOM
 	elseif (label_num=120)	
