@@ -26,6 +26,7 @@
 		curr_chan=0 //# 0-15 KNTRL channels + Channel Select + M-Kontrol Channel
 		kntrl_knob_type=0 //# 0=Encoders 1=Regular knobs
 		enc_change_dir=0 //# -1 for decrease, 1 for increase, 0 to init
+		enc_inc_dec_vals=[64,64] //check MIDIByte3 val received from encoders
 		custom_knobs = [-1, 1,2,3,4, 5,6,7,8]  // default custom knobs config
 		sel_mgen_dev=0
 		knob_set=99 //settings knobset
@@ -174,14 +175,23 @@
 @OnMidiCC //KNTRL midi implementation. Receive only CH16 - output to active channel
   // Commands (hex#) NoteOn=0x90;NoteOff=0x80;CC=0xB0;ProgramChange=0xC0;Aftertouch=0xD0;Pitchbend=0xE0
 	// CCs14-17 IN: KNTRL KNOBS1-4 for knobset chg without using via AUM MidiControl
-	if ready_to_rec_knob_vals and (custom_knobs[0] <> -1) and MIDIChannel= custom_knobs[0]
+	if ready_to_rec_knob_vals and MIDIChannel <> 15
 		custom_knobs[last_pad+1] = MIDIByte2
-		Call @SetupLayoutKnobsConfig	
-		msg_type=sx_custom_knobs_update
-		CopyArray custom_knobs, msg_data, 9
-		len_data=9
-		Call @SendSysex //update QK2KBS so it can send midi feedback to controller
-		
+		Call @SetupLayoutKnobsConfig
+		//store inc and dec values to display on knobs
+		if MIDIByte3<64
+			enc_inc_dec_vals[0] = MIDIByte3
+		elseif MIDIByte3>64
+			enc_inc_dec_vals[1] = MIDIByte3
+		endif
+		custom_knobs[0] = MIDIChannel
+		if kntrl_knob_type=1
+ 			msg_type=sx_custom_knobs_update
+			CopyArray custom_knobs, msg_data, 9
+			len_data=9
+			Call @SendSysex //update QK2KBS so it can send midi feedback to controller
+		endif
+
 	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and (MIDIByte2=custom_knobs[1] or MIDIByte2=custom_knobs[2] or MIDIByte2=custom_knobs[3] or MIDIByte2=custom_knobs[4])
 		//Get knob number
 		if MIDIByte2=custom_knobs[1] 
@@ -198,7 +208,7 @@
 			SetKnobValue last_knob, MIDIByte3 // change knob position reg knobs
 		else
 			knob_value = GetKnobValue last_knob 
-			if MIDIByte3>=63
+			if MIDIByte3>=64
 				enc_change_dir=1
 			else
 				enc_change_dir=-1
@@ -209,6 +219,7 @@
 			elseif knob_value>127
 				knob_value=127
 			endif
+			//log {Last knob: }, last_knob, { value MB3: }, MIDIByte3, { knob value: }, knob_value
 			SetKnobValue last_knob, knob_value
 		endif
 		Call @OnKnobChange2 //handle that change 
@@ -444,11 +455,12 @@
 				endif
 			endif
 		elseif last_pad>=8 and last_pad<=12 // MIXER MODES
-		  mode=7 //MIXER MODES
+		    mode=7 //MIXER MODES
 			in_mode_select = FALSE
 			Call @SetupLayoutChannels
 			mixer_mode=last_pad-8
 			Call @SetupKnobset7
+            Call @LabelPadsHeader
 		elseif last_pad=13 and NOT layouts_locked
 			//copy inst last inst pad pressed
 			copied_pad=[curr_chan, inst_curr_page[curr_chan], last_inst_pad, inst_labels[pad_slot], inst_colors[pad_slot], inst_ccs[pad_slot], inst_mins[pad_slot], inst_maxs[pad_slot], inst_def_vals[pad_slot], inst_msg_type[pad_slot]]
@@ -505,6 +517,7 @@
 	elseif mode=7 // MIXER modes
 		Call @PadDownMixerMode
 	endif
+    Call @LabelPadsHeader
 @End
 
 @PadDownChannelsMode
@@ -782,13 +795,8 @@
 @PadDownConfigureKnobs
 	if last_pad<=3
 		ready_to_rec_knob_vals=TRUE
-		if custom_knobs[0]>=0
-			ColorPad last_pad+8, 2
-			LabelPad last_pad+8, {____^____}, { turn encoder }
-		else
-			ColorPad last_pad+8, 1
-		  LabelPad last_pad+8, { Set input channel first }
-		endif
+		ColorPad last_pad+8, 2
+		LabelPad last_pad+8, {____^____}, { turn encoder }
 	endif
 @End
 
@@ -1049,7 +1057,6 @@
 @End
 
 @LabelInstrumentKnobs
-	Call @LabelInstrumentPagePads
 	if inst_msg_type[pad_slot]=1
 		LabelKnobs {CH:}, chan_midi_chs[edit_chan]+1, { NOTE#}, inst_ccs[pad_slot]
 	else
@@ -1111,7 +1118,6 @@
 	elseif inst_ccs[pad_slot]>17 and inst_ccs[pad_slot]<117 // not a mixer control (<=17 or >=117)
 	  allow_edit_page=TRUE
 	endif
-	Log {allow editing updated for pad }, edit_pad
 @End 
 
 @KnobChangeSet2
@@ -1187,9 +1193,9 @@
 @End
 
 @SetupKnobset3
-	// #zenc
+	// Custom kntrl knobs settings
 	knob_set = 3
-	LabelPads {[ SETUP 4 KNTRL KNOBS ] - Set channel then hold pad & turn knob}
+	LabelPads {[ SETUP 4 KNTRL KNOBS ] - Set channel then hold pad & wiggle knob left AND right}
 	LabelKnobs {KNOB SETTINGS}
 	if custom_knobs[0] = -1
 		LabelKnob 0, {Not in use}
@@ -1201,26 +1207,16 @@
 	else 
 		LabelKnob 1, {Type: REG}
 	endif
-	LabelKnob 2, { }
-	LabelKnob 3, { }
+	LabelKnob 2, {DEC }, enc_inc_dec_vals[0]
+	LabelKnob 3, {INC }, enc_inc_dec_vals[1]
 	SetKnobValue 0, TranslateScale custom_knobs[0], -1, 14, 0, 127
 	SetKnobValue 1, TranslateScale kntrl_knob_type, 0, 1, 0, 127
-	SetKnobValue 2, 0
-	SetKnobValue 3, 0 
+	SetKnobValue 2, enc_inc_dec_vals[0]
+	SetKnobValue 3, enc_inc_dec_vals[1]
 @End
 
 @KnobChangeSet3
-	if last_knob = 0 // KNOBS CHANNEL
-		val = Round TranslateScale (GetKnobValue 0), 0, 127, -1, 14 // change page
-		if val <> custom_knobs[0]
-			custom_knobs[0] = val
-			LabelKnob 0, {Chan:}, custom_knobs[0]+1
-			msg_type=sx_custom_knobs_update
-			CopyArray custom_knobs, msg_data, 9
-			len_data=9
-			Call @SendSysex //update QK2KBS so it can send midi feedback to controller
-		endif
-	elseif last_knob = 1 // KNOB TYPE
+	if last_knob = 1 // KNOB TYPE
 		val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 1 // knob type
 		kntrl_knob_type = val
 	endif
@@ -1308,7 +1304,6 @@
 @End
 
 @LabelInstrumentKnobsLocked
-	Call @LabelInstrumentPagePads
 	if inst_msg_type[pad_slot]=1
 		LabelKnobs {CH:}, chan_midi_chs[edit_chan]+1, { NOTE#}, inst_ccs[pad_slot]
 	else
@@ -1507,24 +1502,29 @@
 		  ColorPad i-8,0
 		endif
 	endfor
+	for i = 4 to 7
+		ColorPad i, 0
+	endfor
 	if custom_knobs[0] = -1 //custom knobs not in use
-		LabelPad 0, { __KNTRL1__ }, { --- }
-		LabelPad 1, { __KNTRL2__ }, { --- }
-		LabelPad 2, { __KNTRL3__ }, { --- }
-		LabelPad 3, { __KNTRL4__ }, { --- }
+		LabelPad 0, {   TOP L   }, { --- }
+		LabelPad 1, {   TOP R   }, { --- }
+		LabelPad 2, {   LOW L   }, { --- }
+		LabelPad 3, {   LOW R   }, { --- }
 		LabelPad 4, { }
 		LabelPad 5, { }
 		LabelPad 6, { }
 		LabelPad 7, { }
 	else
-		LabelPad 0, { __KNTRL1__ }, { cc#}, custom_knobs[1]
-		LabelPad 1, { __KNTRL2__ }, { cc#}, custom_knobs[2]
-		LabelPad 2, { __KNTRL3__ }, { cc#}, custom_knobs[3]
-		LabelPad 3, { __KNTRL4__ }, { cc#}, custom_knobs[4]
+		LabelPad 0, {   TOP L   }, { cc#}, custom_knobs[1]
+		LabelPad 1, {   TOP R   }, { cc#}, custom_knobs[2]
+		LabelPad 2, {   LOW L   }, { cc#}, custom_knobs[3]
+		LabelPad 3, {   LOW R   }, { cc#}, custom_knobs[4]
 		LabelPad 4, { }
 		LabelPad 5, { }
 		LabelPad 6, { }
 		LabelPad 7, { }
+		LabelPad 14, {DEC  should be <64}
+		LabelPad 15, {INC  should be >64}
 	endif
 	Call @SetupKnobset3
 @End
@@ -1828,57 +1828,55 @@
 	if (label_num=0)
 		LabelPads {KNTRL}
 	elseif (label_num=1)
-		LabelPads {Active channel: DRUMS }
+		LabelPads {[CHANNEL SELECT] Active channel: DRUMS }
 	elseif (label_num=2)
-		LabelPads {Active channel: PERCS }
+		LabelPads {[CHANNEL SELECT] Active channel: PERCS }
 	elseif (label_num=3)
-		LabelPads {Active channel: BASS }
+		LabelPads {[CHANNEL SELECT] Active channel: BASS }
 	elseif (label_num=4)
-		LabelPads {Active channel: TABLA }
+		LabelPads {[CHANNEL SELECT] Active channel: TABLA }
 	elseif (label_num=5)
-		LabelPads {Active channel: LEAD }
+		LabelPads {[CHANNEL SELECT] Active channel: LEAD }
 	elseif (label_num=6)
-		LabelPads {Active channel: PADS }
+		LabelPads {[CHANNEL SELECT] Active channel: PADS }
 	elseif (label_num=7)
-		LabelPads {Active channel: PAD BASS }
+		LabelPads {[CHANNEL SELECT] Active channel: PAD BASS }
 	elseif (label_num=8)
-		LabelPads {Active channel: ARP }
+		LabelPads {[CHANNEL SELECT] Active channel: ARP }
 	elseif (label_num=9)
-		LabelPads {Active channel: KEYS }
+		LabelPads {[CHANNEL SELECT] Active channel: KEYS }
 	elseif (label_num=10)
-		LabelPads {Active channel: PLUCK }	
+		LabelPads {[CHANNEL SELECT] Active channel: PLUCK }	
 	elseif (label_num=11)
-		LabelPads {Active channel: STRINGS }
+		LabelPads {[CHANNEL SELECT] Active channel: STRINGS }
 	elseif (label_num=12)
-		LabelPads {Active channel: SYNTH BUS }
+		LabelPads {[CHANNEL SELECT] Active channel: SYNTH BUS }
 	elseif (label_num=13)
-		LabelPads {Active channel: MIXBUS 1-4 }
+		LabelPads {[CHANNEL SELECT] Active channel: MIXBUS 1-4 }
 	elseif (label_num=14)
-		LabelPads {Active channel: RETURNS }
+		LabelPads {[CHANNEL SELECT] Active channel: RETURNS }
 	elseif (label_num=15)
-		LabelPads {Active channel: MASTER }
+		LabelPads {[CHANNEL SELECT] Active channel: MASTER }
 	elseif (label_num=16)
-		LabelPads {Active channel: FX }
+		LabelPads {[CHANNEL SELECT] Active channel: FX }
 	elseif (label_num=17)
-		LabelPads {Active channel: LOOPS }
+		LabelPads {[CHANNEL SELECT] Active channel: LOOPS }
 	elseif (label_num=18)
-		LabelPads {Active channel: DRONE }
+		LabelPads {[CHANNEL SELECT] Active channel: DRONE }
 	elseif (label_num=19)
-		LabelPads {Active channel: TEXTURE }
+		LabelPads {[CHANNEL SELECT] Active channel: TEXTURE }
 	elseif (label_num=20)
-		LabelPads {Active channel: KICK }
+		LabelPads {[CHANNEL SELECT] Active channel: KICK }
 	elseif (label_num=21)
-		LabelPads {Active channel: SHAKERS }
+		LabelPads {[CHANNEL SELECT] Active channel: SHAKERS }
 	elseif (label_num=22)
-		LabelPads {Active channel: VOCALS }
+		LabelPads {[CHANNEL SELECT] Active channel: VOCALS }
 	elseif (label_num=23)
-		LabelPads {Active channel: SNR/CLP }
+		LabelPads {[CHANNEL SELECT] Active channel: SNR/CLP }
 	elseif (label_num=24)
-		LabelPads {Active channel: HATS }
+		LabelPads {[CHANNEL SELECT] Active channel: HATS }
 	elseif (label_num=25)
-		LabelPads {Active channel: SAMPLER }
-	elseif (label_num=99)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {RSVD KNTRL}	
+		LabelPads {[CHANNEL SELECT] Active channel: SAMPLER }
 	endif
 @End
 
@@ -1940,7 +1938,7 @@
 	elseif (label_num=25)
 		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SAMPLER}	
 	elseif (label_num=99)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {RSVD KNTRL}	
+		LabelPad pad_to_label, {MORE...}	
 	endif
 @End
 
