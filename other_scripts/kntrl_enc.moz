@@ -334,7 +334,6 @@
 
 @OnShiftDown2
 	//Log {MODE: }, mode
-	scene_copied=FALSE
 	if in_mode_select //# Exit SHIFT MODE
 		in_mode_select = FALSE	
 		reset_mxr=FALSE
@@ -409,10 +408,17 @@
 			endif
 			Call @LabelPadsHeader
 			LatchPad curr_chan, YES
-		elseif last_pad>=4 and last_pad<=7
-		  mch=chan_midi_chs[curr_chan]
-			ccs=[124,125,126,127] // GUI - Instr, EQ, FX1, FX2,
-			SendMIDICC mch, ccs[last_pad-4], 127 // show/hide GUI
+        elseif last_pad=6 and NOT layouts_locked
+			//copy inst last inst pad pressed
+			copied_pad=[curr_chan, inst_curr_page[curr_chan], last_inst_pad, inst_labels[pad_slot], inst_colors[pad_slot], inst_ccs[pad_slot], inst_mins[pad_slot], inst_maxs[pad_slot], inst_def_vals[pad_slot], inst_msg_type[pad_slot]]
+			inst_pad_copied = TRUE
+			Call @PrintPreset
+			Call @SetupSettingsLayout	
+		elseif last_pad=6 and (NOT HostRunning) 
+			Call @PrintPreset
+		elseif last_pad=7
+			layouts_locked = NOT layouts_locked
+			Call @SetupSettingsLayout	
 		elseif last_pad=15
 			if chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=3 or chan_layouts[curr_chan]=4 //mixbus, rtns or master 
 				// reset all values to default params for busses 1-4 or all sends 1-4
@@ -461,17 +467,6 @@
 			mixer_mode=last_pad-8
 			Call @SetupKnobset7
             Call @LabelPadsHeader
-		elseif last_pad=13 and NOT layouts_locked
-			//copy inst last inst pad pressed
-			copied_pad=[curr_chan, inst_curr_page[curr_chan], last_inst_pad, inst_labels[pad_slot], inst_colors[pad_slot], inst_ccs[pad_slot], inst_mins[pad_slot], inst_maxs[pad_slot], inst_def_vals[pad_slot], inst_msg_type[pad_slot]]
-			inst_pad_copied = TRUE
-			Call @PrintPreset
-			Call @SetupSettingsLayout	
-		elseif last_pad=13 and (NOT HostRunning) 
-			Call @PrintPreset
-		elseif last_pad=14
-			layouts_locked = NOT layouts_locked
-			Call @SetupSettingsLayout	
 		endif
 	elseif NOT in_mode_select
 		Call @ModeSetup
@@ -502,27 +497,35 @@
 	if in_mode_select
 		Call @SetupSettingsLayout
 		Call @UpdateCurrentKnobset
-	elseif mode=0  //NOT IN USE
-		Exit
-	elseif mode=1 // channels mode
-		Call @PadDownChannelsMode
-	elseif mode=3 // configure midi controller knobs
-		Call @PadDownConfigureKnobs
-	elseif mode=4 // unused
-		//log {unused}
-	elseif mode=5 // INSTRUMENT mode
-		Call @PadDownInstrMode
-	elseif mode=6 // mgen mode
-		Call @PadDownMGMode
-	elseif mode=7 // MIXER modes
-		Call @PadDownMixerMode
+        LabelPads {[ KNTRL]}
+    else    
+        if mode=0  //NOT IN USE
+            Exit
+        elseif mode=1 // channels mode
+            Call @PadDownChannelsMode
+        elseif mode=3 // configure midi controller knobs
+            Call @PadDownConfigureKnobs
+        elseif mode=4 // unused
+            //log {unused}
+        elseif mode=5 // INSTRUMENT mode
+            Call @PadDownInstrMode
+        elseif mode=6 // mgen mode
+            Call @PadDownMGMode
+        elseif mode=7 // MIXER modes
+            Call @PadDownMixerMode
+        endif
+        Call @LabelPadsHeader
 	endif
-    Call @LabelPadsHeader
 @End
 
 @PadDownChannelsMode
-	if last_pad=15
-		Exit
+	if last_pad=15 //goto settings
+        in_mode_select = TRUE
+        inst_pad_copied=FALSE
+        LabelPads {[ KNTRL]}
+		FillArray copied_pad, 10, 0
+		Call @SetupSettingsLayout
+		Call @UpdateCurrentKnobset
 	endif
 	edit_chan = last_pad 
 	if edit_mode_active
@@ -728,7 +731,12 @@
 @PadDownMixerMode
 	pad_slot = (64*curr_chan) //instrument pad slot for inst sync mute,solo,arm
 	if last_pad=15
-		Exit
+        in_mode_select = TRUE
+        inst_pad_copied=FALSE
+        LabelPads {[ KNTRL]}
+		FillArray copied_pad, 10, 0
+		Call @SetupSettingsLayout
+		Call @UpdateCurrentKnobset
 	else
 	  curr_chan=last_pad
 		chan = chan_midi_chs[curr_chan]
@@ -823,10 +831,8 @@
 		p3=3
 	endif
 	LabelPad 3, {INSTRUMENT}, {CHANNELS}
-	LabelPad 4, {[INSTR GUI]}
-	LabelPad 5, {[EQ GUI]}
-	LabelPad 6, {[FX1 GUI]}
-	LabelPad 7, {[FX2 GUI]}
+	LabelPad 4, { }
+	LabelPad 5, { }
 	if chan_layouts[curr_chan]=2 //mixbus1-4
 		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {RESET MBx4}
 	elseif chan_layouts[curr_chan]=3 //returns
@@ -843,24 +849,24 @@
 	LabelPad 12, {MUTE SOLO} //mute solo
 	
 	if inst_pad_copied and NOT layouts_locked
-		LabelPad 13, {COPIED  }, { CHAN}, copied_pad[0]+1, {   }, { PAGE}, copied_pad[1]+1, {    }, { PAD#}, copied_pad[2]+1
-		p13=3
+		LabelPad 6, {COPIED  }, { CHAN}, copied_pad[0]+1, {   }, { PAGE}, copied_pad[1]+1, {    }, { PAD#}, copied_pad[2]+1
+		p6=3
 	elseif (NOT inst_pad_copied) and (NOT layouts_locked)  
-		LabelPad 13, {COPY LAST INST PAD}
-		p13=col_mode_edit
+		LabelPad 6, {COPY LAST INST PAD}
+		p6=col_mode_edit
 	else
-	  LabelPad 13, { }
-		p13=0
+	  LabelPad 6, { }
+		p6=0
 	endif
 	
 	if layouts_locked
-		LabelPad 14, {EDIT LAYOUTS}, { OFF }
-		p14=0
+		LabelPad 7, {EDIT LAYOUTS}, { OFF }
+		p7=0
 	else
-	  LabelPad 14, {EDIT LAYOUTS}, { ON }
-		p14=col_mode_edit
+	  LabelPad 7, {EDIT LAYOUTS}, { ON }
+		p7=col_mode_edit
 	endif
-	settings_cols = [kc_col,p1,p2,p3, 5,5,5,5, 2,2,2,2, 2,p13,p14,1]
+	settings_cols = [kc_col,p1,p2,p3, 0,0,p6,p7, 2,2,2,2, 2,0,0,1]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
@@ -1828,55 +1834,55 @@
 	if (label_num=0)
 		LabelPads {KNTRL}
 	elseif (label_num=1)
-		LabelPads {[CHANNEL SELECT] Active channel: DRUMS }
+		LabelPads {Active channel: DRUMS }
 	elseif (label_num=2)
-		LabelPads {[CHANNEL SELECT] Active channel: PERCS }
+		LabelPads {Active channel: PERCS }
 	elseif (label_num=3)
-		LabelPads {[CHANNEL SELECT] Active channel: BASS }
+		LabelPads {Active channel: BASS }
 	elseif (label_num=4)
-		LabelPads {[CHANNEL SELECT] Active channel: TABLA }
+		LabelPads {Active channel: TABLA }
 	elseif (label_num=5)
-		LabelPads {[CHANNEL SELECT] Active channel: LEAD }
+		LabelPads {Active channel: LEAD }
 	elseif (label_num=6)
-		LabelPads {[CHANNEL SELECT] Active channel: PADS }
+		LabelPads {Active channel: PADS }
 	elseif (label_num=7)
-		LabelPads {[CHANNEL SELECT] Active channel: PAD BASS }
+		LabelPads {Active channel: PAD BASS }
 	elseif (label_num=8)
-		LabelPads {[CHANNEL SELECT] Active channel: ARP }
+		LabelPads {Active channel: ARP }
 	elseif (label_num=9)
-		LabelPads {[CHANNEL SELECT] Active channel: KEYS }
+		LabelPads {Active channel: KEYS }
 	elseif (label_num=10)
-		LabelPads {[CHANNEL SELECT] Active channel: PLUCK }	
+		LabelPads {Active channel: PLUCK }	
 	elseif (label_num=11)
-		LabelPads {[CHANNEL SELECT] Active channel: STRINGS }
+		LabelPads {Active channel: STRINGS }
 	elseif (label_num=12)
-		LabelPads {[CHANNEL SELECT] Active channel: SYNTH BUS }
+		LabelPads {Active channel: SYNTH BUS }
 	elseif (label_num=13)
-		LabelPads {[CHANNEL SELECT] Active channel: MIXBUS 1-4 }
+		LabelPads {Active channel: MIXBUS 1-4 }
 	elseif (label_num=14)
-		LabelPads {[CHANNEL SELECT] Active channel: RETURNS }
+		LabelPads {Active channel: RETURNS }
 	elseif (label_num=15)
-		LabelPads {[CHANNEL SELECT] Active channel: MASTER }
+		LabelPads {Active channel: MASTER }
 	elseif (label_num=16)
-		LabelPads {[CHANNEL SELECT] Active channel: FX }
+		LabelPads {Active channel: FX }
 	elseif (label_num=17)
-		LabelPads {[CHANNEL SELECT] Active channel: LOOPS }
+		LabelPads {Active channel: LOOPS }
 	elseif (label_num=18)
-		LabelPads {[CHANNEL SELECT] Active channel: DRONE }
+		LabelPads {Active channel: DRONE }
 	elseif (label_num=19)
-		LabelPads {[CHANNEL SELECT] Active channel: TEXTURE }
+		LabelPads {Active channel: TEXTURE }
 	elseif (label_num=20)
-		LabelPads {[CHANNEL SELECT] Active channel: KICK }
+		LabelPads {Active channel: KICK }
 	elseif (label_num=21)
-		LabelPads {[CHANNEL SELECT] Active channel: SHAKERS }
+		LabelPads {Active channel: SHAKERS }
 	elseif (label_num=22)
-		LabelPads {[CHANNEL SELECT] Active channel: VOCALS }
+		LabelPads {Active channel: VOCALS }
 	elseif (label_num=23)
-		LabelPads {[CHANNEL SELECT] Active channel: SNR/CLP }
+		LabelPads {Active channel: SNR/CLP }
 	elseif (label_num=24)
-		LabelPads {[CHANNEL SELECT] Active channel: HATS }
+		LabelPads {Active channel: HATS }
 	elseif (label_num=25)
-		LabelPads {[CHANNEL SELECT] Active channel: SAMPLER }
+		LabelPads {Active channel: SAMPLER }
 	endif
 @End
 
