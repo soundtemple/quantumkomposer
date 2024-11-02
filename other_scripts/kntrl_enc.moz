@@ -179,7 +179,7 @@
 @OnMidiCC //KNTRL midi implementation. Receive only CH16 - output to active channel
   // Commands (hex#) NoteOn=0x90;NoteOff=0x80;CC=0xB0;ProgramChange=0xC0;Aftertouch=0xD0;Pitchbend=0xE0
 	// CCs14-17 IN: KNTRL KNOBS1-4 for knobset chg without using via AUM MidiControl
-	if ready_to_rec_knob_vals and MIDIChannel <> 15
+	if ready_to_rec_knob_vals
 		custom_knobs[last_pad+1] = MIDIByte2
 		Call @SetupLayoutKnobsConfig
 		//store inc and dec values to display on knobs
@@ -212,7 +212,8 @@
 
         if mode=3 // configure midi controller knobs
             if kntrl_knob_type=1 
-                SetKnobValue 2, MIDIByte3 // change demo knob xxx
+                enc_test_val = MIDIByte3
+                SetKnobValue 2, MIDIByte3 // change demo knob
             else
                 if MIDIByte3>=64
                     enc_change_dir=(knob_scale_turn)/10
@@ -1250,15 +1251,18 @@
 	endif
 	if kntrl_knob_type=0
 		LabelKnob 1, {Type: ENC} 
+        LabelKnob 3, {Rate }, (knob_scale_turn/10)
+        SetKnobValue 3, TranslateScale knob_scale_turn, 2, 18, 0, 127
 	else 
 		LabelKnob 1, {Type: REG}
+        LabelKnob 3, { }
+        ColorPad 6, 0
+        ColorPad 7, 0
 	endif
 	LabelKnob 2, Round enc_test_val
-	LabelKnob 3, {Rate }, (knob_scale_turn/10)
 	SetKnobValue 0, TranslateScale custom_knobs[0], -1, 14, 0, 127
 	SetKnobValue 1, TranslateScale kntrl_knob_type, 0, 1, 0, 127
 	SetKnobValue 2, TranslateScale enc_test_val, 0, 127, 0, 127
-	SetKnobValue 3, TranslateScale knob_scale_turn, 2, 18, 0, 127
 @End
 
 @KnobChangeSet3
