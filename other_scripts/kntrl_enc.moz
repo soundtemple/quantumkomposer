@@ -5,7 +5,7 @@
 	LabelPads {[ KNTRL ]}
 	SetShortName {EK}
 	if unassigned pad_is_down 
-		mode = 1 //#1Channels, 2Kontrol
+		mode = 5 //#1Channels, 2Kontrol
 		edit_mode_active=FALSE
 		allow_restricted_page_editing=TRUE //some pages of inst. layouts cant be edited 
 		allow_edit_page=TRUE //see above
@@ -17,6 +17,7 @@
 		SetMetroPPQN 4
 		ppqn = 4
 		edit_scene=0
+        send_sysex=FALSE
 		pad_is_down=FALSE
 		reset_mxr=FALSE //confirm reset mixer in settings mode
 		reset_whole_layout=FALSE //confirm reset whole layout in settings mode
@@ -27,6 +28,9 @@
 		kntrl_knob_type=0 //# 0=Encoders 1=Regular knobs
 		enc_change_dir=0 //# -1 for decrease, 1 for increase, 0 to init
 		enc_inc_dec_vals=[64,64] //check MIDIByte3 val received from encoders
+        knob_scale_turn=10
+        invert_enc_dir=FALSE
+        enc_test_val=64
 		custom_knobs = [-1, 1,2,3,4, 5,6,7,8]  // default custom knobs config
 		sel_mgen_dev=0
 		knob_set=99 //settings knobset
@@ -179,11 +183,13 @@
 		custom_knobs[last_pad+1] = MIDIByte2
 		Call @SetupLayoutKnobsConfig
 		//store inc and dec values to display on knobs
-		if MIDIByte3<64
-			enc_inc_dec_vals[0] = MIDIByte3
-		elseif MIDIByte3>64
-			enc_inc_dec_vals[1] = MIDIByte3
-		endif
+        if kntrl_knob_type=0 and pad_is_down //encoder
+            if MIDIByte3<64
+                enc_inc_dec_vals[0] = MIDIByte3
+            elseif MIDIByte3>64
+                enc_inc_dec_vals[1] = MIDIByte3
+            endif
+        endif
 		custom_knobs[0] = MIDIChannel
 		if kntrl_knob_type=1
  			msg_type=sx_custom_knobs_update
@@ -203,26 +209,56 @@
 		elseif MIDIByte2=custom_knobs[4]
 			last_knob=3
 		endif
-		//Set knob value and handle change
-		if kntrl_knob_type=1 
-			SetKnobValue last_knob, MIDIByte3 // change knob position reg knobs
-		else
-			knob_value = GetKnobValue last_knob 
-			if MIDIByte3>=64
-				enc_change_dir=1
-			else
-				enc_change_dir=-1
-			endif
-			knob_value = knob_value + enc_change_dir
-			if knob_value<0
-				knob_value=0
-			elseif knob_value>127
-				knob_value=127
-			endif
-			//log {Last knob: }, last_knob, { value MB3: }, MIDIByte3, { knob value: }, knob_value
-			SetKnobValue last_knob, knob_value
-		endif
-		Call @OnKnobChange2 //handle that change 
+
+        if mode=3 // configure midi controller knobs
+            if kntrl_knob_type=1 
+                SetKnobValue 2, MIDIByte3 // change demo knob xxx
+            else
+                if MIDIByte3>=64
+                    enc_change_dir=(knob_scale_turn)/10
+                else
+                    enc_change_dir=(-knob_scale_turn)/10
+                endif
+                if invert_enc_dir
+                    knob_value = enc_test_val - enc_change_dir
+                else    
+                    knob_value = enc_test_val + enc_change_dir
+                endif
+                if knob_value<0
+                    knob_value=0
+                elseif knob_value>127
+                    knob_value=127
+                endif
+                enc_test_val = knob_value
+                SetKnobValue 2, enc_test_val
+            endif
+            Call @SetupKnobset3
+        else
+            //Set knob value and handle change
+            if kntrl_knob_type=1 
+                SetKnobValue last_knob, MIDIByte3 // change knob position reg knobs
+            else
+                knob_value = GetKnobValue last_knob 
+                if MIDIByte3>=64
+                    enc_change_dir=(knob_scale_turn)/10
+                else
+                    enc_change_dir=(-knob_scale_turn)/10
+                endif
+                if invert_enc_dir
+                    knob_value = knob_value - enc_change_dir
+                else    
+                    knob_value = knob_value + enc_change_dir
+                endif
+                if knob_value<0
+                    knob_value=0
+                elseif knob_value>127
+                    knob_value=127
+                endif
+                //log {Last knob: }, last_knob, { value MB3: }, MIDIByte3, { knob value: }, knob_value
+                SetKnobValue last_knob, knob_value
+            endif
+            Call @OnKnobChange2 //handle that change 
+        endif
 		
 	elseif MIDIChannel <> 15
 		Exit //other cc's must be on ch16 (1-16)
@@ -308,14 +344,16 @@
 @End
 
 @SendSysex
-	if msg_type=sx_lp_msg //
-		CopyArray lp_sysex_header, sysex_msg, len_header //set header to LK msg
-	else 
-		CopyArray qk_sysex_header, sysex_msg, len_header //set header to QK msg
-	endif
-	sysex_msg[len_header] = msg_type //add the message type to the sysex msg
-	CopyArray msg_data, sysex_msg[len_header+1], len_data //add msg data to sysex msg
-	SendSysex sysex_msg, len_header+len_data+1 //Send header, msg_type msg_data
+    if send_sysex
+        if msg_type=sx_lp_msg 
+            CopyArray lp_sysex_header, sysex_msg, len_header //set header to LK msg
+        else 
+            CopyArray qk_sysex_header, sysex_msg, len_header //set header to QK msg
+        endif
+        sysex_msg[len_header] = msg_type //add the message type to the sysex msg
+        CopyArray msg_data, sysex_msg[len_header+1], len_data //add msg data to sysex msg
+        SendSysex sysex_msg, len_header+len_data+1 //Send header, msg_type msg_data
+    endif
 @End
 
 @OnHostStart
@@ -334,36 +372,27 @@
 
 @OnShiftDown2
 	//Log {MODE: }, mode
-	if in_mode_select //# Exit SHIFT MODE
-		in_mode_select = FALSE	
-		reset_mxr=FALSE
-		reset_whole_layout=FALSE
-		if mode=0 //
-			Exit // not in use
-		elseif mode=1
-			Call @SetupLayoutChannels
-		elseif mode=5 //instrument mode
-			edit_pad=0
-			Call @SetupLayoutChannels
-			if layouts_locked
-				Call @Setupknobset4 //Locked instrument knobs
-			else
-				Call @Setupknobset2 //setup INSTRUMENT KNOBS
-			endif
-			LatchPad 0, YES
-		elseif mode=6 //MG control mode
-			Call @SetupLayoutChannels
-		elseif mode=7 //Mixer mode
-			Call @SetupLayoutChannels
-			mixer_mode=0
-			Call @SetupKnobset7
-		endif
+    in_mode_select = FALSE
+    if mode=1
+        mode=5 //instrument mode
+        edit_pad=0
+        Call @SetupLayoutChannels
+        if layouts_locked
+            Call @Setupknobset4 //Locked instrument knobs
+        else
+            Call @Setupknobset2 //setup INSTRUMENT KNOBS
+        endif
 		Call @UpdateCurrentKnobset
-	else //Enter settings
-		inst_pad_copied=FALSE
-		FillArray copied_pad, 10, 0
-		Call @SetupSettingsLayout
-		Call @UpdateCurrentKnobset
+	else //SHIFT ON show channel select mode
+		mode=1 
+        Call @SetupLayoutChannels
+        if edit_mode_active
+            edit_chan=0
+            curr_chan=0
+            Call @SetupKnobset1 //# Channels mode curr_chan
+        endif
+        Call @LabelPadsHeader
+        LatchPad curr_chan, YES
 	endif
 @End
 
@@ -412,14 +441,13 @@
 			//copy inst last inst pad pressed
 			copied_pad=[curr_chan, inst_curr_page[curr_chan], last_inst_pad, inst_labels[pad_slot], inst_colors[pad_slot], inst_ccs[pad_slot], inst_mins[pad_slot], inst_maxs[pad_slot], inst_def_vals[pad_slot], inst_msg_type[pad_slot]]
 			inst_pad_copied = TRUE
-			Call @PrintPreset
 			Call @SetupSettingsLayout	
-		elseif last_pad=6 and (NOT HostRunning) 
+		elseif last_pad=5 and (NOT HostRunning) 
 			Call @PrintPreset
 		elseif last_pad=7
 			layouts_locked = NOT layouts_locked
 			Call @SetupSettingsLayout	
-		elseif last_pad=15
+		elseif last_pad=15 //reset mixer
 			if chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=3 or chan_layouts[curr_chan]=4 //mixbus, rtns or master 
 				// reset all values to default params for busses 1-4 or all sends 1-4
 				pad_slot = (64*curr_chan)
@@ -432,7 +460,7 @@
 					reset_mxr=FALSE
 					Call @SetupSettingsLayout
 				else 
-					LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
+					LabelPad last_pad, {Yes, Reset?}, { SHIFT to cancel}
 					reset_mxr=TRUE
 				endif	
 			else
@@ -456,7 +484,7 @@
 					reset_mxr=FALSE
 					Call @SetupSettingsLayout
 				else 
-					LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
+					LabelPad last_pad, {Yes, Reset?}, { SHIFT to cancel}
 					reset_mxr=TRUE
 				endif
 			endif
@@ -518,41 +546,46 @@
 	endif
 @End
 
+@GoToSettingsMixerMode
+    in_mode_select = TRUE
+    inst_pad_copied=FALSE
+    LabelPads {[ KNTRL]}
+    FillArray copied_pad, 10, 0
+    Call @SetupSettingsLayout
+    Call @UpdateCurrentKnobset
+@end
+
 @PadDownChannelsMode
 	if last_pad=15 //goto settings
-        in_mode_select = TRUE
-        inst_pad_copied=FALSE
-        LabelPads {[ KNTRL]}
-		FillArray copied_pad, 10, 0
-		Call @SetupSettingsLayout
-		Call @UpdateCurrentKnobset
-	endif
-	edit_chan = last_pad 
-	if edit_mode_active
-		//# update last channel visited if not one of the quick channels
-		Call @SetupKnobset1
-		for i = 0 to 15
-			LatchPad i, no 
-		endfor
-		Call @SetupLayoutChannels
-		LatchPad last_pad, YES 
-		if send_midi_feedback
-			SendMIDINoteOn 15, last_pad, 8 //LED Feedback. Highlight selected chan
-		endif
-	elseif chan_labels[last_pad]>0 and chan_labels[last_pad]<=num_chan_labels
-		mode=5 //goto INSTRUMENT MODE
-		curr_chan = last_pad  
-		edit_pad=0
-		Call @SetupLayoutChannels
-		use_instr_knobset_a = TRUE
-		if layouts_locked
-			Call @Setupknobset4 //Locked instrument knobs
-		else
-			Call @Setupknobset2 //setup INSTRUMENT KNOBS
-		endif
-		LatchPad 0, YES
-	endif
-	SendMIDICC 15, 24, last_pad //LED FEEDBACK
+        Call @GoToSettingsMixerMode
+    else
+        edit_chan = last_pad 
+        if edit_mode_active
+            //# update last channel visited if not one of the quick channels
+            Call @SetupKnobset1
+            for i = 0 to 15
+                LatchPad i, no 
+            endfor
+            Call @SetupLayoutChannels
+            LatchPad curr_chan, YES 
+            if send_midi_feedback
+                SendMIDINoteOn 15, last_pad, 8 //LED Feedback. Highlight selected chan
+            endif
+        elseif chan_labels[last_pad]>0 and chan_labels[last_pad]<=num_chan_labels
+            mode=5 //goto INSTRUMENT MODE
+            curr_chan = last_pad  
+            edit_pad=0
+            Call @SetupLayoutChannels
+            use_instr_knobset_a = TRUE
+            if layouts_locked
+                Call @Setupknobset4 //Locked instrument knobs
+            else
+                Call @Setupknobset2 //setup INSTRUMENT KNOBS
+            endif
+            LatchPad 0, YES
+        endif
+        SendMIDICC 15, 24, last_pad //LED FEEDBACK
+    endif
 @End
 
 @PadDownInstrMode
@@ -669,7 +702,7 @@
 			Call @SetupLayoutChannels
 			//Log {RESET MIXER PARAMS TO DEFAULTS AND SENT MIDI}
 		else 
-			LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
+			LabelPad last_pad, {Yes, Reset?}, { SHIFT to cancel}
 		endif
 	elseif inst_labels[pad_slot]=lbl_num_res_inst //RESET PAGE LAYOUT
 		if last_pad = edit_pad //user hit same pad again. switch knobset
@@ -688,7 +721,7 @@
 				endif
 			endfor
 		else
-			LabelPad last_pad, {Yes, Reset?}, { SHIFTx2 to cancel}
+			LabelPad last_pad, {Yes, Reset?}, { SHIFT to cancel}
 		endif
 	endif 
 	if last_pad = edit_pad //user hit same pad again. switch knobset
@@ -711,93 +744,94 @@
 
 @PadDownMGMode
 	// Midi Gen plugins kontrol
-	if last_pad<=7 and NOT edit_mode_active
-		sel_mgen_dev=last_pad //range 0-8 
-		SendMIDICC MIDIChannel, sel_mgen_dev+91, 127 //toggle new GUI ON
-		edit_pad = last_pad
-		Call @SetupKnobset10 //use m-kntrl knobs
-	elseif last_pad<=7 and edit_mode_active
-		edit_pad = last_pad 
-		sel_mgen_dev=last_pad  //selected mgen device
-		Call @SetupKnobset8
-	endif
-	for i = 0 to 15
-		LatchPad i, no
-	endfor
-	Call @SetupLayoutChannels
-	LatchPad sel_mgen_dev, YES
+    if last_pad=15
+        Call @GoToSettingsMixerMode
+	else
+        if last_pad<=7 and NOT edit_mode_active
+            sel_mgen_dev=last_pad //range 0-8 
+            SendMIDICC MIDIChannel, sel_mgen_dev+91, 127 //toggle new GUI ON
+            edit_pad = last_pad
+            Call @SetupKnobset10 //use m-kntrl knobs
+        elseif last_pad<=7 and edit_mode_active
+            edit_pad = last_pad 
+            sel_mgen_dev=last_pad  //selected mgen device
+            Call @SetupKnobset8
+        endif
+        for i = 0 to 15
+            LatchPad i, no
+        endfor
+        Call @SetupLayoutChannels
+        LatchPad sel_mgen_dev, YES
+    endif
 @End
 
 @PadDownMixerMode
 	pad_slot = (64*curr_chan) //instrument pad slot for inst sync mute,solo,arm
+    if last_pad<15
+        curr_chan=last_pad
+    endif
+    chan = chan_midi_chs[curr_chan]
+    layout =chan_layouts[curr_chan]
 	if last_pad=15
-        in_mode_select = TRUE
-        inst_pad_copied=FALSE
-        LabelPads {[ KNTRL]}
-		FillArray copied_pad, 10, 0
-		Call @SetupSettingsLayout
-		Call @UpdateCurrentKnobset
+        Call @GoToSettingsMixerMode
 	else
-	  curr_chan=last_pad
-		chan = chan_midi_chs[curr_chan]
-		layout=chan_layouts[curr_chan]
-	endif
-	if layout=2 or layout=3 or layout=4 //MixBus, Return or Master
-		mode=5 //goto INSTRUMENT MODE  
-		edit_pad=0
-		edit_chan=curr_chan
-		Call @SetupLayoutChannels
-		use_instr_knobset_a = TRUE
-		if layouts_locked
-			Call @Setupknobset4 //Locked instrument knobs
-		else
-			Call @Setupknobset2 //setup INSTRUMENT KNOBS
-		endif
-		LatchPad 0, YES
-	else
-		val=127
-		if mixer_mode=4 and mute_solo_arm=0
-			chan_mute[curr_chan] = NOT chan_mute[curr_chan]
-			if not chan_mute[curr_chan]
-				val=0
-			endif
-			SendMIDICC chan, chan_mx_ccs[16], val
-			mixer_state[(curr_chan*20)+16] = val
-			inst_state[pad_slot] = val //also update inst state
-			chan_mute[curr_chan] = val
-			inst_colors[pad_slot + inst_mixer_slots[121]] = 6
-			if not chan_mute[curr_chan]
-				inst_colors[pad_slot + inst_mixer_slots[121]] = 0
-			endif
-		elseif mixer_mode=4 and mute_solo_arm=1
-			chan_solo[curr_chan] = NOT chan_solo[curr_chan]
-			if not chan_solo[curr_chan]
-				val=0
-			endif
-			SendMIDICC chan, chan_mx_ccs[17], val
-			mixer_state[(curr_chan*20)+17] = val
-			inst_state[pad_slot] = val //also update inst state
-			chan_solo[curr_chan] = val
-			inst_colors[pad_slot + inst_mixer_slots[122]] = 4
-			if not chan_solo[curr_chan]
-				inst_colors[pad_slot + inst_mixer_slots[122]] = 0
-			endif
-		elseif mixer_mode=4 and mute_solo_arm=2
-			chan_arm[curr_chan] = NOT chan_arm[curr_chan]
-			if not chan_arm[curr_chan]
-				val=0
-			endif
-			SendMIDICC chan, chan_mx_ccs[18], val
-			mixer_state[(curr_chan*20)+18] = val
-			inst_state[pad_slot + inst_mixer_slots[123]] = val //also update inst state
-			chan_arm[curr_chan] = val
-			inst_colors[pad_slot + inst_mixer_slots[123]] = 1
-			if not chan_arm[curr_chan]
-				inst_colors[pad_slot + inst_mixer_slots[123]] = 0
-			endif
-		endif
-		Call @SetupKnobset7
-	endif
+        if layout=2 or layout=3 or layout=4 //MixBus, Return or Master
+            mode=5 //goto INSTRUMENT MODE  
+            edit_pad=0
+            edit_chan=curr_chan
+            Call @SetupLayoutChannels
+            use_instr_knobset_a = TRUE
+            if layouts_locked
+                Call @Setupknobset4 //Locked instrument knobs
+            else
+                Call @Setupknobset2 //setup INSTRUMENT KNOBS
+            endif
+            LatchPad 0, YES
+        else
+            val=127
+            if mixer_mode=4 and mute_solo_arm=0
+                chan_mute[curr_chan] = NOT chan_mute[curr_chan]
+                if not chan_mute[curr_chan]
+                    val=0
+                endif
+                SendMIDICC chan, chan_mx_ccs[16], val
+                mixer_state[(curr_chan*20)+16] = val
+                inst_state[pad_slot] = val //also update inst state
+                chan_mute[curr_chan] = val
+                inst_colors[pad_slot + inst_mixer_slots[121]] = 6
+                if not chan_mute[curr_chan]
+                    inst_colors[pad_slot + inst_mixer_slots[121]] = 0
+                endif
+            elseif mixer_mode=4 and mute_solo_arm=1
+                chan_solo[curr_chan] = NOT chan_solo[curr_chan]
+                if not chan_solo[curr_chan]
+                    val=0
+                endif
+                SendMIDICC chan, chan_mx_ccs[17], val
+                mixer_state[(curr_chan*20)+17] = val
+                inst_state[pad_slot] = val //also update inst state
+                chan_solo[curr_chan] = val
+                inst_colors[pad_slot + inst_mixer_slots[122]] = 4
+                if not chan_solo[curr_chan]
+                    inst_colors[pad_slot + inst_mixer_slots[122]] = 0
+                endif
+            elseif mixer_mode=4 and mute_solo_arm=2
+                chan_arm[curr_chan] = NOT chan_arm[curr_chan]
+                if not chan_arm[curr_chan]
+                    val=0
+                endif
+                SendMIDICC chan, chan_mx_ccs[18], val
+                mixer_state[(curr_chan*20)+18] = val
+                inst_state[pad_slot + inst_mixer_slots[123]] = val //also update inst state
+                chan_arm[curr_chan] = val
+                inst_colors[pad_slot + inst_mixer_slots[123]] = 1
+                if not chan_arm[curr_chan]
+                    inst_colors[pad_slot + inst_mixer_slots[123]] = 0
+                endif
+            endif
+            Call @SetupKnobset7
+        endif
+    endif
 @End
 
 @PadDownConfigureKnobs
@@ -805,7 +839,11 @@
 		ready_to_rec_knob_vals=TRUE
 		ColorPad last_pad+8, 2
 		LabelPad last_pad+8, {____^____}, { turn encoder }
-	endif
+    elseif last_pad=6 and (custom_knobs[0]>-1)
+        invert_enc_dir = not invert_enc_dir
+	elseif last_pad=15
+        Call @GoToSettingsMixerMode
+    endif
 @End
 
 @SetupSettingsLayout
@@ -842,12 +880,14 @@
 	else
 		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {RESET MXR} 
 	endif
-	LabelPad 8, {VOL PAN} //channels Vol, Gain, Pan, Width
-	LabelPad 9, {SENDS FILT} //HPF LPF SEND A SEND B
-	LabelPad 10, {EQ}
-	LabelPad 11, {FX}
-	LabelPad 12, {MUTE SOLO} //mute solo
-	
+	LabelPad 8, {__MIXER__ }, {VOL PAN} //channels Vol, Gain, Pan, Width
+	LabelPad 9, {__MIXER__ }, {SENDS FILT} //HPF LPF SEND A SEND B
+	LabelPad 10, {__MIXER__  }, {EQ}
+	LabelPad 11, {__MIXER__  }, {FX}
+	LabelPad 12, {__MIXER__  }, {MUTE SOLO} //mute solo
+	LabelPad 13, { }
+	LabelPad 14, { }
+
 	if inst_pad_copied and NOT layouts_locked
 		LabelPad 6, {COPIED  }, { CHAN}, copied_pad[0]+1, {   }, { PAGE}, copied_pad[1]+1, {    }, { PAD#}, copied_pad[2]+1
 		p6=3
@@ -1213,18 +1253,24 @@
 	else 
 		LabelKnob 1, {Type: REG}
 	endif
-	LabelKnob 2, {DEC }, enc_inc_dec_vals[0]
-	LabelKnob 3, {INC }, enc_inc_dec_vals[1]
+	LabelKnob 2, Round enc_test_val
+	LabelKnob 3, {Rate }, (knob_scale_turn/10)
 	SetKnobValue 0, TranslateScale custom_knobs[0], -1, 14, 0, 127
 	SetKnobValue 1, TranslateScale kntrl_knob_type, 0, 1, 0, 127
-	SetKnobValue 2, enc_inc_dec_vals[0]
-	SetKnobValue 3, enc_inc_dec_vals[1]
+	SetKnobValue 2, TranslateScale enc_test_val, 0, 127, 0, 127
+	SetKnobValue 3, TranslateScale knob_scale_turn, 2, 18, 0, 127
 @End
 
 @KnobChangeSet3
 	if last_knob = 1 // KNOB TYPE
 		val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 1 // knob type
 		kntrl_knob_type = val
+    elseif last_knob = 2 // test encoder 
+        val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 127 // test knob type
+        enc_test_val = val
+    elseif last_knob = 3 // knob_scale_turn
+        val = Round TranslateScale (GetKnobValue 3), 0, 127, 2, 18 // knob_scale_turn
+        knob_scale_turn = val
 	endif
 	Call @SetupLayoutKnobsConfig
 @End
@@ -1511,6 +1557,10 @@
 	for i = 4 to 7
 		ColorPad i, 0
 	endfor
+    if invert_enc_dir
+        ColorPad 6, 1
+        ColorPad 7, 1
+    endif
 	if custom_knobs[0] = -1 //custom knobs not in use
 		LabelPad 0, {   TOP L   }, { --- }
 		LabelPad 1, {   TOP R   }, { --- }
@@ -1527,12 +1577,22 @@
 		LabelPad 3, {   LOW R   }, { cc#}, custom_knobs[4]
 		LabelPad 4, { }
 		LabelPad 5, { }
-		LabelPad 6, { }
-		LabelPad 7, { }
-		LabelPad 14, {DEC  should be <64}
-		LabelPad 15, {INC  should be >64}
+        if kntrl_knob_type=0 //encoder
+    	    if invert_enc_dir
+            	LabelPad 6, {Invert YES}
+                LabelPad 7, enc_inc_dec_vals[1], { / }, enc_inc_dec_vals[0]
+            else    
+                LabelPad 6, {Invert NO}
+                LabelPad 7, enc_inc_dec_vals[0], { / }, enc_inc_dec_vals[1]
+            endif
+        else //regular cc 
+            LabelPad 6, { }
+            LabelPad 7, { }
+        endif
+		
 	endif
-	Call @SetupKnobset3
+	LabelPad 15, {Settings / Mixer...}
+    Call @SetupKnobset3
 @End
 
 @PrintPreset
@@ -1803,9 +1863,11 @@
 			if i<=7
 				mgen_pad=i //settings mode last mgen pad in pad slot 7
 				Call @LabelMGENPad
-			elseif i>=8
-				LabelPad i, { }	
-			endif
+			elseif i=15
+				LabelPad i, {Settings / Mixer...}	
+			else
+                LabelPad i, { }
+            endif
 			ColorPad i, mgen_colors[i]
 			if send_midi_feedback
 				SendMIDINoteOn 15, i, mgen_colors[i] //LED FEEDBACK
@@ -1944,7 +2006,7 @@
 	elseif (label_num=25)
 		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SAMPLER}	
 	elseif (label_num=99)
-		LabelPad pad_to_label, {MORE...}	
+		LabelPad pad_to_label, {Settings / Mixer...}	
 	endif
 @End
 
@@ -2005,13 +2067,13 @@
 	elseif (label_num=5)
 		LabelPad pad_to_label, {SEND 2} //MIXER
 	elseif (label_num=6)
-		LabelPad pad_to_label, {EQ MID} //MIXER
+		LabelPad pad_to_label, {EQ GAIN} //MIXER
 	elseif (label_num=7)
 		LabelPad pad_to_label, {EQ 4} //MIXER
 	elseif (label_num=8)
-		LabelPad pad_to_label, {EQ LO} //MIXER
+		LabelPad pad_to_label, {EQ FREQ} //MIXER
 	elseif (label_num=9)
-		LabelPad pad_to_label, {EQ HI} //MIXER
+		LabelPad pad_to_label, {EQ Q} //MIXER
 	elseif (label_num=10)
 		LabelPad pad_to_label, {HPF} //MIXER
 	elseif (label_num=11)
