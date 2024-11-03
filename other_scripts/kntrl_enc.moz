@@ -2,8 +2,8 @@
 //# 4 ENCODERS to control 15 channels
 @OnLoad
 	ShowLayout 2
-	LabelPads {[ KNTRL ]}
 	SetShortName {EK}
+    LabelPads {[ SETTINGS/MIXER MODES ] }
 	if unassigned pad_is_down 
 		mode = 5 //#1Channels, 2Kontrol
 		edit_mode_active=FALSE
@@ -33,7 +33,9 @@
         enc_test_val=64
 		custom_knobs = [-1, 1,2,3,4, 5,6,7,8]  // default custom knobs config
 		sel_mgen_dev=0
+        long_press=FALSE
 		knob_set=99 //settings knobset
+        SetTimerInterval 500
 		//Initialise KNTRL
 		Call @SysexMessageSetup
 		Call @InitKnobVariables //# All knob settings on start
@@ -371,33 +373,43 @@
   Call @OnShiftDown2 //simply to allow midi note in simulation of SHIFT Note16 any channel
 @End
 
+@OnTimer 
+    Call @GoToSettingsMixerMode
+    StopTimer
+    long_press=TRUE
+@End
+
 @OnShiftDown2
-	//Log {MODE: }, mode
-    in_mode_select = FALSE
-    if mode=1
-        mode=5 //instrument mode
-        edit_pad=0
-        Call @SetupLayoutChannels
-        if layouts_locked
-            Call @Setupknobset4 //Locked instrument knobs
-        else
-            Call @Setupknobset2 //setup INSTRUMENT KNOBS
-        endif
-		Call @UpdateCurrentKnobset
-	else //SHIFT ON show channel select mode
-		mode=1 
-        Call @SetupLayoutChannels
-        if edit_mode_active
-            edit_chan=0
-            curr_chan=0
-            Call @SetupKnobset1 //# Channels mode curr_chan
-        endif
-        Call @LabelPadsHeader
-        LatchPad curr_chan, YES
-	endif
+    StartTimer
 @End
 
 @OnShiftUp
+    in_mode_select = FALSE
+    StopTimer
+    if not long_press
+        if mode=1 //channel select mode 
+            mode=5 //instrument mode
+            edit_pad=0
+            Call @SetupLayoutChannels
+            if layouts_locked
+                Call @Setupknobset4 //Locked instrument knobs
+            else
+                Call @Setupknobset2 //setup INSTRUMENT KNOBS
+            endif
+            Call @UpdateCurrentKnobset
+        else
+            mode=1 //channel select mode  
+            Call @SetupLayoutChannels
+            if edit_mode_active
+                edit_chan=0
+                curr_chan=0
+                Call @SetupKnobset1 //# Channels mode curr_chan
+            endif
+            Call @LabelPadsHeader
+            LatchPad curr_chan, YES
+        endif
+    endif
+    long_press=FALSE
 @End
 
 @OnPadDown
@@ -515,7 +527,6 @@
 	elseif inst_msg_type[pad_slot]=1
 	  SendMIDINoteOff chan_midi_chs[curr_chan], inst_ccs[pad_slot], 64
 	endif
-	StopTimer
 	ready_to_rec_knob_vals=FALSE
 	if mode=3 and last_pad<=7
 		Call @SetupLayoutKnobsConfig
@@ -526,7 +537,6 @@
 	if in_mode_select
 		Call @SetupSettingsLayout
 		Call @UpdateCurrentKnobset
-        LabelPads {[ KNTRL]}
     else    
         if mode=0  //NOT IN USE
             Exit
@@ -550,7 +560,7 @@
 @GoToSettingsMixerMode
     in_mode_select = TRUE
     inst_pad_copied=FALSE
-    LabelPads {[ KNTRL]}
+    LabelPads {[ SETTINGS/MIXER MODES ]}
     FillArray copied_pad, 10, 0
     Call @SetupSettingsLayout
     Call @UpdateCurrentKnobset
@@ -1896,60 +1906,64 @@
 
 @LabelPadsHeader
 	//Laborious task of labelling pads when you cant store a string
-	label_num = chan_labels[curr_chan]
-	if (label_num=0)
-		LabelPads {KNTRL}
-	elseif (label_num=1)
-		LabelPads {Active channel: DRUMS }
-	elseif (label_num=2)
-		LabelPads {Active channel: PERCS }
-	elseif (label_num=3)
-		LabelPads {Active channel: BASS }
-	elseif (label_num=4)
-		LabelPads {Active channel: TABLA }
-	elseif (label_num=5)
-		LabelPads {Active channel: LEAD }
-	elseif (label_num=6)
-		LabelPads {Active channel: PADS }
-	elseif (label_num=7)
-		LabelPads {Active channel: PAD BASS }
-	elseif (label_num=8)
-		LabelPads {Active channel: ARP }
-	elseif (label_num=9)
-		LabelPads {Active channel: KEYS }
-	elseif (label_num=10)
-		LabelPads {Active channel: PLUCK }	
-	elseif (label_num=11)
-		LabelPads {Active channel: STRINGS }
-	elseif (label_num=12)
-		LabelPads {Active channel: SYNTH BUS }
-	elseif (label_num=13)
-		LabelPads {Active channel: MIXBUS 1-4 }
-	elseif (label_num=14)
-		LabelPads {Active channel: RETURNS }
-	elseif (label_num=15)
-		LabelPads {Active channel: MASTER }
-	elseif (label_num=16)
-		LabelPads {Active channel: FX }
-	elseif (label_num=17)
-		LabelPads {Active channel: LOOPS }
-	elseif (label_num=18)
-		LabelPads {Active channel: DRONE }
-	elseif (label_num=19)
-		LabelPads {Active channel: TEXTURE }
-	elseif (label_num=20)
-		LabelPads {Active channel: KICK }
-	elseif (label_num=21)
-		LabelPads {Active channel: SHAKERS }
-	elseif (label_num=22)
-		LabelPads {Active channel: VOCALS }
-	elseif (label_num=23)
-		LabelPads {Active channel: SNR/CLP }
-	elseif (label_num=24)
-		LabelPads {Active channel: HATS }
-	elseif (label_num=25)
-		LabelPads {Active channel: SAMPLER }
-	endif
+    if mode=5 //instrument mode
+        label_num = chan_labels[curr_chan]
+        if (label_num=0)
+            LabelPads {KNTRL}
+        elseif (label_num=1)
+            LabelPads curr_chan+1, {: DRUMS }
+        elseif (label_num=2)
+            LabelPads curr_chan+1, {: PERCS }
+        elseif (label_num=3)
+            LabelPads curr_chan+1, {: BASS }
+        elseif (label_num=4)
+            LabelPads curr_chan+1, {: TABLA }
+        elseif (label_num=5)
+            LabelPads curr_chan+1, {: LEAD }
+        elseif (label_num=6)
+            LabelPads curr_chan+1, {: PADS }
+        elseif (label_num=7)
+            LabelPads curr_chan+1, {: PAD BASS }
+        elseif (label_num=8)
+            LabelPads curr_chan+1, {: ARP }
+        elseif (label_num=9)
+            LabelPads curr_chan+1, {: KEYS }
+        elseif (label_num=10)
+            LabelPads curr_chan+1, {: PLUCK }	
+        elseif (label_num=11)
+            LabelPads curr_chan+1, {: STRINGS }
+        elseif (label_num=12)
+            LabelPads curr_chan+1, {: SYNTH BUS }
+        elseif (label_num=13)
+            LabelPads curr_chan+1, {: MIXBUS 1-4 }
+        elseif (label_num=14)
+            LabelPads curr_chan+1, {: RETURNS }
+        elseif (label_num=15)
+            LabelPads curr_chan+1, {: MASTER }
+        elseif (label_num=16)
+            LabelPads curr_chan+1, {: FX }
+        elseif (label_num=17)
+            LabelPads curr_chan+1, {: LOOPS }
+        elseif (label_num=18)
+            LabelPads curr_chan+1, {: DRONE }
+        elseif (label_num=19)
+            LabelPads curr_chan+1, {: TEXTURE }
+        elseif (label_num=20)
+            LabelPads curr_chan+1, {: KICK }
+        elseif (label_num=21)
+            LabelPads curr_chan+1, {: SHAKERS }
+        elseif (label_num=22)
+            LabelPads curr_chan+1, {: VOCALS }
+        elseif (label_num=23)
+            LabelPads curr_chan+1, {: SNR/CLP }
+        elseif (label_num=24)
+            LabelPads curr_chan+1, {: HATS }
+        elseif (label_num=25)
+            LabelPads curr_chan+1, {: SAMPLER }
+        endif
+	else
+        LabelPads {[ CHANNEL SELECT ]}
+    endif
 @End
 
 @LabelChanPad // CHANNELS LABELLING - Channels for INSTRUMENTS or MGEN devices 
