@@ -293,7 +293,8 @@
 	current_scene_duration = scene_bank[current_scene * sc_size]  * HostBeatsPerMeasure //# IN BEATS!
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	current_chord_duration = chord_bank[chord_slot + dur_slot]
-	
+    chord_note_ch = player_out_channel
+
 	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
 	
 	//# Log {Scene beats left: }, current_scene_duration - scene_beat_count
@@ -303,20 +304,25 @@
   		Call @TimeForTurnaround
   	endif
   
-	//# Chord progressop -- Order of operations
+	//# Chord progression -- Order of operations
 	if (scene_change_requested > -1) and (HostBeat = 0)
 		//# user requested scene change and its a new bar (& return to song)
 		//# Log {Handling scene change request. It a new bar}
+        Call @TurnOffChordNotes
 		Call @HandleSceneChange
 	elseif (scene_beat_count >= current_scene_duration)
 		//# its time to increment scene
+        Call @TurnOffChordNotes
 		Call @HandleSceneChange
 	elseif (chord_change_requested > -1)
   		//# User requested chord change & its a new beat
+        Call @TurnOffChordNotes
  		Call @HandleChordChange
  	elseif time_for_turnaround
+        Call @TurnOffChordNotes
  		Call @HandleChordChange
 	elseif (chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
+        Call @TurnOffChordNotes
 		Call @HandleChordChange
 	endif
 	if mode=0
@@ -596,17 +602,17 @@
 				SendMIDINoteOn 15, current_chord+8+led_index, 1 //LED FEEDBACK
 			endif
 		elseif (mode = 6) //# COPY/PASTE
-    	//# only call CP if pad and copy mode correspond
-    	if copy_mode=0 and last_pad<=7
-	    	Call @CopyPaste //# copy paste scene
-	    elseif copy_mode=1 and last_pad>=8 
-	    	Call @CopyPaste //# copy paste chord
-	    endif
+            //# only call CP if pad and copy mode correspond
+            if copy_mode=0 and last_pad<=7
+                Call @CopyPaste //# copy paste scene
+            elseif copy_mode=1 and last_pad>=8 
+                Call @CopyPaste //# copy paste chord
+            endif
 		elseif (mode=7) and (last_pad <= 7) //# reset mode
-    	//Log {Reset scene called}
+    	    //Log {Reset scene called}
     	Call @ResetScene   
  	 	elseif (mode=7) and (last_pad >= 7)
-    	//Log {Reset chord called}
+    	    //Log {Reset chord called}
     	Call @ResetChord
   	endif
 	if NOT HostRunning and (last_pad >= 8)
@@ -827,13 +833,13 @@
 		scene_bank[((MIDIByte2-101) * sc_size)] = MIDIByte3 
 		Call @SetupLayout	
 	elseif (MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15 and HostRunning)
-  	return_to_song_mode_requested = TRUE //# handle return to song mode requested
-  	in_mode_select = FALSE
+  	    return_to_song_mode_requested = TRUE //# handle return to song mode requested
+  	    in_mode_select = FALSE
 		songmode = 0
-  	mode = 0
+  	    mode = 0
 		Call @SetupLayout
-  	ColorPad current_scene, 6
-    ColorPad 8, 3	
+  	    ColorPad current_scene, 6
+        ColorPad 8, 3	
 		if mgen_device_id=mgen_sel_dev
 			SendMIDINoteOn 15, current_scene+led_index, 3
 			SendMIDINoteOn 15, 8+led_index, 3
@@ -841,13 +847,13 @@
 	elseif (MIDIByte2=22 and MIDIByte3>0 and MIDIChannel=15 and not HostRunning)
 		return_to_song_mode_requested = TRUE
 		in_mode_select = FALSE //Return to song mode
-  	songmode = 0
-  	mode = 0
+  	    songmode = 0
+  	    mode = 0
 		current_scene=0
 		current_chord=0
 		Call @SetupLayout
 		ColorPad current_scene, 3
-    ColorPad current_chord+8, 3
+        ColorPad current_chord+8, 3
 		if mgen_device_id=mgen_sel_dev
 			SendMIDINoteOn 15, current_scene+led_index, 3
 			SendMIDINoteOn 15, 8+led_index, 3
@@ -1324,7 +1330,7 @@
 @End
 
 @TurnOffChordNotes
-	//# channels. requires a ch variable to be set before calling
+	//# channels. requires a chord_note_ch variable to be set before calling
 	for i = 0 to 3
 		//# stored in 1st 4 note slots (0-3) on each channel
 		if (GetNoteState chord_note_ch, i)
