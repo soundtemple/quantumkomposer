@@ -17,8 +17,6 @@
 		edit_scene=0
         send_sysex=FALSE
 		pad_is_down=FALSE
-		reset_mxr=FALSE //confirm reset mixer in settings mode
-		reset_whole_layout=FALSE //confirm reset whole layout in settings mode
 		last_channel_visited=0 //# last channel a user visited 0-16 (16 is top level)
 		in_mode_select = TRUE //# Toggle for changing modes mode
 		curr_chan=0 //# 0-15 KNTRL channels + Channel Select + M-Kontrol Channel
@@ -121,15 +119,13 @@
 	// label number vars. Update these if @LabelInstr changes	
 	lbl_num_pgm_dec=57
 	lbl_num_pgm_inc=58
-	lbl_num_res_mxr=59
-	lbl_num_res_inst=60
 	lbl_num_ch_num=62
 	lbl_num_drum_ch=63
     //Create a pad repo so users can copy pads to their custom layouts
     Call @CreatePadRepo
 
-	// MIXER - Vol,Pan,Gain,Width, SendsA-B, HPF,LPF, EQLO,EQHI,HPF/LPF,  Mute,Solo,Arm, [instr],[eq],[fx1],[fx2]
-	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO, [instr],[eq],[fx1],[fx2]
+	// MIXER - Vol,Pan,Gain,Width, SendsA-B, HPF,LPF, EQLO,EQHI,HPF/LPF,  Mute,Solo,Arm,
+	mixer_mode=0 //# the section of the mixer VOL, SEND/FILT, EQ, FX, MUTE/SOLO, 
 	mixer_state=[] //the main container for mixer cc values. 
 	chan_mx_ccs =   [7,8,6 , 9, 10,11,16,17, 14,15,12,13, 117,118,119,120, 121,122,123, 124,125,126,127]
 	inst_mx_slots = [0,1,13,-1, 2 ,3 ,8 ,12,  9,11,10,-1, 4,5,6,7,   14,15,-1, -1,-1,-1,-1] //pos in layout of above cc.
@@ -380,10 +376,6 @@
 	endif
 @End 
 
-@OnShiftDown
-  Call @OnShiftDown2 //simply to allow midi note in simulation of SHIFT Note16 any channel
-@End
-
 @OnTimer 
     if timer_type=0 //longpress shift
         Call @GoToSettingsMixerMode
@@ -400,12 +392,20 @@
     long_press=TRUE
 @End
 
+@OnShiftDown
+  Call @OnShiftDown2 //simply to allow midi note in simulation of SHIFT Note16 any channel
+@End
+
 @OnShiftDown2
     StartTimer
     timer_type=0
 @End
 
 @OnShiftUp
+    Call @OnShiftUp2
+@End
+
+@OnShiftUp2
     StopTimer
     if not long_press
         in_mode_select = FALSE
@@ -477,47 +477,6 @@
 		elseif last_pad=7
 			layouts_locked = NOT layouts_locked
 			Call @SetupSettingsLayout	
-		elseif last_pad=15 //reset mixer
-			if chan_layouts[curr_chan]=2 or chan_layouts[curr_chan]=3 or chan_layouts[curr_chan]=4 //mixbus, rtns or master 
-				// reset all values to default params for busses 1-4 or all sends 1-4
-				pad_slot = (64*curr_chan)
-				if reset_mxr  //user hit same pad again. switch knobset
-					edit_chan=curr_chan
-					Call @BuildLayoutPages
-					for i = 0 to 63
-						SendMIDICC chan_midi_chs[curr_chan], inst_ccs[(64*curr_chan)+i], inst_def_vals[i]
-					endfor
-					reset_mxr=FALSE
-					Call @SetupSettingsLayout
-				else 
-					LabelPad last_pad, {Yes, Reset?}, { SHIFT to cancel}
-					reset_mxr=TRUE
-				endif	
-			else
-				// reset mixer (special handle for returns and mixbus)
-				if reset_mxr  //user hit same pad again. switch knobset
-					for i = 0 to 18 
-						mixer_state[(curr_chan*20) + i] = chan_mx_def_vals[i]
-						SendMIDICC chan_midi_chs[curr_chan], chan_mx_ccs[i], chan_mx_def_vals[i]
-						//update the instrument state as well 
-						if inst_mx_slots[i] >= 0
-							inst_state[(64*curr_chan) + inst_mx_slots[i]] = chan_mx_def_vals[i]
-							//Log i,{.  pos: }, inst_mx_slots[i], { def val: }, chan_mx_def_vals[i]
-						endif
-						if inst_mx_slots[i]>=14 and inst_mx_slots[i]<=15 //mute solo arm positions in layout p1
-							inst_colors[(64*curr_chan) + inst_mx_slots[i]] = 0
-						endif
-					endfor
-					chan_mute[curr_chan] = FALSE
-					chan_solo[curr_chan] = FALSE
-					chan_arm[curr_chan] = FALSE
-					reset_mxr=FALSE
-					Call @SetupSettingsLayout
-				else 
-					LabelPad last_pad, {Yes, Reset?}, { SHIFT to cancel}
-					reset_mxr=TRUE
-				endif
-			endif
 		elseif last_pad>=8 and last_pad<=12 // MIXER MODES
 		    mode=7 //MIXER MODES
 			in_mode_select = FALSE
@@ -751,41 +710,6 @@
 				Log {Sent PGM MSG: CHAN:}, chan_midi_chs[curr_chan]+1, { PGM: }, chan_pgm[curr_chan], { MSB: }, chan_msb[curr_chan], { LSB: }, chan_lsb[curr_chan]
 			endif
 		endif
-	elseif inst_labels[pad_slot]=lbl_num_res_mxr //RESET MIXER
-		if last_pad = edit_pad //user hit same pad again. switch knobset
-			for i = 0 to 18
-				mixer_state[(curr_chan*20) + i] = chan_mx_def_vals[i]
-				SendMIDICC chan_midi_chs[curr_chan], chan_mx_ccs[i], chan_mx_def_vals[i]
-			endfor
-			if layouts_locked
-				Call @LabelInstrumentKnobsLocked
-			else
-				Call @LabelInstrumentKnobsUnlocked
-			endif
-			Call @SetupLayoutChannels
-			//Log {RESET MIXER PARAMS TO DEFAULTS AND SENT MIDI}
-		else 
-			LabelPad last_pad, {Yes, Reset?}, { SHIFT to cancel}
-		endif
-	elseif inst_labels[pad_slot]=lbl_num_res_inst //RESET PAGE LAYOUT
-		if last_pad = edit_pad //user hit same pad again. switch knobset
-			edit_chan=curr_chan
-			Call @BuildLayoutPages
-			if layouts_locked
-				Call @LabelInstrumentKnobsLocked
-			else
-				Call @LabelInstrumentKnobsUnlocked
-			endif
-			Call @SetupLayoutChannels
-			reset_slot = (64*curr_chan)
-			for i = 0 to 63
-				if inst_msg_type[reset_slot]=0 //Dont send if a Note type msg 
-					SendMIDICC curr_chan, inst_ccs[reset_slot+i], inst_state[reset_slot+i]
-				endif
-			endfor
-		else
-			LabelPad last_pad, {Yes, Reset?}, { SHIFT to cancel}
-		endif
 	endif 
 	if last_pad = edit_pad //user hit same pad again. switch knobset
 		use_instr_knobset_a = NOT use_instr_knobset_a
@@ -813,9 +737,10 @@
 	else
         if last_pad<=7 and NOT edit_mode_active
             sel_mgen_dev=last_pad //range 0-8 
-            SendMIDICC MIDIChannel, sel_mgen_dev+91, 127 //toggle new GUI ON
+            SendMIDICC 15, sel_mgen_dev+91, 127 //toggle new GUI ON
             edit_pad = last_pad
             Call @SetupKnobset10 //use m-kntrl knobs
+            LabelKnobs {CH:16}, { CC#}, sel_mgen_dev+91
         elseif last_pad<=7 and edit_mode_active
             edit_pad = last_pad 
             sel_mgen_dev=last_pad  //selected mgen device
@@ -930,22 +855,14 @@
 	LabelPad 3, {INSTRUMENT}, {CHANNELS}
 	LabelPad 4, { }
 	LabelPad 5, { }
-	if chan_layouts[curr_chan]=2 //mixbus1-4
-		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {RESET MBx4}
-	elseif chan_layouts[curr_chan]=3 //returns
-		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {RESET RTNS}
-	elseif chan_layouts[curr_chan]=4 //master
-		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {RESET MSTR}
-	else
-		LabelPad 15,{ ___CH}, chan_midi_chs[curr_chan]+1, {___ }, {RESET MXR} 
-	endif
 	LabelPad 8, {__MIXER__ }, {VOL PAN} //channels Vol, Gain, Pan, Width
 	LabelPad 9, {__MIXER__ }, {SENDS FILT} //HPF LPF SEND A SEND B
 	LabelPad 10, {__MIXER__  }, {EQ}
 	LabelPad 11, {__MIXER__  }, {FX}
 	LabelPad 12, {__MIXER__  }, {MUTE SOLO} //mute solo
 	LabelPad 13, { }
-	LabelPad 14, { }
+    LabelPad 14, { }
+	LabelPad 15, { }
 	LabelPad 6, { }
 	p6=0
 	
@@ -955,10 +872,10 @@
         LabelPads {[ SETTINGS/MIXER MODES ]}
 	else
 	    LabelPad 7, {EDIT LAYOUTS}, { ON }
-        LabelPads {Tap instrument pad to edit. Longpress to copy}
+        LabelPads {Goto instrument chan. Tap pad to edit. Longpress to copy}
 		p7=col_mode_edit
 	endif
-	settings_cols = [kc_col,p1,p2,p3, 0,0,p6,p7, 2,2,2,2, 2,0,0,1]
+	settings_cols = [kc_col,p1,p2,p3, 0,0,p6,p7, 2,2,2,2, 2,0,0,0]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
@@ -1026,23 +943,23 @@
 			else
 				Call @Setupknobset2 //setup INSTRUMENT KNOBS
 			endif
-	  elseif knob_set = 3
-	  	Call @SetupKnobset3	//# Configure knobs
-	  elseif knob_set = 4
-	  	Call @SetupKnobset4	//# unused
-	  elseif knob_set = 5
-	  	Call @SetupKnobset5	//# unused
-	  elseif knob_set = 6
-	  	Call @SetupKnobset6	//# unused
-	  elseif knob_set = 7
-	  	Call @SetupKnobset7	//# MIXER MODES
-	  elseif knob_set = 8
-	  	Call @SetupKnobset8	//# M-KONTROL setup-a
-	  elseif knob_set = 9
-	  	//unused
-	  elseif knob_set = 10
-	  	Call @SetupKnobset10	//# M-KONTROL usage
-		endif
+        elseif knob_set = 3
+            Call @SetupKnobset3	//# Configure knobs
+        elseif knob_set = 4
+            Call @SetupKnobset4	//# unused
+        elseif knob_set = 5
+            Call @SetupKnobset5	//# unused
+        elseif knob_set = 6
+            Call @SetupKnobset6	//# unused
+        elseif knob_set = 7
+            Call @SetupKnobset7	//# MIXER MODES
+        elseif knob_set = 8
+            Call @SetupKnobset8	//# M-KONTROL setup-a
+        elseif knob_set = 9
+            //unused
+        elseif knob_set = 10
+            Call @SetupKnobset10	//# M-KONTROL usage
+        endif
 	endif
 @End
 
@@ -1500,14 +1417,14 @@
         endif
 	elseif mixer_mode=2
         if not kntrl_output_relenc
-            LabelKnob 0, {EQ G }
-            LabelKnob 1, {EQ F }
-            LabelKnob 2, {EQ Q }
+            LabelKnob 0, {EQ LO }
+            LabelKnob 1, {EQ MID }
+            LabelKnob 2, {EQ HI }
             LabelKnob 3, {TONE } 
         else
-            LabelKnob 0, {EQ G }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
-            LabelKnob 1, {EQ F }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
-            LabelKnob 2, {EQ Q }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
+            LabelKnob 0, {EQ LO }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 0]
+            LabelKnob 1, {EQ MID }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 1]
+            LabelKnob 2, {EQ HI }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 2]
             LabelKnob 3, {HP/LP }, mixer_state[(curr_chan*20) + (mixer_mode*4) + 3]
         endif
 	elseif mixer_mode=3
@@ -1570,7 +1487,7 @@
 @SetupKnobset8
 	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
 	knob_set = 8
-	LabelPads {MIDI GENERATORS}
+	LabelPads {[ MIDI GENERATORS ]}
 	LabelKnobs {SETUP PAD }, sel_mgen_dev+1
 	LabelKnob 0, {Label }, mgen_labels[sel_mgen_dev]
 	LabelKnob 1, {Color }, mgen_colors[sel_mgen_dev]
@@ -1603,7 +1520,7 @@
 @SetupKnobset10
 	//# MGEN-KONTROL USAGE - VAL KNOBS1-4
 	knob_set = 10
-	LabelPads {MIDI GENERATORS}
+	Call @LabelPadsHeader
 	LabelKnobs { }
 	LabelKnob 0, { }
 	LabelKnob 1, { }
@@ -1826,7 +1743,7 @@
         def_ccs[16*3]    = [78,79,80,81,82,83,84,85,86,87,88,89,90,91,1,92]
     elseif chan_layouts[edit_chan]=6 // Koala
 		// {[ INSTRUMENT }, curr_chan+1, { ] Layout:KOALA}
-        def_labels[16*0] = [33,34,0,22,2,28,31,7,8,6,8,6,8,6,-1,-1] //SAMPLE EDIT
+        def_labels[16*0] = [33,34,0,22,2,28,31,7,59,60,59,60,59,60,-1,-1] //SAMPLE EDIT
         def_colors[16*0] = [4,4,2,6,2,5,5,3,1,1,2,2,3,3,0,0]
         def_vals[16*0]   = [0,127,64,64,64,0,0,64,0,64,0,64,0,64,0,0]
         def_ccs[16*0]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61]
@@ -1963,8 +1880,12 @@
 	for i = 0 to 15
 		pad_to_label=i
 		LatchPad i, NO 
-		if mode=1 or mode=7// Channels setup
+		if mode=1 //Channels setup
 			chan_pad=i //settings mode label and pad pos. diff
+			Call @LabelChanPad
+            LabelPad 15, {Settings / Mixer...}
+        elseif mode=7
+            chan_pad=i //settings mode label and pad pos. diff
 			Call @LabelChanPad
             LabelPad 15, {MixerMode }, { --> } 
 		elseif mode=6 // MGEN mode 
@@ -1972,7 +1893,9 @@
 				mgen_pad=i //settings mode last mgen pad in pad slot 7
 				Call @LabelMGENPad
 			elseif i=15
-				LabelPad i, {Settings / Mixer...}	
+				LabelPad i, {Settings / Mixer...}
+            elseif i=8
+                LabelPad i, {Map buttons to device GUI's.}	
 			else
                 LabelPad i, { }
             endif
@@ -2059,6 +1982,10 @@
         elseif (label_num=25)
             LabelPads curr_chan+1, {: SAMPLER }
         endif
+    elseif mode=6
+        LabelPads {[ MIDI GENERATORS ]}
+    elseif mode=7
+        LabelPads {[ MIXER MODE }, mixer_mode+1, { ]}
 	else
         LabelPads {[ CHANNEL SELECT ]}
     endif
@@ -2192,13 +2119,13 @@
 	elseif (label_num=5)
 		LabelPad pad_to_label, {SEND 2} //MIXER
 	elseif (label_num=6)
-		LabelPad pad_to_label, {EQ GAIN} //MIXER
+		LabelPad pad_to_label, {EQ LO} //MIXER
 	elseif (label_num=7)
 		LabelPad pad_to_label, {TONE} //MIXER
 	elseif (label_num=8)
-		LabelPad pad_to_label, {EQ FREQ} //MIXER
+		LabelPad pad_to_label, {EQ MID} //MIXER
 	elseif (label_num=9)
-		LabelPad pad_to_label, {EQ Q} //MIXER
+		LabelPad pad_to_label, {EQ HI} //MIXER
 	elseif (label_num=10)
 		LabelPad pad_to_label, {HPF} //MIXER
 	elseif (label_num=11)
@@ -2280,9 +2207,9 @@
 	elseif (label_num=58)
 		LabelPad pad_to_label, {[PGM+]} //OTHER
 	elseif (label_num=59)
-		LabelPad pad_to_label, {[RESET MXR]} //OTHER
+		LabelPad pad_to_label, {EQ GAIN} //OTHER
 	elseif (label_num=60)
-		LabelPad pad_to_label, {[RESET ALL]} //OTHER		
+		LabelPad pad_to_label, {EQ FREQ} //OTHER		
 	elseif (label_num=61)
 		LabelPad pad_to_label, {[PLUGIN]} //OTHER
 	elseif (label_num=62)
