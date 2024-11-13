@@ -95,7 +95,7 @@
 	chan_labels =  [20,23,24,2,3,7,5,5,10,6,8,16,13,14,15,99]
     chan_colors =  [2,2,2,2,5,5,4,4,3,3,3,7,5,5,5,0]
     chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-    chan_layouts =  [7,6,6,6,5,5,5,5,5,5,5,6,2,3,4,0]
+    chan_layouts =  [10,10,10,10,10,10,10,10,10,10,10,10,2,3,4,0]
 	
     FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
@@ -1007,7 +1007,7 @@
 	elseif layout = 9
 		LabelKnob 3, {RuisFM}
 	elseif layout = 10
-		LabelKnob 3, {Drambo}
+		LabelKnob 3, {Basic}
 	elseif layout = 11
 		LabelKnob 3, {NA}
 	elseif layout = 12
@@ -1806,7 +1806,7 @@
         def_vals[16*3]   = [127,127,127,127,127,127,0,0,100,100,100,100,100,100,0,64]
         def_ccs[16*3]    = [49,51,54,56,58,61,85,86,39,51,63,76,88,100,52,124]
         def_msg_type[16*3] = [1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0]
-	elseif chan_layouts[edit_chan]=10 // Drambo
+	elseif chan_layouts[edit_chan]=10 // Basic1
 		def_labels[16*0] = [0,2,4,5,10,11,64,65,38,38,6,8,9,12,13,14]
         def_colors[16*0] = [2,2,5,5,3,3,0,0,4,4,3,3,3,6,6,6]
         def_vals[16*0]   = [64,64,0,0,0,127,0,0,0,0,64,64,64,0,0,0]
