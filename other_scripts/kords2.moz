@@ -20,10 +20,8 @@
 		in_mode_select = TRUE //# Toggle for changing modes mode
 		number_of_modes = 16 //# Change in operational mode 
 		base_starting_note = 48 //# centre point for notes out
-		allow_mode_chg_playbk = TRUE //# Mode change during playback
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		rec_chord_note_count = 0 //# recording notes in chord slot
-		use_turn_around = TRUE //# last chord as turn around on last bar of scene
 		//# used for LED feedback
 		last_pad=0 
 		mgen_device_id=8 //used for midi control of pads. each mgen instance is assigned a number
@@ -277,6 +275,30 @@
 @End
 
 @OnMetroPulse
+    //if CurrentMetroPulse is on last pulse check chord & scene changes. if they exist turn off notes now
+    // leave the actual chord and scene change to the on new beat 
+    if CurrentMetroPulse % 4 = 3 
+        //last pulse before new beat
+        look_ahead_scene_beat_count = scene_beat_count + 1
+	    look_ahead_chord_beat_count = chord_beat_count + 1
+        current_scene_duration = scene_bank[current_scene * sc_size]  * HostBeatsPerMeasure //# IN BEATS!
+        chord_slot = (current_scene * 100) + ((current_chord) * 10)
+        current_chord_duration = chord_bank[chord_slot + dur_slot]
+        chord_note_ch = player_out_channel
+        if (scene_change_requested > -1) and (HostBeat = 0)
+            //# user requested scene change and its a new bar (& return to song)
+            //# Log {Handling scene change request. It a new bar}
+            Call @TurnOffChordNotes
+            Call @HandleSceneChange
+        elseif (look_ahead_scene_beat_count >= current_scene_duration)
+            Call @TurnOffChordNotes
+        elseif (chord_change_requested > -1)
+            //# User requested chord change
+            Call @TurnOffChordNotes
+        elseif (look_ahead_chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
+            Call @TurnOffChordNotes
+        endif
+    endif
 @End
 
 @OnNewBar
@@ -299,10 +321,6 @@
 	
 	//# Log {Scene beats left: }, current_scene_duration - scene_beat_count
 	//# Log {Chord beats left: }, current_chord_duration - chord_beat_count
-	time_for_turnaround = FALSE
-	if use_turn_around
-  		Call @TimeForTurnaround
-  	endif
   
 	//# Chord progression -- Order of operations
 	if (scene_change_requested > -1) and (HostBeat = 0)
@@ -318,32 +336,12 @@
   		//# User requested chord change & its a new beat
         Call @TurnOffChordNotes
  		Call @HandleChordChange
- 	elseif time_for_turnaround
-        Call @TurnOffChordNotes
- 		Call @HandleChordChange
 	elseif (chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
         Call @TurnOffChordNotes
 		Call @HandleChordChange
 	endif
 	if mode=0
 		LabelPads {[ KORDS ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration) 
-	endif
-@End
-
-@TimeForTurnaround
-	//# Under these conditions jump to last chord for 1 bar before scene change
-	//# 2nd last chord in scene has no duration. Last chord has 4 beat duration
-	//# Mode must be in song or scene lock
-	//# must be 1 bar before scene ends
-	//# Log {**** CHECKING TURN AROUND ****}
-	chord6 = chord_bank[(current_scene * 100) + 60 + dur_slot]
-	chord7 = chord_bank[(current_scene * 100) + 70 + dur_slot]
-	//# Log {Chord6 dur: }, chord6, { Chord7 dur: }, chord7
-	//# Log {SBC: }, scene_beat_count, { SC_DUR: }, current_scene_duration, { HBPM: }, HostBeatsPerMeasure
-	//# Log scene_beat_count, { === }, (current_scene_duration - HostBeatsPerMeasure)
-	if (songmode <= 1) and (chord6 = 0) and (chord7 = 4) and (current_chord <= 5) and (scene_beat_count = current_scene_duration - HostBeatsPerMeasure)
-		time_for_turnaround = TRUE
-		//Log {Its TURN AROUND TIME!!}
 	endif
 @End
 
@@ -399,9 +397,6 @@
     	current_chord = current_chord
   	elseif (current_chord = 7) //# Wrap playback
     	current_chord = 0
-  	elseif (time_for_turnaround)
-  		//# play last chord for one bar as a turn around before scene change
-  		current_chord = 7
   	elseif (chord_bank[(chord_slot+10) + dur_slot] <= 0)
   		current_chord = 0 //# no duration no next chord (chord_slot + 10)
 	else
@@ -520,7 +515,7 @@
 @End
 
 @OnPadDown
-  last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
+    last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
 	Call @OnPadDown2 //midi input cant trigger @OnPadDown, It calls @OnPadDown2
 @End
 
@@ -528,12 +523,10 @@
 	//# Splitting this event into separate handlers
 	shift_is_down=FALSE //protect against unwanted shift releases not happening
 	pad_is_down=TRUE
-	if in_mode_select and (last_pad <= (number_of_modes - 1))
-		if (HostRunning and (last_pad > 0) and NOT allow_mode_chg_playbk)
+	if in_mode_select 
+		if HostRunning and (last_pad > 1)
 			LabelPads {NOT ALLOWED WHEN HOST RUNNING}
 			Exit //# Only return to song allowed in playback
-		elseif (HostRunning and last_pad=8)
-			Exit //# Not allowed in playback
 		elseif last_pad=0
 			//# Return to song mode requested
 			return_to_song_mode_requested = TRUE
@@ -577,9 +570,6 @@
 			mode=last_pad
 			Call @AllNotesOff
 			LabelPad 15, {Done!}
-		elseif app_arp_and_chords_mode=FALSE
-			in_mode_select=TRUE
-			mode=13 //# show player in and out channel knobs
 		else
 			mode = last_pad
 			in_mode_select = FALSE
@@ -1776,16 +1766,14 @@
 @End
 @KnobChangeSet0
 	//# scene settings
-	if last_knob = 0 and pad_is_down
+	if last_knob = 0
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_bank[current_scene * sc_size] 	
 		  scene_bank[current_scene * sc_size] = scn_duration
 	  	LabelKnob 0 , {Dur }, scn_duration
 			Call @UpdateScenesWithDuration
 	  endif
-	elseif last_knob = 0 and NOT pad_is_down
-		LabelPads {Normally controlled by Scene Master. Hold PAD DOWN to change.}
-  endif
+    endif
   if last_knob = 1
 	  scn_txpose = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 12
 	  if scn_txpose <> scene_bank[(current_scene * sc_size) + sc_txp_slot] 	
@@ -1795,13 +1783,13 @@
 		endif
   endif
   if last_knob = 2 and pad_is_down
-	  scn_preset = Round TranslateScale (GetKnobValue 2), 0, 127, 1, num_sc_presets
-	  scene_bank[(current_scene * sc_size) + sc_preset_slot] = scn_preset
-	  LabelKnob 2, scn_preset
-  	Call @ChangeScenePreset
+	    scn_preset = Round TranslateScale (GetKnobValue 2), 0, 127, 1, num_sc_presets
+	    scene_bank[(current_scene * sc_size) + sc_preset_slot] = scn_preset
+	    LabelKnob 2, scn_preset
+  	    Call @ChangeScenePreset
 		Call @UpdateScenesWithDuration
-  elseif last_knob = 2 and NOT pad_is_down
-		LabelPads {Hold SCENE PAD DOWN to change preset.}
+    elseif last_knob = 2 and not pad_is_down
+        LabelPads {Hold SCENE PAD down to change preset}
 	endif
   if last_knob = 3
 	  txpose_val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 1
@@ -2695,9 +2683,7 @@
 	//# scene setup. map txpose based on circle of 5ths. 
 	//# scn_preset must always be setting for preset (self)
 	scn_dur = scene_bank[current_scene * sc_size]
-	if scn_dur=0
-		scn_dur=8
-	endif
+	scn_dur=16
 	scene_bank[current_scene * sc_size] = [scn_dur,6,scn_preset,1,1,1,1,8,8,8,8,-1]
 	
 	//# chord settings
@@ -2712,17 +2698,17 @@
 	//# prog_invs are applied at NoteOut. No effect on how notes stored here
 				
 	if scn_preset = 1
-  	scene_bank[current_scene * sc_size] = [scn_dur,6,scn_preset,1,1,1,1,8,8,8,8,-1]
-	  chord_bank[(current_scene * 100) + 0]  = [-1,-1,-1,-1,0,0,-1]
-	  chord_bank[(current_scene * 100) + 10] = [-1,-1,-1,-1,0,0,-1]
-	  chord_bank[(current_scene * 100) + 20] = [-1,-1,-1,-1,0,0,-1]
-	  chord_bank[(current_scene * 100) + 30] = [-1,-1,-1,-1,0,0,-1]
-	  chord_bank[(current_scene * 100) + 40] = [-1,-1,-1,-1,0,0,-1]
-	  chord_bank[(current_scene * 100) + 50] = [-1,-1,-1,-1,0,0,-1]
-	  chord_bank[(current_scene * 100) + 60] = [-1,-1,-1,-1,0,0,-1]
-	  chord_bank[(current_scene * 100) + 70] = [-1,-1,-1,-1,0,0,-1]
-	 LabelPads {An empty scene. Press shift to select a +CHORDS mode}
-	 Call @SetupLayout
+  	    scene_bank[current_scene * sc_size] = [scn_dur,6,scn_preset,1,1,1,1,8,8,8,8,-1]
+        chord_bank[(current_scene * 100) + 0]  = [-1,-1,-1,-1,0,0,-1]
+        chord_bank[(current_scene * 100) + 10] = [-1,-1,-1,-1,0,0,-1]
+        chord_bank[(current_scene * 100) + 20] = [-1,-1,-1,-1,0,0,-1]
+        chord_bank[(current_scene * 100) + 30] = [-1,-1,-1,-1,0,0,-1]
+        chord_bank[(current_scene * 100) + 40] = [-1,-1,-1,-1,0,0,-1]
+        chord_bank[(current_scene * 100) + 50] = [-1,-1,-1,-1,0,0,-1]
+        chord_bank[(current_scene * 100) + 60] = [-1,-1,-1,-1,0,0,-1]
+        chord_bank[(current_scene * 100) + 70] = [-1,-1,-1,-1,0,0,-1]
+        LabelPads {An empty scene. Press shift to select a +CHORDS mode}
+        Call @SetupLayout
 	elseif scn_preset = 2
 		scene_bank[current_scene * sc_size] = [scn_dur,6,scn_preset,1,1,1,1,8,8,8,8,-1]
 		psn = [0, 60, 62, 64, 65, 67, 69, 71, 72]
@@ -2732,10 +2718,10 @@
 		prog_invs = [0,-1,-1,-1,0,0,0,0]
 		Call @HandleChordBankPresetUpdate
 		chord_bank[(current_scene * 100) + 40] = [-1,-1,-1,-1,0,0,-1] //overwrite with empty
-	  chord_bank[(current_scene * 100) + 50] = [-1,-1,-1,-1,0,0,-1]
-	  chord_bank[(current_scene * 100) + 60] = [-1,-1,-1,-1,0,0,-1]
-	  chord_bank[(current_scene * 100) + 70] = [-1,-1,-1,-1,0,0,-1]
-  	LabelPads {Classic I-V-vi-IV progression in C Major}
+        chord_bank[(current_scene * 100) + 50] = [-1,-1,-1,-1,0,0,-1]
+        chord_bank[(current_scene * 100) + 60] = [-1,-1,-1,-1,0,0,-1]
+        chord_bank[(current_scene * 100) + 70] = [-1,-1,-1,-1,0,0,-1]
+        LabelPads {Classic I-V-vi-IV progression in C Major}
 	elseif scn_preset = 3
 		psn = [0, 60, 62, 64, 65, 67, 69, 71, 72]
 		prog_invs = [0,0,0,0,0,0,0,4]
