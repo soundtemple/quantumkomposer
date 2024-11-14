@@ -162,6 +162,7 @@
                 enc_inc_dec_vals[1] = MIDIByte3
             endif
         endif
+        Call @SetupLayoutKnobsConfig
 		custom_knobs[0] = MIDIChannel
 
 	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and (MIDIByte2=custom_knobs[1] or MIDIByte2=custom_knobs[2] or MIDIByte2=custom_knobs[3] or MIDIByte2=custom_knobs[4])

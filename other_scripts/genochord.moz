@@ -678,6 +678,7 @@
             endif
         endif
 		custom_knobs[0] = MIDIChannel
+        Call @SetupPadsLayoutMidiConfig
 
 	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and (MIDIByte2=custom_knobs[1] or MIDIByte2=custom_knobs[2] or MIDIByte2=custom_knobs[3] or MIDIByte2=custom_knobs[4])
 		//Get knob number
@@ -1646,6 +1647,9 @@
 @End
 
 @SetupPadsLayoutMidiConfig
+    for i = 0 to 15
+        LatchPad i, NO
+    endfor
 	for i = 8 to 15
 		LabelPad i, { }
 		ColorPad i, 0
