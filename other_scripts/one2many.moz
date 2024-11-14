@@ -256,6 +256,8 @@
 		if MIDINote=16 //SHIFT
 			if MIDICommand=0x90 //noteOn	
 				Call @OnShiftDown2
+            elseif MIDICommand=0x80 //Note off
+                Call @OnShiftUp2
 			endif
 		else
 			last_pad = MIDINote
