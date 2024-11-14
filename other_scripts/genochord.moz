@@ -1486,14 +1486,15 @@
 			dur_beats = (chrd_duration % HostBeatsPerMeasure) * (100/HostBeatsPerMeasure)
 	  	LabelKnob 0 , {Dur }, dur_bars, {.}, dur_beats
 			Call @UpdateChordsWithDuration
+        endif
   	endif
-    endif
-    if last_knob = 1 and not mode=3
+    if last_knob = 1 and mode <> 3
+        log {knobbing}
         chrd_sugg = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 16
         if chrd_sugg <> chord_bank[chord_slot + sugg_slot] 
-        chord_bank[chord_slot + sugg_slot] = chrd_sugg
-        LabelKnob 1, {Suggest}, chrd_sugg
-        Call @SuggestChord
+            chord_bank[chord_slot + sugg_slot] = chrd_sugg
+            LabelKnob 1, {Suggest}, chrd_sugg
+            Call @SuggestChord
             Call @MakeChordScale
         endif
     endif
