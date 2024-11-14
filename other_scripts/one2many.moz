@@ -759,9 +759,9 @@
 		p3=col_mode_edit
 	else
 	  LabelPad 2, {EDIT}
-		p1=3
+		p1=4
 		p2=0
-		p3=3
+		p3=4
 	endif
 	LabelPad 3, {INSTRUMENT}, {CHANNELS}
 	LabelPad 4, { }

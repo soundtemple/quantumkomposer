@@ -1910,7 +1910,11 @@
 		LabelPad i, { } //# empty label to overwrite chord info
 		LatchPad i, NO 
 	endfor
-    settings_pad_cols=[8,4,7,7,7,0,4,1, 2,0,0,0,0,0,0,1]
+    kc_col=2
+    if custom_knobs[0]>=0
+		kc_col=3
+	endif
+    settings_pad_cols=[8,4,7,7,7,0,4,1, kc_col,0,0,0,0,0,0,1]
 	if (songmode = 0)
 		LabelPad 0, {PLAYSONG: Active }
 	elseif (songmode = 1)
