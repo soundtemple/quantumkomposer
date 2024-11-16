@@ -69,7 +69,7 @@
     use_aum_layout=FALSE
     chan_labels =  [20,23,24,2,21,3,7,5,9,6,8,16,13,14,15,99]
     chan_colors =  [1,2,2,6,6,5,5,3,4,4,4,7,5,5,5,0]
-    chan_layouts =  [10,10,10,10,10,10,10,10,10,10,10,10,2,3,4,0]
+    chan_layouts =  [10,10,10,10,10,10,10,10,10,10,10,10,2,3,11,0]
 
     FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
@@ -865,7 +865,7 @@
 		p3=4
 	endif
 	LabelPad 3, {INSTRUMENT}, {CHANNELS}
-	LabelPad 4, { }
+	LabelPad 4, {CLIPS + SCENES}
 	LabelPad 5, { }
 	LabelPad 8, {__MIXER__ }, {VOL PAN} //channels Vol, Gain, Pan, Width
 	LabelPad 9, {__MIXER__ }, {SENDS FILT} //HPF LPF SEND A SEND B
@@ -887,7 +887,7 @@
         LabelPads {Goto instrument chan. Tap pad to edit. Longpress to copy}
 		p7=col_mode_edit
 	endif
-	settings_cols = [kc_col,p1,p2,p3, 0,0,p6,p7, 2,2,2,2, 2,0,0,0]
+	settings_cols = [kc_col,p1,p2,p3, 3,0,p6,p7, 2,2,2,2, 2,0,0,0]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
@@ -991,7 +991,7 @@
 @SetupKnobset1
 	//# Channels Setup
 	knob_set = 1
-    max_chan_layout=10
+    max_chan_layout=11
 	LabelKnobs {CHANNEL }, edit_chan+1, { SETUP}
 	Call @LabelPadsHeader
 	LabelKnob 0, {Label }, chan_labels[edit_chan]
@@ -1021,7 +1021,7 @@
 	elseif layout = 10
 		LabelKnob 3, {Basic}
 	elseif layout = 11
-		LabelKnob 3, {NA}
+		LabelKnob 3, {MxRtnMs}
 	elseif layout = 12
 		LabelKnob 3, {NA}
 	elseif layout = 13
@@ -1840,8 +1840,31 @@
         def_ccs[16*0]    = [7,8,10,11,10,11,121,122,124,125,126,13,117,118,119,120]
         def_mins[16*0]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
         def_maxs[16*0]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-	elseif chan_layouts[edit_chan]=11 // Not implemented
-		// Not implemented
+	elseif chan_layouts[edit_chan]=11 // Mix Rtn Master in one channel
+		def_labels[16*0] = [0,12,13,14,4,5,10,11,0,12,14,15,4,5,10,11]
+        def_colors[16*0] = [1,5,5,5,6,6,4,4,2,5,5,5,6,6,4,4]
+        def_vals[16*0]   = [102,0,0,0,0,0,0,127,100,0,0,0,0,0,0,127]
+        def_ccs[16*0]    = [30,31,32,33,34,35,36,37,38,39,40,41,124,43,44,45]
+        def_mins[16*0]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        def_maxs[16*0]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+        def_labels[16*1] = [0,12,13,14,4,5,10,11,0,12,14,15,4,5,10,11]
+        def_colors[16*1] = [3,5,5,5,6,6,4,4,4,5,5,5,6,6,4,4]
+        def_vals[16*1]   = [98,0,0,0,0,0,0,127,99,0,0,0,0,0,0,127]
+        def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,125,59,60,61]
+        def_mins[16*1]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        def_maxs[16*1]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+        def_labels[16*2] = [0,1,12,13,14,15,10,11,0,1,12,13,14,15,10,11]
+        def_colors[16*2] = [3,3,6,6,6,6,2,2,4,4,6,6,6,6,2,2]
+        def_vals[16*2]   = [100,64,0,0,0,0,0,127,102,64,0,0,0,0,0,127]
+        def_ccs[16*2]    = [62,63,64,65,66,67,68,69,70,71,72,73,126,75,76,77]
+        def_mins[16*2]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        def_maxs[16*2]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
+        def_labels[16*3] = [64,64,64,64,0,1,10,11,65,65,65,65,12,13,14,15]
+        def_colors[16*3] = [0,0,0,0,2,2,4,4,0,0,0,0,6,6,6,6]
+        def_vals[16*3]   = [0,0,0,0,100,64,0,127,0,0,0,0,0,0,0,0]
+        def_ccs[16*3]    = [78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93]
+        def_mins[16*3]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        def_maxs[16*3]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 	elseif chan_layouts[edit_chan]=12 // Not implemented
 		// Not implemented
 	elseif chan_layouts[edit_chan]=13 
@@ -2127,6 +2150,23 @@
 	elseif (label_num=0) and chan_layouts[edit_chan]=3 //RETURNS 
 		note_labels=[9,11,12,14]
 		LabelPad pad_to_label, {VOL RTN }, (NoteName(note_labels[inst_curr_page[curr_chan]])) //MIXER
+    elseif (label_num=0) and chan_layouts[edit_chan]=11 //Mix Rtns Master
+        page=inst_curr_page[curr_chan]+1
+        if page=1 and pad_to_label<=7
+    		LabelPad pad_to_label, {BUS VOL A }  
+        elseif page=1 and pad_to_label>=8
+            LabelPad pad_to_label, {BUS VOL B }
+        elseif page=2 and pad_to_label<=7
+            LabelPad pad_to_label, {BUS VOL C }
+        elseif page=2 and pad_to_label>=8
+            LabelPad pad_to_label, {BUS VOL D }
+        elseif page=3 and pad_to_label<=7
+            LabelPad pad_to_label, {RTN VOL A }
+        elseif page=3 and pad_to_label>=8
+            LabelPad pad_to_label, {RTN VOL B }
+        elseif page=4 and pad_to_label<=7
+            LabelPad pad_to_label, {MSTR VOL }
+        endif
 	elseif (label_num=0)
 		LabelPad pad_to_label, {VOL} //MIXER 
 	elseif (label_num=1)
