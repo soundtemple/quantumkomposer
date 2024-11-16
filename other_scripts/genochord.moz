@@ -30,7 +30,8 @@
 		generate_random_chord=FALSE
 		chord_note_off_delay=0
 		SetTimerInterval 1000
-        //# Setup encoders to control
+        //# Setup encoders and pads to control
+        custom_pads_type=0 //# 0 Notes, 1 CC
         kntrl_knob_type=0 //# 0=Encoders 1=Regular knobs
         kntrl_output_relenc=FALSE //# TRUE=Relative encoder output +65 -63; FALSE=continuous absolute output pot //#relenc 
 		invert_enc_dir=FALSE
@@ -39,7 +40,10 @@
         knob_scale_turn=10
         enc_test_val=64
         ready_to_rec_knob_vals=FALSE // bool for setting custom knob vals
+        ready_to_rec_pad_vals=FALSE // bool for setting custom pad vals
         custom_knobs = [-1, 1,2,3,4, 5,6,7,8]  // default custom knobs config
+        custom_pads = [-1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]  // default custom pads config
+        trigger_pads_val = 0 //# starting note for trigger pads. 8 pads to trigger 8 chords
         //#player modes
 		player_mode=0 //# 0. play chords as sequenced on out channel or 1. Trigger chords usign player in channel
 		player_in_channel=0
@@ -572,8 +576,9 @@
 		endif
     endif
 	StopTimer
+    ready_to_rec_knob_vals=FALSE
+    ready_to_rec_pad_vals=FALSE
     if mode=8
-        ready_to_rec_knob_vals=FALSE
         Call @SetupPadsLayoutMidiConfig
     endif
 @End
@@ -660,7 +665,6 @@
 	elseif in_settings_mode
 	  	Call @SetupKnobset99 //settings knobset
 	endif
-	Call @SendMidiCCBackToKnobs
 @End
 
 
@@ -668,7 +672,7 @@
 	//Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
 	if ready_to_rec_knob_vals
 		custom_knobs[last_pad+1] = MIDIByte2
-		Call @SetupLayoutKnobsConfig
+		Call @SetupPadsLayoutMidiConfig
 		//store inc and dec values to display on knobs
         if kntrl_knob_type=0 and pad_is_down //encoder
             if MIDIByte3<64
@@ -679,6 +683,24 @@
         endif
 		custom_knobs[0] = MIDIChannel
         Call @SetupPadsLayoutMidiConfig
+    
+    elseif ready_to_rec_pad_vals
+        if last_pad=8
+            custom_pads[1]=MIDIByte2
+            for i = 2 to 8
+                custom_pads[i]=MIDIByte2+i-1
+            endfor
+        elseif last_pad=9
+            custom_pads[9]=MIDIByte2
+            for i = 10 to 16
+                custom_pads[i]=MIDIByte2+i-9
+            endfor
+        elseif last_pad=10
+            custom_pads[17]=MIDIByte2
+        endif
+        Call @SetupPadsLayoutMidiConfig
+        custom_pads[0] = MIDIChannel
+        custom_pads_type=1 //# cc
 
 	elseif (custom_knobs[0] <> -1 and MIDIChannel=custom_knobs[0]) and (MIDIByte2=custom_knobs[1] or MIDIByte2=custom_knobs[2] or MIDIByte2=custom_knobs[3] or MIDIByte2=custom_knobs[4])
 		//Get knob number
@@ -755,6 +777,37 @@
                 SetKnobValue last_knob, knob_value
             endif
             Call @OnKnobChange2 //handle that change 
+        endif
+
+    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
+        for i = 1 to 8
+            if MIDIByte2=custom_pads[i]
+                last_pad=i -1
+            endif
+        endfor
+        if MIDIByte3=0
+            Call @OnPadUp2
+        else
+            Call @OnPadDown2
+        endif
+
+    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
+        for i = 9 to 16
+            if MIDIByte2=custom_pads[i]
+                last_pad=i-1
+            endif
+        endfor
+        if MIDIByte3=0
+            Call @OnPadUp2
+        else
+            Call @OnPadDown2
+        endif
+		
+    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
+        if MIDIByte3=0
+            Call @OnShiftUp2
+        else
+            Call @OnShiftDown2
         endif
     else
 	  SendMIDIThru
@@ -990,6 +1043,55 @@
 	//#Log {Note received }, MIDICommand, { ch:}, MIDIChannel+1, { }, (NoteName MIDIByte2, YES), { [}, MIDIByte2, {]}, { v:}, MIDIByte3 
 	if mode=3 and  MIDIChannel=player_in_channel // records mode 
 		Call @HandleRecordNotes
+    elseif ready_to_rec_pad_vals
+        if last_pad=8
+            custom_pads[1]=MIDIByte2
+            for i = 2 to 8
+                custom_pads[i]=MIDIByte2+i-1
+            endfor
+        elseif last_pad=9
+            custom_pads[9]=MIDIByte2
+            for i = 10 to 16
+                custom_pads[i]=MIDIByte2+i-9
+            endfor
+        elseif last_pad=10
+            custom_pads[17]=MIDIByte2
+        endif
+        Call @SetupPadsLayoutMidiConfig
+        custom_pads_type=0 //# notes
+        custom_pads[0] = MIDIChannel
+    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
+        for i = 1 to 8
+            if MIDIByte2=custom_pads[i]
+                last_pad=i-1
+            endif
+        endfor
+        if MIDIByte3=0
+            Call @OnPadUp2
+        else
+            Call @OnPadDown2
+        endif
+
+    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
+        for i = 9 to 16
+            if MIDIByte2=custom_pads[i]
+                last_pad=i-1
+            endif
+        endfor
+        if MIDICommand=0x90 and MIDIByte3>0 //noteOn
+            Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mozaic
+        elseif MIDICommand=0x90 and MIDIByte3=0
+            Call @OnPadUp2
+        elseif MIDICommand=0x80 //Note off
+            Call @OnPadUp2
+        endif
+		
+    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
+        if MIDICommand=0x90 //noteOn	
+            Call @OnShiftDown2
+        elseif MIDICommand=0x80 //Note off
+            Call @OnShiftUp2
+        endif
 	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 
 		// notes 20-36 on channel 16  used to trigger pads 0-15
 		if MIDINote=36 //SHIFT
@@ -1006,7 +1108,7 @@
 			  	Call @OnPadUp2
 			endif
 		endif
-	elseif player_mode=1 and MIDIChannel=player_in_channel and MidiNote>=28 and MIDINote<=35
+	elseif player_mode=1 and MIDIChannel=player_in_channel and (MidiNote>=trigger_pads_val) and (MIDINote<=trigger_pads_val+7)
 		//# trigger chords mode
 		note_in_velo = MIDIVelocity
 		Call @TurnOffChordNotes //# can only have one chord note per channel playing at any one time
@@ -1648,17 +1750,18 @@
 @End
 
 @SetupPadsLayoutMidiConfig
+    k4=0
+    p16=0
+    if custom_knobs[0] > -1
+        k4=3
+    endif
+    if custom_pads[0] > -1
+        p16=3
+    endif
+    midi_learn_pad_cols=[k4,k4,k4,k4, 0,0,0,0, p16,p16,p16,p16, 0,0,0,0]
     for i = 0 to 15
-        LatchPad i, NO
-    endfor
-	for i = 8 to 15
 		LabelPad i, { }
-		ColorPad i, 0
-		if custom_knobs[0]>=0
-			ColorPad i-8,3
-		else
-		  ColorPad i-8,0
-		endif
+		ColorPad i, midi_learn_pad_cols[i]
 	endfor
 	for i = 4 to 7
 		ColorPad i, 0
@@ -1668,19 +1771,19 @@
         ColorPad 7, 1
     endif
 	if custom_knobs[0] = -1 //custom knobs not in use
-		LabelPad 0, {   TOP L   }, { --- }
-		LabelPad 1, {   TOP R   }, { --- }
-		LabelPad 2, {   LOW L   }, { --- }
-		LabelPad 3, {   LOW R   }, { --- }
+		LabelPad 0, { KNOB    }, {    TOP L    }, {  -----  }
+		LabelPad 1, { KNOB    }, {    TOP R    }, {  -----  }
+		LabelPad 2, { KNOB    }, {    LOW L    }, {  -----  }
+		LabelPad 3, { KNOB    }, {    LOW R    }, {  -----  }
 		LabelPad 4, { }
 		LabelPad 5, { }
 		LabelPad 6, { }
 		LabelPad 7, { }
 	else
-		LabelPad 0, {   TOP L   }, { cc#}, custom_knobs[1]
-		LabelPad 1, {   TOP R   }, { cc#}, custom_knobs[2]
-		LabelPad 2, {   LOW L   }, { cc#}, custom_knobs[3]
-		LabelPad 3, {   LOW R   }, { cc#}, custom_knobs[4]
+		LabelPad 0, { KNOB    }, {    TOP L    }, { cc#}, custom_knobs[1]
+		LabelPad 1, { KNOB    }, {    TOP R    }, { cc#}, custom_knobs[2]
+		LabelPad 2, { KNOB    }, {    LOW L    }, { cc#}, custom_knobs[3]
+		LabelPad 3, { KNOB    }, {    LOW R    }, { cc#}, custom_knobs[4]
 		LabelPad 4, { }
 		LabelPad 5, { }
         if kntrl_knob_type=0 //encoder
@@ -1695,8 +1798,22 @@
             LabelPad 6, { }
             LabelPad 7, { }
         endif
-		
-	endif  
+	endif
+    if custom_pads[0] = -1
+        LabelPad 8, {  PADS1-8   }
+        LabelPad 9, {  PADS9-16  }
+        LabelPad 10, {  SHIFT  }
+    elseif custom_pads_type=0
+        LabelPad 8, {  PADS1-8   }, custom_pads[1], {-}, custom_pads[8]
+        LabelPad 9, {  PADS9-16  }, custom_pads[9], {-}, custom_pads[16]
+        LabelPad 10, {  SHIFT  }, custom_pads[17]
+        LabelPad 11, {Notes on Ch}, custom_pads[0]+1
+    elseif custom_pads_type=1
+        LabelPad 8, {  PADS1-8   }, custom_pads[1], {-}, custom_pads[8]
+        LabelPad 9, {  PADS9-16  }, custom_pads[9], {-}, custom_pads[16]
+        LabelPad 10, {  SHIFT  }, custom_pads[17]
+        LabelPad 11, {CCs on Ch}, custom_pads[0]+1, { CC}
+    endif
     if kntrl_knob_type=0
         if kntrl_output_relenc
            LabelPad 14, {Output: REL. ENC.}
@@ -1716,10 +1833,25 @@
 @PadDownConfigureKnobs
 	if last_pad<=3
 		ready_to_rec_knob_vals=TRUE
-		ColorPad last_pad+8, 2
-		LabelPad last_pad+8, {____^____}, { turn encoder }
+		ColorPad 4, 2
+		LabelPad 4, {____x____}, { turn encoder }
     elseif last_pad=6 and (custom_knobs[0]>-1) and kntrl_knob_type=0
         invert_enc_dir = not invert_enc_dir
+    elseif last_pad=8 
+        //configure pads 1-8
+        ready_to_rec_pad_vals=TRUE
+        LabelPad 11, {____x____}, { Press Pad1 }
+        ColorPad 11, 2
+    elseif last_pad=9 
+        //configure pads 9-16
+        ready_to_rec_pad_vals=TRUE
+        LabelPad 11, {____x____}, { Press Pad9 }
+        ColorPad 11, 2
+    elseif last_pad=10
+        //configure Shift
+        ready_to_rec_pad_vals=TRUE
+        LabelPad 11, {____x____}, { Press Shift Pad }
+        ColorPad 11, 2
     elseif last_pad=14 and kntrl_knob_type=0
         kntrl_output_relenc = not kntrl_output_relenc
         Call @SetupPadsLayoutMidiConfig
@@ -1903,6 +2035,10 @@
 @End
 
 @OnShiftUp
+  Call @OnShiftUp2
+@End
+
+@OnShiftUp2
   shift_is_down=FALSE
 @End
 
@@ -1942,7 +2078,7 @@
 		copy_mode=1 
 	endif
 	LabelPad 7, {DELETE  }
-    LabelPad 8, {SETUP MIDI CONTROL}
+    LabelPad 8, {MIDI LEARN}
     LabelPad 9, { }
     LabelPad 10, { }
     LabelPad 11, { }
