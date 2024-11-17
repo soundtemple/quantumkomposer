@@ -2,7 +2,7 @@
 //# 4 ENCODERS to control 15 channels x 64 params
 @OnLoad
 	ShowLayout 2
-	SetShortName {ONE2MANY}
+	SetShortName {O2M}
 	if unassigned pad_is_down 
 		mode = 5 //#1Channels, 2Kontrol
 		edit_mode_active=FALSE
@@ -168,7 +168,6 @@
         Call @SetupLayoutKnobsConfig
 		custom_knobs[0] = MIDIChannel
     elseif ready_to_rec_pad_vals
-        log {ready to record pad vals}
         if last_pad=8
             custom_pads[1]=MIDIByte2
             for i = 2 to 8
@@ -293,11 +292,6 @@
             Call @OnShiftDown2
         endif
 
-	elseif MIDIChannel <> 15
-		Exit //other cc's must be on ch16 (1-16)
-		
-	elseif MIDIByte2=1 //modwheel thru on current chan
-		SendMIDIThruOnCh chan_midi_chs[curr_chan]
 	endif
 @End
 
@@ -354,13 +348,6 @@
 	endif
 @End
 
-@OnMidiInput
-	if MIDICommand=0xD0 or MIDICommand=0xE0 //Aftertouch or pitchbend
-		if MIDIChannel=15
-			SendMIDIThruOnCh chan_midi_chs[curr_chan]
-		endif
-	endif
-@End
 
 @OnHostStart
 	//Log {---- Host Started ----}
@@ -1861,7 +1848,7 @@
         def_maxs[16*2]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
         def_labels[16*3] = [64,64,64,64,0,1,10,11,65,65,65,65,12,13,14,15]
         def_colors[16*3] = [0,0,0,0,2,2,4,4,0,0,0,0,6,6,6,6]
-        def_vals[16*3]   = [0,0,0,0,100,64,0,127,0,0,0,0,0,0,0,0]
+        def_vals[16*3]   = [0,0,0,0,127,64,0,127,0,0,0,0,0,0,0,0]
         def_ccs[16*3]    = [78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93]
         def_mins[16*3]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
         def_maxs[16*3]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
