@@ -1,0 +1,97 @@
+@OnLoad
+	SetShortName {AF TRIG} 
+	LabelPads {AKAI FIRE TRIGGER}
+	ShowLayout 2
+    side_mode=0
+    side_mode_leds=[1,1,4,4]
+    btm_btn_cols=[3,3,3,3,4,2]
+    knob_mode=0
+    knob_ccs=[]
+    for i = 0 to 15
+        knob_ccs[i]=70+i
+    endfor
+    btn_ccs=[31,32,33,34,35,36,37,38,39,44,45,46,47,48,49,50,51,52,53]
+    logInfo=FALSE
+    Call @LogInfo
+@End
+
+@OnPadDown
+    if LastPad=15
+        LogInfo = not LogInfo
+        Call @LogInfo
+    endif
+    Log {Done!}
+@End
+
+@OnMidiCC
+    //# 4 encoders + select encoder
+    if MidiByte2=118 and MidiChannel=0
+        SendMidiCC MidiChannel, MidiByte2, MidiByte3 //# select encoder
+    elseif MidiByte2>=16 and MidiByte2<=19
+        knob=MidiByte2-16
+        mb2=knob_ccs[(knob_mode*4)+knob]
+        SendMidiCC MidiChannel, mb2, MidiByte3
+    endif
+    Call @LogInfo
+@End
+
+@OnMidiNoteOn
+    if MidiNote>=16 and MidiNote<=19
+        Exit
+    elseif MidiNote=26 and side_mode=0  //#knobbank channel, mixer, user1, user2
+        knob_mode=knob_mode+1
+        log {knob mode}, knob_mode
+        if knob_mode>1
+            knob_mode=0
+        endif
+        SendMidiCC 0, 27, 0 //# ALl leds off
+        SendMidiCC 0, 27, 10 //# ALl leds off
+        SendMidiCC 0, 27, knob_mode
+        Call @LogInfo
+    elseif MidiNote>=36 and MidiNote<=39
+        side_mode=MidiNote-35
+        for i = 0 to 3 //# side leds off
+            SendMidiCC 0, MidiNote+4+i, 0
+        endfor
+        SendMidiCC 0, MidiNote+4, side_mode_leds[MidiNote-36] //#Side Leds on
+        Call @LogInfo
+    elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=117 and side_mode=0
+        SendMIDIThru //# Send thru pads
+    elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=35 and side_mode=0
+        SendMIDIThru //# Send pattern, browser, grid
+    elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53 and side_mode=0
+        SendMIDIThru //# Send bottom row
+    endif
+@End
+
+@OnMidiNoteOff
+    side_mode=0
+    if MidiNote>=36 and MidiNote<=39
+        side_mode=0
+        for i = 0 to 3
+            SendMidiCC 0, MidiNote+4+i, 0
+        endfor
+    elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=117 and side_mode=0
+        SendMIDIThru //# Send thru pads
+    elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=35 and side_mode=0
+        SendMIDIThru //# Send pattern, browser, grid
+    elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53 and side_mode=0
+        SendMIDIThru //# Send bottom row
+    endif
+    Call @LogInfo
+@End
+
+@LogInfo
+    if logInfo
+        LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
+        LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
+        LabelPad 2, {SideMode: }, side_mode
+        LabelPad 3, {KnobMode: }, knob_mode
+        LabelPad 15, {LogInfo:}, { ON}
+    else
+        for i = 0 to 14
+            LabelPad i, { }
+        endfor
+        LabelPad 15, {LogInfo:}, { OFF}
+    endif
+@End

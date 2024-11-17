@@ -1,0 +1,106 @@
+@OnLoad
+	SetShortName {LITEAF} 
+	LabelPads {LITE AKAI FIRE}
+	ShowLayout 2
+    colours=[]
+    colour_index=[]
+    Call @GetColorArray
+    LabelPad 0, {All pads on}
+    ColorPad 0, 3
+    LabelPad 1, {All pads off}
+    ColorPad 1, 1
+    ColorPad 2, 3
+    LabelPad 2, {All btns on}
+    ColorPad 3, 1
+    LabelPad 3, {All btns off}
+    pad_cols[0]=[white,red,yellow,yellow,purple,purple,orange,orange,green,blue2,blue2,blue2,pink,blue1,blue1,blue1]
+    pad_cols[16]=[purple,purple,purple,purple,purple,purple,purple,purple,orange,orange,orange,orange,orange,orange,orange,orange]
+    pad_cols[32]=[purple,purple,purple,purple,purple,purple,purple,purple,orange,orange,orange,orange,orange,orange,orange,orange]
+    pad_cols[48]=[white,off,off,off,off,off,off,off,white,off,off,off,off,off,off,off]
+    btn_ccs= [31,32,33,34,35,36,37,38,39,44,45,46,47,48,49,50,51,52,53]
+    btn_cols=[ 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 4, 2, 0, 3, 0, 1]
+    col_pads=[]
+    col_btns=[]
+    clear_pads=[]
+    clear_btns=[]
+    FillArray clear_pads, off, 64
+    FillArray clear_btns, off, 19
+@End
+
+@OnPadDown
+    if LastPad=0
+        CopyArray pad_cols, col_pads
+        Call @UpdatePadCols
+    elseif LastPad=1
+        CopyArray clear_pads, col_pads
+        Call @UpdatePadCols
+    elseif LastPad=2
+        CopyArray btn_cols, col_btns
+        led_col=2
+        Call @LightUpButtons
+        Call @LightLeds
+    elseif LastPad=3
+        CopyArray clear_btns, col_btns
+        led_col=0
+        Call @LightUpButtons
+        Call @LightLeds
+    endif
+    Log {Done!}
+@End
+
+@UpdatePadCols
+    //# pads 0-15 are for tracks
+    for i = 0 to 63
+        r=colours[col_pads[i]]
+        g=colours[col_pads[i]+1]
+        b=colours[col_pads[i]+2]
+        data = [0xF0, 0x47, 0x7F, 0x43, 0x65, 00, 04, i, r,g,b, 0xF7]
+        SendSysex data, 12
+    endfor
+@End
+
+@LightUpButtons
+    for i=0 to 19
+        SendMidiCC 0, btn_ccs[i], col_btns[i]
+    endfor
+@End
+
+@LightLeds
+    for i=40 to 43
+        SendMidiCC 0, i, led_col
+    endfor
+@End
+
+@GetColorArray
+    a_off=[0,0,0]
+    a_white=[127,127,127]
+    a_red=[127,0,0]
+    a_orange=[102,32,0]
+    a_yellow=[127,127,0]
+    a_green=[0,127,0]
+    a_blue1=[0,0,127]
+    a_blue2=[0,64,127]
+    a_purple=[25,0,51]
+    a_pink=[127,0,127]
+    CopyArray a_off, colours[0], 3
+    CopyArray a_white, colours[3], 3
+    CopyArray a_red, colours[6], 3
+    CopyArray a_orange, colours[9], 3
+    CopyArray a_yellow, colours[12], 3
+    CopyArray a_green, colours[15], 3
+    CopyArray a_blue1, colours[18], 3
+    CopyArray a_blue2, colours[21], 3
+    CopyArray a_purple, colours[24], 3
+    CopyArray a_pink, colours[27], 3
+    off=0
+    white=3
+    red=6
+    orange=9
+    yellow=12
+    green=15
+    blue1=18
+    blue2=21
+    purple=24
+    pink=27
+    colour_index=[0,3,6,9,12,15,18,21,24,27,30,33,36]
+@end
