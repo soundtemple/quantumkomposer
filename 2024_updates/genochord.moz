@@ -2,7 +2,7 @@
 @OnLoad 
 	ShowLayout 2
 	LabelPads {[ GENOCHORD]}
-	SetShortName {GENOCHORD}
+	SetShortName {GOC}
 	if unassigned scene_bank //# duration in first scene
 		ResetNoteStates FALSE // #reset the locker with the value FALSE!
 		mode = 0 //# See @HandleModeChange for modes
@@ -17,7 +17,7 @@
 		scene_changed = FALSE
 		scene_change_chord_reset = TRUE //# Goto chord 0 when user changes scene
 		in_settings_mode = TRUE //# Toggle for changing modes mode
-		base_starting_note = 48 //# centre point for notes out
+        base_starting_note = 48 //# centre point for notes out
 		return_to_song_mode_requested = FALSE //# used for switching on new bar 
 		rec_chord_note_count = 0 //# recording notes in chord slot
 		//# used for LED feedback
@@ -43,7 +43,7 @@
         ready_to_rec_pad_vals=FALSE // bool for setting custom pad vals
         custom_knobs = [-1, 1,2,3,4, 5,6,7,8]  // default custom knobs config
         custom_pads = [-1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]  // default custom pads config
-        trigger_pads_val = 0 //# starting note for trigger pads. 8 pads to trigger 8 chords
+        trigger_pads_val = 36 //# starting note for trigger pads. 8 pads to trigger 8 chords
         //#player modes
 		player_mode=0 //# 0. play chords as sequenced on out channel or 1. Trigger chords usign player in channel
 		player_in_channel=0
@@ -489,14 +489,18 @@
 			//# midi setup modes - dont exit in_select_mode
 			mode = last_pad
 			Call @SetupSettingsLayout
-    	elseif (last_pad = 14)
+    	elseif (last_pad = 13)
 			Call @LogCurrentSceneToPresetFormat
 			LabelPads {Scene preset data printed. Check log!}
 			Exit
-		elseif (last_pad = 15) //All Notes off
+		elseif (last_pad = 14) //All Notes off
 			mode=last_pad
 			Call @AllNotesOff
-			LabelPad 15, {Done!}
+			LabelPad last_pad, {Done!}
+        elseif (last_pad=15) //# Trigger chords base note
+            mode=last_pad
+            Call @SetupSettingsLayout
+            LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1
 		else
 			mode = last_pad
 			in_settings_mode = FALSE
@@ -809,14 +813,6 @@
         else
             Call @OnShiftDown2
         endif
-    else
-	  SendMIDIThru
-	endif
-@End
-
-@OnMidiInput
-	if MIDICommand=0xD0 or MIDICommand=0xE0 //Aftertouch or pitchbend pass through
-		SendMIDIThru 
 	endif
 @End
 
@@ -1043,6 +1039,21 @@
 	//#Log {Note received }, MIDICommand, { ch:}, MIDIChannel+1, { }, (NoteName MIDIByte2, YES), { [}, MIDIByte2, {]}, { v:}, MIDIByte3 
 	if mode=3 and  MIDIChannel=player_in_channel // records mode 
 		Call @HandleRecordNotes
+    elseif player_mode=1 and MIDIChannel=player_in_channel and (MidiNote>=trigger_pads_val) and (MIDINote<=trigger_pads_val+7)
+		//# trigger chords mode
+		note_in_velo = MIDIVelocity
+		Call @TurnOffChordNotes //# can only have one chord note per channel playing at any one time
+		chord_change_requested=MidiNote-trigger_pads_val
+		Call @HandleChordChange
+		chord_slot = (current_scene * 100) + ((current_chord) * 10)	
+		current_chord_duration = chord_bank[chord_slot + dur_slot]
+		if current_chord_duration>0
+			Call @SendOutChordNotes
+			if update_held_notes_on_chord_change //held note tracking for update on chord change
+				held_chord_notes[player_out_channel] = MIDINote
+				held_chord_oct_adj[player_out_channel] = 0
+			endif
+		endif
     elseif ready_to_rec_pad_vals
         if last_pad=8
             custom_pads[1]=MIDIByte2
@@ -1106,21 +1117,6 @@
 				Call @OnPadUp2
 			elseif MIDICommand=0x80 //Note off
 			  	Call @OnPadUp2
-			endif
-		endif
-	elseif player_mode=1 and MIDIChannel=player_in_channel and (MidiNote>=trigger_pads_val) and (MIDINote<=trigger_pads_val+7)
-		//# trigger chords mode
-		note_in_velo = MIDIVelocity
-		Call @TurnOffChordNotes //# can only have one chord note per channel playing at any one time
-		chord_change_requested=MidiNote-28
-		Call @HandleChordChange
-		chord_slot = (current_scene * 100) + ((current_chord) * 10)	
-		current_chord_duration = chord_bank[chord_slot + dur_slot]
-		if current_chord_duration>0
-			Call @SendOutChordNotes
-			if update_held_notes_on_chord_change //held note tracking for update on chord change
-				held_chord_notes[player_out_channel] = MIDINote
-				held_chord_oct_adj[player_out_channel] = 0
 			endif
 		endif
 	endif
@@ -1452,7 +1448,7 @@
 	SetKnobValue 0, TranslateScale player_in_channel, 0, 14, 0, 127
     SetKnobValue 1, TranslateScale player_out_channel, 0, 14, 0, 127
     SetKnobValue 2, TranslateScale player_mode, 0, 1, 0, 127
-    SetKnobValue 3, 0
+    SetKnobValue 3, TranslateScale player_mode, 24, 88, 0, 127
 	Call @LabelSettingsKnobs
 @End
 @KnobChangeSet99 //settings knobs
@@ -1476,8 +1472,17 @@
             if player_mode=0
                 LabelPads {Chords play as sequenced on Out channel }, player_out_channel+1
             else
-                LabelPads {Trigger chords with notes on In channel }, player_in_channel+1
+                LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1
             endif
+            Call @SetupSettingsLayout
+        endif
+    elseif last_knob = 3
+        val = Round TranslateScale (GetKnobValue 3), 0, 127, 24, 88
+        if val <> trigger_pads_val
+            trigger_pads_val = val
+            Call @LabelSettingsKnobs
+            LabelPad 15, {TRIGGER CHORDS:         }, (NoteName trigger_pads_val, YES), {-}, (NoteName trigger_pads_val+7, YES)
+            LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1
         endif
     endif
 @End
@@ -1489,7 +1494,7 @@
     else
         LabelKnob 2, {PLAY}
     endif
-    LabelKnob 3, { }
+    LabelKnob 3, {Note }, trigger_pads_val
     LabelKnobs {Midi In/Out + Mode}
 	LabelPads {GENOCHORD : [ SETTINGS ]}
 @End
@@ -2055,7 +2060,11 @@
     if custom_knobs[0]>=0
 		kc_col=3
 	endif
-    settings_pad_cols=[8,4,7,7,7,0,4,1, kc_col,0,0,0,0,0,0,1]
+    tc_col=0
+    if player_mode=1
+        tc_col=3
+    endif
+    settings_pad_cols=[8,4,7,7,7,0,4,1, kc_col,0,0,0,0,0,1,tc_col]
 	if (songmode = 0)
 		LabelPad 0, {PLAYSONG: Active }
 	elseif (songmode = 1)
@@ -2084,9 +2093,8 @@
     LabelPad 11, { }
     LabelPad 12, { }
     LabelPad 13, { }
-    LabelPad 14, { }
-	
-	LabelPad 15, { ALL NOTES OFF }
+    LabelPad 14, { ALL NOTES OFF }
+	LabelPad 15, {TRIGGER CHORDS:         }, (NoteName trigger_pads_val, YES), {-}, (NoteName trigger_pads_val+7, YES)
 	if (mode>=1 and mode<=3)
 		LatchPad mode+1, YES //#shifted +Chords in menu
 		settings_pad_cols[mode+1]=8
