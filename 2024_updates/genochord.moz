@@ -45,7 +45,7 @@
         custom_pads = [-1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]  // default custom pads config
         trigger_pads_val = 36 //# starting note for trigger pads. 8 pads to trigger 8 chords
         //#player modes
-		player_mode=0 //# 0. play chords as sequenced on out channel or 1. Trigger chords usign player in channel
+		player_mode=1 //# 0. OFF 1. play chords as sequenced on out channel or 2. Trigger chords usign player in channel
 		player_in_channel=0
 		player_out_channel=0
 		Call @TransposeCalcArrays
@@ -303,23 +303,25 @@
 	//# Log {Chord beats left: }, current_chord_duration - chord_beat_count
   
 	//# Chord progression -- Order of operations
-	if (scene_change_requested > -1) and (HostBeat = 0)
-		//# user requested scene change and its a new bar (& return to song)
-		//# Log {Handling scene change request. It a new bar}
-        Call @TurnOffChordNotes
-		Call @HandleSceneChange
-	elseif (scene_beat_count >= current_scene_duration)
-		//# its time to increment scene
-        Call @TurnOffChordNotes
-		Call @HandleSceneChange
-	elseif (chord_change_requested > -1)
-  		//# User requested chord change & its a new beat
-        Call @TurnOffChordNotes
- 		Call @HandleChordChange
-	elseif (chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
-        Call @TurnOffChordNotes
-		Call @HandleChordChange
-	endif
+    if player_mode = 1 //# play sequence chord progression
+        if (scene_change_requested > -1) and (HostBeat = 0)
+            //# user requested scene change and its a new bar (& return to song)
+            //# Log {Handling scene change request. It a new bar}
+            Call @TurnOffChordNotes
+            Call @HandleSceneChange
+        elseif (scene_beat_count >= current_scene_duration)
+            //# its time to increment scene
+            Call @TurnOffChordNotes
+            Call @HandleSceneChange
+        elseif (chord_change_requested > -1)
+            //# User requested chord change & its a new beat
+            Call @TurnOffChordNotes
+            Call @HandleChordChange
+        elseif (chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
+            Call @TurnOffChordNotes
+            Call @HandleChordChange
+        endif
+    endif
 	if mode=0
 		LabelPads {[ GENOCHORD ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration) 
 	endif
@@ -405,12 +407,12 @@
 
 @PlayChords
 	// Active channels set to Play Chords mode (4) send out chord notes on that channel
-	if HostRunning and player_mode=0
+	if HostRunning and player_mode=1
 		chord_slot = (current_scene * 100) + ((current_chord) * 10)
 		current_chord_duration = chord_bank[chord_slot + dur_slot]
 		chord_formed = curr_inv_chord_scale[0]>=0 and curr_inv_chord_scale[4]>=0 and curr_inv_chord_scale[7]>=0
 		if current_chord_duration>0
-			if player_mode=0
+			if player_mode=1
 				index_to_chord_notes=[0,4,7,11]
 				Call @TurnOffChordNotes
 				for n = 0 to 3
@@ -427,7 +429,7 @@
 
 @HandleNotesHeldOverChordChange
 	if HostRunning //turn off notes over chord change and re-trigger melody and harmony channel notes
-        if player_mode=1 and update_held_notes_on_chord_change //play chord mode 
+        if player_mode=2 and update_held_notes_on_chord_change //play chord mode 
             Call @TurnOffChordNotes //turn off all chord notes on chord change & update notestate
             if held_chord_notes[player_out_channel]>=0
                 trigger_note_oct_adj = 0  //notes 48-59 no change
@@ -1039,7 +1041,7 @@
 	//#Log {Note received }, MIDICommand, { ch:}, MIDIChannel+1, { }, (NoteName MIDIByte2, YES), { [}, MIDIByte2, {]}, { v:}, MIDIByte3 
 	if mode=3 and  MIDIChannel=player_in_channel // records mode 
 		Call @HandleRecordNotes
-    elseif player_mode=1 and MIDIChannel=player_in_channel and (MidiNote>=trigger_pads_val) and (MIDINote<=trigger_pads_val+7)
+    elseif player_mode=2 and MIDIChannel=player_in_channel and (MidiNote>=trigger_pads_val) and (MIDINote<=trigger_pads_val+7)
 		//# trigger chords mode
 		note_in_velo = MIDIVelocity
 		Call @TurnOffChordNotes //# can only have one chord note per channel playing at any one time
@@ -1130,7 +1132,7 @@
 	CopyArray curr_inv_chord_scale, is, 12
 	
 	note_in_velo = MIDIVelocity // for Humanize Velocity
-	if player_mode=1 //trigger mode
+	if player_mode=2 //trigger mode
 		if current_chord_scale[0]>=0 and current_chord_scale[4]>=0 and current_chord_scale[7]>=0 
 			//aka chord_formed we can send chord notes
 			index_to_chord_notes=[0,4,7,11]
@@ -1252,15 +1254,13 @@
 		elseif (MIDICommand=0x90 and MIDIByte3=0) or MIDICommand=0x80 //Note off
 			Call @OnPadUp2
 		endif
-	elseif player_mode=1 
+	elseif player_mode=2
 		//chord mode=trigger mode
 		Call @TurnOffChordNotes
 		if update_held_notes_on_chord_change
 			held_chord_notes[player_out_channel] = -1
 			held_chord_oct_adj[player_out_channel] = 0
 		endif
-	elseif player_mode=0 //Play chord  - no input	
-		Exit
 	endif
 @End
 
@@ -1447,7 +1447,7 @@
 	knob_set = 99
 	SetKnobValue 0, TranslateScale player_in_channel, 0, 14, 0, 127
     SetKnobValue 1, TranslateScale player_out_channel, 0, 14, 0, 127
-    SetKnobValue 2, TranslateScale player_mode, 0, 1, 0, 127
+    SetKnobValue 2, TranslateScale player_mode, 0, 2, 0, 127
     SetKnobValue 3, TranslateScale player_mode, 24, 88, 0, 127
 	Call @LabelSettingsKnobs
 @End
@@ -1465,11 +1465,13 @@
             Call @LabelSettingsKnobs
         endif
     elseif last_knob = 2
-        val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 1
+        val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
         if val <> player_mode 	
             player_mode = val
             Call @LabelSettingsKnobs
             if player_mode=0
+                LabelPads {Genochord is off. No chords played or triggered}
+            elseif player_mode=1
                 LabelPads {Chords play as sequenced on Out channel }, player_out_channel+1
             else
                 LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1
@@ -1489,10 +1491,12 @@
 @LabelSettingsKnobs
     LabelKnob 0, {In CH}, player_in_channel+1
     LabelKnob 1, {Out CH}, player_out_channel+1
-    if player_mode=1 //# Trigger
-        LabelKnob 2, {TRIGGER}
-    else
+    if player_mode=0
+        LabelKnob 2, {OFF}
+    elseif player_mode=1
         LabelKnob 2, {PLAY}
+    else
+        LabelKnob 2, {TRIGGER}
     endif
     LabelKnob 3, {Note }, trigger_pads_val
     LabelKnobs {Midi In/Out + Mode}
@@ -2061,7 +2065,7 @@
 		kc_col=3
 	endif
     tc_col=0
-    if player_mode=1
+    if player_mode=2
         tc_col=3
     endif
     settings_pad_cols=[8,4,7,7,7,0,4,1, kc_col,0,0,0,0,0,1,tc_col]
