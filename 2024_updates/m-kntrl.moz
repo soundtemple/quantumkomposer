@@ -1,4 +1,4 @@
-//# ONE2MANY
+//# M:KNTRL
 //# 4 ENCODERS to control 15 channels x 64 params
 @OnLoad
 	ShowLayout 2
@@ -8,7 +8,7 @@
 		edit_mode_active=FALSE
 		edit_chan=0 // selected channel for editing
 		edit_pad=0 //selected pad in a channel for editing
-		use_instr_knobset_a=TRUE //used to toggle between two one2many knobsets. Edit mode cant access
+		use_instr_knobset_a=TRUE //used to toggle between two M:KNTRL knobsets. Edit mode cant access
 		send_midi_feedback = 0 //send feedabck to update controller state. 0=off
 		SetMetroPPQN 4
 		ppqn = 4
@@ -16,7 +16,7 @@
 		pad_is_down=FALSE
 		last_channel_visited=0 //# last channel a user visited 0-16 (16 is top level)
 		in_mode_select = TRUE //# Toggle for changing modes mode
-		curr_chan=0 //# 0-15 ONE2MANY channels + Channel Select + M-Kontrol Channel
+		curr_chan=0 //# 0-15  //# selected chan
         custom_pads_type=0 //# 0 Notes, 1 CC
 		kntrl_knob_type=0 //# 0=Encoders 1=Regular knobs
         kntrl_output_relenc=FALSE //# TRUE=Relative encoder output +65 -63; FALSE=continuous absolute output pot //#relenc 
@@ -153,7 +153,6 @@
 
 @OnMidiCC //KNTRL midi implementation. Receive only CH16 - output to active channel
     // Commands (hex#) NoteOn=0x90;NoteOff=0x80;CC=0xB0;ProgramChange=0xC0;Aftertouch=0xD0;Pitchbend=0xE0
-	// CCs14-17 IN: ONE2MANY KNOBS1-4 for knobset chg without using via AUM MidiControl
 	if ready_to_rec_knob_vals
 		custom_knobs[last_pad+1] = MIDIByte2
 		Call @SetupLayoutKnobsConfig
@@ -525,7 +524,7 @@
 @GoToSettingsMixerMode
     in_mode_select = TRUE
     inst_pad_copied=FALSE
-    LabelPads {[ SETTINGS/MIXER MODES ]}
+    Call @LabelPadsHeader
     FillArray copied_pad, 10, 0
     Call @SetupSettingsLayout
     Call @UpdateCurrentKnobset
@@ -832,6 +831,7 @@
 @SetupSettingsLayout
 	// #Label all settings mode pads
 	in_mode_select = TRUE
+    Call @LabelPadsHeader
 	ShowLayout 2
 	Call @LabelSettings
 	LabelPad 0, {MIDI LEARN}
@@ -852,7 +852,7 @@
 		p3=4
 	endif
 	LabelPad 3, {INSTRUMENT}, {CHANNELS}
-	LabelPad 4, {CLIPS + SCENES}
+	LabelPad 4, { }
 	LabelPad 5, { }
 	LabelPad 8, {__MIXER__ }, {VOL PAN} //channels Vol, Gain, Pan, Width
 	LabelPad 9, {__MIXER__ }, {SENDS FILT} //HPF LPF SEND A SEND B
@@ -868,13 +868,13 @@
 	if layouts_locked
 		LabelPad 7, {EDIT LAYOUTS}, { OFF }
 		p7=0
-        LabelPads {[ SETTINGS/MIXER MODES ]}
+        Call @LabelPadsHeader
 	else
 	    LabelPad 7, {EDIT LAYOUTS}, { ON }
         LabelPads {Goto instrument chan. Tap pad to edit. Longpress to copy}
 		p7=col_mode_edit
 	endif
-	settings_cols = [kc_col,p1,p2,p3, 3,0,p6,p7, 2,2,2,2, 2,0,0,0]
+	settings_cols = [kc_col,p1,p2,p3, 0,0,p6,p7, 2,2,2,2, 2,0,0,0]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
@@ -883,7 +883,7 @@
 
 @LabelSettings
 	//When we want some pads update in settings without re-settng whole layout
-	LabelKnobs {ONE2MANY}
+	LabelKnobs {M:KNTRL}
     LabelKnob 0, { }
 	LabelKnob 2, { }
 	LabelKnob 1, { }
@@ -1166,9 +1166,9 @@
 @End
 
 @SetupKnobset3
-	// Setup customone2manyknobs settings
+	// Setup setup custom knobs to control app
 	knob_set = 3
-	LabelPads {[ MIDI LEARN 4 KNOBS, 16 PADS + SHIFT BUTTON ]}
+	Call @LabelPadsHeader
 	LabelKnobs {KNOB SETTINGS}
 	if custom_knobs[0] = -1
 		LabelKnob 0, {Not in use}
@@ -1486,7 +1486,7 @@
 @SetupKnobset8
 	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
 	knob_set = 8
-	LabelPads {[ MIDI GENERATORS ]}
+	Call @LabelPadsHeader
 	LabelKnobs {SETUP PAD }, sel_mgen_dev+1
 	LabelKnob 0, {Label }, mgen_labels[sel_mgen_dev]
 	LabelKnob 1, {Color }, mgen_colors[sel_mgen_dev]
@@ -1958,10 +1958,12 @@
 
 @LabelPadsHeader
 	//Laborious task of labelling pads when you cant store a string
-    if mode=5 //instrument mode
+    if in_mode_select
+        LabelPads {[ M:KNTRL SETTINGS / MIXER ]} 
+    elseif mode=5 //instrument mode
         label_num = chan_labels[curr_chan]
         if (label_num=0)
-            LabelPads {One2Many}
+            LabelPads {M:KNTRL}
         elseif (label_num=1)
             LabelPads curr_chan+1, {: DRUMS }
         elseif (label_num=2)
@@ -2017,8 +2019,12 @@
         LabelPads {[ MIDI GENERATORS ]}
     elseif mode=7
         LabelPads {[ MIXER MODE }, mixer_mode+1, { ]}
-	else
+    elseif mode=1 or mode=2
         LabelPads {[ CHANNEL SELECT ]}
+    elseif mode=3
+        LabelPads {[ MIDI LEARN 4 KNOBS, 16 PADS + SHIFT BUTTON ]}
+	else
+        LabelPads {[M:KNTRL]} 
     endif
 @End
 
