@@ -1771,6 +1771,7 @@
     for i = 0 to 15
 		LabelPad i, { }
 		ColorPad i, midi_learn_pad_cols[i]
+        LatchPad i, NO
 	endfor
 	for i = 4 to 7
 		ColorPad i, 0
@@ -2098,7 +2099,12 @@
     LabelPad 12, { }
     LabelPad 13, { }
     LabelPad 14, { ALL NOTES OFF }
-	LabelPad 15, {TRIGGER CHORDS:         }, (NoteName trigger_pads_val, YES), {-}, (NoteName trigger_pads_val+7, YES)
+    if player_mode=2
+    	LabelPad 15, {TRIGGER CHORDS:         }, (NoteName trigger_pads_val, YES), {-}, (NoteName trigger_pads_val+7, YES)
+    else
+        LabelPad 15, {TRIGGER CHORDS:         }, { N/A }
+
+    endif
 	if (mode>=1 and mode<=3)
 		LatchPad mode+1, YES //#shifted +Chords in menu
 		settings_pad_cols[mode+1]=8
