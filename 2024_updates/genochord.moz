@@ -47,7 +47,7 @@
         //#player modes
 		player_mode=1 //# 0. OFF 1. play chords as sequenced on out channel or 2. Trigger chords usign player in channel
 		player_in_channel=0
-		player_out_channel=0
+		player_out_channel=3
 		Call @TransposeCalcArrays
 	  	Call @InitKnobVariables //# All knob settings on start
 	  	Call @SetupChordsScenes
@@ -502,7 +502,7 @@
         elseif (last_pad=15) //# Trigger chords base note
             mode=last_pad
             Call @SetupSettingsLayout
-            LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1
+            LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1, { (*CH aka }, player_in_channel, { )} 
 		else
 			mode = last_pad
 			in_settings_mode = FALSE
@@ -570,7 +570,7 @@
 
 @OnPadUp
 	last_pad=LastPad
-  Call @OnPadUp2
+    Call @OnPadUp2
 @End
 
 @OnPadUp2
@@ -1038,7 +1038,7 @@
 	//# Log {Midi received on CH: }, MIDIChannel, { note: }, MidiNote
 	//# -1Off 0Chord 1Round 2+NonChord 3Bass 4Root 5Third 6Fifth 7thru
 	//# Record chords from the channel set 
-	//#Log {Note received }, MIDICommand, { ch:}, MIDIChannel+1, { }, (NoteName MIDIByte2, YES), { [}, MIDIByte2, {]}, { v:}, MIDIByte3 
+	//# Log {Note received }, { ch:}, MIDIChannel+1, { }, (NoteName MIDIByte2, YES), { [}, MIDIByte2, {]}, { v:}, MIDIByte3, { vs tpad val }, trigger_pads_val 
 	if mode=3 and  MIDIChannel=player_in_channel // records mode 
 		Call @HandleRecordNotes
     elseif player_mode=2 and MIDIChannel=player_in_channel and (MidiNote>=trigger_pads_val) and (MIDINote<=trigger_pads_val+7)
@@ -1075,52 +1075,21 @@
         custom_pads[0] = MIDIChannel
     elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
         for i = 1 to 8
-            if MIDIByte2=custom_pads[i]
-                last_pad=i-1
-            endif
-        endfor
-        if MIDIByte3=0
-            Call @OnPadUp2
-        else
-            Call @OnPadDown2
+        if MIDIByte2=custom_pads[i]
+            last_pad=i-1
         endif
-
+    endfor
+        Call @OnPadDown2
     elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
         for i = 9 to 16
-            if MIDIByte2=custom_pads[i]
-                last_pad=i-1
-            endif
-        endfor
-        if MIDICommand=0x90 and MIDIByte3>0 //noteOn
-            Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mozaic
-        elseif MIDICommand=0x90 and MIDIByte3=0
-            Call @OnPadUp2
-        elseif MIDICommand=0x80 //Note off
-            Call @OnPadUp2
+        if MIDIByte2=custom_pads[i]
+            last_pad=i-1
         endif
+        endfor
+        Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mozaic
 		
     elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
-        if MIDICommand=0x90 //noteOn	
-            Call @OnShiftDown2
-        elseif MIDICommand=0x80 //Note off
-            Call @OnShiftUp2
-        endif
-	elseif MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 
-		// notes 20-36 on channel 16  used to trigger pads 0-15
-		if MIDINote=36 //SHIFT
-			if MIDICommand=0x90 //noteOn	
-				Call @OnShiftDown2
-			endif
-		else
-			last_pad = MIDINote-20
-			if MIDICommand=0x90 and MIDIByte3>0 //noteOn
-				Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mozaic
-			elseif MIDICommand=0x90 and MIDIByte3=0
-				Call @OnPadUp2
-			elseif MIDICommand=0x80 //Note off
-			  	Call @OnPadUp2
-			endif
-		endif
+        Call @OnShiftDown2
 	endif
 @End
 
@@ -1246,22 +1215,32 @@
 @End
 
 @OnMidiNoteOff  
-  // #handle selected device pad release
-	if MIDIChannel=15 and MidiNote>=20 and MIDINote<=36 
-		last_pad = MIDINote-20
-		if MIDINote=36 and MIDICommand=0x80 //Note off
-			shift_is_down=FALSE //SHIFT
-		elseif (MIDICommand=0x90 and MIDIByte3=0) or MIDICommand=0x80 //Note off
-			Call @OnPadUp2
-		endif
-	elseif player_mode=2
+    // #handle selected device pad release
+    ready_to_rec_pad_vals=FALSE
+	if player_mode=2 and MIDIChannel=player_in_channel and (MidiNote>=trigger_pads_val) and (MIDINote<=trigger_pads_val+7)
 		//chord mode=trigger mode
 		Call @TurnOffChordNotes
 		if update_held_notes_on_chord_change
 			held_chord_notes[player_out_channel] = -1
 			held_chord_oct_adj[player_out_channel] = 0
 		endif
-	endif
+    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8])
+        for i = 1 to 8
+            if MIDIByte2=custom_pads[i]
+                last_pad=i-1
+            endif
+        endfor
+		Call @OnPadUp2
+    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16])
+        for i = 9 to 16
+            if MIDIByte2=custom_pads[i]
+                last_pad=i-1
+            endif
+        endfor
+		Call @OnPadUp2
+    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
+        Call @OnShiftUp2
+    endif
 @End
 
 @HandleRecordNotes
@@ -1474,7 +1453,7 @@
             elseif player_mode=1
                 LabelPads {Chords play as sequenced on Out channel }, player_out_channel+1
             else
-                LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1
+                LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1, { (*CH aka }, player_in_channel, { )} 
             endif
             Call @SetupSettingsLayout
         endif
@@ -1484,7 +1463,7 @@
             trigger_pads_val = val
             Call @LabelSettingsKnobs
             LabelPad 15, {TRIGGER CHORDS:         }, (NoteName trigger_pads_val, YES), {-}, (NoteName trigger_pads_val+7, YES)
-            LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1
+            LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1, { (*CH aka }, player_in_channel, { )} 
         endif
     endif
 @End

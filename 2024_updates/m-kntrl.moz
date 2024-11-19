@@ -2,7 +2,7 @@
 //# 4 ENCODERS to control 15 channels x 64 params
 @OnLoad
 	ShowLayout 2
-	SetShortName {O2M}
+	SetShortName {MKNTRL}
 	if unassigned pad_is_down 
 		mode = 5 //#1Channels, 2Kontrol
 		edit_mode_active=FALSE
@@ -63,13 +63,13 @@
 	chan_pgm=[]
 	FillArray chan_pgm_max, 127, 16
 	// Default setup for Channels - midi chs are fixed
-	num_chan_labels=26
+	num_chan_labels=27
     // Instrument channels
     chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] 
     use_aum_layout=FALSE
-    chan_labels =  [20,23,24,2,21,3,7,5,9,6,8,16,13,14,15,99]
-    chan_colors =  [1,2,2,6,6,5,5,3,4,4,4,7,5,5,5,0]
-    chan_layouts =  [10,10,10,10,10,10,10,10,10,10,10,10,2,3,11,0]
+    chan_labels =  [26,20,23,24, 2,21,16,27, 3, 7, 5, 9, 6, 8,15,99]
+    chan_colors =  [0,  1, 2, 2, 6, 6, 7, 0, 2, 2, 3, 4, 4, 4, 5, 0]
+    chan_layouts = [0, 10,10,10,10,10,10, 0,10,10,10,10,10,10,11, 0]
 
     FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
@@ -2086,7 +2086,9 @@
 	elseif (label_num=25)
 		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SAMPLER}
 	elseif (label_num=26)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {MAIN}	
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {MAIN}
+    elseif (label_num=27)
+		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {CHORDS}	
 	elseif (label_num=99)
 		LabelPad pad_to_label, {Settings / Mixer...}	
 	endif
