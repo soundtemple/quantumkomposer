@@ -5,12 +5,12 @@
     colours=[]
     colour_index=[]
     Call @GetColorArray
-    LabelPad 0, {All pads on}
+    LabelPad 0, {Get pads ready}
     ColorPad 0, 3
     LabelPad 1, {All pads off}
     ColorPad 1, 1
     ColorPad 2, 3
-    LabelPad 2, {All btns on}
+    LabelPad 2, {Get btns ready}
     ColorPad 3, 1
     LabelPad 3, {All btns off}
     def_pad_cols[0]=[whte,red,yell,yell, prpl,prpl,pink,whte, orng,orng,grn,blu2, blu2,blu2,blu1,off]
@@ -18,13 +18,21 @@
     def_pad_cols[32]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
     def_pad_cols[48]=[whte,off,off,off,off,off,off,off,whte,off,off,off,off,off,off,off]
     btn_ccs= [31,32,33,34,35,36,37,38,39,44,45,46,47,48,49,50,51,52,53]
-    btn_cols=[ 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 4, 2, 0, 3, 0, 1]
+    btn_cols=[ 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 4, 2, 0, 0, 0, 0]
     col_pads=[]
     col_btns=[]
     clear_pads=[]
     clear_btns=[]
     FillArray clear_pads, off, 64
     FillArray clear_btns, off, 19
+    side_mode=0
+    record_on=FALSE //# 53
+    play_on=FALSE //# 51
+    loop_scenes=FALSE //# 33
+    show_scenes=FALSE //# 50
+    view_mode=0 //# 0:Off ClipOverview44 PianoRoll45 Velocity46 Autom47 
+    logInfo=FALSE
+    Call @LogInfo
 @End
 
 @OnPadDown
@@ -44,6 +52,9 @@
         led_col=0
         Call @LightUpButtons
         Call @LightLeds
+    elseif LastPad=15
+        LogInfo = not LogInfo
+        Call @LogInfo
     endif
     Log {Done!}
 @End
@@ -66,6 +77,56 @@
             SendMidiCC 0, MidiNote+4+i, 0
         endfor
         SendMidiCC 0, MidiNote+4, side_mode_leds[MidiNote-36] //#Side Leds on
+    elseif MidiNote=33 
+        loop_scenes = not loop_scenes
+        if loop_scenes
+            update_col=1
+        else
+            update_col=0
+        endif
+        SendMidiCC 0, 33, update_col
+    elseif MidiNote>=44 and MidiNote<=47
+        if view_mode=MidiNote
+            view_mode=0
+            update_view=[0,0]
+        else
+            view_mode=MidiNote
+            update_view=[MidiNote, 1]
+        endif
+        for i = 44 to 47
+            SendMidiCC 0, i, 0
+        endfor
+        SendMidiCC 0,update_view[0], update_view[1]
+    elseif MidiNote=50
+        show_scenes = not show_scenes
+        if show_scenes
+            update_col=2
+        else
+            update_col=0
+        endif
+        SendMidiCC 0, 50, update_col
+    elseif MidiNote=51
+        play_on = not play_on
+        if play_on
+            update_col=3
+        else
+            update_col=0
+        endif
+        SendMidiCC 0, 51, update_col
+    elseif MidiNote=53
+        record_on = not record_on
+        if record_on
+            update_col=3
+        else
+            update_col=0
+        endif
+        SendMidiCC 0, 53, update_col
+    elseif MidiNote=52
+        //# undo on momentary
+        SendMidiCC 0, 52, 1
+    elseif (MidiNote=48 or MidiNote=49)
+        //# shift / alt on
+        SendMidiCC 0, MidiNote, 0
     endif
 @End
 
@@ -76,8 +137,14 @@
         for i = 0 to 3
             SendMidiCC 0, MidiNote+4+i, 0
         endfor
+    elseif MidiNote=52
+        //# undo on momentary
+        SendMidiCC 0, 52, 0
+    elseif (MidiNote=48 or MidiNote=49)
+        //# shift / alt on
+        update_cols=[4,2]
+        SendMidiCC 0, MidiNote, update_cols[MidiNote-48]
     endif
-    Call @LogInfo
 @End
 
 @UpdatePadCols
@@ -136,3 +203,15 @@
     pink=27
     colour_index=[0,3,6,9,12,15,18,21,24,27,30,33,36]
 @end
+
+@LogInfo
+    if logInfo
+        LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
+        LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
+        LabelPad 2, {SideMode: }, side_mode
+        LabelPad 3, {KnobMode: }, knob_mode
+        LabelPad 15, {LogInfo:}, { ON}
+    else
+        LabelPad 15, {LogInfo:}, { OFF}
+    endif
+@End

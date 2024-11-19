@@ -46,10 +46,8 @@
         if knob_mode>1
             knob_mode=0
         endif
-        Call @LogInfo
     elseif MidiNote>=36 and MidiNote<=39
         side_mode=MidiNote-35
-        Call @LogInfo
     elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=77 and side_mode=0
         SendMIDIThru //# Send thru pads row 1 (all) and row 2 (LHS)
     elseif MidiChannel=0 and MidiNote>=78 and MidiNote<=85 and side_mode=0
@@ -67,6 +65,7 @@
     elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53 and side_mode=0
         SendMIDIThru //# Send bottom row OTHERS
     endif
+    Call @LogInfo
 @End
 
 @OnMidiNoteOff
@@ -83,10 +82,14 @@
         SendMIDIThruOnCh 2 //# Send thru pads row 3 (RHS)  
     elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and side_mode=0
         SendMIDIThru //# Send thru pads row 4
-    elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=35 and side_mode=0
-        SendMIDIThru //# Send pattern, browser, grid
+    elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=33 and side_mode=0
+        Exit //# Send pattern, browser, grid
+    elseif MidiChannel=0 and MidiNote>=34 and MidiNote<=35 and side_mode=0
+        SendMIDIThru //# Grid buttons need off for some reason
+    elseif MidiChannel=0 and (MidiNote=48 or MidiNote=49 or MidiNote=52) and side_mode=0
+        SendMIDIThru //# Shift and Alt buttons + undo
     elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53 and side_mode=0
-        SendMIDIThru //# Send bottom row
+        Exit //# Send bottom row
     endif
     Call @LogInfo
 @End
