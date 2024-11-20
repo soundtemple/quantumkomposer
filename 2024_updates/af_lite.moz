@@ -13,10 +13,8 @@
     LabelPad 2, {Get btns ready}
     ColorPad 3, 1
     LabelPad 3, {All btns off}
-    def_pad_cols[0]=[whte,red,yell,yell, prpl,prpl,pink,whte, orng,orng,grn,blu2, blu2,blu2,blu1,off]
-    def_pad_cols[16]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
-    def_pad_cols[32]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
-    def_pad_cols[48]=[whte,off,off,off,off,off,off,off,whte,off,off,off,off,off,off,off]
+    def_pad_cols=[]
+    Call @GetDefaultPadColors
     btn_ccs= [31,32,33,34,35,36,37,38,39,44,45,46,47,48,49,50,51,52,53]
     btn_cols=[ 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 4, 2, 0, 0, 0, 0]
     col_pads=[]
@@ -25,7 +23,8 @@
     clear_btns=[]
     FillArray clear_pads, off, 64
     FillArray clear_btns, off, 19
-    side_mode=0
+    clip_bank=0
+    knob_mode=0
     record_on=FALSE //# 53
     play_on=FALSE //# 51
     loop_scenes=FALSE //# 33
@@ -33,25 +32,35 @@
     view_mode=0 //# 0:Off ClipOverview44 PianoRoll45 Velocity46 Autom47 
     logInfo=FALSE
     Call @LogInfo
+    LabelPad 14, {test this }
+@End
+
+@GetDefaultPadColors
+    def_pad_cols[0]=[whte,red,yell,yell, prpl,prpl,pink,whte, orng,orng,grn,blu2, blu2,blu2,blu1,off]
+    def_pad_cols[16]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
+    def_pad_cols[32]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
+    def_pad_cols[48]=[whte,off,off,off,off,off,off,off,whte,off,off,off,off,off,off,off]
 @End
 
 @OnPadDown
     if LastPad=0
-        CopyArray def_pad_cols, col_pads
+        CopyArray def_pad_cols, col_pads, 64
         Call @UpdatePadCols
     elseif LastPad=1
-        CopyArray clear_pads, col_pads
+        CopyArray clear_pads, col_pads, 64
         Call @UpdatePadCols
     elseif LastPad=2
-        CopyArray btn_cols, col_btns
-        led_col=2
+        CopyArray btn_cols, col_btns, 64
+        led_cols=[0,0,0,0]
         Call @LightUpButtons
-        Call @LightLeds
+        Call @UpdateSideLeds
     elseif LastPad=3
-        CopyArray clear_btns, col_btns
-        led_col=0
+        CopyArray clear_btns, col_btns, 64
+        led_cols=[2,2,2,2]
         Call @LightUpButtons
-        Call @LightLeds
+        Call @UpdateSideLeds
+    elseif LastPad=14
+        //testing
     elseif LastPad=15
         LogInfo = not LogInfo
         Call @LogInfo
@@ -62,9 +71,8 @@
 @OnMidiNoteOn
     if MidiNote>=16 and MidiNote<=19
         Exit
-    elseif MidiNote=26 and side_mode=0  //#knobbank channel, mixer, user1, user2
+    elseif MidiNote=26  //#knobbank channel, mixer, user1, user2
         knob_mode=knob_mode+1
-        log {knob mode}, knob_mode
         if knob_mode>1
             knob_mode=0
         endif
@@ -72,11 +80,15 @@
         SendMidiCC 0, 27, 10 //# ALl leds off
         SendMidiCC 0, 27, knob_mode
     elseif MidiNote>=36 and MidiNote<=39
-        side_mode=MidiNote-35
-        for i = 0 to 3 //# side leds off
-            SendMidiCC 0, MidiNote+4+i, 0
-        endfor
-        SendMidiCC 0, MidiNote+4, side_mode_leds[MidiNote-36] //#Side Leds on
+        led_cols=[0,0,0,0]
+        if clip_bank=MidiNote-35
+            clip_bank=0
+        else
+            clip_bank=MidiNote-35
+            led_cols[clip_bank-1]=2
+        endif
+        Call @UpdateSideLeds
+        Call @UpdatePadsForSideMode
     elseif MidiNote=33 
         loop_scenes = not loop_scenes
         if loop_scenes
@@ -128,16 +140,11 @@
         //# shift / alt on
         SendMidiCC 0, MidiNote, 0
     endif
+    Call @LogInfo
 @End
 
 @OnMidiNoteOff
-    side_mode=0
-    if MidiNote>=36 and MidiNote<=39
-        side_mode=0
-        for i = 0 to 3
-            SendMidiCC 0, MidiNote+4+i, 0
-        endfor
-    elseif MidiNote=52
+    if MidiNote=52
         //# undo on momentary
         SendMidiCC 0, 52, 0
     elseif (MidiNote=48 or MidiNote=49)
@@ -146,6 +153,19 @@
         SendMidiCC 0, MidiNote, update_cols[MidiNote-48]
     endif
 @End
+
+@UpdatePadsForSideMode
+    if clip_bank>=1 and clip_bank<=4
+        CopyArray def_pad_cols[0], col_pads[0], 16
+        CopyArray def_pad_cols[0], col_pads[16], 16
+        CopyArray def_pad_cols[0], col_pads[32], 16
+        CopyArray def_pad_cols[0], col_pads[48], 16
+        Call @UpdatePadCols
+    elseif clip_bank=0
+        CopyArray def_pad_cols, col_pads, 64
+        Call @UpdatePadCols
+    endif
+@end
 
 @UpdatePadCols
     //# pads 0-15 are for tracks
@@ -164,11 +184,11 @@
     endfor
 @End
 
-@LightLeds
-    for i=40 to 43
-        SendMidiCC 0, i, led_col
+@UpdateSideLeds
+    for i = 40 to 43
+        SendMidiCC 0, i, led_cols[i-40] //Leds
     endfor
-@End
+@end
 
 @GetColorArray
     a_off=[0,0,0]
@@ -208,7 +228,7 @@
     if logInfo
         LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
         LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
-        LabelPad 2, {SideMode: }, side_mode
+        LabelPad 2, {ClipMode: }, clip_bank
         LabelPad 3, {KnobMode: }, knob_mode
         LabelPad 15, {LogInfo:}, { ON}
     else

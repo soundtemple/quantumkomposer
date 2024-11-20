@@ -2,9 +2,9 @@
 	SetShortName {AFTRIG} 
 	LabelPads {AKAI FIRE TRIGGER}
 	ShowLayout 2
-    side_mode=0
-    side_mode_leds=[1,1,4,4]
     btm_btn_cols=[3,3,3,3,4,2]
+    clip_bank=0
+    clip_bank_leds=[1,1,4,4]
     knob_mode=0
     knob_ccs=[]
     knob_chs=[0,0,0,0, 2,2,2,2, 15,15,15,15, 15,15,15,15]
@@ -40,55 +40,66 @@
 @OnMidiNoteOn
     if MidiNote>=16 and MidiNote<=19
         Exit
-    elseif MidiNote=26 and side_mode=0  //#knobbank channel, mixer, user1, user2
+    elseif MidiNote=26  //#knobbank channel, mixer, user1, user2
         knob_mode=knob_mode+1
-        log {knob mode}, knob_mode
         if knob_mode>1
             knob_mode=0
         endif
     elseif MidiNote>=36 and MidiNote<=39
-        side_mode=MidiNote-35
-    elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=77 and side_mode=0
+        if clip_bank=MidiNote-35
+            clip_bank=0
+        else
+            clip_bank=MidiNote-35
+            SendMidiCC 15, MidiNote, 127    
+        endif
+    elseif clip_bank>=1 and clip_bank<=4 and MidiNote>=54 and MidiNote<=117
+        //# clip mode
+        row = RoundDown ((MidiNote-54)/16)
+        col = (MidiNote-54)%16
+        SendMIDINoteOn col, row, 127    
+    elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=77
         SendMIDIThru //# Send thru pads row 1 (all) and row 2 (LHS)
-    elseif MidiChannel=0 and MidiNote>=78 and MidiNote<=85 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=78 and MidiNote<=85
         SendMIDIThruOnCh 2 //# Send thru pads row 2 (RHS)
-    elseif MidiChannel=0 and MidiNote>=86 and MidiNote<=93 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=86 and MidiNote<=93
         SendMIDIThru //# Send thru pads row 3 (LHS)
-    elseif MidiChannel=0 and MidiNote>=94 and MidiNote<=101 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=94 and MidiNote<=101
         SendMIDIThruOnCh 2 //# Send thru pads row 3 (RHS)  
-    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117
         SendMIDIThru //# Send thru pads row 4
-    elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=35 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=35
         SendMIDIThru //# Send pattern, browser, grid
-    elseif MidiChannel=0 and MidiNote=49 side_mode=0
+    elseif MidiChannel=0 and MidiNote=49
         SendMIDIThruOnCh 2 //# Send bottom ALT
-    elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53
         SendMIDIThru //# Send bottom row OTHERS
     endif
     Call @LogInfo
 @End
 
 @OnMidiNoteOff
-    side_mode=0
-    if MidiNote>=36 and MidiNote<=39
-        side_mode=0
-    elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=77 and side_mode=0
+    if clip_bank>=1 and clip_bank<=4 and MidiNote>=54 and MidiNote<=117
+        //# clip mode
+        row = RoundDown ((MidiNote-54)/16)
+        col = (MidiNote-54)%16
+        SendMIDINoteOff col, row, 0 
+    elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=77
         SendMIDIThru //# Send thru pads row 1 (all) and row 2 (LHS)
-    elseif MidiChannel=0 and MidiNote>=78 and MidiNote<=85 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=78 and MidiNote<=85
         SendMIDIThruOnCh 2 //# Send thru pads row 2 (RHS)
-    elseif MidiChannel=0 and MidiNote>=86 and MidiNote<=93 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=86 and MidiNote<=93
         SendMIDIThru //# Send thru pads row 3 (LHS)
-    elseif MidiChannel=0 and MidiNote>=94 and MidiNote<=101 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=94 and MidiNote<=101
         SendMIDIThruOnCh 2 //# Send thru pads row 3 (RHS)  
-    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117
         SendMIDIThru //# Send thru pads row 4
-    elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=33 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=33
         Exit //# Send pattern, browser, grid
-    elseif MidiChannel=0 and MidiNote>=34 and MidiNote<=35 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=34 and MidiNote<=35
         SendMIDIThru //# Grid buttons need off for some reason
-    elseif MidiChannel=0 and (MidiNote=48 or MidiNote=49 or MidiNote=52) and side_mode=0
+    elseif MidiChannel=0 and (MidiNote=48 or MidiNote=49 or MidiNote=52)
         SendMIDIThru //# Shift and Alt buttons + undo
-    elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53 and side_mode=0
+    elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53
         Exit //# Send bottom row
     endif
     Call @LogInfo
@@ -98,7 +109,7 @@
     if logInfo
         LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
         LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
-        LabelPad 2, {SideMode: }, side_mode
+        LabelPad 2, {ClipMode: }, clip_bank
         LabelPad 3, {KnobMode: }, knob_mode
         LabelPad 15, {LogInfo:}, { ON}
     else
