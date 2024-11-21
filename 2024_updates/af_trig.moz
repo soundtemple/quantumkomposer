@@ -54,7 +54,7 @@
         endif
     elseif clip_bank>=1 and clip_bank<=4 and MidiNote>=54 and MidiNote<=117
         //# clip mode
-        row = RoundDown ((MidiNote-54)/16)
+        row = ((RoundDown ((MidiNote-54)/16)) + (clip_bank*4) - 4)
         col = (MidiNote-54)%16
         SendMIDINoteOn col, row, 127    
     elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=77
@@ -80,7 +80,7 @@
 @OnMidiNoteOff
     if clip_bank>=1 and clip_bank<=4 and MidiNote>=54 and MidiNote<=117
         //# clip mode
-        row = RoundDown ((MidiNote-54)/16)
+        row = ((RoundDown ((MidiNote-54)/16)) + (clip_bank*4) - 4)
         col = (MidiNote-54)%16
         SendMIDINoteOff col, row, 0 
     elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=77
