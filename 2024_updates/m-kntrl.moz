@@ -12,7 +12,6 @@
 		send_midi_feedback = 0 //send feedabck to update controller state. 0=off
 		SetMetroPPQN 4
 		ppqn = 4
-		edit_scene=0
 		pad_is_down=FALSE
 		last_channel_visited=0 //# last channel a user visited 0-16 (16 is top level)
 		in_mode_select = TRUE //# Toggle for changing modes mode
@@ -29,12 +28,13 @@
 		custom_pads = [-1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]  // default custom pads config
 		sel_mgen_dev=0
         long_press=FALSE
-        scene_names=[1,2,3,4, 5,6,7,8, 0,0,0, 0,0,0,0]
+        scene_names=[1,2,3,4, 3,4,5,6, 0,0,0, 0,0,0,0]
         selected_scene=0
         scene_name=0
-        edit_scene=0
-        scenes_ch=15
-        scenes_note=110
+        clip_scene_mode=0 //# we can show Scenes + 8 clip modes. 8 so this ranges from 0-8 so we can show 8-16  
+        clip_rows=0 //# currently visible rows of clips. can view 2 at a time
+        scenes_ch=15 //# for triggering scenes. nb: clips are triggered by note 0-15 on channel.
+        scenes_note=110 //# for triggering scenes
 		knob_set=99 //settings knobset
         SetTimerInterval 500
 		//Initialise KNTRL
@@ -48,7 +48,6 @@
 	//# Color Scheme
 	col_scene = 2
 	col_sel_scene = 4
-	col_edit_scene = 3
 	col_pending = 3
 	loop_col = 6
 	col_warn = 1
@@ -477,7 +476,7 @@
             //# Scenes
             in_mode_select = FALSE
             mode=8
-            Call @SetupScenes
+            Call @SetupScenesClips
         elseif last_pad=5
             //# Keyboard
             in_mode_select = FALSE
@@ -846,62 +845,95 @@
     endif
 @End
 
-@SetupScenes
-    LabelPads {[ SCENES MASTER ]}
-	LabelKnobs {SCENE SETUP}
-    for i = 0 to 15
-        scn_to_label = i
-        Call @LabelScenePad
-        if scene_names[i]=0 
-            scn_col=0
-        else
-            scn_col=3
-        endif
-        LatchPad i, NO
-        ColorPad i, scn_col
-    endfor
-    ColorPad selected_scene, 4
+@SetupScenesClips
+    if clip_scene_mode=0
+        for i = 0 to 15
+            scn_to_label = i
+            Call @LabelScenePad
+            if scene_names[i]=0 
+                scn_col=0
+            else
+                scn_col=3
+            endif
+            LatchPad i, NO
+            ColorPad i, scn_col
+        endfor
+        ColorPad selected_scene, 4
+    else
+        for i = 0 to 7
+            pad_to_label=i
+            chan_pad=clip_scene_mode+i-1
+            Call @LabelChanPad
+            pad_to_label=i+8
+            chan_pad=clip_scene_mode+i-1
+            Call @LabelChanPad
+        endfor
+    endif
     Call @SetupKnobset8
+    Call @LabelPadsHeader
 @End
 
 @PadDownScenes
     FlashPad last_pad
-    SendMIDINoteOn scenes_ch, scenes_note+last_pad, 127
-    SendMIDINoteOff scenes_ch, scenes_note+last_pad, 0
-    selected_scene = last_pad
-    Call @SetupScenes
-    edit_scene = last_pad
+    if clip_scene_mode=0
+        SendMIDINoteOn scenes_ch, scenes_note+last_pad, 127
+        SendMIDINoteOff scenes_ch, scenes_note+last_pad, 0
+        selected_scene = last_pad
+    else
+        ch=(last_pad%8)+clip_scene_mode
+        note=(RoundDown (last_pad / 8)) + clip_rows
+        SendMIDINoteOn ch, note, 127
+        SendMidiNoteOff ch, note, 0
+    endif
+    Call @SetupScenesClips
     Call @SetupKnobset8
 @End
 
 @SetupKnobset8
 	knob_set = 8
-	LabelKnob 0, {Scene }, edit_scene+1
-	LabelKnob 1, {Name }, scene_names[edit_scene]
-    LabelKnob 2, {Chan.}, scenes_ch+1
-    LabelKnob 3, {Notes}, scenes_note, {+}
-	SetKnobValue 0, TranslateScale edit_scene, 0, 15, 0, 127
-	SetKnobValue 1, TranslateScale scene_name, 0, 11, 0, 127
-	SetKnobValue 2, TranslateScale scenes_ch, 0, 15, 0, 127
-	SetKnobValue 3, TranslateScale scenes_note, 0, 110, 0, 127
+    SetKnobValue 0, TranslateScale clip_scene_mode, 0, 8, 0, 127
+    if clip_scene_mode=0
+        LabelKnobs {SCENE SETTINGS}
+        LabelKnob 0, {Scenes}
+        LabelKnob 1, {Name }, scene_names[selected_scene]
+        LabelKnob 2, {Chan.}, scenes_ch+1
+        LabelKnob 3, {Notes}, scenes_note, {+}
+        SetKnobValue 1, TranslateScale scene_name, 0, 12, 0, 127
+        SetKnobValue 2, TranslateScale scenes_ch, 0, 14, 0, 127
+        SetKnobValue 3, TranslateScale scenes_note, 0, 110, 0, 127
+    else
+        LabelKnobs {VISIBLE CLIPS}
+        SetKnobValue 1, TranslateScale clip_rows, 0, 15, 0, 127
+    	LabelKnob 0, {Chan }, clip_scene_mode, {-}, clip_scene_mode+7
+    	LabelKnob 1, {Rows }, clip_rows+1, {-}, clip_rows+2
+    	LabelKnob 2, { }
+    	LabelKnob 3, { }
+    endif
 @End
 
 @KnobChangeSet8
-    if last_knob=0 //# Name
-		edit_scene = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
-        scene_name = scene_names[edit_scene]
-		SetKnobValue 1, TranslateScale scene_name, 0, 11, 0, 127
-	elseif last_knob = 1 //# Name
-		scene_name = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 11
-        scene_names[edit_scene] = scene_name
-        scn_to_label = edit_scene
+    if last_knob=0 //# Clip scene mode
+		clip_scene_mode = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 8
+        if clip_scene_mode=0
+            scene_name = scene_names[selected_scene]
+		    SetKnobValue 1, TranslateScale scene_name, 0, 11, 0, 127
+        endif
+        Call @SetupScenesClips
+	elseif last_knob = 1 and clip_scene_mode=0 //# Name
+		scene_name = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 12
+        scene_names[selected_scene] = scene_name
+        scn_to_label = selected_scene
         Call @LabelScenePad
-    elseif last_knob = 2 //# Chan
+    elseif last_knob = 1 and clip_scene_mode>0
+        clip_rows = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 14
+        Call @SetupScenesClips
+    elseif last_knob = 2 and clip_scene_mode=0  //# Chan
         scenes_ch = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 15
-    elseif last_knob = 3 //# Notes from scenes_note to scenes_note+16
+    elseif last_knob = 3 and clip_scene_mode=0 //# Notes from scenes_note to scenes_note+16
         scenes_note = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 110
 	endif
     Call @SetupKnobset8
+    Call @LabelPadsHeader
 @End
 
 @LabelScenePad
@@ -931,6 +963,8 @@
 	  LabelPad scn_to_label, { OUTRO }, { -----},scn_to_label+1,{----- }
     elseif sn_name=11
 	  LabelPad scn_to_label, { ENDING }, { -----},scn_to_label+1,{----- }
+    elseif sn_name=12
+	  LabelPad scn_to_label, { JAM }, { -----},scn_to_label+1,{----- }
 	endif	
 @End
 
@@ -982,7 +1016,7 @@
 		p3=4
 	endif
 	LabelPad 3, {INSTRUMENT}, {CHANNELS}
-	LabelPad 4, {SCENES}
+	LabelPad 4, {CLIPS+    SCENES}
 	LabelPad 5, {KEYBOARD}
 	LabelPad 8, {__MIXER__ }, {VOL PAN} //channels Vol, Gain, Pan, Width
 	LabelPad 9, {__MIXER__ }, {SENDS FILT} //HPF LPF SEND A SEND B
@@ -2179,7 +2213,11 @@
         endif
         LabelPad 15, {MixerMode }, mixer_mode+1, {/6 --> } 
     elseif mode=8
-        LabelPads {[ SCENES MASTER ]}
+        if clip_scene_mode=0
+            LabelPads {[ SCENES KNTRL ]}
+        else
+            LabelPads {[ CLIPS KNTRL (CHANS:}, clip_scene_mode, {-}, clip_scene_mode+7, {)  (ROWS:}, clip_rows+1, {-}, clip_rows+2, {) ]}
+        endif
     elseif mode=9
         LabelPads {[ M:KNTRL KEYBOARD ]}
     elseif mode=1 or mode=2
@@ -2195,63 +2233,70 @@
 	//Laborious task of labelling pads when you cant store a string
 	ColorPad pad_to_label, chan_colors[chan_pad]
 	label_num = chan_labels[chan_pad]
-	midi_ch = chan_midi_chs[chan_pad]
+    if mode=8
+        pad_num=clip_rows
+        if pad_to_label>=8
+            pad_num=clip_rows+1
+        endif
+    else
+	    pad_num = chan_midi_chs[chan_pad]
+    endif
 	if (label_num=0)
 		LabelPad pad_to_label, { }
 	elseif (label_num=1)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {DRUMS }
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {DRUMS }
 	elseif (label_num=2)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {PERCS }
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {PERCS }
 	elseif (label_num=3)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {BASS }
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {BASS }
 	elseif (label_num=4)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {TABLA }
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {TABLA }
 	elseif (label_num=5)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {LEAD }
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {LEAD }
 	elseif (label_num=6)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {PADS }
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {PADS }
 	elseif (label_num=7)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {PAD BASS }
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {PAD BASS }
 	elseif (label_num=8)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {ARP }
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {ARP }
 	elseif (label_num=9)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {KEYS }	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {KEYS }	
 	elseif (label_num=10)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {PLUCK }
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {PLUCK }
 	elseif (label_num=11)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {STRINGS }	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {STRINGS }	
 	elseif (label_num=12)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SYNTH BUS }	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {SYNTH BUS }	
 	elseif (label_num=13)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {MIXBUS 1-4 }	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {MIXBUS 1-4 }	
 	elseif (label_num=14)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {RETURNS }
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {RETURNS }
 	elseif (label_num=15)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {MASTER }
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {MASTER }
 	elseif (label_num=16)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {FX}
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {FX}
 	elseif (label_num=17)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {LOOPS }	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {LOOPS }	
 	elseif (label_num=18)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {DRONE}	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {DRONE}	
 	elseif (label_num=19)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {TEXTURE }	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {TEXTURE }	
 	elseif (label_num=20)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {KICK }	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {KICK }	
 	elseif (label_num=21)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SHAKERS }	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {SHAKERS }	
 	elseif (label_num=22)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {VOCALS}	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {VOCALS}	
 	elseif (label_num=23)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SNR/CLP}	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {SNR/CLP}	
 	elseif (label_num=24)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {HATS}	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {HATS}	
 	elseif (label_num=25)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {SAMPLER}
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {SAMPLER}
 	elseif (label_num=26)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {MAIN}
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {MAIN}
     elseif (label_num=27)
-		LabelPad pad_to_label, { ____}, midi_ch+1, {____ }, {CHORDS}	
+		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {CHORDS}	
 	elseif (label_num=99)
 		LabelPad pad_to_label, {Settings / Mixer...}	
 	endif
