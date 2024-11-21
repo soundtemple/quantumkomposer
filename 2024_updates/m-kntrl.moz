@@ -29,7 +29,7 @@
 		custom_pads = [-1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]  // default custom pads config
 		sel_mgen_dev=0
         long_press=FALSE
-        scene_names=[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+        scene_names=[1,2,3,4, 5,6,7,8, 0,0,0, 0,0,0,0]
         selected_scene=0
         scene_name=0
         edit_scene=0
