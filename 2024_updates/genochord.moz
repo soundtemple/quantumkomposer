@@ -47,7 +47,7 @@
         hmny_kybd_out_ch=6
         hmny_kybd_pad_notes_store=[] //# store playing notes on 16 pads so we can turn them off
         //#player modes
-		player_mode=1 //# 0. OFF 1. play chords as sequenced on out channel or 2. Trigger chords usign player in channel
+		player_mode=1 //# 0. THRU 1. play chords as sequenced on out channel or 2. Trigger chords usign player in channel
 		player_in_channel=0
 		player_out_channel=3
 		Call @TransposeCalcArrays
@@ -260,27 +260,29 @@
 @End
 
 @OnMetroPulse
-    //if CurrentMetroPulse is on last pulse check chord & scene changes. if they exist turn off notes now
-    // leave the actual chord and scene change to the on new beat 
-    if CurrentMetroPulse % 4 = 3 
-        //last pulse before new beat
-        look_ahead_scene_beat_count = scene_beat_count + 1
-	    look_ahead_chord_beat_count = chord_beat_count + 1
-        current_scene_duration = scene_bank[current_scene * sc_size]  * HostBeatsPerMeasure //# IN BEATS!
-        chord_slot = (current_scene * 100) + ((current_chord) * 10)
-        current_chord_duration = chord_bank[chord_slot + dur_slot]
-        if (scene_change_requested > -1) and (HostBeat = 0)
-            //# user requested scene change and its a new bar (& return to song)
-            //# Log {Handling scene change request. It a new bar}
-            Call @TurnOffChordNotes
-            Call @HandleSceneChange
-        elseif (look_ahead_scene_beat_count >= current_scene_duration)
-            Call @TurnOffChordNotes
-        elseif (chord_change_requested > -1)
-            //# User requested chord change
-            Call @TurnOffChordNotes
-        elseif (look_ahead_chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
-            Call @TurnOffChordNotes
+    if player_mode <> 0
+        //if CurrentMetroPulse is on last pulse check chord & scene changes. if they exist turn off notes now
+        // leave the actual chord and scene change to the on new beat 
+        if CurrentMetroPulse % 4 = 3 
+            //last pulse before new beat
+            look_ahead_scene_beat_count = scene_beat_count + 1
+            look_ahead_chord_beat_count = chord_beat_count + 1
+            current_scene_duration = scene_bank[current_scene * sc_size]  * HostBeatsPerMeasure //# IN BEATS!
+            chord_slot = (current_scene * 100) + ((current_chord) * 10)
+            current_chord_duration = chord_bank[chord_slot + dur_slot]
+            if (scene_change_requested > -1) and (HostBeat = 0)
+                //# user requested scene change and its a new bar (& return to song)
+                //# Log {Handling scene change request. It a new bar}
+                Call @TurnOffChordNotes
+                Call @HandleSceneChange
+            elseif (look_ahead_scene_beat_count >= current_scene_duration)
+                Call @TurnOffChordNotes
+            elseif (chord_change_requested > -1)
+                //# User requested chord change
+                Call @TurnOffChordNotes
+            elseif (look_ahead_chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
+                Call @TurnOffChordNotes
+            endif
         endif
     endif
 @End
@@ -290,43 +292,45 @@
 @End
 
 @OnNewBeat
-	//#Log {-- new beat --}
-	//# increment beat counts xonb
-	scene_beat_count = scene_beat_count + 1
-	chord_beat_count = chord_beat_count + 1
-	
-	//# Handle Scene and Chord changes
-	current_scene_duration = scene_bank[current_scene * sc_size]  * HostBeatsPerMeasure //# IN BEATS!
-	chord_slot = (current_scene * 100) + ((current_chord) * 10)
-	current_chord_duration = chord_bank[chord_slot + dur_slot]
-	current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
-	
-	//# Log {Scene beats left: }, current_scene_duration - scene_beat_count
-	//# Log {Chord beats left: }, current_chord_duration - chord_beat_count
-  
-	//# Chord progression -- Order of operations
-    if player_mode = 1 //# play sequence chord progression
-        if (scene_change_requested > -1) and (HostBeat = 0)
-            //# user requested scene change and its a new bar (& return to song)
-            //# Log {Handling scene change request. It a new bar}
-            Call @TurnOffChordNotes
-            Call @HandleSceneChange
-        elseif (scene_beat_count >= current_scene_duration)
-            //# its time to increment scene
-            Call @TurnOffChordNotes
-            Call @HandleSceneChange
-        elseif (chord_change_requested > -1)
-            //# User requested chord change & its a new beat
-            Call @TurnOffChordNotes
-            Call @HandleChordChange
-        elseif (chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
-            Call @TurnOffChordNotes
-            Call @HandleChordChange
+    if player_mode <> 0
+        //#Log {-- new beat --}
+        //# increment beat counts xonb
+        scene_beat_count = scene_beat_count + 1
+        chord_beat_count = chord_beat_count + 1
+        
+        //# Handle Scene and Chord changes
+        current_scene_duration = scene_bank[current_scene * sc_size]  * HostBeatsPerMeasure //# IN BEATS!
+        chord_slot = (current_scene * 100) + ((current_chord) * 10)
+        current_chord_duration = chord_bank[chord_slot + dur_slot]
+        current_host_beat = (HostBar * HostBeatsPerMeasure) + HostBeat
+        
+        //# Log {Scene beats left: }, current_scene_duration - scene_beat_count
+        //# Log {Chord beats left: }, current_chord_duration - chord_beat_count
+    
+        //# Chord progression -- Order of operations
+        if player_mode = 1 //# play sequence chord progression
+            if (scene_change_requested > -1) and (HostBeat = 0)
+                //# user requested scene change and its a new bar (& return to song)
+                //# Log {Handling scene change request. It a new bar}
+                Call @TurnOffChordNotes
+                Call @HandleSceneChange
+            elseif (scene_beat_count >= current_scene_duration)
+                //# its time to increment scene
+                Call @TurnOffChordNotes
+                Call @HandleSceneChange
+            elseif (chord_change_requested > -1)
+                //# User requested chord change & its a new beat
+                Call @TurnOffChordNotes
+                Call @HandleChordChange
+            elseif (chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
+                Call @TurnOffChordNotes
+                Call @HandleChordChange
+            endif
+        endif
+        if mode=0
+            LabelPads {[ GENOCHORD ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration) 
         endif
     endif
-	if mode=0
-		LabelPads {[ GENOCHORD ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration) 
-	endif
 @End
 
 @HandleSceneChange
@@ -450,11 +454,11 @@
 @End
 
 @OnPadDown
+    last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
 	Call @OnPadDown2 //midi input cant trigger @OnPadDown, It calls @OnPadDown2
 @End
 
 @OnPadDown2
-    last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
 	//# Splitting this event into separate handlers
 	shift_is_down=FALSE //protect against unwanted shift releases not happening
 	pad_is_down=TRUE
@@ -561,6 +565,9 @@
                 endfor
             endif
 	    endif
+        if player_mode = 0 and HostRunning
+            LabelPads {Stop host or turn off Thru mode}
+        endif
 	endif
 @End			
 
@@ -578,11 +585,11 @@
 @End
 
 @OnPadUp
+	last_pad=LastPad
     Call @OnPadUp2
 @End
 
 @OnPadUp2
-	last_pad=LastPad
 	pad_is_down=FALSE
 	if NOT HostRunning and (last_pad >= 8) and (mode < 8)
 		current_chord_duration = chord_bank[chord_slot + dur_slot]
@@ -1056,8 +1063,10 @@
 	//# Log {Midi received on CH: }, MIDIChannel, { note: }, MidiNote
 	//# -1Off 0Chord 1Round 2+NonChord 3Bass 4Root 5Third 6Fifth 7thru
 	//# Record chords from the channel set 
-	//# Log {Note received }, { ch:}, MIDIChannel+1, { }, (NoteName MIDIByte2, YES), { [}, MIDIByte2, {]}, { v:}, MIDIByte3, { vs tpad val }, trigger_pads_val 
-	if mode=3 and  MIDIChannel=player_in_channel // records mode 
+	//# Log {Note received }, { ch:}, MIDIChannel+1, { }, (NoteName MIDIByte2, YES), { [}, MIDIByte2, {]}, { v:}, MIDIByte3, { vs tpad val }, trigger_pads_val, { Mode: }, mode,  
+	if player_mode=0 //thru
+        SendMIDIThru 
+	elseif mode=3 and  MIDIChannel=player_in_channel // records mode 
 		Call @HandleRecordNotes
     elseif player_mode=2 and MIDIChannel=player_in_channel and (MidiNote>=trigger_pads_val) and (MIDINote<=trigger_pads_val+7)
 		//# trigger chords mode
@@ -1093,16 +1102,16 @@
         custom_pads[0] = MIDIChannel
     elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
         for i = 1 to 8
-        if MIDIByte2=custom_pads[i]
-            last_pad=i-1
-        endif
-    endfor
+            if MIDIByte2=custom_pads[i]
+                last_pad=i-1
+            endif
+        endfor
         Call @OnPadDown2
     elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
         for i = 9 to 16
-        if MIDIByte2=custom_pads[i]
-            last_pad=i-1
-        endif
+            if MIDIByte2=custom_pads[i]
+                last_pad=i-1
+            endif
         endfor
         Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mozaic
 		
@@ -1230,12 +1239,14 @@
 	humanize_pct = (Random humanize_velocity, 100 ) / 100
 	velocity = RoundUp (note_in_velo * humanize_pct)
 	velocity_dipped = RoundUp (velocity * dip_velocity_pct/100)
-@End
+@End 
 
 @OnMidiNoteOff  
     // #handle selected device pad release
     ready_to_rec_pad_vals=FALSE
-	if player_mode=2 and MIDIChannel=player_in_channel and (MidiNote>=trigger_pads_val) and (MIDINote<=trigger_pads_val+7)
+    if player_mode=0 //thru
+        SendMIDIThru 
+	elseif player_mode=2 and MIDIChannel=player_in_channel and (MidiNote>=trigger_pads_val) and (MIDINote<=trigger_pads_val+7)
 		//chord mode=trigger mode
 		Call @TurnOffChordNotes
 		if update_held_notes_on_chord_change
@@ -1489,7 +1500,7 @@
     LabelKnob 0, {In CH}, player_in_channel+1
     LabelKnob 1, {Out CH}, player_out_channel+1
     if player_mode=0
-        LabelKnob 2, {OFF}
+        LabelKnob 2, {THRU}
     elseif player_mode=1
         LabelKnob 2, {PLAY}
     else
@@ -1597,7 +1608,6 @@
         endif
   	endif
     if last_knob = 1 and mode <> 3
-        log {knobbing}
         chrd_sugg = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 16
         if chrd_sugg <> chord_bank[chord_slot + sugg_slot] 
             chord_bank[chord_slot + sugg_slot] = chrd_sugg
@@ -1902,15 +1912,19 @@
 @SetUpHarmonyKeyboard
     hmny_kybd_pad_cols = [4,0,0,0, 4,0,0,0, 4,0,0,0, 4,0,0,0]
     hmny_kybd_pad_nums = [60,64,67,71, 72,76,79,83, 36,40,43,47, 48,52,55,59]
-    
+    n1 = curr_inv_chord_scale[0]
+    n2 = curr_inv_chord_scale[4]
+    n3 = curr_inv_chord_scale[7]
+    n4 = curr_inv_chord_scale[11]
+    cnotes = [n1,n2,n3,n4, n1,n2,n3,n4, n1,n2,n3,n4, n1,n2,n3,n4]
     for i = 0 to 15
         ColorPad i, hmny_kybd_pad_cols[i]
-        LabelPad i, NoteName hmny_kybd_pad_nums[i], YES
+        LabelPad i, NoteName cnotes[i], YES
     endfor
 @End
 
 @PadDownHarmonyKeyboard
-    if LastPadVelocity<32
+    if LastPadVelocity<64
         note_in_velo = 100
     else
         note_in_velo = LastPadVelocity
