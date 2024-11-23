@@ -44,6 +44,8 @@
         custom_knobs = [-1, 1,2,3,4, 5,6,7,8]  // default custom knobs config
         custom_pads = [-1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]  // default custom pads config
         trigger_pads_val = 36 //# starting note for trigger pads. 8 pads to trigger 8 chords
+        hmny_kybd_out_ch=6
+        hmny_kybd_pad_notes_store=[] //# store playing notes on 16 pads so we can turn them off
         //#player modes
 		player_mode=1 //# 0. OFF 1. play chords as sequenced on out channel or 2. Trigger chords usign player in channel
 		player_in_channel=0
@@ -177,7 +179,7 @@
 	num_scale_types = 2
 	allowed_scales = [1,2] 
 	//# incoming midi key, scale. default C Major
-	selected_midi_in_root = 0 // # root note -11 (C-B) Set in Knobset5
+	selected_midi_in_root = 0 // # root note -11 (C-B) 
 	selected_midi_in_scale = 0 // #see allowed_scales  
 	midi_in_scales[10] = [0,2,4,5,7,9,11]  //# major
 	midi_in_scales[20] = [0,2,3,5,7,8,10] // #minor_nat
@@ -448,18 +450,18 @@
 @End
 
 @OnPadDown
-    last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
 	Call @OnPadDown2 //midi input cant trigger @OnPadDown, It calls @OnPadDown2
 @End
 
 @OnPadDown2
+    last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
 	//# Splitting this event into separate handlers
 	shift_is_down=FALSE //protect against unwanted shift releases not happening
 	pad_is_down=TRUE
     if mode=8
         Call @PadDownConfigureKnobs
 	elseif in_settings_mode 
-		if HostRunning and (last_pad > 1)
+		if HostRunning and (last_pad > 1) and (last_pad <> 9)
 			LabelPads {NOT ALLOWED WHEN HOST RUNNING}
 			Exit //# Only return to song allowed in playback
 		elseif last_pad=0
@@ -487,7 +489,12 @@
         elseif last_pad=8
             //configure midi control knobs
             mode=last_pad
-		elseif (last_pad>=9 and last_pad<=13)
+		elseif last_pad=9
+            //# Harmony keyboard 
+            mode=last_pad
+            in_settings_mode = FALSE
+            Call @SetupLayout
+		elseif (last_pad>=10 and last_pad<=13)
 			//# midi setup modes - dont exit in_select_mode
 			mode = last_pad
 			Call @SetupSettingsLayout
@@ -512,15 +519,15 @@
 	//# NOT IN SETTINGS MODE...
 	elseif NOT in_settings_mode
 		//# handle mode actions if record or reset else do knob scene change
-		if not (mode=7 or copy_mode=2)
-			Call @OnPadDown_SceneChordChange //dont change if deleting or copy/pasting
+		if not (mode=7 or copy_mode=2 or mode=9)
+			Call @OnPadDown_SceneChordChange //dont change if deleting or copy/pasting or in keyboard mode
 		endif	
 	 	Call @OnPadDown_KnobSetSelect
 		if (mode = 3) and (last_pad > 7)
 			Call @SetupLayout
-	  	rec_chord_note_count = 0
-  		LabelPad current_chord+8, {...waiting}
-  		ColorPad current_chord+8, 1
+	  	    rec_chord_note_count = 0
+  		    LabelPad current_chord+8, {...waiting}
+  		    ColorPad current_chord+8, 1
 		elseif (mode = 6) //# COPY/PASTE
             //# only call CP if pad and copy mode correspond
             if copy_mode=0 and last_pad<=7
@@ -530,28 +537,30 @@
             endif
 		elseif (mode=7) and (last_pad <= 7) //# reset mode
     	    //Log {Reset scene called}
-    	Call @ResetScene   
+    	    Call @ResetScene   
  	 	elseif (mode=7) and (last_pad >= 7)
     	    //Log {Reset chord called}
-    	Call @ResetChord
-  	endif
-	if NOT HostRunning and (last_pad >= 8)
-		chord_slot = (current_scene * 100) + ((current_chord) * 10)
-		current_chord_duration = chord_bank[chord_slot + dur_slot]
-		chord_formed = curr_inv_chord_scale[0]>=0 and curr_inv_chord_scale[4]>=0 and curr_inv_chord_scale[7]>=0
-		if current_chord_duration>0
-            // can only have one chord note per channel playing at any one time, so make sure turned off first
-            index_to_chord_notes=[0,4,7,11]
-            Call @TurnOffChordNotes 
-            for n = 0 to 3
-                note_to_play = curr_inv_chord_scale[ index_to_chord_notes[n] ] 		
-                if note_to_play > 0
-                    SendMIDINoteOn player_out_channel, note_to_play, 100
-                    SetNoteState player_out_channel, n, note_to_play
-                endif
-            endfor
-        endif
-	endif
+    	    Call @ResetChord
+        elseif mode=9
+            Call @PadDownHarmonyKeyboard
+  	    endif
+	    if NOT HostRunning and (last_pad >= 8) and mode <> 9
+		    chord_slot = (current_scene * 100) + ((current_chord) * 10)
+		    current_chord_duration = chord_bank[chord_slot + dur_slot]
+		    chord_formed = curr_inv_chord_scale[0]>=0 and curr_inv_chord_scale[4]>=0 and curr_inv_chord_scale[7]>=0
+		    if current_chord_duration>0
+                // can only have one chord note per channel playing at any one time, so make sure turned off first
+                index_to_chord_notes=[0,4,7,11]
+                Call @TurnOffChordNotes 
+                for n = 0 to 3
+                    note_to_play = curr_inv_chord_scale[ index_to_chord_notes[n] ] 		
+                    if note_to_play > 0
+                        SendMIDINoteOn player_out_channel, note_to_play, 100
+                        SetNoteState player_out_channel, n, note_to_play
+                    endif
+                endfor
+            endif
+	    endif
 	endif
 @End			
 
@@ -569,13 +578,13 @@
 @End
 
 @OnPadUp
-	last_pad=LastPad
     Call @OnPadUp2
 @End
 
 @OnPadUp2
+	last_pad=LastPad
 	pad_is_down=FALSE
-	if NOT HostRunning and (last_pad >= 8)
+	if NOT HostRunning and (last_pad >= 8) and (mode < 8)
 		current_chord_duration = chord_bank[chord_slot + dur_slot]
 		if current_chord_duration>0
             Call @TurnOffChordNotes
@@ -584,8 +593,10 @@
 	StopTimer
     ready_to_rec_knob_vals=FALSE
     ready_to_rec_pad_vals=FALSE
-    if mode=8
+    if mode = 8
         Call @SetupPadsLayoutMidiConfig
+    elseif mode = 9
+        Call @PadUpHarmonyKeyboard
     endif
 @End
 
@@ -623,11 +634,14 @@
 	elseif mode = 7
 		LabelPads {DELETE: Select a scene or chord slot to reset}
     elseif mode = 8
-        LabelPads {[ SETUP ONE2MANY KNOBS ] - Set channel then hold pad & wiggle knob left AND right}
         knob_set = 3
         Call @SetupKnobset3
         Call @PadDownConfigureKnobs
         Call @SetupPadsLayoutMidiConfig
+    elseif mode = 9
+        knob_set = 5
+        Call @SetupKnobset5
+        Call @SetUpHarmonyKeyboard    
     endif
 @End
 
@@ -657,6 +671,8 @@
 			Call @SetupKnobset2
 		elseif (mode = 2) //# Construct chords 4 knobs
 			Call @SetupKnobset6
+        elseif (mode = 9) //# Harmony keyboard
+			Call @SetupKnobset5
 		else
 			Call @SetupKnobset0
 		endif
@@ -665,6 +681,8 @@
 			Call @SetupKnobset2
 		elseif (mode = 2) //# Construct chords 4 knobs
 			Call @SetupKnobset6
+        elseif (mode = 9) //# Harmony keyboard
+			Call @SetupKnobset5
 		else
 			Call @SetupKnobset1
 		endif
@@ -1850,6 +1868,77 @@
     endif
 @End
 
+@SetupKnobset5
+    //# Harmony keyboard
+    knob_set = 5
+	LabelPads {[ HARMONY KEYBOARD ] - Trigger chord notes over 4 octaves}
+	LabelKnobs {KEYBOARD SETTINGS}
+    not_in_use=0
+    SetKnobValue 0, TranslateScale hmny_kybd_out_ch, 0, 15, 0, 127
+    LabelKnob 0, {Out CH }, hmny_kybd_out_ch+1
+    for i = 1 to 3
+        SetKnobValue i, TranslateScale not_in_use, 0, 15, 0, 127
+        LabelKnob i, { }
+    endfor 
+@End
+
+@KnobChangeSet5
+    //# Harmony keyboard
+    knob_set = 5
+	if last_knob = 0 and not HostRunning // OUT CH
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15 // OUT CH
+        hmny_kybd_out_ch = val
+        LabelKnob 0, {Out CH }, hmny_kybd_out_ch+1
+        if val = player_out_channel
+            LabelKnobs {Not allowed}
+        else    
+            LabelKnobs {KEYBOARD SETTINGS}
+        endif
+    elseif last_knob = 0 and HostRunning
+        LabelKnobs {STOP HOST FIRST}
+	endif
+@End
+
+@SetUpHarmonyKeyboard
+    hmny_kybd_pad_cols = [4,0,0,0, 4,0,0,0, 4,0,0,0, 4,0,0,0]
+    hmny_kybd_pad_nums = [60,64,67,71, 72,76,79,83, 36,40,43,47, 48,52,55,59]
+    
+    for i = 0 to 15
+        ColorPad i, hmny_kybd_pad_cols[i]
+        LabelPad i, NoteName hmny_kybd_pad_nums[i], YES
+    endfor
+@End
+
+@PadDownHarmonyKeyboard
+    if LastPadVelocity<32
+        note_in_velo = 100
+    else
+        note_in_velo = LastPadVelocity
+    endif
+    midi_note = hmny_kybd_pad_nums[last_pad]
+    note_in = midi_note%12
+    oct_in=Div midi_note, 12
+    oct_out=(oct_in*12)-48
+    chrd_note_to_play=0
+    chrd_note_to_play = curr_inv_chord_scale[note_in]
+    if chrd_note_to_play > 0
+        note_out = oct_out + chrd_note_to_play
+        SendMIDINoteOn hmny_kybd_out_ch, note_out, note_in_velo 
+        hmny_kybd_pad_notes_store[last_pad] = note_out 
+        //# Log {Played CH }, hmny_kybd_out_ch+1, { - }, note_out, { - }, note_in_velo, { pad nums }  
+    endif
+@End
+
+@PadUpHarmonyKeyboard
+    //# log {PAD UP CH }, hmny_kybd_out_ch, { pad nums }, hmny_kybd_pad_nums[last_pad] 
+    if hmny_kybd_pad_notes_store[last_pad]
+        SendMIDINoteOff hmny_kybd_out_ch, hmny_kybd_pad_notes_store[last_pad], 127
+        hmny_kybd_pad_notes_store[last_pad] = FALSE
+        Log {OFF CH }, hmny_kybd_out_ch+1, { - }, note_out, { - }, note_in_velo  
+    endif
+@End
+
+
 @SetupKnobset6
 	//# Chord construct settings
 	knob_set = 6
@@ -1998,6 +2087,8 @@
 		Call @KnobChangeSet6	//# CHORD construct
     elseif knob_set = 3
         Call @KnobChangeSet3 //# Midi knob config
+    elseif knob_set = 5
+        Call @KnobChangeSet5 //# harmony keyboard
 	elseif knob_set = 99 //settings layout
 		Call @KnobChangeSet99 
 	endif 
@@ -2048,7 +2139,7 @@
     if player_mode=2
         tc_col=3
     endif
-    settings_pad_cols=[8,4,7,7,7,0,4,1, kc_col,0,0,0,0,0,1,tc_col]
+    settings_pad_cols=[8,4,7,7,7,0,4,1, kc_col,4,0,0,0,0,1,tc_col]
 	if (songmode = 0)
 		LabelPad 0, {PLAYSONG: Active }
 	elseif (songmode = 1)
@@ -2072,7 +2163,7 @@
 	endif
 	LabelPad 7, {DELETE  }
     LabelPad 8, {MIDI LEARN}
-    LabelPad 9, { }
+    LabelPad 9, {HARMONY KEYBOARD}
     LabelPad 10, { }
     LabelPad 11, { }
     LabelPad 12, { }
@@ -2227,72 +2318,75 @@
 
 @SetupLayout
 	//#setup layout pads
-  if in_settings_mode
-  	Exit
-  else
+    if in_settings_mode
+        Exit
+    elseif mode=9
+        Call @SetUpHarmonyKeyboard
+        Call @SetupKnobset5
+    else
 		//# Setup scene pads
 		FillArray scn_pad_cols, 0, 16
 		for i = 0 to 7  
-	    if scene_bank[i * sc_size] > 0
-				scn_pad_cols[i]=2
-				scn_to_label = i
-				Call @LabelScenePad
-	  	else
-				scn_pad_cols[i]=0
-	  		LabelPad i, { }
-	  	endif
-	    LatchPad i, NO
-	    if (scene_bank[i * sc_size] > 0) and (mode=7) and NOT in_settings_mode
-				scn_pad_cols[i]=1
-	    endif
-	  endfor		  
-	  //# Setup chord pads  
-    for i = 8 to 15
-	    chord_slot = (current_scene * 100) + ((i-8) * 10)
-	    LatchPad i, NO
-	    if chord_bank[chord_slot + dur_slot] > 0
-				scn_pad_cols[i]=2
-	    	chrd_to_label = i
-	    	Call @LabelChordPad
-	    else 
-				scn_pad_cols[i]=0
-	  		LabelPad i, { }
-	  	endif
-	    if (mode = 3) //del
-				scn_pad_cols[i]=1
-		  elseif (mode=7) and (chord_bank[chord_slot] >= 0)
-				scn_pad_cols[i]=1
-		  endif
-	  endfor
-		//# Handle current scene and chord colors
-	  if (songmode = 0) //# Playthru no lock
-	  	scn_pad_cols[current_scene]=3
-	  	scn_pad_cols[current_chord+8]=3
-	  elseif (songmode = 1) //# Lock to scene
-	    scn_pad_cols[current_chord+8]=3
-			scn_pad_cols[current_scene]=4
-	  elseif (songmode = 2)
-	    scn_pad_cols[current_chord+8]=4
-			scn_pad_cols[current_scene]=4
-	  elseif (mode = 3) //# REC CHORDS 
-			scn_pad_cols[current_chord+8]=1
-			if rec_chord_note_count = 0
-				LabelPad current_chord+8, {... waiting}
-			endif
-		endif
-		//# Handle pending chord and scene changes in playback
-	  if HostRunning and (songmode <=2)
-	  	if chord_change_requested >= 0
-				scn_pad_cols[chord_change_requested+8]=6
-	  	endif
-	  	if scene_change_requested >= 0
-	  		scn_pad_cols[scene_change_requested]=6
-	  	endif
-		endif
-	endif
-	for i = 0 to 15
-		ColorPad i, scn_pad_cols[i]
-	endfor
+            if scene_bank[i * sc_size] > 0
+                    scn_pad_cols[i]=2
+                    scn_to_label = i
+                    Call @LabelScenePad
+            else
+                    scn_pad_cols[i]=0
+                LabelPad i, { }
+            endif
+            LatchPad i, NO
+            if (scene_bank[i * sc_size] > 0) and (mode=7) and NOT in_settings_mode
+                    scn_pad_cols[i]=1
+            endif
+	    endfor		  
+	    //# Setup chord pads  
+        for i = 8 to 15
+            chord_slot = (current_scene * 100) + ((i-8) * 10)
+            LatchPad i, NO
+            if chord_bank[chord_slot + dur_slot] > 0
+                    scn_pad_cols[i]=2
+                chrd_to_label = i
+                Call @LabelChordPad
+            else 
+                    scn_pad_cols[i]=0
+                LabelPad i, { }
+            endif
+            if (mode = 3) //del
+                    scn_pad_cols[i]=1
+            elseif (mode=7) and (chord_bank[chord_slot] >= 0)
+                    scn_pad_cols[i]=1
+            endif
+        endfor
+            //# Handle current scene and chord colors
+        if (songmode = 0) //# Playthru no lock
+            scn_pad_cols[current_scene]=3
+            scn_pad_cols[current_chord+8]=3
+        elseif (songmode = 1) //# Lock to scene
+            scn_pad_cols[current_chord+8]=3
+                scn_pad_cols[current_scene]=4
+        elseif (songmode = 2)
+            scn_pad_cols[current_chord+8]=4
+                scn_pad_cols[current_scene]=4
+        elseif (mode = 3) //# REC CHORDS 
+                scn_pad_cols[current_chord+8]=1
+                if rec_chord_note_count = 0
+                    LabelPad current_chord+8, {... waiting}
+                endif
+            endif
+            //# Handle pending chord and scene changes in playback
+        if HostRunning and (songmode <=2)
+            if chord_change_requested >= 0
+                    scn_pad_cols[chord_change_requested+8]=6
+            endif
+            if scene_change_requested >= 0
+                scn_pad_cols[scene_change_requested]=6
+            endif
+        endif
+        for i = 0 to 15
+		    ColorPad i, scn_pad_cols[i]
+	    endfor
+    endif
 @End
 	
 @TransposeCalcArrays
