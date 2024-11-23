@@ -12,6 +12,7 @@
         knob_ccs[i]=70+i
     endfor
     btn_ccs=[31,32,33,34,35,36,37,38,39,44,45,46,47,48,49,50,51,52,53]
+    show_shortcuts=FALSE
     logInfo=FALSE
     Call @LogInfo
 @End
@@ -57,20 +58,30 @@
         row = ((RoundDown ((MidiNote-54)/16)) + (clip_bank*4) - 4)
         col = (MidiNote-54)%16
         SendMIDINoteOn col, row, 127    
-    elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=77
-        SendMIDIThru //# Send thru pads row 1 (all) and row 2 (LHS)
+    elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=69
+        SendMIDIThru //# Send thru pads row 1 (all) and row 2 (LHS) //# Channel select in Drambo (may have 16th channel)
+        if MidiNote <> 69
+            SendMidiCC 15, MidiNote-54+97, 127 //# To M:KNTRL to select channel. Only 15 chans so not send last one 
+        endif
+    elseif MidiChannel=0 and MidiNote>=70 and MidiNote<=77
+        SendMIDIThru //# Send thru pads row 2 (LHS)
     elseif MidiChannel=0 and MidiNote>=78 and MidiNote<=85
         SendMIDIThruOnCh 2 //# Send thru pads row 2 (RHS)
     elseif MidiChannel=0 and MidiNote>=86 and MidiNote<=93
         SendMIDIThru //# Send thru pads row 3 (LHS)
     elseif MidiChannel=0 and MidiNote>=94 and MidiNote<=101
         SendMIDIThruOnCh 2 //# Send thru pads row 3 (RHS)  
-    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117
+    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and show_shortcuts
+        SendMidiCC 15, MidiNote-102+112, 127
+    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and not show_shortcuts
         SendMIDIThru //# Send thru pads row 4
     elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=35
         SendMIDIThru //# Send pattern, browser, grid
     elseif MidiChannel=0 and MidiNote=49
         SendMIDIThruOnCh 2 //# Send bottom ALT
+    elseif MidiChannel=0 and MidiNote=50 and clip_bank=0
+        show_shortcuts = not show_shortcuts
+        SendMIDIThru
     elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53
         SendMIDIThru //# Send bottom row OTHERS
     endif
@@ -109,8 +120,9 @@
     if logInfo
         LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
         LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
-        LabelPad 2, {ClipMode: }, clip_bank
-        LabelPad 3, {KnobMode: }, knob_mode
+        LabelPad 8, {ClipMode: }, clip_bank
+        LabelPad 9, {Shortcuts: }, show_shortcuts
+        LabelPad 10, {KnobMode: }, knob_mode
         LabelPad 15, {LogInfo:}, { ON}
     else
         for i = 0 to 14
