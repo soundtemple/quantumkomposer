@@ -34,7 +34,9 @@
         clip_scene_mode=0 //# we can show Scenes + 8 clip modes. 8 so this ranges from 0-8 so we can show 8-16  
         clip_rows=0 //# currently visible rows of clips. can view 2 at a time
         scenes_ch=15 //# for triggering scenes. nb: clips are triggered by note 0-15 on channel.
-        scenes_note=110 //# for triggering scenes
+        scenes_note=0 //# for triggering scenes
+        entering_keyboard_mode=TRUE //# prevent unwanted note off on entry to mode 9
+        Call @BuildKeyboards
 		knob_set=99 //settings knobset
         SetTimerInterval 500
 		//Initialise KNTRL
@@ -116,8 +118,6 @@
     protected_cc_to_label[117]=[12,13,14,15, 64,65,66, 124,125,126,127]
 	lower_mx_ccs_max=14
 	upper_mx_ccs_min=113
-	//send ccs back to controller
-	curr_chan_ccs_update_controller = [7,8,6,9, 10,11,12,13, 14,15,16,17, 117,118,119,120, 121,122,123]
 	mute_solo_arm=0 //remember pad state 0-2
 	for ch = 0 to 15 //set up mixer on all channels with default vals on def cc's
 		for i = 0 to chan_mxr_size
@@ -137,7 +137,7 @@
 	mgen_vals=[]
 	mgen_labels =  [1,2,3,11,5,8,7,9,12,14,1,15,0,0,0,0]
 	mgen_colors =  [3,3,7,5,2,4,4,6,0,0,0,0,0,0,0,0]
-	mgen_guis = [91,92,93,94,95,96,97,98,99,0,0,0,0,0,0,0]
+	mgen_guis = [89,90,91,92, 93,94,95,96, 0,0,0,0, 0,0,0,0]
 	mgen_ccs=[40,41,42,43]	//cc's that control the 4 knobs
 	ready_to_rec_knob_vals=FALSE // bool for setting custom knob vals
     ready_to_rec_pad_vals=FALSE // bool for setting custom pad vals
@@ -158,19 +158,39 @@
 
 @OnMidiCC //KNTRL midi implementation. Receive only CH16 - output to active channel
     // Commands (hex#) NoteOn=0x90;NoteOff=0x80;CC=0xB0;ProgramChange=0xC0;Aftertouch=0xD0;Pitchbend=0xE0
-	if MidiChannel=15 and (MidiByte2>=116 and MidiByte2<=123)
+	if MidiChannel=15 and (MidiByte2>=97 and MidiByte2<=111)
+        //# Goto instrument channel
+        in_mode_select=FALSE
+        mode=1
+        last_pad=MidiByte2-97
+        Call @PadDownChannelsMode
+        Call @LabelPadsHeader
+    elseif MidiChannel=15 and (MidiByte2>=112 and MidiByte2<=119)
         //# Goto to mixer mute/solo/arm page
         mode=7 //MIXER MODES
         in_mode_select = FALSE
-        if MidiByte2>=121
-            mute_solo_arm=MidiByte2-121
+        if MidiByte2>=117
+            mute_solo_arm=MidiByte2-117
             mixer_mode=5
         else
-            mixer_mode=MidiByte2-116
+            mixer_mode=MidiByte2-112
         endif
         Call @SetupLayoutChannels
         Call @SetupKnobset7
         Call @LabelPadsHeader
+    elseif MidiChannel=15 and MidiByte2=120
+        //# Goto ClipsScenes
+        mode=8
+        in_mode_select=FALSE
+        Call @SetupScenesClips
+    elseif MidiChannel=15 and MidiByte2=121 and MidiByte3>0
+        //# Goto Keyboard
+        mode=9
+        in_mode_select=FALSE
+        entering_keyboard_mode=FALSE //# not pad up here
+        Call @SetupKeyboard
+    elseif MidiChannel=15 and MidiByte2=122 and MidiByte2<=127
+        Exit //# Not implemented
     elseif ready_to_rec_knob_vals
 		custom_knobs[last_pad+1] = MIDIByte2
 		Call @SetupLayoutKnobsConfig
@@ -312,7 +332,11 @@
 	endif
 @End
 
-@OnMidiNote //Ony on CH16 the lowest notes can control the pads and shift button
+@OnMidiNote
+    if mode=9 and MidiByte3>0
+        //# use velocity of incoming note for keyboard output
+        kybd_velo = TranslateCurve MidiByte3, .5, 32, 127 
+    endif
 	if ready_to_rec_pad_vals
         if last_pad=8
             custom_pads[1]=MIDIByte2
@@ -443,6 +467,7 @@
     last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
 	pad_is_down = TRUE
 	if in_mode_select
+        entering_keyboard_mode=TRUE //# prevent unwanted note off on entering keyboard mode
 		if last_pad=0
 			mode=3
 			in_mode_select=FALSE
@@ -481,6 +506,7 @@
             //# Keyboard
             in_mode_select = FALSE
             mode=9
+            kybd_chan=curr_chan
             Call @SetupKeyboard
 		elseif last_pad=6 and (NOT HostRunning) 
 			Call @PrintPreset
@@ -507,17 +533,20 @@
 @End
 
 @OnPadUp2
-  pad_is_down = FALSE
-	pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + last_pad 
-	if inst_labels[pad_slot] = 123 //send note pad released
-		SendMIDINoteOff chan_midi_chs[curr_chan], inst_ccs[pad_slot], 64 //Byte3 release vel. hardly used
-	elseif inst_msg_type[pad_slot]=1
-	  SendMIDINoteOff chan_midi_chs[curr_chan], inst_ccs[pad_slot], 64
-	endif
+    pad_is_down = FALSE
 	ready_to_rec_knob_vals=FALSE
 	ready_to_rec_pad_vals=FALSE
 	if mode=3
 		Call @SetupLayoutKnobsConfig
+    elseif mode=9
+        Call @PadUpKeyboard
+    else
+        pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + last_pad 
+        if inst_labels[pad_slot] = 123 //send note pad released
+            SendMIDINoteOff chan_midi_chs[curr_chan], inst_ccs[pad_slot], 64 //Byte3 release vel. hardly used
+        elseif inst_msg_type[pad_slot]=1
+            SendMIDINoteOff chan_midi_chs[curr_chan], inst_ccs[pad_slot], 64
+	    endif
 	endif
 @End
 
@@ -543,7 +572,7 @@
         elseif mode=8 //# Scenes
             Call @PadDownScenes
         elseif mode=9 //# Keyboard
-            Call @PadDownKeyboard
+            Call @SetupKeyboard
         endif
         if mode=5 and inst_curr_page[curr_chan]>=4 and not layouts_locked
             //Don't re-label pads header
@@ -874,13 +903,12 @@
 @End
 
 @PadDownScenes
-    FlashPad last_pad
     if clip_scene_mode=0
         SendMIDINoteOn scenes_ch, scenes_note+last_pad, 127
         SendMIDINoteOff scenes_ch, scenes_note+last_pad, 0
         selected_scene = last_pad
     else
-        ch=(last_pad%8)+clip_scene_mode
+        ch=(last_pad%8)+clip_scene_mode - 1
         note=(RoundDown (last_pad / 8)) + clip_rows
         SendMIDINoteOn ch, note, 127
         SendMidiNoteOff ch, note, 0
@@ -968,27 +996,127 @@
 	endif	
 @End
 
+@BuildKeyboards
+    kybd_chan=0
+    num_kybd_layouts=11
+    kybd_velo=100
+    kybd_layout= [0,1,2,3, 4,5,6,7, 8,0,0,0, 0,0,0,0]
+    kybd_oct=    [0,-1,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+    kybd_txpose= [0, 0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+    kybd_cols=[] //# colors for each pad in each keyboard  
+    kybd_notes=[] //# notes for each pad in each keyboard
+
+    FillArray kybd_cols, 2, (num_kybd_layouts*16)
+    FillArray kybd_notes, 48, (num_kybd_layouts*16)
+    
+    //# Keyboard1 - Chromatic Keys
+    kybd_notes[0]  = [56,57,58,59, 60,61,62,63, 48,49,50,51, 52,53,54,55]
+    kybd_cols[0]   = [0,0,0,0,     4,0,0,0,     4,0,0,0,         0,0,0,0]
+
+    //# Keyboard2 - Drum
+    kybd_notes[16*1]  = [48,49,50,51, 52,53,54,55, 56,57,58,59,60, 61,62,63,64]
+    kybd_cols[16*1]   = [1,1,2,2,     3,3,4,4,     5,5,5,5,         6,6,6,6]
+
+    //# Keyboard3 - Major
+    kybd_notes[16*2]  = [60,62,64,65,67,69,71,72, 48,50,52,53, 55,57,59,60]
+    kybd_cols[16*2]   = [4,0,0,0, 0,0,0,4, 4,0,0,0, 0,0,0,4]
+
+    //# Keyboard4 - Nat Minor
+    kybd_notes[16*3]  = [60,62,63,65,67,68,70,72, 48,50,51,53, 55,56,58,60]
+    kybd_cols[16*3]   = [4,0,0,0, 0,0,0,4, 4,0,0,0, 0,0,0,4]
+
+    //# Keyboard5 - Harm Minor
+    kybd_notes[16*4]  = [60,62,63,65,67,68,71,72, 48,50,51,53, 55,56,59,60]
+    kybd_cols[16*4]   = [4,0,0,0, 0,0,0,4, 4,0,0,0, 0,0,0,4]
+
+    //# Keyboard6 - Major Pent
+    kybd_notes[16*5]  = [55,57,60,62,64,67,69,72,36,38,40,43,45,48,50,52]
+    kybd_cols[16*5]   = [0,0,5,0,0,0,0,5,5,0,0,0,0,5,0,0]
+
+    //# Keyboard7 - Minor Pent
+    kybd_notes[16*6]  = [55,58,60,63,65,67,70,72,36,39,41,43,46,48,51,53]
+    kybd_cols[16*6]   = [0,0,5,0,0,0,0,5,5,0,0,0,0,5,0,0]
+
+    //# Keyboard8 - Blues
+    kybd_notes[16*7]  = [63,64,68,70,72,74,75,76,48,50,52,52,56,58,60,62]
+    kybd_cols[16*7]   = [0,0,0,0,5,0,0,0,5,0,0,0,0,0,5,0]
+
+    //# Keyboard9 - Chromatic Keys Major Highlights
+    kybd_notes[16*8]  = [56,57,58,59, 60,61,62,63, 48,49,50,51, 52,53,54,55]
+    kybd_cols[16*8]   = [0,4,0,4,4,0,4,0,4,0,4,0,4,4,0,4]
+
+    //# Keyboard10 - Chromatic Keys Nat Minor Highlights
+    kybd_notes[16*9]  = [56,57,58,59, 60,61,62,63, 48,49,50,51, 52,53,54,55]
+    kybd_cols[16*9]   = [4,0,4,0,4,0,4,4,4,0,4,4,0,4,0,4]
+
+    //# Keyboard11 - Chromatic Keys Harm Minor Highlights
+    kybd_notes[16*10]  = [56,57,58,59, 60,61,62,63, 48,49,50,51, 52,53,54,55]
+    kybd_cols[16*10]   = [4,0,0,4,4,0,4,4,4,0,4,4,0,4,0,4]
+@End
+
 @SetupKeyboard
-    //#
+    //#Setup Keyboard
+    for i = 0 to 15
+        kybd_slot = (kybd_layout[kybd_chan]*16)+i 
+        note = kybd_notes[kybd_slot] + kybd_txpose[kybd_chan] + (kybd_oct[kybd_chan] * 12)
+        LabelPad i, {Ch}, kybd_chan+1, {            }, (NoteName note, YES), { (}, note, {)}
+        ColorPad i, kybd_cols[kybd_slot]
+    endfor
+    Call @SetupKnobset9
+    Call @LabelPadsHeader
 @End
 
 @PadDownKeyboard
+    kybd_slot = (kybd_layout[kybd_chan]*16)+last_pad
+    note = kybd_notes[kybd_slot] + kybd_txpose[kybd_chan] + (kybd_oct[kybd_chan] * 12)
+    SendMIDINoteOn kybd_chan, note, kybd_velo
+    log {last_pad }, last_pad, {Playing }, {Ch}, kybd_chan+1, {            }, (NoteName note, YES), { (}, note, {)}
 @End
+
+@PadUpKeyboard
+    if not entering_keyboard_mode
+        kybd_slot = (kybd_layout[kybd_chan]*16)+last_pad
+        note = kybd_notes[kybd_slot] + kybd_txpose[kybd_chan] + (kybd_oct[kybd_chan] * 12)
+        SendMIDINoteOn kybd_chan, note, 0
+        log {last_pad }, last_pad, {Stopping }, {Ch}, kybd_chan+1, {            }, (NoteName note, YES), { (}, note, {)}
+    endif
+    entering_keyboard_mode=FALSE
+@End
+
 
 @SetupKnobset9
 	knob_set = 9
-	LabelPads {[ M:KNTRL KEYBOARD ]}
+    kybd_chan=curr_chan
 	LabelKnobs {KEYBOARD SETUP}
-	LabelKnob 0, {Chan. } 
-	LabelKnob 1, {Keybd }
-    LabelKnob 2, { }
-    LabelKnob 3, { }
-	SetKnobValue 0, TranslateScale curr_chan, 0, 15, 0, 127
-	SetKnobValue 1, TranslateScale sel_keybd, 0, 11, 0, 127
+	SetKnobValue 0, TranslateScale kybd_chan, 0, 14, 0, 127
+	SetKnobValue 1, TranslateScale kybd_layout[kybd_chan], 0, num_kybd_layouts-1, 0, 127
+	SetKnobValue 2, TranslateScale kybd_txpose[kybd_chan], 0, 11, 0, 127
+	SetKnobValue 3, TranslateScale kybd_oct[kybd_chan], -2, 2, 0, 127
+    Call @LabelKeyboardKnobs
+@End
+
+@LabelKeyboardKnobs
+    LabelKnob 0, {Chan }, kybd_chan+1  
+	LabelKnob 1, {Keybd }, kybd_layout[kybd_chan]+1
+    LabelKnob 2, {Root }, NoteName kybd_txpose[kybd_chan]
+    LabelKnob 3, {Oct }, kybd_oct[kybd_chan]
 @End
 
 @KnobChangeSet9
-
+    if last_knob=0 //# Keyboard chan keep in sync with instr chan
+		kybd_chan = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 14
+        curr_chan=kybd_chan
+        Call @SetupKeyboard
+    elseif last_knob=1
+        kybd_layout[kybd_chan] = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_kybd_layouts-1
+        Call @SetupKeyboard
+    elseif last_knob=2
+        kybd_txpose[kybd_chan] = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 11
+        Call @SetupKeyboard
+    elseif last_knob=3
+        kybd_oct[kybd_chan] = Round TranslateScale (GetKnobValue 3), 0, 127, -2, 2
+        Call @SetupKeyboard
+    endif
 @End
 
 
@@ -2125,8 +2253,8 @@
             else
     			pad_slot_to_label = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + i
             endif
-                Call @LabelInstrPad
-		endif
+            Call @LabelInstrPad
+        endif
 	endfor
 @End
 
@@ -2188,6 +2316,10 @@
             LabelPads curr_chan+1, {: HATS }
         elseif (label_num=25)
             LabelPads curr_chan+1, {: SAMPLER }
+        elseif (label_num=26)
+    		LabelPads curr_chan+1, {: MAIN}
+        elseif (label_num=27)
+	    	LabelPads curr_chan+1, {: CHORDS}	
         endif
     elseif mode=6
         LabelPads {[ MIDI GENERATORS ]}
@@ -2219,7 +2351,31 @@
             LabelPads {[ CLIPS KNTRL (CHANS:}, clip_scene_mode, {-}, clip_scene_mode+7, {)  (ROWS:}, clip_rows+1, {-}, clip_rows+2, {) ]}
         endif
     elseif mode=9
-        LabelPads {[ M:KNTRL KEYBOARD ]}
+        if kybd_layout[curr_chan]=0
+            LabelPads {[ CHROMATIC KEYBOARD ]}
+        elseif kybd_layout[curr_chan]=1
+            LabelPads {[ DRUMS ]}
+        elseif kybd_layout[curr_chan]=2
+            LabelPads {[ MAJOR ]}
+        elseif kybd_layout[curr_chan]=3
+            LabelPads {[ NATURAL MINOR ]}
+        elseif kybd_layout[curr_chan]=4
+            LabelPads {[ HARMONIC MINOR ]}
+        elseif kybd_layout[curr_chan]=5
+            LabelPads {[ MAJOR PENTATONIC ]}
+        elseif kybd_layout[curr_chan]=6
+            LabelPads {[ MINOR PENTATONIC ]}
+        elseif kybd_layout[curr_chan]=7
+            LabelPads {[ BLUES MAJOR ]}
+        elseif kybd_layout[curr_chan]=8
+            LabelPads {[ CHROMATIC MAJOR HIGHLIGHTS ]}
+        elseif kybd_layout[curr_chan]=9
+            LabelPads {[ CHROMATIC NATURAL MINOR HIGHLIGHTS ]}
+        elseif kybd_layout[curr_chan]=10
+            LabelPads {[ CHROMATIC HARMONIC MINOR HIGHLIGHTS ]}
+        else
+            LabelPads {[ M:KNTRL KEYBOARD ]}
+        endif
     elseif mode=1 or mode=2
         LabelPads {[ CHANNEL SELECT ]}
     elseif mode=3
