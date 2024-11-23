@@ -28,7 +28,7 @@
     record_on=FALSE //# 53
     play_on=FALSE //# 51
     loop_scenes=FALSE //# 33
-    show_scenes=FALSE //# 50
+    show_shortcuts=FALSE //# 50
     view_mode=0 //# 0:Off ClipOverview44 PianoRoll45 Velocity46 Autom47 
     logInfo=FALSE
     Call @LogInfo
@@ -40,7 +40,12 @@
     def_pad_cols[16]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
     def_pad_cols[32]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
     def_pad_cols[48]=[whte,off,off,off,off,off,off,off,whte,off,off,off,off,off,off,off]
+    shortcut_cols[0]=[whte,whte,whte,whte,whte,orng,blu2,red, prpl,yell,off,off, off,off,off,off]
+    //# shortcuts: 
+    //# VolPan, SendFilt, EQ, FX,MWMM,Mute,Solo,Arm,
+    //# Scenes,Kybd,MGEN GUIS,MKNTRL SHIFT,GENOCHORD SHIFT,GOC Scenes,GOCHarmoKybd,AllNotesOff,
 @End
+
 
 @OnPadDown
     if LastPad=0
@@ -109,14 +114,15 @@
             SendMidiCC 0, i, 0
         endfor
         SendMidiCC 0,update_view[0], update_view[1]
-    elseif MidiNote=50
-        show_scenes = not show_scenes
-        if show_scenes
+    elseif MidiNote=50 and clip_bank=0
+        show_shortcuts = not show_shortcuts
+        if show_shortcuts
             update_col=2
         else
             update_col=0
         endif
         SendMidiCC 0, 50, update_col
+        Call @UpdatePadsForShortcuts
     elseif MidiNote=51
         play_on = not play_on
         if play_on
@@ -154,6 +160,15 @@
     endif
 @End
 
+@UpdatePadsForShortcuts
+    if show_shortcuts
+        CopyArray shortcut_cols[0], col_pads[48], 16
+    else
+        CopyArray def_pad_cols[48], col_pads[48], 16
+    endif
+    Call @UpdatePadCols
+@End
+
 @UpdatePadsForSideMode
     if clip_bank>=1 and clip_bank<=4
         CopyArray def_pad_cols[0], col_pads[0], 16
@@ -163,6 +178,9 @@
         Call @UpdatePadCols
     elseif clip_bank=0
         CopyArray def_pad_cols, col_pads, 64
+        if show_shortcuts
+            CopyArray shortcut_cols[0], col_pads[48], 16
+        endif
         Call @UpdatePadCols
     endif
 @end
@@ -228,8 +246,9 @@
     if logInfo
         LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
         LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
-        LabelPad 2, {ClipMode: }, clip_bank
-        LabelPad 3, {KnobMode: }, knob_mode
+        LabelPad 8, {ClipMode: }, clip_bank
+        LabelPad 9, {Shortcuts: }, show_shortcuts
+        LabelPad 10, {KnobMode: }, knob_mode
         LabelPad 15, {LogInfo:}, { ON}
     else
         LabelPad 15, {LogInfo:}, { OFF}
