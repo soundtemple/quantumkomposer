@@ -459,12 +459,12 @@
 @End
 
 @OnPadDown
+    last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
 	Call @OnPadDown2 //midi input cant trigger @OnPadDown, It calls @OnPadDown2
 @End
 
 @OnPadDown2 // for midi in as well notes 0-15 on any channel
 	//# Pad Down actions
-    last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
 	pad_is_down = TRUE
 	if in_mode_select
         entering_keyboard_mode=TRUE //# prevent unwanted note off on entering keyboard mode
