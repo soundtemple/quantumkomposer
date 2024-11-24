@@ -581,7 +581,6 @@
 	for n = 0 to 127
 		SendMIDINoteOff ch, n, 64, (n*5) //handle stuck notes with 5ms delay on send
 	endfor
-	//Log {Notes off for ch:}, ch
 @End
 
 @OnPadUp
@@ -700,8 +699,31 @@
 
 
 @OnMidiCC
-	//Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
-	if ready_to_rec_knob_vals
+	//# Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
+	if MidiChannel=15 and MidiByte2>=97 and MidiByte2<=124
+        Exit //# THESE BELONG TO MKNTRL SHORTCUTS
+    elseif MidiChannel=15 and MidiByte2=125
+        //# SCENES SHORTCUT
+        log {going to scenes}
+        in_settings_mode = FALSE
+        mode=0
+        Call @SetupLayout
+    elseif MidiChannel=15 and MidiByte2=126
+        //# HARMO KEYBD SHORTCUT
+        //# Harmony keyboard 
+        log {going to kybd}
+        mode=9
+        in_settings_mode = FALSE
+        Call @SetupLayout
+    elseif MidiChannel=15 and MidiByte2=127
+        //# SHIFT SHORTCUT
+        log {shifting }, MidiByte3
+        if MIDIByte3=0
+            Call @OnShiftUp2
+        else
+            Call @OnShiftDown2
+        endif
+    elseif ready_to_rec_knob_vals
 		custom_knobs[last_pad+1] = MIDIByte2
 		Call @SetupPadsLayoutMidiConfig
 		//store inc and dec values to display on knobs
@@ -1920,10 +1942,12 @@
     for i = 0 to 15
         ColorPad i, hmny_kybd_pad_cols[i]
         LabelPad i, NoteName cnotes[i], YES
+        LatchPad i, NO
     endfor
 @End
 
 @PadDownHarmonyKeyboard
+    FlashPad last_pad
     if LastPadVelocity<64
         note_in_velo = 100
     else

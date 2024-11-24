@@ -73,10 +73,10 @@
 	num_chan_labels=27
     // Instrument channels
     chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] 
-    use_aum_layout=FALSE
-    chan_labels =  [26,20,23,24, 2,21,16,27, 3, 7, 5, 9, 6, 8,15,99]
-    chan_colors =  [0,  1, 2, 2, 6, 6, 7, 0, 2, 2, 3, 4, 4, 4, 5, 0]
-    chan_layouts = [0, 10,10,10,10,10,10, 0,10,10,10,10,10,10,11, 0]
+    chan_labels =  [20,23,24,24,21,2,3,7,5,9,8,6,19,16,15,99]
+    chan_colors =  [1,2,2,2,6,6,2,2,3,3,4,4,6,7,5,0]
+    chan_midi_chs= [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    chan_layouts = [10,10,10,10, 10,10,10,10, 10,10,10,10, 10,10,11,0]
 
     FillArray chan_mute, FALSE, 16 //toggle mute, solo, arm
 	FillArray chan_solo, FALSE, 16
@@ -158,14 +158,14 @@
 
 @OnMidiCC //KNTRL midi implementation. Receive only CH16 - output to active channel
     // Commands (hex#) NoteOn=0x90;NoteOff=0x80;CC=0xB0;ProgramChange=0xC0;Aftertouch=0xD0;Pitchbend=0xE0
-	if MidiChannel=15 and (MidiByte2>=97 and MidiByte2<=111)
+	if MidiChannel=15 and (MidiByte2>=97 and MidiByte2<=111) and MIDIByte3>0
         //# Goto instrument channel
         in_mode_select=FALSE
         mode=1
         last_pad=MidiByte2-97
         Call @PadDownChannelsMode
         Call @LabelPadsHeader
-    elseif MidiChannel=15 and (MidiByte2>=112 and MidiByte2<=119)
+    elseif MidiChannel=15 and (MidiByte2>=112 and MidiByte2<=119) and MIDIByte3>0
         //# Goto to mixer mute/solo/arm page
         mode=7 //MIXER MODES
         in_mode_select = FALSE
@@ -178,7 +178,7 @@
         Call @SetupLayoutChannels
         Call @SetupKnobset7
         Call @LabelPadsHeader
-    elseif MidiChannel=15 and MidiByte2=120
+    elseif MidiChannel=15 and MidiByte2=120 and MIDIByte3>0
         //# Goto ClipsScenes
         mode=8
         in_mode_select=FALSE
@@ -189,8 +189,29 @@
         in_mode_select=FALSE
         entering_keyboard_mode=FALSE //# not pad up here
         Call @SetupKeyboard
-    elseif MidiChannel=15 and MidiByte2=122 and MidiByte2<=127
-        Exit //# Not implemented
+    elseif MidiChannel=15 and MidiByte2=122 and MIDIByte3>0
+        //# MGEN mgen_guis
+        mode=6
+        in_mode_select=FALSE
+        Call @SetupLayoutChannels
+        if edit_mode_active
+            edit_chan=0
+            Call @SetupKnobset11
+        else
+            Call @SetupKnobset10
+        endif
+    elseif MidiChannel=15 and MidiByte2=123
+        //# MKNTRL SHIFT
+        Call @AllNotesOff
+    elseif MidiChannel=15 and MidiByte2=124
+        //# MKNTRL SHIFT
+        if MIDIByte3=0
+            Call @OnShiftUp2
+        else
+            Call @OnShiftDown2
+        endif
+    elseif MidiChannel=15 and MidiByte2>=124 and MidiByte2<=127
+        Exit //# THESE BELONG TO GOC SHORTCUTS
     elseif ready_to_rec_knob_vals
 		custom_knobs[last_pad+1] = MIDIByte2
 		Call @SetupLayoutKnobsConfig
@@ -400,6 +421,18 @@
 	endif
 @End 
 
+@AllNotesOff //send midi note off for all channels - handle stuck notes
+	for ch = 0 to 15
+		Call @SendMidiOffForCh
+	endfor
+@End
+
+@SendMidiOffForCh //send midi note off for a channel (ch) - handle stuck notes
+	for n = 0 to 127
+		SendMIDINoteOff ch, n, 64, (n*5) //handle stuck notes with 5ms delay on send
+	endfor
+@End
+
 @OnTimer 
     if timer_type=0 //longpress shift
         Call @GoToSettingsMixerMode
@@ -482,7 +515,6 @@
 			else
 				Call @SetupKnobset10
 			endif
-			LatchPad sel_mgen_dev, YES
 		elseif last_pad=2 // TOGGLE EDIT MODE
 			edit_mode_active = NOT edit_mode_active
 			Call @SetupSettingsLayout
@@ -520,6 +552,8 @@
 			mixer_mode=last_pad-8
 			Call @SetupKnobset7
             Call @LabelPadsHeader
+        elseif last_pad=15
+            Call @AllNotesOff
 		endif
 	elseif NOT in_mode_select
 		Call @ModeSetup
@@ -528,8 +562,9 @@
 @End
 
 @OnPadUp
-  Call @OnPadUp2
-  StopTimer
+    last_pad = LastPad
+    Call @OnPadUp2
+    StopTimer
 @End
 
 @OnPadUp2
@@ -1153,7 +1188,7 @@
 	LabelPad 12, {__MIXER__  }, {MW+MACROS }
 	LabelPad 13, {__MIXER__  }, {MUTE SOLO} //mute solo
     LabelPad 14, { }
-	LabelPad 15, { }
+	LabelPad 15, {ALL NOTES OFF}
 	LabelPad 6, { }
 	p6=0
 	
@@ -1166,7 +1201,7 @@
         LabelPads {Goto instrument chan. Tap pad to edit. Longpress to copy}
 		p7=col_mode_edit
 	endif
-	settings_cols = [kc_col,p1,p2,p3,4,4,p6,p7, 2,2,2,2, 2,2,0,0]
+	settings_cols = [kc_col,p1,p2,p3,4,4,p6,p7, 2,2,2,2, 2,2,0,1]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO

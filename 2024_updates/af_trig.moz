@@ -7,11 +7,24 @@
     clip_bank_leds=[1,1,4,4]
     knob_mode=0
     knob_ccs=[]
-    knob_chs=[0,0,0,0, 2,2,2,2, 15,15,15,15, 15,15,15,15]
+    knob_chs=[15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15]
+    chords_in_chan=15 //# this is for triggering chords with notes and midi learn pads
     for i = 0 to 15
-        knob_ccs[i]=70+i
+        knob_ccs[i]=73+i
     endfor
+    for i = 0 to 7
+        midi_learn_pads[i]=48+i         //# MKNTRL LHS
+        midi_learn_pads[i+8]=48+i+16     //# GOC LHS
+        midi_learn_pads[i+16]=48+i+8   //# MKNTRL RHS
+        midi_learn_pads[i+24]=48+i+24   //# GOC RHS
+    endfor
+    mkntrl_shift = 47
+    goc_shift = 80
     btn_ccs=[31,32,33,34,35,36,37,38,39,44,45,46,47,48,49,50,51,52,53]
+    //# sync these with shortcut_cols in AFLITE
+    //# VolPan112, SendFilt113, EQ114, FX115, MWMM116, Mute117, Solo118, Arm119,
+    //# Scenes120, Kybd121, MGENGUIS122, ALLNOTESOFF123, MKNTRLSHIFT124, GOC Scenes125, GOCHarmoKybd126, GENOCHORDSHIFT127
+    shortcut_ccs =[112, 113, 114, 115, 116, 117, 118, 124, 120, 121,  -1,   -1, -1, 125, 126, 127]
     show_shortcuts=FALSE
     logInfo=FALSE
     Call @LogInfo
@@ -59,26 +72,26 @@
         col = (MidiNote-54)%16
         SendMIDINoteOn col, row, 127    
     elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=69
-        SendMIDIThru //# Send thru pads row 1 (all) and row 2 (LHS) //# Channel select in Drambo (may have 16th channel)
+        SendMIDIThru //# Send thru pads row 1 (all)
         if MidiNote <> 69
             SendMidiCC 15, MidiNote-54+97, 127 //# To M:KNTRL to select channel. Only 15 chans so not send last one 
         endif
-    elseif MidiChannel=0 and MidiNote>=70 and MidiNote<=77
-        SendMIDIThru //# Send thru pads row 2 (LHS)
-    elseif MidiChannel=0 and MidiNote>=78 and MidiNote<=85
-        SendMIDIThruOnCh 2 //# Send thru pads row 2 (RHS)
-    elseif MidiChannel=0 and MidiNote>=86 and MidiNote<=93
-        SendMIDIThru //# Send thru pads row 3 (LHS)
-    elseif MidiChannel=0 and MidiNote>=94 and MidiNote<=101
-        SendMIDIThruOnCh 2 //# Send thru pads row 3 (RHS)  
+    elseif MidiChannel=0 and MidiNote>=70 and MidiNote<=101
+        SendMIDINoteOn chords_in_chan,  midi_learn_pads[MidiNote-70]
     elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and show_shortcuts
-        SendMidiCC 15, MidiNote-102+112, 127
+        sc_cc=shortcut_ccs[MidiNote-102]
+        if sc_cc>=112
+            SendMidiCC 15, sc_cc, 127
+            log {sc cc }, sc_cc, {Midi note }, MidiNote
+        endif
     elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and not show_shortcuts
         SendMIDIThru //# Send thru pads row 4
     elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=35
         SendMIDIThru //# Send pattern, browser, grid
+    elseif MidiChannel=0 and MidiNote=48
+        SendMIDINoteOn chords_in_chan, mkntrl_shift, 127
     elseif MidiChannel=0 and MidiNote=49
-        SendMIDIThruOnCh 2 //# Send bottom ALT
+        SendMIDINoteOn chords_in_chan, goc_shift, 127
     elseif MidiChannel=0 and MidiNote=50 and clip_bank=0
         show_shortcuts = not show_shortcuts
         SendMIDIThru
@@ -94,22 +107,23 @@
         row = ((RoundDown ((MidiNote-54)/16)) + (clip_bank*4) - 4)
         col = (MidiNote-54)%16
         SendMIDINoteOff col, row, 0 
-    elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=77
-        SendMIDIThru //# Send thru pads row 1 (all) and row 2 (LHS)
-    elseif MidiChannel=0 and MidiNote>=78 and MidiNote<=85
-        SendMIDIThruOnCh 2 //# Send thru pads row 2 (RHS)
-    elseif MidiChannel=0 and MidiNote>=86 and MidiNote<=93
-        SendMIDIThru //# Send thru pads row 3 (LHS)
-    elseif MidiChannel=0 and MidiNote>=94 and MidiNote<=101
-        SendMIDIThruOnCh 2 //# Send thru pads row 3 (RHS)  
-    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117
+    elseif MidiChannel=0 and MidiNote>=70 and MidiNote<=101
+        SendMIDINoteOff chords_in_chan,  midi_learn_pads[MidiNote-70] 
+    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and show_shortcuts
+        sc_cc=shortcut_ccs[MidiNote-102]
+        if sc_cc>=112
+            SendMidiCC 15, sc_cc, 0
+        endif
+    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and not show_shortcuts
         SendMIDIThru //# Send thru pads row 4
     elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=33
         Exit //# Send pattern, browser, grid
     elseif MidiChannel=0 and MidiNote>=34 and MidiNote<=35
         SendMIDIThru //# Grid buttons need off for some reason
-    elseif MidiChannel=0 and (MidiNote=48 or MidiNote=49 or MidiNote=52)
-        SendMIDIThru //# Shift and Alt buttons + undo
+    elseif MidiChannel=0 and MidiNote=48
+        SendMIDINoteOff chords_in_chan, mkntrl_shift, 127
+    elseif MidiChannel=0 and MidiNote=49
+        SendMIDINoteOff chords_in_chan, goc_shift, 127
     elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53
         Exit //# Send bottom row
     endif
@@ -118,16 +132,18 @@
 
 @LogInfo
     if logInfo
-        LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
-        LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
+        if MIDICommand=0x90
+            LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
+            LabelPad 1, { }
+        elseif MIDICommand=0XB0
+            LabelPad 0, { }
+            LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
+        endif
         LabelPad 8, {ClipMode: }, clip_bank
         LabelPad 9, {Shortcuts: }, show_shortcuts
         LabelPad 10, {KnobMode: }, knob_mode
         LabelPad 15, {LogInfo:}, { ON}
     else
-        for i = 0 to 14
-            LabelPad i, { }
-        endfor
         LabelPad 15, {LogInfo:}, { OFF}
     endif
 @End

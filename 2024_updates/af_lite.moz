@@ -5,14 +5,14 @@
     colours=[]
     colour_index=[]
     Call @GetColorArray
-    LabelPad 0, {Get pads ready}
-    ColorPad 0, 3
-    LabelPad 1, {All pads off}
-    ColorPad 1, 1
-    ColorPad 2, 3
-    LabelPad 2, {Get btns ready}
-    ColorPad 3, 1
-    LabelPad 3, {All btns off}
+    LabelPad 4, {Get pads ready}
+    ColorPad 4, 3
+    LabelPad 5, {All pads off}
+    ColorPad 5, 1
+    ColorPad 6, 3
+    LabelPad 6, {Get btns ready}
+    ColorPad 7, 1
+    LabelPad 7, {All btns off}
     def_pad_cols=[]
     Call @GetDefaultPadColors
     btn_ccs= [31,32,33,34,35,36,37,38,39,44,45,46,47,48,49,50,51,52,53]
@@ -26,40 +26,50 @@
     clip_bank=0
     knob_mode=0
     record_on=FALSE //# 53
-    play_on=FALSE //# 51
     loop_scenes=FALSE //# 33
     show_shortcuts=FALSE //# 50
-    view_mode=0 //# 0:Off ClipOverview44 PianoRoll45 Velocity46 Autom47 
     logInfo=FALSE
     Call @LogInfo
     LabelPad 14, {test this }
 @End
 
 @GetDefaultPadColors
-    def_pad_cols[0]=[whte,red,yell,yell, prpl,prpl,pink,whte, orng,orng,grn,blu2, blu2,blu2,blu1,off]
+    def_pad_cols[0]=[red,orng,yell,yell, prpl,prpl,orng,orng, grn,grn,blu2,blu2, prpl,pink,blu1,off]
     def_pad_cols[16]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
     def_pad_cols[32]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
     def_pad_cols[48]=[whte,off,off,off,off,off,off,off,whte,off,off,off,off,off,off,off]
-    shortcut_cols[0]=[whte,whte,whte,whte,whte,orng,blu2,red, prpl,yell,off,off, off,off,off,off]
     //# shortcuts: 
-    //# VolPan, SendFilt, EQ, FX,MWMM,Mute,Solo,Arm,
-    //# Scenes,Kybd,MGEN GUIS,MKNTRL SHIFT,GENOCHORD SHIFT,GOC Scenes,GOCHarmoKybd,AllNotesOff,
+    //# VolPan112, SendFilt113, EQ114, FX115, MWMM116, Mute117, Solo118, Arm119,
+    //# shortcut_ccs[0] =[112, 113, 114, 115, 116, 117, 118, 123] - add these to trig
+    shortcut_cols[0]=[whte,whte,whte,whte,whte,orng,blu2,prpl]
+    //# Scenes120, Kybd121, MGENGUIS122, AllNotesOff123, MKNTRLSHIFT124, GOC Scenes125, GOCHarmoKybd126, GENOCHORDSHIFT127
+    //# shortcut_ccs[8] =[120, 121,  -1,   -1, -1, 125, 126, 127] - add these to trig
+    shortcut_cols[8]=[blu1,yell, off, off, off, blu1,prpl,orng]
 @End
 
+@OnHostStart
+    //# play button
+    SendMidiCC 0, 51, 3
+@End
+
+@OnHostStop
+    //# play button
+    SendMidiCC 0, 51, 0
+@End
 
 @OnPadDown
-    if LastPad=0
+    if LastPad=4
         CopyArray def_pad_cols, col_pads, 64
         Call @UpdatePadCols
-    elseif LastPad=1
+    elseif LastPad=5
         CopyArray clear_pads, col_pads, 64
         Call @UpdatePadCols
-    elseif LastPad=2
+    elseif LastPad=6
         CopyArray btn_cols, col_btns, 64
         led_cols=[0,0,0,0]
         Call @LightUpButtons
         Call @UpdateSideLeds
-    elseif LastPad=3
+    elseif LastPad=7
         CopyArray clear_btns, col_btns, 64
         led_cols=[2,2,2,2]
         Call @LightUpButtons
@@ -103,17 +113,7 @@
         endif
         SendMidiCC 0, 33, update_col
     elseif MidiNote>=44 and MidiNote<=47
-        if view_mode=MidiNote
-            view_mode=0
-            update_view=[0,0]
-        else
-            view_mode=MidiNote
-            update_view=[MidiNote, 1]
-        endif
-        for i = 44 to 47
-            SendMidiCC 0, i, 0
-        endfor
-        SendMidiCC 0,update_view[0], update_view[1]
+        SendMidiCC 0, MidiNote, 1
     elseif MidiNote=50 and clip_bank=0
         show_shortcuts = not show_shortcuts
         if show_shortcuts
@@ -124,13 +124,7 @@
         SendMidiCC 0, 50, update_col
         Call @UpdatePadsForShortcuts
     elseif MidiNote=51
-        play_on = not play_on
-        if play_on
-            update_col=3
-        else
-            update_col=0
-        endif
-        SendMidiCC 0, 51, update_col
+        //# SendMidiCC 0, 51, 3
     elseif MidiNote=53
         record_on = not record_on
         if record_on
@@ -150,8 +144,10 @@
 @End
 
 @OnMidiNoteOff
-    if MidiNote=52
-        //# undo on momentary
+    if MidiNote>=44 and MidiNote<=47
+        SendMidiCC 0, MidiNote, 0
+    elseif MidiNote=52
+        //# stop momentary
         SendMidiCC 0, 52, 0
     elseif (MidiNote=48 or MidiNote=49)
         //# shift / alt on
@@ -244,8 +240,13 @@
 
 @LogInfo
     if logInfo
-        LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
-        LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
+        if MIDICommand=0x90
+            LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
+            LabelPad 1, { }
+        elseif MIDICommand=0XB0
+            LabelPad 0, { }
+            LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
+        endif
         LabelPad 8, {ClipMode: }, clip_bank
         LabelPad 9, {Shortcuts: }, show_shortcuts
         LabelPad 10, {KnobMode: }, knob_mode
