@@ -38,7 +38,7 @@
         entering_keyboard_mode=TRUE //# prevent unwanted note off on entry to mode 9
         Call @BuildKeyboards
 		knob_set=99 //settings knobset
-        SetTimerInterval 500
+        SetTimerInterval 300
 		//Initialise KNTRL
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupSettingsLayout
@@ -53,17 +53,33 @@
     len_header=6
     sx_knob_setup=1 //# knobs midi channel, followed by CC vals
     sx_knob_change=2 //# knobs value change message
+    current_knob_vals=[0,0,0,0]
+    last_updated_knob_vals=[0,0,0,0]
 @End
 
 @SendKnobChangeSysex
     //# update knob FB device
     for i = 0 to 3
         current_knob_vals[i] = (Round GetKnobValue i)
+        last_updated_knob_vals[i] = (Round GetKnobValue i)
     endfor
     CopyArray current_knob_vals, msg_data, 4
     msg_type = sx_knob_change
     len_data=4
     Call @SendSysex
+@End
+
+@UpdateOtherKnobsIfRequired
+    //# on knob change check if other knobs have changed and update controller 
+    other_knobs_have_changed = FALSE
+    for i = 0 to 3
+        if (i <> last_knob) and last_updated_knob_vals[i] <> GetKnobValue i 
+            other_knobs_have_changed = TRUE
+        endif
+    endfor
+    if other_knobs_have_changed
+        Call @SendKnobChangeSysex
+    endif 
 @End
 
 @SendSysex
@@ -1296,6 +1312,7 @@
 	  	    Call @KnobChangeSet99	
 		endif
 	endif
+    Call @UpdateOtherKnobsIfRequired
 @End
 
 @UpdateCurrentKnobset
