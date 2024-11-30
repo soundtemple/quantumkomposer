@@ -55,6 +55,7 @@
     sx_knob_change=2 //# knobs value change message
     current_knob_vals=[0,0,0,0]
     last_updated_knob_vals=[0,0,0,0]
+    send_feedback_to_pots=TRUE
 @End
 
 @SendKnobChangeSysex
@@ -640,7 +641,9 @@
             SendMIDINoteOff chan_midi_chs[curr_chan], inst_ccs[pad_slot], 64
 	    endif
 	endif
-    Call @SendKnobChangeSysex
+    if (kntrl_knob_type <> 0) and send_feedback_to_pots
+        Call @SendKnobChangeSysex
+    endif
 @End
 
 @ModeSetup
@@ -962,6 +965,8 @@
         ready_to_rec_pad_vals=TRUE
         LabelPad 11, {____x____}, { Press Shift Pad }
         ColorPad 11, 2
+    elseif last_pad=13
+        send_feedback_to_pots = not send_feedback_to_pots
 	elseif last_pad=15
         Call @GoToSettingsMixerMode
     endif
@@ -1312,7 +1317,9 @@
 	  	    Call @KnobChangeSet99	
 		endif
 	endif
-    Call @UpdateOtherKnobsIfRequired
+    if (kntrl_knob_type <> 0) and send_feedback_to_pots
+        Call @UpdateOtherKnobsIfRequired
+    endif
 @End
 
 @UpdateCurrentKnobset
@@ -2012,9 +2019,18 @@
             LabelPad 5, {Output: CONT. ABS.}
             ColorPad 5, 4
         endif
+        LabelPad 13, { }
+        ColorPad 13, 0
     else 
         LabelPad 5, { }
         ColorPad 5, 0
+        if send_feedback_to_pots
+            LabelPad 13, {Send feedabck to knobs on}
+            ColorPad 13, 3
+        else 
+            ColorPad 13, 1
+            LabelPad 13, {Send feedabck to knobs off}
+        endif
     endif
 	LabelPad 15, {Settings / Mixer...}
     Call @SetupKnobset3
