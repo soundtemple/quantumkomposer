@@ -36,6 +36,7 @@
         scenes_ch=15 //# for triggering scenes. nb: clips are triggered by note 0-15 on channel.
         scenes_note=0 //# for triggering scenes
         entering_keyboard_mode=TRUE //# prevent unwanted note off on entry to mode 9
+        send_keys_thru_on_ch=TRUE
         Call @BuildKeyboards
 		knob_set=99 //settings knobset
         SetTimerInterval 300
@@ -387,6 +388,9 @@
             Call @OnShiftDown2
         endif
 
+    elseif send_keys_thru_on_ch and MidiByte2=1 //# Modwhee;
+        SendMIDIThruOnCh chan_midi_chs[curr_chan]
+
 	endif
 @End
 
@@ -442,6 +446,16 @@
         elseif MIDICommand=0x80 //Note off
             Call @OnShiftUp2
         endif
+    elseif send_keys_thru_on_ch
+        SendMIDIThruOnCh chan_midi_chs[curr_chan]
+	endif
+@End
+
+@OnMidiInput
+	if send_keys_thru_on_ch and (MIDICommand=0xD0 or MIDICommand=0xE0) //Aftertouch or pitchbend
+		if MIDIChannel=15
+			SendMIDIThruOnCh chan_midi_chs[curr_chan]
+		endif
 	endif
 @End
 
@@ -587,6 +601,9 @@
 			mixer_mode=last_pad-8
 			Call @SetupKnobset7
             Call @LabelPadsHeader
+        elseif last_pad=14
+            send_keys_thru_on_ch = not send_keys_thru_on_ch
+            Call @SetupSettingsLayout
         elseif last_pad=15
             Call @AllNotesOff
 		endif
@@ -1251,11 +1268,17 @@
 	LabelPad 11, {__MIXER__  }, {FX}
 	LabelPad 12, {__MIXER__  }, {MW+MACROS }
 	LabelPad 13, {__MIXER__  }, {MUTE SOLO} //mute solo
-    LabelPad 14, { }
 	LabelPad 15, {ALL NOTES OFF}
 	LabelPad 6, { }
 	p6=0
-	
+
+    if send_keys_thru_on_ch
+        LabelPad 14, {Sending keys thru on instrument channel}
+        p14=3
+    else
+        LabelPad 14, {Send keys thru on instrument channel?}
+        p14=0
+	endif
 	if layouts_locked
 		LabelPad 7, {EDIT LAYOUTS}, { OFF }
 		p7=0
@@ -1265,7 +1288,7 @@
         LabelPads {Goto instrument chan. Tap pad to edit. Longpress to copy}
 		p7=col_mode_edit
 	endif
-	settings_cols = [kc_col,p1,p2,p3,4,4,p6,p7, 2,2,2,2, 2,2,0,1]
+	settings_cols = [kc_col,p1,p2,p3,4,4,p6,p7, 2,2,2,2, 2,2,p14,1]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
