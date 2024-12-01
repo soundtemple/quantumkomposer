@@ -1591,16 +1591,16 @@
 	if last_knob = 0
 	  scn_duration = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 32
 	  if scn_duration <> scene_bank[current_scene * sc_size] 	
-		  scene_bank[current_scene * sc_size] = scn_duration
-	  	LabelKnob 0 , {Dur }, scn_duration
+		    scene_bank[current_scene * sc_size] = scn_duration
+	  	    LabelKnob 0 , {Dur }, scn_duration
 			Call @UpdateScenesWithDuration
 	  endif
     endif
   if last_knob = 1
-	  scn_txpose = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 12
-	  if scn_txpose <> scene_bank[(current_scene * sc_size) + sc_txp_slot] 	
-		  scene_bank[(current_scene * sc_size) + sc_txp_slot] = scn_txpose
-		  Call @SetupLayout //# re-label all chord pads
+	    scn_txpose = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 12
+	    if scn_txpose <> scene_bank[(current_scene * sc_size) + sc_txp_slot] 	
+		    scene_bank[(current_scene * sc_size) + sc_txp_slot] = scn_txpose
+		    Call @SetupLayout //# re-label all chord pads
 			Call @MakeChordScaleForScene
 		endif
   endif
@@ -1676,7 +1676,7 @@
         if chrd_inversion <> chord_bank[chord_slot + inv_slot] 
             chord_bank[chord_slot + inv_slot] = chrd_inversion
             LabelKnob 2, {Inv }, chrd_inversion
-                Call @MakeChordScale
+            Call @MakeChordScale
         endif 
     endif
     chrd_to_label = current_chord+8
@@ -1729,42 +1729,42 @@
 	inv_updated = FALSE
 	chord_to_set = current_chord
 	if last_knob = 0
-	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
-  	if val <> slct_chord_root
+	    val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
+  	    if val <> slct_chord_root
 			slct_chord_root = val
 			LabelKnob last_knob, {Root }, (NoteName slct_chord_root)
-  		root_updated = TRUE
+  		    root_updated = TRUE
 			Call @SaveSelectedChordPad
 		endif
   elseif last_knob = 1
   	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_chord_types-1
 		if val <> slct_chord_type
 			slct_chord_type = val
-	  	if slct_chord_type = 0
-	  		LabelKnob 1, {Major}
-	  	elseif slct_chord_type = 1
-	  		LabelKnob 1, {Minor}
-	  	elseif slct_chord_type = 2
-	  		LabelKnob 1, {Diminished}
-	  	elseif slct_chord_type = 3
-	  		LabelKnob 1, {Augmented}
-	  	elseif slct_chord_type = 4
-	  		LabelKnob 1, {Sus2}
-	  	elseif slct_chord_type = 5
-	  		LabelKnob 1, {Sus4}
-	  	elseif slct_chord_type = 6
-	  		LabelKnob 1, {Minor 6th}
-	  	elseif slct_chord_type = 7
-	  		LabelKnob 1, {Major 6th}
-	  	elseif slct_chord_type = 8
-	  		LabelKnob 1, {Minor 7th}
-	  	elseif slct_chord_type = 9
-	  		LabelKnob 1, {Dom 7th}
-	  	elseif slct_chord_type = 10
-	  		LabelKnob 1, {Major 7th}
-	  	endif
-	  	type_updated = TRUE
-	  	Call @SaveSelectedChordPad
+            if slct_chord_type = 0
+                LabelKnob 1, {Major}
+            elseif slct_chord_type = 1
+                LabelKnob 1, {Minor}
+            elseif slct_chord_type = 2
+                LabelKnob 1, {Diminished}
+            elseif slct_chord_type = 3
+                LabelKnob 1, {Augmented}
+            elseif slct_chord_type = 4
+                LabelKnob 1, {Sus2}
+            elseif slct_chord_type = 5
+                LabelKnob 1, {Sus4}
+            elseif slct_chord_type = 6
+                LabelKnob 1, {Minor 6th}
+            elseif slct_chord_type = 7
+                LabelKnob 1, {Major 6th}
+            elseif slct_chord_type = 8
+                LabelKnob 1, {Minor 7th}
+            elseif slct_chord_type = 9
+                LabelKnob 1, {Dom 7th}
+            elseif slct_chord_type = 10
+                LabelKnob 1, {Major 7th}
+            endif
+            type_updated = TRUE
+	  	    Call @SaveSelectedChordPad
 		endif
   elseif last_knob = 2
   	val = Round TranslateScale (GetKnobValue 2), 0, 127, -4, 4
@@ -1963,12 +1963,14 @@
     knob_set = 5
 	if last_knob = 0 and not HostRunning // OUT CH
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15 // OUT CH
-        hmny_kybd_out_ch = val
-        LabelKnob 0, {Out CH }, hmny_kybd_out_ch+1
-        if val = player_out_channel
-            LabelKnobs {Not allowed}
-        else    
-            LabelKnobs {KEYBOARD SETTINGS}
+        if val <> hmny_kybd_out_ch
+            hmny_kybd_out_ch = val
+            LabelKnob 0, {Out CH }, hmny_kybd_out_ch+1
+            if val = player_out_channel
+                LabelKnobs {Not allowed}
+            else    
+                LabelKnobs {KEYBOARD SETTINGS}
+            endif
         endif
     elseif last_knob = 0 and HostRunning
         LabelKnobs {STOP HOST FIRST}
@@ -2077,32 +2079,32 @@
 @KnobChangeSet6
 	chord_to_set = current_chord //required for @SaveConstructedChordPad
 	if last_knob = 0
-	  val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
-  	if val <> constructed_root
+	    val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 11
+  	    if val <> constructed_root
 			constructed_root = val
 			LabelKnob 0, {Root }, (NoteName constructed_root)
-  		Call @SaveConstructedChordPad
+  		    Call @SaveConstructedChordPad
 		endif
-  elseif last_knob = 1
-  	val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
-  	if val <> constructed_3rd
+    elseif last_knob = 1
+  	    val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 3
+  	    if val <> constructed_3rd
 			constructed_3rd = val
 			Call @LabelConstructedChord
-  		Call @SaveConstructedChordPad
+  		    Call @SaveConstructedChordPad
 		endif
   elseif last_knob = 2
-  	val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
-	  if val <> constructed_5th
+  	    val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 2
+	    if val <> constructed_5th
 			constructed_5th = val
 			Call @LabelConstructedChord
-	  	Call @SaveConstructedChordPad
+	  	    Call @SaveConstructedChordPad
 		endif
   elseif last_knob = 3
-	  val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 4
-  	if val <> constructed_7th
+	    val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 4
+  	    if val <> constructed_7th
 			constructed_7th = val
 			Call @LabelConstructedChord
-  		Call @SaveConstructedChordPad
+  		    Call @SaveConstructedChordPad
 		endif	
 	endif
 @End
