@@ -40,11 +40,11 @@
     def_pad_cols[48]=[whte,off,off,off,off,off,off,off,whte,off,off,off,off,off,off,off]
     //# shortcuts: 
     //# VolPan112, SendFilt113, EQ114, FX115, MWMM116, Mute117, Solo118, Arm119,
-    //# shortcut_ccs[0] =[112, 113, 114, 115, 116, 117, 118, 123] - add these to trig
-    shortcut_cols[0]=[whte,whte,whte,whte,whte,orng,blu2,prpl]
+    //# Scenes120, Kybd121, MGENGUIS122
+    shortcut_ccs =[61,63,64,65,  66,67,68,69,  70,71,72,-1,  -1,-1,-1,-1]
+    shortcut_cols[0]=[whte,whte,whte,whte, whte,orng,blu2,red, blu1,prpl,orng,off, off,off,off,off]
     //# Scenes120, Kybd121, MGENGUIS122, AllNotesOff123, MKNTRLSHIFT124, GOC Scenes125, GOCHarmoKybd126, GENOCHORDSHIFT127
     //# shortcut_ccs[8] =[120, 121,  -1,   -1, -1, 125, 126, 127] - add these to trig
-    shortcut_cols[8]=[blu1,yell, off, off, off, blu1,prpl,orng]
 @End
 
 @OnHostStart

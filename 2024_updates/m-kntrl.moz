@@ -388,7 +388,7 @@
             Call @OnShiftDown2
         endif
 
-    elseif send_keys_thru_on_ch and MidiByte2=1 //# Modwhee;
+    elseif send_keys_thru_on_ch and MidiByte2=1 //# Modwheel;
         SendMIDIThruOnCh chan_midi_chs[curr_chan]
 
 	endif
@@ -630,7 +630,7 @@
     else
         in_mode_select=FALSE
         mode=1
-        last_pad=MidiByte2-97
+        last_pad=curr_chan
         Call @PadDownChannelsMode
         Call @LabelPadsHeader
     endif
