@@ -641,7 +641,7 @@
             SendMIDINoteOff chan_midi_chs[curr_chan], inst_ccs[pad_slot], 64
 	    endif
 	endif
-    if (kntrl_knob_type <> 0) and send_feedback_to_pots
+    if (kntrl_knob_type <> 0) and send_feedback_to_pots 
         Call @SendKnobChangeSysex
     endif
 @End
@@ -1283,7 +1283,11 @@
 
 @OnKnobChange
 	last_knob = LastKnob
-    Call @OnKnobChange2 //handle that change 
+    Call @OnKnobChange2 //handle that change
+    if (kntrl_knob_type <> 0) and send_feedback_to_pots
+        //# update knobs when manual touch control is used 
+        Call @SendKnobChangeSysex
+    endif
 @End
 
 @OnKnobChange2

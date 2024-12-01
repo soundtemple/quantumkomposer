@@ -56,7 +56,53 @@
 	  	knob_set=99
 		Call @SetupKnobset99 //settings knobs
 	  	Call @SetupSettingsLayout
+        Call @SysexMessageSetup
 	endif
+@End
+
+@SysexMessageSetup
+	//Sending SYSEX. 
+	//Method: Set msg_type=[sx_var_below]; msg_data=[an array]; len_data=[len msg_data array]; Then Call @SendSysex
+	mk_sysex_header=[0x3F,0x40,0x3F,0x40,0x3F,0x40]
+    len_header=6
+    sx_knob_setup=3 //# knobs midi channel, followed by CC vals
+    sx_knob_change=4 //# knobs value change message
+    current_knob_vals=[0,0,0,0]
+    last_updated_knob_vals=[0,0,0,0]
+    send_feedback_to_pots=TRUE
+@End
+
+@SendKnobChangeSysex
+    //# update knob FB device
+    for i = 0 to 3
+        current_knob_vals[i] = (Round GetKnobValue i)
+        last_updated_knob_vals[i] = (Round GetKnobValue i)
+    endfor
+    CopyArray current_knob_vals, msg_data, 4
+    msg_type = sx_knob_change
+    len_data=4
+    Call @SendSysex
+@End
+
+@UpdateOtherKnobsIfRequired
+    //# on knob change check if other knobs have changed and update controller 
+    other_knobs_have_changed = FALSE
+    for i = 0 to 3
+        if (i <> last_knob) and last_updated_knob_vals[i] <> GetKnobValue i 
+            other_knobs_have_changed = TRUE
+        endif
+    endfor
+    if other_knobs_have_changed
+        Call @SendKnobChangeSysex
+    endif 
+@End
+
+@SendSysex
+    sysex_msg=[]
+    CopyArray mk_sysex_header, sysex_msg, len_header //set header to MK msg
+	sysex_msg[len_header] = msg_type //add the message type to the sysex msg
+	CopyArray msg_data, sysex_msg[len_header+1], len_data //add msg data to sysex msg
+	SendSysex sysex_msg, len_header+len_data+1 //Send header, msg_type msg_data
 @End
 
 @InitKnobVariables
@@ -463,7 +509,7 @@
 	shift_is_down=FALSE //protect against unwanted shift releases not happening
 	pad_is_down=TRUE
     if mode=8
-        Call @PadDownConfigureKnobs
+        Call @PadDownMidiLearn
 	elseif in_settings_mode 
 		if HostRunning and (last_pad > 1) and (last_pad <> 9)
 			LabelPads {NOT ALLOWED WHEN HOST RUNNING}
@@ -604,6 +650,9 @@
     elseif mode = 9
         Call @PadUpHarmonyKeyboard
     endif
+    if (kntrl_knob_type <> 0) and send_feedback_to_pots
+        Call @SendKnobChangeSysex
+    endif
 @End
 
 @HandleModeChange
@@ -642,7 +691,7 @@
     elseif mode = 8
         knob_set = 3
         Call @SetupKnobset3
-        Call @PadDownConfigureKnobs
+        Call @PadDownMidiLearn
         Call @SetupPadsLayoutMidiConfig
     elseif mode = 9
         knob_set = 5
@@ -700,29 +749,8 @@
 
 @OnMidiCC
 	//# Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
-	if MidiChannel=15 and MidiByte2>=97 and MidiByte2<=124
+	if MidiChannel=15 and MidiByte2>=47 and MidiByte2<=73
         Exit //# THESE BELONG TO MKNTRL SHORTCUTS
-    elseif MidiChannel=15 and MidiByte2=125
-        //# SCENES SHORTCUT
-        log {going to scenes}
-        in_settings_mode = FALSE
-        mode=0
-        Call @SetupLayout
-    elseif MidiChannel=15 and MidiByte2=126
-        //# HARMO KEYBD SHORTCUT
-        //# Harmony keyboard 
-        log {going to kybd}
-        mode=9
-        in_settings_mode = FALSE
-        Call @SetupLayout
-    elseif MidiChannel=15 and MidiByte2=127
-        //# SHIFT SHORTCUT
-        log {shifting }, MidiByte3
-        if MIDIByte3=0
-            Call @OnShiftUp2
-        else
-            Call @OnShiftDown2
-        endif
     elseif ready_to_rec_knob_vals
 		custom_knobs[last_pad+1] = MIDIByte2
 		Call @SetupPadsLayoutMidiConfig
@@ -736,6 +764,11 @@
         endif
 		custom_knobs[0] = MIDIChannel
         Call @SetupPadsLayoutMidiConfig
+        //# update knob FB device
+        CopyArray custom_knobs, msg_data, 5 
+        msg_type = sx_knob_setup
+        len_data=5
+        Call @SendSysex
     
     elseif ready_to_rec_pad_vals
         if last_pad=8
@@ -1855,27 +1888,39 @@
     endif
     if kntrl_knob_type=0
         if kntrl_output_relenc
-           LabelPad 14, {Output: REL. ENC.}
-            ColorPad 14, 3
+           LabelPad 5, {Output: REL. ENC.}
+            ColorPad 5, 3
         else
-            LabelPad 14, {Output: CONT. ABS.}
-            ColorPad 14, 4
+            LabelPad 5, {Output: CONT. ABS.}
+            ColorPad 5, 4
         endif
+        LabelPad 13, { }
+        ColorPad 13, 0
     else 
-        LabelPad 14, { }
-        ColorPad 14, 0
+        LabelPad 5, { }
+        ColorPad 5, 0
+        if send_feedback_to_pots
+            LabelPad 13, {Send feedabck to knobs on}
+            ColorPad 13, 3
+        else 
+            ColorPad 13, 1
+            LabelPad 13, {Send feedabck to knobs off}
+        endif
     endif
 	LabelPad 15, {Settings...}
     Call @SetupKnobset3
 @End
 
-@PadDownConfigureKnobs
+@PadDownMidiLearn
 	if last_pad<=3
 		ready_to_rec_knob_vals=TRUE
 		ColorPad 4, 2
 		LabelPad 4, {____x____}, { turn encoder }
     elseif last_pad=6 and (custom_knobs[0]>-1) and kntrl_knob_type=0
         invert_enc_dir = not invert_enc_dir
+    elseif last_pad=5 and kntrl_knob_type=0
+        kntrl_output_relenc = not kntrl_output_relenc
+        Call @SetupPadsLayoutMidiConfig
     elseif last_pad=8 
         //configure pads 1-8
         ready_to_rec_pad_vals=TRUE
@@ -1891,9 +1936,8 @@
         ready_to_rec_pad_vals=TRUE
         LabelPad 11, {____x____}, { Press Shift Pad }
         ColorPad 11, 2
-    elseif last_pad=14 and kntrl_knob_type=0
-        kntrl_output_relenc = not kntrl_output_relenc
-        Call @SetupPadsLayoutMidiConfig
+    elseif last_pad=13
+        send_feedback_to_pots = not send_feedback_to_pots
 	elseif last_pad=15
         mode=0
         Call @SetupSettingsLayout
@@ -2110,8 +2154,12 @@
 @End
 
 @OnKnobChange
-  last_knob=LastKnob
+    last_knob=LastKnob
 	Call @OnKnobChange2
+    if (kntrl_knob_type <> 0) and send_feedback_to_pots
+        //# update knobs when manual touch control is used 
+        Call @SendKnobChangeSysex
+    endif
 @End
 
 @OnKnobChange2
@@ -2130,6 +2178,9 @@
 	elseif knob_set = 99 //settings layout
 		Call @KnobChangeSet99 
 	endif 
+    if (kntrl_knob_type <> 0) and send_feedback_to_pots
+        Call @UpdateOtherKnobsIfRequired
+    endif
 @End 
 
 @OnShiftDown
