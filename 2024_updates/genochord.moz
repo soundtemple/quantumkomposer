@@ -8,7 +8,6 @@
 		mode = 0 //# See @HandleModeChange for modes
 		songmode = 0 //# 0:Playsong 1:SceneLocked 2:ChordLocked
 		SetMetroPPQN 4
-		ppqn = 4 
 		ShowLayout 2
 		scene_change_requested = -1 //# on pad down has next scene number
 	 	chord_change_requested = -1 //# on pad down has next chord number
@@ -307,10 +306,11 @@
 
 @OnMetroPulse
     if player_mode <> 0
-        //if CurrentMetroPulse is on last pulse check chord & scene changes. if they exist turn off notes now
-        // leave the actual chord and scene change to the on new beat 
+        //# if CurrentMetroPulse is on last pulse check chord & scene changes. if they exist turn off notes now
+        //# leave the actual chord and scene change to the on new beat 
+        //# log {CMP }, CurrentMetroPulse, {  % }, CurrentMetroPulse % 4
         if CurrentMetroPulse % 4 = 3 
-            //last pulse before new beat
+            //# log {last pulse before new beat}
             look_ahead_scene_beat_count = scene_beat_count + 1
             look_ahead_chord_beat_count = chord_beat_count + 1
             current_scene_duration = scene_bank[current_scene * sc_size]  * HostBeatsPerMeasure //# IN BEATS!
@@ -328,18 +328,19 @@
                 Call @TurnOffChordNotes
             elseif (look_ahead_chord_beat_count >= current_chord_duration) and (current_chord_duration>0) 
                 Call @TurnOffChordNotes
+                //# log {Turning off chord notes before new bar}
             endif
         endif
     endif
 @End
 
 @OnNewBar
-	//#Log {--- new bar ---}
+	//# Log {--- new bar ---}
 @End
 
 @OnNewBeat
+    //#Log {-- new beat --}
     if player_mode <> 0
-        //#Log {-- new beat --}
         //# increment beat counts xonb
         scene_beat_count = scene_beat_count + 1
         chord_beat_count = chord_beat_count + 1
