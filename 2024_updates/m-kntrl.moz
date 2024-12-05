@@ -402,7 +402,15 @@
         kybd_velo = TranslateCurve MidiByte3, .5, 32, 127 
     endif
 	if MidiByte2<=15 //# scene or clip trigger
-        //# Do something so you can trigger scenes and clips with your midi controller xxx
+        //# Do something so you can trigger scenes and clips with your midi controller
+        if MidiChannel=15
+            SendMIDINoteOn scenes_ch, scenes_note+MidiByte2, 127
+            SendMIDINoteOff scenes_ch, scenes_note+MidiByte2, 0
+            selected_scene = MidiByte2
+        else
+            SendMIDINoteOn MidiChannel, MidiByte2, 127
+            SendMidiNoteOff MidiChannel, MidiByte2, 0, 10
+        endif
     elseif ready_to_rec_pad_vals
         if last_pad=8
             custom_pads[1]=MIDIByte2
@@ -1044,7 +1052,7 @@
         ch=(last_pad%8)+clip_scene_mode - 1
         note=(RoundDown (last_pad / 8)) + clip_rows
         SendMIDINoteOn ch, note, 127
-        SendMidiNoteOff ch, note, 0
+        SendMidiNoteOff ch, note, 0, 10
     endif
     Call @SetupScenesClips
     Call @SetupKnobset8
