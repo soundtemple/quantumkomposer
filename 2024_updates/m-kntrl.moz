@@ -660,9 +660,7 @@
     pad_is_down = FALSE
 	ready_to_rec_knob_vals=FALSE
 	ready_to_rec_pad_vals=FALSE
-	if mode=3
-		Call @SetupMidiLearnLayout
-    elseif mode=9
+	if mode=9
         Call @PadUpKeyboard
     else
         pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + last_pad 
@@ -918,7 +916,7 @@
 	// Midi Gen plugins kontrol
     if last_pad=15
         Call @GoToSettingsMixerMode
-	else
+    else
         if last_pad<=7 and NOT edit_mode_active
             sel_mgen_dev=last_pad //range 0-8 
             SendMIDICC 15, sel_mgen_dev+91, 127 //toggle new GUI ON
@@ -994,6 +992,7 @@
         Call @SetupMidiLearnLayout
     elseif last_pad=6 and (custom_knobs[0]>-1) and kntrl_knob_type=0
         invert_enc_dir = not invert_enc_dir
+        Call @SetupMidiLearnLayout
     elseif last_pad=8 
         //configure pads 1-8
         ready_to_rec_pad_vals=TRUE
@@ -2131,13 +2130,13 @@
             LabelPad 13, {Send feedabck to knobs off}
         endif
     endif
-	LabelPad 15, {Settings / Mixer...}
+	LabelPad 15, {Exit...}
     Call @SetupKnobset3
 @End
 
 @LogState
     log {curr_chan }, curr_chan
-    Log {pad_slot}, pad_slot
+    log {pad_slot}, pad_slot
     log {inst_curr_page[curr_chan] }, inst_curr_page[curr_chan]
     log {last_pad }, last_pad
     log {chan_midi_chs[curr_chan]}, chan_midi_chs[curr_chan]
@@ -2467,7 +2466,7 @@
 				mgen_pad=i //settings mode last mgen pad in pad slot 7
 				Call @LabelMGENPad
 			elseif i=15
-				LabelPad i, {Settings / Mixer...}
+				LabelPad i, {Exit...}
             elseif i=8
                 LabelPad i, {Map buttons to device GUI's.}	
 			else
