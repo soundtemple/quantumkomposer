@@ -182,9 +182,9 @@
 	endfor
 	//# MIDI GEN KONTROL SECTION
 	mgen_vals=[]
-	mgen_labels =  [1,2,3,11,5,8,7,9,12,14,1,15,0,0,0,0]
-	mgen_colors =  [3,3,7,5,2,4,4,6,0,0,0,0,0,0,0,0]
-	mgen_guis = [89,90,91,92, 93,94,95,96, 0,0,0,0, 0,0,0,0]
+    mgen_labels =  [1,2,4,5,7,7,8,8,20,21,22,19,18,23,17,0]
+    mgen_colors =  [2,2,7,5,2,2,3,3,0,3,1,0,0,4,7,0]
+    mgen_guis = [89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104]
 	mgen_ccs=[40,41,42,43]	//cc's that control the 4 knobs
 	ready_to_rec_knob_vals=FALSE // bool for setting custom knob vals
     ready_to_rec_pad_vals=FALSE // bool for setting custom pad vals
@@ -237,7 +237,7 @@
         Call @SetupKeyboard
         Call @SetupKnobset9
     elseif MidiChannel=15 and MidiByte2=72 and MIDIByte3>0
-        //# MGEN mgen_guis
+        //# Goto MGEN mgen_guis page
         mode=6
         in_mode_select=FALSE
         Call @SetupLayoutChannels
@@ -246,6 +246,11 @@
             Call @SetupKnobset11
         else
             Call @SetupKnobset10
+        endif
+    elseif MidiChannel=15 and MidiByte2>=91 and MidiByte2<=105
+        //# MGEN GUI's and Transport
+        if MidiByte3>0
+            SendMidiCC 15, MidiByte2, MidiByte3
         endif
     elseif ready_to_rec_knob_vals
 		custom_knobs[last_pad+1] = MIDIByte2
@@ -465,9 +470,7 @@
 
 @OnMidiInput
 	if send_keys_thru_on_ch and (MIDICommand=0xD0 or MIDICommand=0xE0) //Aftertouch or pitchbend
-		if MIDIChannel=15
-			SendMIDIThruOnCh chan_midi_chs[curr_chan]
-		endif
+        SendMIDIThruOnCh chan_midi_chs[curr_chan]
 	endif
 @End
 
@@ -917,13 +920,13 @@
     if last_pad=15
         Call @GoToSettingsMixerMode
     else
-        if last_pad<=7 and NOT edit_mode_active
+        if last_pad<=14 and NOT edit_mode_active
             sel_mgen_dev=last_pad //range 0-8 
             SendMIDICC 15, sel_mgen_dev+91, 127 //toggle new GUI ON
             edit_pad = last_pad
             Call @SetupKnobset10 //use m-kntrl knobs
             LabelKnobs {CH:16}, { CC#}, sel_mgen_dev+91
-        elseif last_pad<=7 and edit_mode_active
+        elseif last_pad<=14 and edit_mode_active
             edit_pad = last_pad 
             sel_mgen_dev=last_pad  //selected mgen device
             Call @SetupKnobset11
@@ -1318,7 +1321,7 @@
 	if custom_knobs[0]>=0
 		kc_col=3
 	endif
-	LabelPad 1, { MIDI }, { GENERATORS }
+	LabelPad 1, { TRANSPORT }, { MGEN GUIS'S }
 	if edit_mode_active
 		LabelPad 2, {<= EDIT =>}
 		p1=col_mode_edit
@@ -2002,16 +2005,16 @@
 	LabelKnob 1, {Color }, mgen_colors[sel_mgen_dev]
 	LabelKnob 2, {GUI CC }, mgen_guis[sel_mgen_dev]
 	LabelKnob 3, { }
-	SetKnobValue 0, TranslateScale mgen_labels[sel_mgen_dev], 0, 14, 0, 127
+	SetKnobValue 0, TranslateScale mgen_labels[sel_mgen_dev], 0, 23, 0, 127
 	SetKnobValue 1, TranslateScale mgen_colors[sel_mgen_dev], 0, 7, 0, 127
 	SetKnobValue 2, TranslateScale mgen_guis[sel_mgen_dev], 0, 127, 0, 127 
-	SetKnobValue 3, 0	
+	SetKnobValue 3, 0
 @End
 
 @KnobChangeSet11
 	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
-	if last_knob=0 and sel_mgen_dev<=9
-		mgen_labels[sel_mgen_dev] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 14
+	if last_knob=0 and sel_mgen_dev<=14
+		mgen_labels[sel_mgen_dev] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 23
 		pad_to_label=sel_mgen_dev
 		mgen_pad=sel_mgen_dev // settings mode labels pad7 diff loc.
 		Call @LabelMGENPad
@@ -2462,13 +2465,11 @@
 			Call @LabelChanPad
             LabelPad 15, {MixerMode }, mixer_mode+1, {/6 --> } 
 		elseif mode=6 // MGEN mode 
-			if i<=7
+			if i<=14
 				mgen_pad=i //settings mode last mgen pad in pad slot 7
 				Call @LabelMGENPad
 			elseif i=15
 				LabelPad i, {Exit...}
-            elseif i=8
-                LabelPad i, {Map buttons to device GUI's.}	
 			else
                 LabelPad i, { }
             endif
@@ -2551,7 +2552,7 @@
 	    	LabelPads curr_chan+1, {: CHORDS}	
         endif
     elseif mode=6
-        LabelPads {[ MIDI GENERATORS ]}
+        LabelPads {[ TRANSPORT + MGEN GUIS ] - Map your controller to send these msgs CH16 91-105}
     elseif mode=7
         if mixer_mode=0
             LabelPads {[ 1.MIXER MODE: VOL, PAN, GAIN ]}
@@ -2693,33 +2694,51 @@
 	if (label_num=0)
 		LabelPad pad_to_label, { }
 	elseif (label_num=1)
-		LabelPad pad_to_label, {__MGEN__ }, {SCENES }	
+		LabelPad pad_to_label, {__MGEN__ }, {M:KNTRL }	
 	elseif (label_num=2)
-		LabelPad pad_to_label, {__MGEN__ }, {PATTERNS}	
+		LabelPad pad_to_label, {__MGEN__ }, {GENOCHORD}	
 	elseif (label_num=3)
 		LabelPad pad_to_label, {__MGEN__ }, {KEYBORD}	
 	elseif (label_num=4)
-		LabelPad pad_to_label, {__MGEN__ }, {CHORDS}	
+		LabelPad pad_to_label, {__MGEN__ }, {SCN/CLIPS}	
 	elseif (label_num=5)
-		LabelPad pad_to_label, {__MGEN__ }, {BEATS }	
+		LabelPad pad_to_label, {__MGEN__ }, {DRUMS }	
 	elseif (label_num=6)
-		LabelPad pad_to_label, {__MGEN__ }, {NOTES }
+		LabelPad pad_to_label, {__MGEN__ }, {PERCS }
 	elseif (label_num=7)
-		LabelPad pad_to_label, {__MGEN__ }, {HARMONY }
+		LabelPad pad_to_label, {__MGEN__ }, {BASS }
 	elseif (label_num=8)
-		LabelPad pad_to_label, {__MGEN__ }, {MELODY }
+		LabelPad pad_to_label, {__MGEN__ }, {LEAD }
 	elseif (label_num=9)
-		LabelPad pad_to_label, {__MGEN__ }, {STEPIC }	
+		LabelPad pad_to_label, {__MGEN__ }, {ARP }	
 	elseif (label_num=10)
-		LabelPad pad_to_label, {__MGEN__ }, {EUCLID}	
+		LabelPad pad_to_label, {__MGEN__ }, {PLUCK}	
 	elseif (label_num=11)
-		LabelPad pad_to_label, {__MGEN__ }, {PSA }	
+		LabelPad pad_to_label, {__MGEN__ }, {PAD }	
 	elseif (label_num=12)
-		LabelPad pad_to_label, {__MGEN__ }, {LK }	
+		LabelPad pad_to_label, {__MGEN__ }, {MIDISTEP }	
 	elseif (label_num=13)
 		LabelPad pad_to_label, {__MGEN__ }, {HELIUM }	
 	elseif (label_num=14)
+		LabelPad pad_to_label, {__MGEN__ }, {EUCLID }	
+    elseif (label_num=15)
+		LabelPad pad_to_label, {__MGEN__ }, {LK }	
+    elseif (label_num=16)
 		LabelPad pad_to_label, {__MGEN__ }, {ATOM }	
+    elseif (label_num=17)
+		LabelPad pad_to_label, {__MGEN__ }, {HIDE ALL }
+    elseif (label_num=18)
+		LabelPad pad_to_label, {__TXPORT__ }, {TAP TEMPO }
+    elseif (label_num=19)
+		LabelPad pad_to_label, {__TXPORT__ }, {TEMPO }
+    elseif (label_num=20)
+		LabelPad pad_to_label, {__TXPORT__ }, {STOP }
+    elseif (label_num=21)
+		LabelPad pad_to_label, {__TXPORT__ }, {PLAY }
+    elseif (label_num=22)
+		LabelPad pad_to_label, {__TXPORT__ }, {RECORD }
+    elseif (label_num=23)
+		LabelPad pad_to_label, {__TXPORT__ }, {LOOP }	
 	endif
 @End
 
