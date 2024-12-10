@@ -247,7 +247,7 @@
         else
             Call @SetupKnobset10
         endif
-    elseif MidiChannel=15 and MidiByte2>=91 and MidiByte2<=105
+    elseif MidiChannel=15 and MidiByte2>=91 and MidiByte2<=108
         //# MGEN GUI's and Transport
         if MidiByte3>0
             SendMidiCC 15, MidiByte2, MidiByte3
