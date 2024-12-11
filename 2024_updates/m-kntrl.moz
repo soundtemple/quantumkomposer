@@ -640,7 +640,6 @@
 		    mode=7 //MIXER MODES
 			in_mode_select = FALSE
 			Call @SetupLayoutChannels
-			mixer_mode=last_pad-8
 			Call @SetupKnobset7
             Call @LabelPadsHeader
         elseif last_pad=7
