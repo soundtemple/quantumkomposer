@@ -7,7 +7,7 @@
     clip_bank_leds=[1,1,4,4]
     knob_mode=0
     knob_ccs=[]
-    sel_enc_val=64
+    sel_enc_val=1
     knob_chs=[15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15]
     chords_in_chan=15 //# this is for triggering chords with notes and midi learn pads
     for i = 0 to 15
@@ -31,6 +31,7 @@
     //# Scenes120, Kybd121, MGENGUIS122
     shortcut_ccs =[62,63,64,65,  66,67,68,69,  70,71,72,-1,  -1,-1,-1,-1]
     show_shortcuts=FALSE
+    tempo_slider_cc=4
     logInfo=FALSE
     Call @LogInfo
 @End
@@ -47,16 +48,11 @@
     //# 4 encoders + select encoder
     if MidiByte2=118 and MidiChannel=0
         if MidiByte3=1 
-            sel_enc_val = sel_enc_val +1
+            sel_enc_val = 127
         elseif MidiByte3=127
-            sel_enc_val = sel_enc_val -1
+            sel_enc_val = 1
         endif
-        if sel_enc_val>127
-            sel_enc_val=127
-        elseif sel_enc_val<0
-            sel_enc_val=0
-        endif
-        SendMidiCC 15, 108, sel_enc_val //# select encoder
+        SendMidiCC 15, 4, sel_enc_val //# select encoder
     elseif MidiByte2>=16 and MidiByte2<=19
         knob=MidiByte2-16
         mc=knob_chs[(knob_mode*4)+knob]
@@ -178,7 +174,7 @@
             LabelPad 0, { }
             LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
         endif
-        LabelPad 2, {Select Encoder CH16 CC108: }, sel_enc_val
+        LabelPad 2, {Select Encoder CH16:}, tempo_slider_cc,{   val:}, sel_enc_val
         LabelPad 8, {ClipMode: }, clip_bank
         LabelPad 9, {Shortcuts: }, show_shortcuts
         LabelPad 10, {KnobMode: }, knob_mode

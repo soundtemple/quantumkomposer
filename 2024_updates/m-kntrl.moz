@@ -1,4 +1,4 @@
-//# M:KNTRL
+//# AUM:KNTRL
 //# 4 ENCODERS to control 15 channels x 64 params
 @OnLoad
 	ShowLayout 2
@@ -8,7 +8,7 @@
 		edit_mode_active=FALSE
 		edit_chan=0 // selected channel for editing
 		edit_pad=0 //selected pad in a channel for editing
-		use_instr_knobset_a=TRUE //used to toggle between two M:KNTRL knobsets. Edit mode cant access
+		use_instr_knobset_a=TRUE //used to toggle between two AUM:KNTRL knobsets. Edit mode cant access
 		send_midi_feedback = 0 //send feedabck to update controller state. 0=off
 		SetMetroPPQN 4
 		ppqn = 4
@@ -37,9 +37,12 @@
         scenes_note=0 //# for triggering scenes
         entering_keyboard_mode=TRUE //# prevent unwanted note off on entry to mode 9
         send_keys_thru_on_ch=TRUE
+        btn_col_play=2
+        tempo_knob_val= TranslateScale HostTempo, 60, 187, 0, 127
+        transport_ccs=[0,2,3,106,107,4] //# Stop, Play, Record, Metro, TapTempo, BPM on CH16
         Call @BuildKeyboards
 		knob_set=99 //settings knobset
-        SetTimerInterval 300
+        SetTimerInterval 200
 		//Initialise KNTRL
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupSettingsLayout
@@ -182,8 +185,8 @@
 	endfor
 	//# MIDI GEN KONTROL SECTION
 	mgen_vals=[]
-    mgen_labels =  [1,2,4,5,7,7,8,8,20,21,22,19,18,23,17,0]
-    mgen_colors =  [2,2,7,5,2,2,3,3,0,3,1,0,0,4,7,0]
+    mgen_labels =  [1,2,4,5, 7,7,8,8, 0,0,0,0, 0,0,0,0]
+    mgen_colors =  [2,2,7,5, 2,2,3,3, 0,0,0,0, 0,0,0,0]
     mgen_guis = [89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104]
 	mgen_ccs=[40,41,42,43]	//cc's that control the 4 knobs
 	ready_to_rec_knob_vals=FALSE // bool for setting custom knob vals
@@ -205,7 +208,20 @@
 
 @OnMidiCC //KNTRL midi implementation. Receive only CH16 - output to active channel
     // Commands (hex#) NoteOn=0x90;NoteOff=0x80;CC=0xB0;ProgramChange=0xC0;Aftertouch=0xD0;Pitchbend=0xE0
-	if MidiChannel=15 and (MidiByte2>=47 and MidiByte2<=61) and MIDIByte3>0
+	if MidiChannel=15 and MidiByte2=4 //# tempo encoder
+        if MidiByte3 <=1
+            tempo_knob_val = tempo_knob_val - 1
+        elseif MidiByte3 = 127
+            tempo_knob_val = tempo_knob_val + 1
+        endif
+        if tempo_knob_val < 0 
+            tempo_knob_val = 0
+        elseif tempo_knob_val > 127
+            tempo_knob_val = 127
+        endif
+        Call @SendTempoChangeMessage
+        Call @SetupKnobset0
+	elseif MidiChannel=15 and (MidiByte2>=47 and MidiByte2<=61) and MIDIByte3>0
         //# Switch instrument channels
         in_mode_select=FALSE
         curr_chan=MidiByte2-47
@@ -477,12 +493,24 @@
 
 @OnHostStart
 	//Log {---- Host Started ----}
+    if in_mode_select
+        btn_col_play=3
+        btn_col_stop=1
+        ColorPad 9, btn_col_play
+        ColorPad 8, btn_col_stop
+    endif
 @End
 
 @OnHostStop
+    btn_col_play=0
 	if mode=6
 	  Call @SetupLayoutChannels
-	endif
+    elseif in_mode_select
+        btn_col_play=2
+        btn_col_stop=2
+        ColorPad 9, btn_col_play
+        ColorPad 8, btn_col_stop
+    endif
 @End 
 
 @AllNotesOff //send midi note off for all channels - handle stuck notes
@@ -564,6 +592,8 @@
 	//# Pad Down actions
 	pad_is_down = TRUE
 	if in_mode_select
+        knob_set=0
+        Call @SetupKnobset0
         entering_keyboard_mode=TRUE //# prevent unwanted note off on entering keyboard mode
 		if last_pad=0
 			mode=3
@@ -606,18 +636,20 @@
             kybd_chan=curr_chan
             Call @SetupKeyboard
             Call @SetupKnobset9
-		elseif last_pad=6 and (NOT HostRunning) 
-			Call @PrintPreset
-		elseif last_pad=7
-			layouts_locked = NOT layouts_locked
-			Call @SetupSettingsLayout	
-		elseif last_pad>=8 and last_pad<=13 // MIXER MODES
+		elseif last_pad=6 //# MIXER MODE
 		    mode=7 //MIXER MODES
 			in_mode_select = FALSE
 			Call @SetupLayoutChannels
 			mixer_mode=last_pad-8
 			Call @SetupKnobset7
             Call @LabelPadsHeader
+        elseif last_pad=7
+			layouts_locked = NOT layouts_locked
+			Call @SetupSettingsLayout	
+		elseif last_pad>=8 and last_pad<=12 //# Transport keys
+            SendMidiCC 15, transport_ccs[last_pad-8], 127
+        elseif last_pad=13 and (NOT HostRunning) 
+			Call @PrintPreset
         elseif last_pad=14
             send_keys_thru_on_ch = not send_keys_thru_on_ch
             Call @SetupSettingsLayout
@@ -665,6 +697,11 @@
 	ready_to_rec_pad_vals=FALSE
 	if mode=9
         Call @PadUpKeyboard
+    elseif mode=3
+        LabelPad 4, { }
+        LabelPad 11, { }
+        ColorPad 4, 0
+        ColorPad 11, 0
     else
         pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + last_pad 
         if inst_labels[pad_slot] = 123 //send note pad released
@@ -680,6 +717,7 @@
 
 @ModeSetup
 	if in_mode_select
+        knob_set = 0
 		Call @SetupSettingsLayout
 		Call @UpdateCurrentKnobset
     else    
@@ -920,7 +958,7 @@
     if last_pad=15
         Call @GoToSettingsMixerMode
     else
-        if last_pad<=14 and NOT edit_mode_active
+        if last_pad<=14 and NOT edit_mode_active and mgen_labels[last_pad]>0
             sel_mgen_dev=last_pad //range 0-8 
             SendMIDICC 15, sel_mgen_dev+91, 127 //toggle new GUI ON
             edit_pad = last_pad
@@ -946,14 +984,22 @@
     endif
     chan = chan_midi_chs[curr_chan]
     layout = chan_layouts[curr_chan]
-	if last_pad=15
-        mixer_mode = mixer_mode+1
+	if last_pad>=14
+        mixer_mode_change=1
+        if last_pad=14
+            mixer_mode_change=-1
+        endif
+        mixer_mode = mixer_mode+mixer_mode_change
         if mixer_mode > 5
             mixer_mode=0
+        elseif mixer_mode < 0
+            mixer_mode=5
         endif
         Call @SetupLayoutChannels
         Call @SetupKnobset7
         Call @LabelPadsHeader
+        LatchPad 14, NO
+        LatchPad 15, NO
 	else
         val=127
         if mixer_mode=5 and mute_solo_arm=0
@@ -1315,13 +1361,13 @@
 	in_mode_select = TRUE
     Call @LabelPadsHeader
 	ShowLayout 2
-	Call @LabelSettings
+	Call @SetupKnobset0
 	LabelPad 0, {MIDI LEARN}
 	kc_col=0
 	if custom_knobs[0]>=0
 		kc_col=3
 	endif
-	LabelPad 1, { TRANSPORT }, { MGEN GUIS'S }
+	LabelPad 1, { MIDI GENERATORS }
 	if edit_mode_active
 		LabelPad 2, {<= EDIT =>}
 		p1=col_mode_edit
@@ -1336,15 +1382,15 @@
 	LabelPad 3, {INSTRUMENT}, {CHANNELS}
 	LabelPad 4, {CLIPS+    SCENES}
 	LabelPad 5, {KEYBOARD}
-	LabelPad 8, {__MIXER__ }, {VOL PAN} //channels Vol, Gain, Pan, Width
-	LabelPad 9, {__MIXER__ }, {SENDS FILT} //HPF LPF SEND A SEND B
-	LabelPad 10, {__MIXER__  }, {EQ}
-	LabelPad 11, {__MIXER__  }, {FX}
-	LabelPad 12, {__MIXER__  }, {MW+MACROS }
-	LabelPad 13, {__MIXER__  }, {MUTE SOLO} //mute solo
+	LabelPad 6, {MIXER CONTROL}
+	LabelPad 8, { STOP }
+	LabelPad 9, { PLAY }
+	LabelPad 10, { RECORD }
+	LabelPad 11, { METRO }
+	LabelPad 12, { TAP TEMPO }
+	LabelPad 13, { }
 	LabelPad 15, {ALL NOTES OFF}
-	LabelPad 6, { }
-	p6=0
+	p6=4
 
     if send_keys_thru_on_ch
         LabelPad 14, {Sending keys thru on instrument channel}
@@ -1354,28 +1400,19 @@
         p14=0
 	endif
 	if layouts_locked
-		LabelPad 7, {EDIT LAYOUTS}, { OFF }
+		LabelPad 7, {EDIT INST LAYOUTS}
 		p7=0
         Call @LabelPadsHeader
 	else
-	    LabelPad 7, {EDIT LAYOUTS}, { ON }
+	    LabelPad 7, {EDIT INST LAYOUTS}, { ON }
         LabelPads {Goto instrument chan. Tap pad to edit. Longpress to copy}
 		p7=col_mode_edit
 	endif
-	settings_cols = [kc_col,p1,p2,p3,4,4,p6,p7, 2,2,2,2, 2,2,p14,1]
+	settings_cols = [kc_col,p1,p2,p3,4,4,p6,p7, 2,btn_col_play,2,2, 2,0,p14,1]
 	for i = 0 to 15
 		ColorPad i, settings_cols[i]
 		LatchPad i, NO
 	endfor
-@End
-
-@LabelSettings
-	//When we want some pads update in settings without re-settng whole layout
-	LabelKnobs {M:KNTRL}
-    LabelKnob 0, { }
-	LabelKnob 2, { }
-	LabelKnob 1, { }
-	LabelKnob 3, { }
 @End
 
 @OnKnobChange
@@ -1390,7 +1427,7 @@
 @OnKnobChange2
 	if NOT pad_is_down //prevent knob change when pad is down
 		if knob_set = 0 
-		    Call @KnobChangeSet0 //# not in use
+		    Call @KnobChangeSet0 //# settings knobs
         elseif knob_set = 1
             Call @KnobChangeSet1 //# channel setup
         elseif knob_set = 2
@@ -1413,9 +1450,6 @@
 	  	    Call @KnobChangeSet10	//# M-KONTROL usage vals 1-4
         elseif knob_set = 11
             Call @KnobChangeSet11	//# M-KONTROL setup-a label, color etc
-        elseif knob_set = 9
-		elseif knob_set = 99
-	  	    Call @KnobChangeSet99	
 		endif
 	endif
     if (kntrl_knob_type <> 0) and send_feedback_to_pots
@@ -1426,12 +1460,10 @@
 @UpdateCurrentKnobset
 	//# On entering select mode the following need knobsets selected
 	if in_mode_select	//# disable knobs in_mode_select
-		Call @LabelSettings
-		knob_set = 99 //# dummy number to disable
+		Call @SetupKnobset0
+		knob_set = 0
 	else
-		if knob_set = 0 
-		  Call @SetupKnobset0 //# not in use
-	  elseif knob_set = 1
+	  if knob_set = 1
 	  	Call @SetupKnobset1 //# channel setup
 	  elseif knob_set = 2
 			pad_slot=0
@@ -1462,17 +1494,32 @@
 	endif
 @End
 
-@KnobChangeSet99
-	//# settings
-@End
 
 @SetupKnobset0
-	//# not in use
+	//# settings
 	knob_set = 0
+	LabelKnobs {TEMPO}
+    LabelKnob 0, {BPM}
+    SetKnobValue 0, TranslateScale tempo_knob_val, 0, 127, 0, 127
+	LabelKnob 1, { }
+	LabelKnob 2, { }
+	LabelKnob 3, { }
 @End
 
 @KnobChangeSet0
-	//# not in usee
+	//# Settings
+    if last_knob=0
+        tempo_knob_val = GetKnobValue 0
+		Call @SendTempoChangeMessage
+	endif
+@End
+
+@SendTempoChangeMessage
+    val = Round TranslateScale (tempo_knob_val), 0, 127, 0, 127
+    if (RoundDown val) <> RoundDown HostTempo
+        tempo_knob_val=val
+        SendMidiCC 15, 4, (Round tempo_knob_val)
+    endif
 @End
 
 @SetupKnobset1
@@ -1863,7 +1910,11 @@
 @KnobChangeSet7
 	//# MIXER KONTROL
 	if mixer_mode=5
-		mute_solo_arm = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 2
+		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 2
+        if val <> mute_solo_arm
+            mute_solo_arm = val
+            Call @LabelPadsHeader
+        endif
 	else
 		for i = 0 to 3
 			if last_knob = i 
@@ -2005,7 +2056,7 @@
 	LabelKnob 1, {Color }, mgen_colors[sel_mgen_dev]
 	LabelKnob 2, {GUI CC }, mgen_guis[sel_mgen_dev]
 	LabelKnob 3, { }
-	SetKnobValue 0, TranslateScale mgen_labels[sel_mgen_dev], 0, 23, 0, 127
+	SetKnobValue 0, TranslateScale mgen_labels[sel_mgen_dev], 0, 17, 0, 127
 	SetKnobValue 1, TranslateScale mgen_colors[sel_mgen_dev], 0, 7, 0, 127
 	SetKnobValue 2, TranslateScale mgen_guis[sel_mgen_dev], 0, 127, 0, 127 
 	SetKnobValue 3, 0
@@ -2014,7 +2065,7 @@
 @KnobChangeSet11
 	//# MGEN -KONTROL SETUP A - Label, Color, MIDI_CH
 	if last_knob=0 and sel_mgen_dev<=14
-		mgen_labels[sel_mgen_dev] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 23
+		mgen_labels[sel_mgen_dev] = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 17
 		pad_to_label=sel_mgen_dev
 		mgen_pad=sel_mgen_dev // settings mode labels pad7 diff loc.
 		Call @LabelMGENPad
@@ -2459,11 +2510,10 @@
 		if mode=1 //Channels setup
 			chan_pad=i //settings mode label and pad pos. diff
 			Call @LabelChanPad
-            LabelPad 15, {Settings / Mixer...}
-        elseif mode=7
+            LabelPad 15, {Settings...}
+        elseif mode=7 and i<14
             chan_pad=i //settings mode label and pad pos. diff
 			Call @LabelChanPad
-            LabelPad 15, {MixerMode }, mixer_mode+1, {/6 --> } 
 		elseif mode=6 // MGEN mode 
 			if i<=14
 				mgen_pad=i //settings mode last mgen pad in pad slot 7
@@ -2486,16 +2536,24 @@
             Call @LabelInstrPad
         endif
 	endfor
+    if mode=7
+        LabelPad 14, {MixerMode }, { <-- } 
+        LabelPad 15, {MixerMode }, { --> } 
+        ColorPad 14, 0
+        ColorPad 15, 0
+        LatchPad 14, NO
+        LatchPad 15, NO
+    endif
 @End
 
 @LabelPadsHeader
 	//Laborious task of labelling pads when you cant store a string
     if in_mode_select
-        LabelPads {[ M:KNTRL SETTINGS / MIXER ]} 
+        LabelPads {[ AUM:KNTRL SETTINGS ]} 
     elseif mode=5 //instrument mode
         label_num = chan_labels[curr_chan]
         if (label_num=0)
-            LabelPads {M:KNTRL}
+            LabelPads {AUM:KNTRL}
         elseif (label_num=1)
             LabelPads curr_chan+1, {: DRUMS }
         elseif (label_num=2)
@@ -2552,7 +2610,7 @@
 	    	LabelPads curr_chan+1, {: CHORDS}	
         endif
     elseif mode=6
-        LabelPads {[ TRANSPORT + MGEN GUIS ] - Map your controller to send these msgs CH16 91-105}
+        LabelPads {[ MGEN GUIS ] - Map your controller to send these msgs CH16 91-105 to AUM:KNTRL}
     elseif mode=7
         if mixer_mode=0
             LabelPads {[ 1.MIXER MODE: VOL, PAN, GAIN ]}
@@ -2567,13 +2625,14 @@
         elseif mixer_mode=5 and mute_solo_arm=0
             LabelPads {[ 6.MIXER MODE: MUTE CHANNELS ]}
         elseif mixer_mode=5 and mute_solo_arm=1
-            LabelPads {[ 7.MIXER MODE: SOLO CHANNELS ]}
+            LabelPads {[ 6.MIXER MODE: SOLO CHANNELS ]}
             mm=mixer_mode+1
         elseif mixer_mode=5 and mute_solo_arm=2
-            LabelPads {[ 8.MIXER MODE: ARM CHANNELS ]}
+            LabelPads {[ 6.MIXER MODE: ARM CHANNELS ]}
             mm=mixer_mode+2
         endif
-        LabelPad 15, {MixerMode }, mixer_mode+1, {/6 --> } 
+        LabelPad 15, {MixerMode }, { --> } 
+        LabelPad 14, {MixerMode }, { <-- } 
     elseif mode=8
         if clip_scene_mode=0
             LabelPads {[ SCENES KNTRL ]}
@@ -2604,14 +2663,14 @@
         elseif kybd_layout[curr_chan]=10
             LabelPads {[ CHROMATIC HARMONIC MINOR HIGHLIGHTS ]}
         else
-            LabelPads {[ M:KNTRL KEYBOARD ]}
+            LabelPads {[ AUM:KNTRL KEYBOARD ]}
         endif
     elseif mode=1 or mode=2
         LabelPads {[ CHANNEL SELECT ]}
     elseif mode=3
         LabelPads {[ MIDI LEARN 4 KNOBS, 16 PADS + SHIFT BUTTON ]}
 	else
-        LabelPads {[M:KNTRL]} 
+        LabelPads {[AUM:KNTRL]} 
     endif
 @End
 
@@ -2684,7 +2743,7 @@
     elseif (label_num=27)
 		LabelPad pad_to_label, { ____}, pad_num+1, {____ }, {CHORDS}	
 	elseif (label_num=99)
-		LabelPad pad_to_label, {Settings / Mixer...}	
+		LabelPad pad_to_label, {Settings...}	
 	endif
 @End
 
@@ -2694,7 +2753,7 @@
 	if (label_num=0)
 		LabelPad pad_to_label, { }
 	elseif (label_num=1)
-		LabelPad pad_to_label, {__MGEN__ }, {M:KNTRL }	
+		LabelPad pad_to_label, {__MGEN__ }, {AUM:KNTRL }	
 	elseif (label_num=2)
 		LabelPad pad_to_label, {__MGEN__ }, {GENOCHORD}	
 	elseif (label_num=3)
@@ -2727,18 +2786,6 @@
 		LabelPad pad_to_label, {__MGEN__ }, {ATOM }	
     elseif (label_num=17)
 		LabelPad pad_to_label, {__MGEN__ }, {HIDE ALL }
-    elseif (label_num=18)
-		LabelPad pad_to_label, {__TXPORT__ }, {TAP TEMPO }
-    elseif (label_num=19)
-		LabelPad pad_to_label, {__TXPORT__ }, {TEMPO }
-    elseif (label_num=20)
-		LabelPad pad_to_label, {__TXPORT__ }, {STOP }
-    elseif (label_num=21)
-		LabelPad pad_to_label, {__TXPORT__ }, {PLAY }
-    elseif (label_num=22)
-		LabelPad pad_to_label, {__TXPORT__ }, {RECORD }
-    elseif (label_num=23)
-		LabelPad pad_to_label, {__TXPORT__ }, {LOOP }	
 	endif
 @End
 
