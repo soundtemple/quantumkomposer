@@ -1,0 +1,128 @@
+@OnLoad
+    //# makes a custom scale from held notes on a chords in channel
+    //# quantises notes on other channels to notes of chord/custom custom_scale
+	SetShortName {HMNZR} 
+	LabelPads {[ HARMONIZER ]}
+	ShowLayout 2
+    ResetNoteStates // initialize the NoteState array;
+    //# options
+    cs = [] //# custom scale array bool for each note from C - B
+    chords_in_chan=0
+    pass_chords_thru = FALSE
+    pass_notes_thru = FALSE
+    ignore_non_scale_notes = FALSE //# will scale quantize 
+    //# Init...
+    Call @EmptyChordScale //# Initialise with no chord notes
+    Call @SetupKnobset
+    Call @LabelPads
+@End
+
+@OnMidiNoteOn
+    if MidiChannel = chords_in_chan
+        if pass_chords_thru 
+            SendMIDIThru
+        end
+        Call @AddChordNote
+    else
+        if pass_notes_thru
+            SendMIDIThru
+        else
+            Call @TriggerHarmonyNote
+        endif
+    endif
+@End
+
+@OnMidiNoteOff
+    if MidiChannel = chords_in_chan
+        if pass_chords_thru 
+            SendMIDIThru
+        end
+        Call @RemoveChordNote
+    else
+        if pass_notes_thru
+            SendMIDIThru
+        else
+            Call @TurnOffHarmonyNote
+        endif
+    endif
+@End
+
+@AddChordNote
+    cs[MidiNote%12] = TRUE
+    Call @BuildCustomScale
+@End
+
+@RemoveChordNote
+    cs[MidiNote%12] = FALSE
+    Call @BuildCustomScale
+@End
+
+@BuildCustomScale
+    CustomScale cs[0], cs[1], cs[2], cs[3], cs[4], cs[5], cs[6], cs[7], cs[8], cs[9], cs[10], cs[11] 
+@End
+
+@EmptyChordScale
+    CustomScale no, no, no, no, no, no, no, no, no, no, no
+@End
+
+@TriggerHarmonyNote
+    new_note_on = ScaleQuantize MidiNote
+    SendMIDINoteOn MidiChannel, new_note_on, MIDIVelocity 
+    SetNoteState MIDIChannel, MIDINote, new_note_on 
+    log {NoteOn:}, MidiNote, { converted to }, new_note_on
+@End
+
+@TurnOffHarmonyNote
+    new_note_off = GetNoteState MIDIChannel, MIDINote 
+    SendMIDINoteOff MidiChannel, new_note_off, MIDIVelocity 
+    log {NoteOff:}, MidiNote, { converted to }, new_note_on
+@End
+
+@SetupKnobset
+    LabelKnobs {Settings}
+    LabelKnob 0, {In CH}, chords_in_chan+1
+	SetKnobValue 0, TranslateScale chords_in_chan, 0, 15, 0, 127
+	Call @LabelPads
+@End
+
+@OnKnobChange
+    if LastKnob = 0
+        val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+        if val <> chords_in_chan 	
+            chords_in_chan = val
+            LabelKnob 0, {In CH}, chords_in_chan+1
+            Call @LabelPads
+        endif
+    endif
+@End
+
+
+@LabelPads
+    LabelPad 0, {Chords in on ch: }, chords_in_chan+1
+    if pass_chords_thru
+        LabelPad 1, {Chords pass thru}
+        ColorPad 1, 3
+    else
+        LabelPad 1, {Chords NOT passed thru}
+        ColorPad 1, 0
+    endif
+
+    if pass_notes_thru
+        LabelPad 2, {Notes pass thru}
+        ColorPad 2, 1
+    else
+        LabelPad 2, {Notes quantised to chords}
+        ColorPad 2, 3
+    endif
+    LabelPad 7, {Harmony notes - Any ch. except }, chords_in_chan+1
+@End
+
+@OnPadDown
+    if LastPad = 1
+        pass_chords_thru = not pass_chords_thru
+        Call @LabelPads
+    elseif LastPad = 2
+        pass_notes_thru = not pass_notes_thru
+        Call @LabelPads
+    endif
+@End
