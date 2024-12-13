@@ -861,8 +861,8 @@
 			val=0
 			inst_colors[pad_slot] = 0
 		endif
-		SendMIDICC chan, chan_mx_ccs[21], val
-		mixer_state[(curr_chan*chan_mxr_size)+21] = val
+		SendMIDICC chan, chan_mx_ccs[20], val
+		mixer_state[(curr_chan*chan_mxr_size)+20] = val
 		LatchPad last_pad, NO
 		re_label_pad_on_press=TRUE
 	elseif inst_ccs[pad_slot]=122 //SOLO
@@ -872,8 +872,8 @@
 			val=0
 			inst_colors[pad_slot] = 0
 		endif
-		SendMIDICC curr_chan, chan_mx_ccs[22], val
-		mixer_state[(curr_chan*chan_mxr_size)+22] = val
+		SendMIDICC curr_chan, chan_mx_ccs[21], val
+		mixer_state[(curr_chan*chan_mxr_size)+21] = val
 		LatchPad last_pad, NO
 		re_label_pad_on_press=TRUE
 	elseif inst_ccs[pad_slot]=123 //ARM
@@ -883,8 +883,8 @@
 			val=0
 			inst_colors[pad_slot] = 0
 		endif
-		SendMIDICC curr_chan, chan_mx_ccs[23], val
-		mixer_state[(curr_chan*chan_mxr_size)+23] = val
+		SendMIDICC curr_chan, chan_mx_ccs[22], val
+		mixer_state[(curr_chan*chan_mxr_size)+22] = val
 		LatchPad last_pad, NO
 		re_label_pad_on_press=TRUE
 	elseif lbl=64 or lbl=65 or lbl=66 //mute solo arm but not std mixer is return or mixbus
@@ -1006,24 +1006,24 @@
             if not chan_mute[curr_chan]
                 val=0
             endif
-            SendMIDICC chan, chan_mx_ccs[21], val
-            mixer_state[(curr_chan*chan_mxr_size)+21] = val
+            SendMIDICC chan, chan_mx_ccs[20], val
+            mixer_state[(curr_chan*chan_mxr_size)+20] = val
             chan_mute[curr_chan] = val
         elseif mixer_mode=5 and mute_solo_arm=1
             chan_solo[curr_chan] = NOT chan_solo[curr_chan]
             if not chan_solo[curr_chan]
                 val=0
             endif
-            SendMIDICC chan, chan_mx_ccs[22], val
-            mixer_state[(curr_chan*chan_mxr_size)+22] = val
+            SendMIDICC chan, chan_mx_ccs[21], val
+            mixer_state[(curr_chan*chan_mxr_size)+21] = val
             chan_solo[curr_chan] = val
         elseif mixer_mode=5 and mute_solo_arm=2
             chan_arm[curr_chan] = NOT chan_arm[curr_chan]
             if not chan_arm[curr_chan]
                 val=0
             endif
-            SendMIDICC chan, chan_mx_ccs[23], val
-            mixer_state[(curr_chan*chan_mxr_size)+23] = val
+            SendMIDICC chan, chan_mx_ccs[22], val
+            mixer_state[(curr_chan*chan_mxr_size)+22] = val
             chan_arm[curr_chan] = val
         endif
         Call @SetupKnobset7
