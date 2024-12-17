@@ -42,7 +42,7 @@
         transport_ccs=[0,2,3,106,107,4] //# Stop, Play, Record, Metro, TapTempo, BPM on CH16
         Call @BuildKeyboards
 		knob_set=99 //settings knobset
-        SetTimerInterval 200
+        SetTimerInterval 100
 		//Initialise KNTRL
 		Call @InitKnobVariables //# All knob settings on start
 		Call @SetupSettingsLayout
@@ -698,9 +698,9 @@
         Call @PadUpKeyboard
     elseif mode=3
         LabelPad 4, { }
-        LabelPad 11, { }
+        LabelPad 12, { }
         ColorPad 4, 0
-        ColorPad 11, 0
+        ColorPad 12, 0
     else
         pad_slot = (64*curr_chan) + (16*inst_curr_page[curr_chan]) + last_pad 
         if inst_labels[pad_slot] = 123 //send note pad released
@@ -756,10 +756,16 @@
     Call @UpdateCurrentKnobset
 @end
 
+@ScrollToChannel
+    //# Scroll to currently selected channel
+    SendMidiCC chan_midi_chs[curr_chan], 121, 127
+@End
+
 @PadDownChannelsMode
 	if last_pad=15 //goto settings
         Call @GoToSettingsMixerMode
     else
+        Call @ScrollToChannel
         edit_chan = last_pad 
         if edit_mode_active
             //# update last channel visited if not one of the quick channels
@@ -983,6 +989,7 @@
     endif
     chan = chan_midi_chs[curr_chan]
     layout = chan_layouts[curr_chan]
+    Call @ScrollToChannel
 	if last_pad>=14
         mixer_mode_change=1
         if last_pad=14
@@ -1044,20 +1051,21 @@
     elseif last_pad=8 
         //configure pads 1-8
         ready_to_rec_pad_vals=TRUE
-        LabelPad 11, {____x____}, { Press Pad1 }
-        ColorPad 11, 2
+        LabelPad 12, {____x____}, { Press Pad1 }
+        ColorPad 12, 2
     elseif last_pad=9 
         //configure pads 9-16
         ready_to_rec_pad_vals=TRUE
-        LabelPad 11, {____x____}, { Press Pad9 }
-        ColorPad 11, 2
+        LabelPad 12, {____x____}, { Press Pad9 }
+        ColorPad 12, 2
     elseif last_pad=10
         //configure Shift
         ready_to_rec_pad_vals=TRUE
-        LabelPad 11, {____x____}, { Press Shift Pad }
-        ColorPad 11, 2
+        LabelPad 12, {____x____}, { Press Shift Pad }
+        ColorPad 12, 2
     elseif last_pad=13
         send_feedback_to_pots = not send_feedback_to_pots
+        Call @SetupMidiLearnLayout
 	elseif last_pad=15
         Call @GoToSettingsMixerMode
     endif
@@ -1548,7 +1556,7 @@
 	elseif layout = 7
 		LabelKnob 3, {KOALA}
 	elseif layout = 8	
-		LabelKnob 3, {Sitala}
+		LabelKnob 3, {Sitala4}
 	elseif layout = 9
 		LabelKnob 3, {RuisMkr}
 	elseif layout = 10
@@ -1731,7 +1739,7 @@
         ColorPad 6, 0
         ColorPad 7, 0
 	endif
-	LabelKnob 2, Round enc_test_val
+	LabelKnob 2, {Test:}, Round enc_test_val
 	SetKnobValue 0, TranslateScale custom_knobs[0], -1, 14, 0, 127
 	SetKnobValue 1, TranslateScale kntrl_knob_type, 0, 1, 0, 127
 	SetKnobValue 2, TranslateScale enc_test_val, 0, 127, 0, 127
@@ -2361,13 +2369,13 @@
     elseif chan_layouts[edit_chan]=8 // Sitala
 		//# Layout:Sitala
         Call @CreateDefaultLayout
-        def_labels[16*1] = [26,22,2,48,7,0,64,65,26,22,2,48,7,0,64,65] // pads 1&2
+        def_labels[16*1] = [26,22,2,83,9,0,64,65,26,22,2,83,9,0,64,65] // pads 1&2
         def_colors[16*1] = [5,5,2,1,5,2,0,0,5,5,2,1,5,2,0,0]
         def_vals[16*1]   = [64,64,64,0,64,100,0,0,64,64,64,0,64,100,0,0]
         def_ccs[16*1]    = [62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77]
         def_mins[16*1]   = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
         def_maxs[16*1]   = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
-        def_labels[16*2] = [26,22,2,48,7,0,64,65,26,22,2,48,7,0,64,65]
+        def_labels[16*2] = [26,22,2,83,9,0,64,65,26,22,2,83,9,0,64,65]
         def_colors[16*2] = [6,6,2,1,4,2,0,0,6,6,2,1,4,2,0,0]
         def_vals[16*2]   = [64,64,64,0,64,100,0,0,64,64,64,0,64,100,0,0]
         def_ccs[16*2]    = [78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93]
@@ -2383,7 +2391,7 @@
 		def_maxs[16*1]   = [7,7,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 		def_labels[16*2] = [63,63,63,63,63,63,63,63,0,0,0,0,0,0,0,0]
 		def_colors[16*2] = [1,1,2,2,3,3,4,4,1,1,2,2,3,3,4,4]
-		def_vals[16*2]   = [0,0,0,0,0,0,0,0,64,64,64,64,64,64,64,64]
+		def_vals[16*2]   = [0,0,0,0,0,0,0,100,64,64,64,64,64,64,64,64]
 		def_ccs[16*2]    = [22,23,24,25,26,27,28,29,33,41,49,57,66,74,82,90]
 		def_maxs[16*2]   = [7,7,7,7,7,7,7,7,127,127,127,127,127,127,127,127]
 	elseif chan_layouts[edit_chan]=10 //DRUMS RuisFM
@@ -2394,10 +2402,11 @@
 		def_vals[16*1]   = [0,0,0,0,0,64,0,100,64,64,64,64,64,0,64,100]
 		def_ccs[16*1]    = [14,16,110,25,24,124,105,103,15,17,18,20,19,21,22,23]
         def_maxs[16*1]   = [7,7,5,127,127,127,127,127,127,127,127,127,127,127,127,127]
-		def_labels[16*2] = [123,123,123,123,123,123,-1,-1,0,0,0,0,0,0,-1,124]
+		def_labels[16*2] = [123,123,123,123,123,123,-1,62,0,0,0,0,0,0,-1,124]
         def_colors[16*2] = [1,2,3,4,5,6,0,0,1,2,3,4,5,6,0,0]
-        def_vals[162]   = [127,127,127,127,127,127,0,0,100,100,100,100,100,100,0,64]
-        def_ccs[16*2]    = [49,51,54,56,58,61,85,86,39,51,63,76,88,100,52,124]
+        def_vals[16*2]   = [127,127,127,127,127,127,0,0,100,100,100,100,100,100,0,64]
+        def_maxs[16*2]   = [127,127,127,127,127,127,127,7,127,127,127,127,127,127,127,127]
+        def_ccs[16*2]    = [49,51,54,56,58,61,85,110,39,51,63,76,88,100,52,124]
         def_msg_type[16*2] = [1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0]
 	elseif chan_layouts[edit_chan]=11 // Mix Rtn Master in one channel
 		def_labels[16*0] = [0,12,13,14,4,5,10,11,0,12,14,15,4,5,10,11]
@@ -2667,7 +2676,7 @@
     elseif mode=1 or mode=2
         LabelPads {[ CHANNEL SELECT ]}
     elseif mode=3
-        LabelPads {[ MIDI LEARN 4 KNOBS, 16 PADS + SHIFT BUTTON ]}
+        LabelPads {[ MIDI LEARN 4 KNOBS, 16 PADS + SHIFT BUTTON ] - Press pad & follow instructions}
 	else
         LabelPads {[AUM:KNTRL]} 
     endif
