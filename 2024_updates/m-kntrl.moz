@@ -1,4 +1,4 @@
-//# AUM:KNTRL
+//# M:KNTRL
 //# 4 ENCODERS to control 15 channels x 64 params
 @OnLoad
 	ShowLayout 2
@@ -8,7 +8,7 @@
 		edit_mode_active=FALSE
 		edit_chan=0 // selected channel for editing
 		edit_pad=0 //selected pad in a channel for editing
-		use_instr_knobset_a=TRUE //used to toggle between two AUM:KNTRL knobsets. Edit mode cant access
+		use_instr_knobset_a=TRUE //used to toggle between two M:KNTRL knobsets. Edit mode cant access
 		send_midi_feedback = 0 //send feedabck to update controller state. 0=off
 		SetMetroPPQN 4
 		ppqn = 4
@@ -40,6 +40,7 @@
         btn_col_play=2
         tempo_knob_val= TranslateScale HostTempo, 60, 187, 0, 127
         transport_ccs=[0,2,3,106,107,4] //# Stop, Play, Record, Metro, TapTempo, BPM on CH16
+        keys_in_chan=1 //# the one channel keys are passed thru to instruments on curr_chan
         Call @BuildKeyboards
 		knob_set=99 //settings knobset
         SetTimerInterval 100
@@ -185,8 +186,8 @@
 	endfor
 	//# MIDI GEN KONTROL SECTION
 	mgen_vals=[]
-    mgen_labels =  [1,2,4,5, 7,7,8,8, 0,0,0,0, 0,0,0,0]
-    mgen_colors =  [2,2,7,5, 2,2,3,3, 0,0,0,0, 0,0,0,0]
+    mgen_labels =  [1,2,4,5, 7,7,8,8, 0,0,0,0, 0,0,17,0]
+    mgen_colors =  [2,2,7,5, 2,2,3,3, 0,0,0,0, 0,0,1,0]
     mgen_guis = [89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104]
 	mgen_ccs=[40,41,42,43]	//cc's that control the 4 knobs
 	ready_to_rec_knob_vals=FALSE // bool for setting custom knob vals
@@ -479,7 +480,7 @@
         elseif MIDICommand=0x80 //Note off
             Call @OnShiftUp2
         endif
-    elseif send_keys_thru_on_ch
+    elseif send_keys_thru_on_ch and MidiChannel=keys_in_chan
         SendMIDIThruOnCh chan_midi_chs[curr_chan]
 	endif
 @End
@@ -1407,7 +1408,7 @@
 	LabelPad 15, {ALL NOTES OFF}
 
     if send_keys_thru_on_ch
-        LabelPad 14, {Sending keys thru on instrument channel}
+        LabelPad 14, {Sending keys thru on instrument chan }, keys_in_chan+1
         p14=3
     else
         LabelPad 14, {Send keys thru on instrument channel?}
@@ -1514,9 +1515,10 @@
 	knob_set = 0
 	LabelKnobs {TEMPO}
     LabelKnob 0, {BPM}
+    LabelKnob 2, {KeysCH:}, keys_in_chan+1
     SetKnobValue 0, TranslateScale tempo_knob_val, 0, 127, 0, 127
+    SetKnobValue 2, TranslateScale keys_in_chan, 0, 14, 0, 127
 	LabelKnob 1, { }
-	LabelKnob 2, { }
 	LabelKnob 3, { }
 @End
 
@@ -1525,6 +1527,13 @@
     if last_knob=0
         tempo_knob_val = GetKnobValue 0
 		Call @SendTempoChangeMessage
+    elseif last_knob=2
+        val = Round TranslateScale (GetKnobValue 2), 0, 127, 0, 14
+		if val <> keys_in_chan
+			keys_in_chan=val
+            LabelKnob 2, {KeysCH:}, keys_in_chan+1
+            Call @SetupSettingsLayout
+		endif
 	endif
 @End
 
@@ -2564,11 +2573,11 @@
 @LabelPadsHeader
 	//Laborious task of labelling pads when you cant store a string
     if in_mode_select
-        LabelPads {[ AUM:KNTRL SETTINGS ]} 
+        LabelPads {[ M:KNTRL SETTINGS ]} 
     elseif mode=5 //instrument mode
         label_num = chan_labels[curr_chan]
         if (label_num=0)
-            LabelPads {AUM:KNTRL}
+            LabelPads {M:KNTRL}
         elseif (label_num=1)
             LabelPads curr_chan+1, {: DRUMS }
         elseif (label_num=2)
@@ -2625,7 +2634,7 @@
 	    	LabelPads curr_chan+1, {: CHORDS}	
         endif
     elseif mode=6
-        LabelPads {[ MGEN GUIS ] - Map your controller to send these msgs CH16 91-105 to AUM:KNTRL}
+        LabelPads {[ M:KNTRL GUIS ]}
     elseif mode=7
         if mixer_mode=0
             LabelPads {[ 1.MIXER MODE: VOL, PAN, GAIN ]}
@@ -2678,14 +2687,14 @@
         elseif kybd_layout[curr_chan]=10
             LabelPads {[ CHROMATIC HARMONIC MINOR HIGHLIGHTS ]}
         else
-            LabelPads {[ AUM:KNTRL KEYBOARD ]}
+            LabelPads {[ M:KNTRL KEYBOARD ]}
         endif
     elseif mode=1 or mode=2
         LabelPads {[ CHANNEL SELECT ]}
     elseif mode=3
         LabelPads {[ MIDI LEARN 4 KNOBS, 16 PADS + SHIFT BUTTON ] - Press pad & follow instructions}
 	else
-        LabelPads {[AUM:KNTRL]} 
+        LabelPads {[M:KNTRL]} 
     endif
 @End
 
@@ -2768,7 +2777,7 @@
 	if (label_num=0)
 		LabelPad pad_to_label, { }
 	elseif (label_num=1)
-		LabelPad pad_to_label, {__MGEN__ }, {AUM:KNTRL }	
+		LabelPad pad_to_label, {__MGEN__ }, {M:KNTRL }	
 	elseif (label_num=2)
 		LabelPad pad_to_label, {__MGEN__ }, {GENOCHORD}	
 	elseif (label_num=3)
