@@ -28,16 +28,16 @@
     record_on=FALSE //# 53
     loop_scenes=FALSE //# 33
     show_shortcuts=FALSE //# 50
+    keybd_octave=2
     logInfo=FALSE
     Call @LogInfo
-    LabelPad 14, {test this }
 @End
 
 @GetDefaultPadColors
     def_pad_cols[0]=[red,orng,yell,yell, prpl,prpl,orng,orng, grn,grn,blu2,blu2, prpl,pink,blu1,off]
     def_pad_cols[16]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
     def_pad_cols[32]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
-    def_pad_cols[48]=[whte,off,off,off,off,off,off,off,whte,off,off,off,off,off,off,off]
+    def_pad_cols[48]=[whte,prpl,whte,prpl,whte,whte,prpl,whte,prpl,whte,prpl,whte,off,off,off,off]
     //# shortcuts: 
     //# VolPan112, SendFilt113, EQ114, FX115, MWMM116, Mute117, Solo118, Arm119,
     //# Scenes120, Kybd121, MGENGUIS122
@@ -74,13 +74,10 @@
         led_cols=[2,2,2,2]
         Call @LightUpButtons
         Call @UpdateSideLeds
-    elseif LastPad=14
-        //testing
     elseif LastPad=15
         LogInfo = not LogInfo
         Call @LogInfo
     endif
-    Log {Done!}
 @End
 
 @OnMidiNoteOn
@@ -139,6 +136,10 @@
     elseif (MidiNote=48 or MidiNote=49)
         //# shift / alt on
         SendMidiCC 0, MidiNote, 0
+    elseif MidiChannel=0 and MidiNote>=114 and MidiNote<=117 and not show_shortcuts
+        //# keyboard mode
+        keybd_octave = MidiNote-114
+        Call @UpdatePadsForShortcuts
     endif
     Call @LogInfo
 @End
@@ -161,6 +162,7 @@
         CopyArray shortcut_cols[0], col_pads[48], 16
     else
         CopyArray def_pad_cols[48], col_pads[48], 16
+        col_pads[48+12+keybd_octave] = orng
     endif
     Call @UpdatePadCols
 @End

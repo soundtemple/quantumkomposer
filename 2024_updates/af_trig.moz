@@ -31,6 +31,9 @@
     //# Scenes120, Kybd121, MGENGUIS122
     shortcut_ccs =[62,63,64,65,  66,67,68,69,  70,71,72,-1,  -1,-1,-1,-1]
     show_shortcuts=FALSE
+    keybd_octave=2
+    keybd_ch=1
+    keybd_octave_adj=[-24,-12,0,12] //# octave setting for keyboard
     tempo_slider_cc=4
     logInfo=FALSE
     Call @LogInfo
@@ -93,17 +96,22 @@
         sc_cc=shortcut_ccs[MidiNote-102]
         if sc_cc>=-1
             SendMidiCC 15, sc_cc, 127
-            log {sc cc }, sc_cc, {Midi note }, MidiNote
         endif
     elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and not show_shortcuts
-        SendMIDIThru //# Send thru pads row 4
+        //# keyboard mode
+        if MidiNote>=102 and MidiNote<=113
+            note = MidiNote-42 + keybd_octave_adj[keybd_octave]
+            SendMIDINoteOn keybd_ch, note, MidiVelocity
+        elseif MidiNote>=114 and MidiNote<=117
+            keybd_octave = MidiNote-114
+        endif
     elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=35
         if MidiNote=31 //# SceneUp
-            SendMidiCC 16, 106, 127
+            SendMidiCC 15, 106, 127
         elseif MidiNote=32 //# SceneDn
-            SendMidiCC 16, 107, 127
+            SendMidiCC 15, 107, 127
         elseif MidiNote=33 //# tap TEMPO
-            SendMidiCC 16, 103, 127
+            SendMidiCC 15, 103, 127
         elseif  MidiNote=33 //# Grid left
             //# not implemented
         elseif  MidiNote=33 //# Grid right
@@ -150,7 +158,11 @@
             SendMidiCC 15, sc_cc, 0
         endif
     elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and not show_shortcuts
-        SendMIDIThru //# Send thru pads row 4
+        //# keyboard mode
+        if MidiNote>=102 and MidiNote<=113
+            note = MidiNote-42 + keybd_octave_adj[keybd_octave]
+            SendMIDINoteOff keybd_ch, note, MidiVelocity
+        endif
     elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=33
         Exit //# Send pattern, browser, grid
     elseif MidiChannel=0 and MidiNote>=34 and MidiNote<=35
@@ -178,6 +190,8 @@
         LabelPad 8, {ClipMode: }, clip_bank
         LabelPad 9, {Shortcuts: }, show_shortcuts
         LabelPad 10, {KnobMode: }, knob_mode
+        LabelPad 11, {KeybdOct: }, keybd_octave+1
+        LabelPad 12, {KeybdChan: }, keybd_ch+1
         LabelPad 15, {LogInfo:}, { ON}
     else
         LabelPad 15, {LogInfo:}, { OFF}
