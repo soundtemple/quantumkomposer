@@ -48,7 +48,7 @@
         //#player modes
 		player_mode=1 //# 0. THRU 1. play chords as sequenced on out channel or 2. Trigger chords usign player in channel
 		player_in_channel=0
-		player_out_channel=3
+		player_out_channel=1
 		Call @TransposeCalcArrays
 	  	Call @InitKnobVariables //# All knob settings on start
 	  	Call @SetupChordsScenes
@@ -56,6 +56,7 @@
 		Call @SetupKnobset99 //settings knobs
 	  	Call @SetupSettingsLayout
         Call @SysexMessageSetup
+        Call @ChangeScenePreset
 	endif
 @End
 
@@ -108,7 +109,7 @@
 	//# Any knobset knob should have a setting here
 	scn_duration = 0 
 	scn_txpose = 0 
-	scn_preset = 1
+	scn_preset = 2
 	scn_out4_on = 1
 	num_sc_presets = 13
 	chrd_duration = 0
@@ -1962,7 +1963,7 @@
 @KnobChangeSet5
     //# Harmony keyboard
     knob_set = 5
-	if last_knob = 0 and not HostRunning // OUT CH
+	if last_knob = 0 and not pad_is_down // OUT CH
 		val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15 // OUT CH
         if val <> hmny_kybd_out_ch
             hmny_kybd_out_ch = val
@@ -1974,7 +1975,7 @@
             endif
         endif
     elseif last_knob = 0 and HostRunning
-        LabelKnobs {STOP HOST FIRST}
+        LabelKnobs {RELEASE NOTES FIRST}
 	endif
 @End
 
