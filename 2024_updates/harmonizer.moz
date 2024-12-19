@@ -7,21 +7,34 @@
     ResetNoteStates // initialize the NoteState array;
     //# options
     cs = [] //# custom scale array bool for each note from C - B
-    chords_in_chan=0
+    chords_in_chan=1
     pass_chords_thru = FALSE
     pass_notes_thru = FALSE
     ignore_non_scale_notes = FALSE //# will scale quantize 
+    vel_scale_max=5
+    vel_chords=1
+    vel_harmony=1
+    log_chord_notes = FALSE
+    log_harmony_notes = FALSE
     //# Init...
     Call @EmptyChordScale //# Initialise with no chord notes
     Call @SetupKnobset
     Call @LabelPads
 @End
 
+
+@OnMIDIInput
+    if not HostRunning
+        SendMIDIThru
+    endif
+@End
+
 @OnMidiNoteOn
     if MidiChannel = chords_in_chan
         if pass_chords_thru 
-            SendMIDIThru
-        end
+            vel = TranslateCurve MIDIVelocity, vel_chords, 0, 127
+            SendMIDINoteOn MidiChannel, MidiNote, vel
+        endif
         Call @AddChordNote
     else
         if pass_notes_thru
@@ -36,7 +49,7 @@
     if MidiChannel = chords_in_chan
         if pass_chords_thru 
             SendMIDIThru
-        end
+        endif
         Call @RemoveChordNote
     else
         if pass_notes_thru
@@ -59,6 +72,7 @@
 
 @BuildCustomScale
     CustomScale cs[0], cs[1], cs[2], cs[3], cs[4], cs[5], cs[6], cs[7], cs[8], cs[9], cs[10], cs[11] 
+    Call @LabelPads
 @End
 
 @EmptyChordScale
@@ -66,22 +80,47 @@
 @End
 
 @TriggerHarmonyNote
-    new_note_on = ScaleQuantize MidiNote
-    SendMIDINoteOn MidiChannel, new_note_on, MIDIVelocity 
-    SetNoteState MIDIChannel, MIDINote, new_note_on 
-    log {NoteOn:}, MidiNote, { converted to }, new_note_on
+    vel = TranslateCurve MIDIVelocity, vel_harmony, 0, 127
+    if InScale MidiNote
+        SendMIDINoteOn MidiChannel, MidiNote, vel
+        SetNoteState MIDIChannel, MIDINote, MidiNote
+        new_note_on = MidiNote
+        if log_harmony_notes
+            Call @LogHarmonyNotes
+        endif
+    else
+        new_note_on = ScaleQuantize MidiNote
+        if new_note_on - MidiNote <= 12 //# in case no chord notes present
+            SendMIDINoteOn MidiChannel, new_note_on, vel 
+            SetNoteState MIDIChannel, MIDINote, new_note_on 
+            if log_harmony_notes
+                Call @LogHarmonyNotes
+            endif
+        endif
+    endif 
+@End
+
+@LogHarmonyNotes
+    log {Note: CH}, MidiChannel, { Note }, MidiNote, { (}, (NoteName MidiNote), {) converted to Note }, new_note_on, { (}, (NoteName new_note_on), {)}
+    LabelPad 14, {IN: }, (NoteName MidiNote)
+    LabelPad 15, { OUT: }, (NoteName new_note_on)
 @End
 
 @TurnOffHarmonyNote
     new_note_off = GetNoteState MIDIChannel, MIDINote 
     SendMIDINoteOff MidiChannel, new_note_off, MIDIVelocity 
-    log {NoteOff:}, MidiNote, { converted to }, new_note_on
+    //#log {NoteOff: CH:}, MidiChannel, { - }, MidiNote, { converted to }, new_note_on
 @End
 
 @SetupKnobset
     LabelKnobs {Settings}
     LabelKnob 0, {In CH}, chords_in_chan+1
+    LabelKnob 1, { }
+    LabelKnob 2, {VC }, vel_chords
+    LabelKnob 3, {VH }, vel_harmony
 	SetKnobValue 0, TranslateScale chords_in_chan, 0, 15, 0, 127
+	SetKnobValue 2, TranslateScale vel_chords, 0, vel_scale_max, 0, 127
+	SetKnobValue 3, TranslateScale vel_harmony, 0, vel_scale_max, 0, 127
 	Call @LabelPads
 @End
 
@@ -93,11 +132,19 @@
             LabelKnob 0, {In CH}, chords_in_chan+1
             Call @LabelPads
         endif
+    elseif LastKnob = 2
+        vel_chords = TranslateScale (GetKnobValue 2), 0, 127, 0, vel_scale_max
+        LabelKnob 2, {VC }, vel_chords
+    elseif LastKnob = 3
+        vel_harmony = TranslateScale (GetKnobValue 3), 0, 127, 0, vel_scale_max
+        LabelKnob 3, {VH }, vel_harmony
     endif
+    
 @End
 
 
 @LabelPads
+    ColorPad 0, 6
     LabelPad 0, {Chords in on ch: }, chords_in_chan+1
     if pass_chords_thru
         LabelPad 1, {Chords pass thru}
@@ -114,15 +161,87 @@
         LabelPad 2, {Notes quantised to chords}
         ColorPad 2, 3
     endif
-    LabelPad 7, {Harmony notes - Any ch. except }, chords_in_chan+1
+    ColorPad 3, 6
+    LabelPad 3, {Harmony notes - Any ch. except }, chords_in_chan+1
+    if log_chord_notes
+        LabelPad 5, {Showing chord notes}
+        ColorPad 5, 3
+    else 
+        LabelPad 5, {Show chord notes?}
+        ColorPad 5, 0
+    endif
+    if log_harmony_notes
+        LabelPad 6, {Logging harmony notes}
+        ColorPad 6, 3
+    else 
+        LabelPad 6, {Log harmony notes?}
+        ColorPad 6, 0
+    endif
+    ColorPad 7, 1
+    LabelPad 7, { ALL NOTES OFF }
+    //# Label Chord note pads
+    if log_chord_notes
+        chord_note = 0
+        for i = 0 to 11
+            if cs[i]
+                LabelPad chord_note+8, NoteName i
+                chord_note = chord_note + 1
+            endif
+        endfor
+    endif
 @End
 
 @OnPadDown
     if LastPad = 1
         pass_chords_thru = not pass_chords_thru
         Call @LabelPads
-    elseif LastPad = 2
+        Call @AllCHordNotesOff
+    elseif LastPad = 2 
         pass_notes_thru = not pass_notes_thru
         Call @LabelPads
+        Call @AllHarmonyNotesOff
+    elseif LastPad = 5
+        log_chord_notes = not log_chord_notes
+        Call @LabelPads
+        if not log_chord_notes
+            for i = 8 to 13
+                LabelPad i, { }
+            endfor
+        endif
+    elseif LastPad = 6
+        log_harmony_notes = not log_harmony_notes
+        Call @LabelPads
+        if not log_harmony_notes
+            LabelPad 14, { }
+            LabelPad 15, { }
+        endif
+    elseif LastPad = 7
+        Call @AllNotesOff
     endif
+@End
+
+@AllNotesOff //send midi note off for all channels - handle stuck notes
+	for ch = 0 to 15
+		Call @SendMidiOffForCh
+	endfor
+    LabelPad 7, {DONE!}
+@End
+
+@SendMidiOffForCh //send midi note off for a channel (ch) - handle stuck notes
+	for n = 0 to 127
+		SendMIDINoteOff ch, n, 64, (n*5) //handle stuck notes with 5ms delay on send
+	endfor
+@End
+
+@AllCHordNotesOff
+    ch = chords_in_chan
+    Call @SendMidiOffForCh
+@End 
+
+@AllHarmonyNotesOff
+    for ch = 0 to 15
+        if ch <> chords_in_chan
+    		Call @SendMidiOffForCh
+        endif
+	endfor
 @End
