@@ -4,7 +4,7 @@
 	ShowLayout 2
 	SetShortName {MKNTRL}
 	if unassigned pad_is_down 
-		mode = 5 //#1Channels, 2Kontrol
+		mode = 1 //#1Channels
 		edit_mode_active=FALSE
 		edit_chan=0 // selected channel for editing
 		edit_pad=0 //selected pad in a channel for editing
@@ -13,7 +13,8 @@
 		SetMetroPPQN 4
 		ppqn = 4
 		pad_is_down=FALSE
-		last_channel_visited=0 //# last channel a user visited 0-16 (16 is top level)
+        last_pad=0
+		last_channel_visited=-1 //# last channel a user visited 0-16 (16 is top level)
 		in_mode_select = TRUE //# Toggle for changing modes mode
 		curr_chan=0 //# 0-15  //# selected chan
         custom_pads_type=0 //# 0 Notes, 1 CC
@@ -227,6 +228,10 @@
         in_mode_select=FALSE
         curr_chan=MidiByte2-47
         Call @SwitchChannels
+        if curr_chan = last_channel_visited
+            SendMIDICC curr_chan, 124, 127
+        endif
+        last_channel_visited=curr_chan
     elseif MidiChannel=15 and (MidiByte2>=62 and MidiByte2<=69) and MIDIByte3>0
         //# Goto to mixer mute/solo/arm page
         mode=7 //MIXER MODES
@@ -527,9 +532,7 @@
 @End
 
 @OnTimer 
-    if timer_type=0 //longpress shift
-        Call @GoToSettingsMixerMode
-    elseif timer_type=1 //longpress inst pad in edit mode to copy
+    if timer_type=1 //longpress inst pad in edit mode to copy
         if inst_curr_page[curr_chan]>=4 and not layouts_locked // Pad repo
             Call @CopyPadRepoPad
         else
@@ -547,8 +550,7 @@
 @End
 
 @OnShiftDown2
-    StartTimer
-    timer_type=0
+    //# shift works on up
 @End
 
 @OnShiftUp
@@ -556,32 +558,66 @@
 @End
 
 @OnShiftUp2
-    StopTimer
-    if not long_press
+    if not in_mode_select
+        Call @SetupSettingsLayout
+    else
         in_mode_select = FALSE
-        if mode=1 //channel select mode 
-            mode=5 //instrument mode
+        log {mode is }, mode
+        LabelKnobs { }
+        if mode=1 
+			Call @SetupLayoutChannels
+			if edit_mode_active
+				edit_chan=0
+				curr_chan=0
+				Call @SetupKnobset1 //# Channels mode curr_chan
+			endif
+			Call @LabelPadsHeader
+			LatchPad curr_chan, YES
+        elseif mode=3
+			Call @SetupMidiLearnLayout
+        elseif mode=5
+            curr_chan = last_pad  
             edit_pad=0
             Call @SetupLayoutChannels
+            use_instr_knobset_a = TRUE
             if layouts_locked
                 Call @Setupknobset4 //Locked instrument knobs
             else
                 Call @Setupknobset2 //setup INSTRUMENT KNOBS
             endif
-            Call @UpdateCurrentKnobset
-        else
-            mode=1 //channel select mode  
-            Call @SetupLayoutChannels
-            if edit_mode_active
-                edit_chan=0
-                curr_chan=0
-                Call @SetupKnobset1 //# Channels mode curr_chan
-            endif
+            LatchPad 0, YES
+		elseif mode=6 //# ___MG___ KONTRL CHANNEL
+			Call @SetupLayoutChannels
+			if edit_mode_active
+				edit_chan=0
+				Call @SetupKnobset11
+			else
+				Call @SetupKnobset10
+			endif
+        elseif mode=7 //# MIXER MODE
+			Call @SetupLayoutChannels
+			Call @SetupKnobset7
             Call @LabelPadsHeader
-            LatchPad curr_chan, YES
-        endif
+        elseif mode=8 //# Scenes clips
+            Call @SetupScenesClips
+            Call @SetupKnobset8
+        elseif mode=9 //# Keyboard
+            Call @SetupKeyboard
+            Call @SetupKnobset9
+        else 
+            //# got to instrument channels mode
+            mode=1
+            Call @SetupLayoutChannels
+			if edit_mode_active
+				edit_chan=0
+				curr_chan=0
+				Call @SetupKnobset1 //# Channels mode curr_chan
+			endif
+			Call @LabelPadsHeader
+			LatchPad curr_chan, YES
+		endif
+        Call @ModeSetup
     endif
-    long_press=FALSE
 @End
 
 @OnPadDown
@@ -639,6 +675,7 @@
             Call @SetupKnobset9
 		elseif last_pad=6 //# MIXER MODE
 		    mode=7 //MIXER MODES
+            LabelKnobs { }
 			in_mode_select = FALSE
 			Call @SetupLayoutChannels
 			Call @SetupKnobset7
@@ -652,7 +689,6 @@
 			Call @PrintPreset
         elseif last_pad=14
             send_keys_thru_on_ch = not send_keys_thru_on_ch
-            xxx
             Call @SetupSettingsLayout
         elseif last_pad=15
             Call @AllNotesOff
@@ -2370,7 +2406,7 @@
     elseif chan_layouts[edit_chan]=7 // Koala
 		//# Layout:KOALA
         Call @CreateDefaultLayout
-        def_labels[16*1] = [33,34,0,22,2,28,31,7,59,60,59,60,59,60,-1,-1] //SAMPLE EDIT
+        def_labels[16*1] = [33,34,0,22,2,28,31,9,59,60,59,60,59,60,-1,-1] //SAMPLE EDIT
         def_colors[16*1] = [4,4,2,6,2,5,5,3,1,1,2,2,3,3,0,0]
         def_vals[16*1]   = [0,127,64,64,64,0,0,64,0,64,0,64,0,64,0,0]
         def_ccs[16*1]    = [46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61]
