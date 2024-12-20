@@ -36,6 +36,7 @@
     keybd_octave_adj=[-24,-12,0,12] //# octave setting for keyboard
     tempo_slider_cc=4
     logInfo=FALSE
+    //# transport ccs [0,2,3,106,107,4] //# Stop, Play, Record, Metro, TapTempo, BPM on CH16
     Call @LogInfo
 @End
 
@@ -126,11 +127,11 @@
         SendMIDIThru
     elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53
         if MidiNote=53
-            SendMidiCC 15, 101, 127 //# rec
+            SendMidiCC 15, 3, 127 //# rec drambo not AUM
         elseif MidiNote=52
-            SendMidiCC 15, 99, 127 //# stop
+            SendMidiCC 15, 0, 127 //# stop
         elseif MidiNote=51
-            SendMidiCC 15, 100, 127 //# play
+            SendMidiCC 15, 2, 127 //# play
         elseif MidiNote=44
             SendMidiCC 15, 91, 127 //# M:KNTRL GUI
         elseif MidiNote=45
