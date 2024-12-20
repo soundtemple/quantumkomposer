@@ -54,9 +54,9 @@
 	  	Call @SetupChordsScenes
 	  	knob_set=99
 		Call @SetupKnobset99 //settings knobs
-	  	Call @SetupSettingsLayout
         Call @SysexMessageSetup
         Call @ChangeScenePreset
+	  	Call @SetupSettingsLayout
 	endif
 @End
 
@@ -773,6 +773,7 @@
         Call @SendSysex
     
     elseif ready_to_rec_pad_vals
+        log {ready_to_rec_pad_vals}
         if last_pad=8
             custom_pads[1]=MIDIByte2
             for i = 2 to 8
@@ -867,37 +868,39 @@
             Call @OnKnobChange2 //handle that change 
         endif
 
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
-        for i = 1 to 8
-            if MIDIByte2=custom_pads[i]
-                last_pad=i -1
+    elseif custom_pads_type=1 //# pads use cc's
+        if (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
+            for i = 1 to 8
+                if MIDIByte2=custom_pads[i]
+                    last_pad=i -1
+                endif
+            endfor
+            if MIDIByte3=0
+                Call @OnPadUp2
+            else
+                Call @OnPadDown2
             endif
-        endfor
-        if MIDIByte3=0
-            Call @OnPadUp2
-        else
-            Call @OnPadDown2
-        endif
 
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
-        for i = 9 to 16
-            if MIDIByte2=custom_pads[i]
-                last_pad=i-1
+        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
+            for i = 9 to 16
+                if MIDIByte2=custom_pads[i]
+                    last_pad=i-1
+                endif
+            endfor
+            if MIDIByte3=0
+                Call @OnPadUp2
+            else
+                Call @OnPadDown2
             endif
-        endfor
-        if MIDIByte3=0
-            Call @OnPadUp2
-        else
-            Call @OnPadDown2
+            
+        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
+            if MIDIByte3=0
+                Call @OnShiftUp2
+            else
+                Call @OnShiftDown2
+            endif
         endif
-		
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
-        if MIDIByte3=0
-            Call @OnShiftUp2
-        else
-            Call @OnShiftDown2
-        endif
-	endif
+    endif
 @End
 
 @SaveSelectedChordPad
@@ -1157,24 +1160,26 @@
         Call @SetupPadsLayoutMidiConfig
         custom_pads_type=0 //# notes
         custom_pads[0] = MIDIChannel
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
-        for i = 1 to 8
-            if MIDIByte2=custom_pads[i]
-                last_pad=i-1
-            endif
-        endfor
-        Call @OnPadDown2
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
-        for i = 9 to 16
-            if MIDIByte2=custom_pads[i]
-                last_pad=i-1
-            endif
-        endfor
-        Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mozaic
-		
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
-        Call @OnShiftDown2
-	endif
+    elseif custom_pads_type=0 //# pads use notes
+        if (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
+            for i = 1 to 8
+                if MIDIByte2=custom_pads[i]
+                    last_pad=i-1
+                endif
+            endfor
+            Call @OnPadDown2
+        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
+            for i = 9 to 16
+                if MIDIByte2=custom_pads[i]
+                    last_pad=i-1
+                endif
+            endfor
+            Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mozaic
+            
+        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
+            Call @OnShiftDown2
+        endif
+    endif
 @End
 
 @SendOutChordNotes
@@ -1310,22 +1315,24 @@
 			held_chord_notes[player_out_channel] = -1
 			held_chord_oct_adj[player_out_channel] = 0
 		endif
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8])
-        for i = 1 to 8
-            if MIDIByte2=custom_pads[i]
-                last_pad=i-1
-            endif
-        endfor
-		Call @OnPadUp2
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16])
-        for i = 9 to 16
-            if MIDIByte2=custom_pads[i]
-                last_pad=i-1
-            endif
-        endfor
-		Call @OnPadUp2
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
-        Call @OnShiftUp2
+    elseif custom_pads_type=0 //# pads use notes
+        if (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8])
+            for i = 1 to 8
+                if MIDIByte2=custom_pads[i]
+                    last_pad=i-1
+                endif
+            endfor
+            Call @OnPadUp2
+        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16])
+            for i = 9 to 16
+                if MIDIByte2=custom_pads[i]
+                    last_pad=i-1
+                endif
+            endfor
+            Call @OnPadUp2
+        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
+            Call @OnShiftUp2
+        endif
     endif
 @End
 

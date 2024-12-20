@@ -210,6 +210,7 @@
 
 @OnMidiCC //KNTRL midi implementation. Receive only CH16 - output to active channel
     // Commands (hex#) NoteOn=0x90;NoteOff=0x80;CC=0xB0;ProgramChange=0xC0;Aftertouch=0xD0;Pitchbend=0xE0
+    //# Log {sending midi thru: }, MIDIChannel+1, {-}, MIDIByte2, {-}, MIDIByte3
 	if MidiChannel=15 and MidiByte2=4 //# tempo encoder
         if MidiByte3 <=1
             tempo_knob_val = tempo_knob_val - 1
@@ -268,6 +269,11 @@
             Call @SetupKnobset11
         else
             Call @SetupKnobset10
+        endif
+    elseif MidiChannel=15 and (MidiByte2=0 or MidiByte2=2 or MidiByte2=3)
+        //# Stop, Play, Record 
+        if MidiByte3>0
+            SendMidiCC MidiChannel, MidiByte2, MidiByte3
         endif
     elseif MidiChannel=15 and MidiByte2>=91 and MidiByte2<=108
         //# MGEN GUI's and Transport
@@ -385,42 +391,43 @@
             endif
             Call @OnKnobChange2 //handle that change 
         endif
-
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
-        for i = 1 to 8
-            if MIDIByte2=custom_pads[i]
-                last_pad=i -1
+    elseif custom_pads_type=1 //# pads use cc's
+        if (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
+            for i = 1 to 8
+                if MIDIByte2=custom_pads[i]
+                    last_pad=i -1
+                endif
+            endfor
+            if MIDIByte3=0
+                Call @OnPadUp2
+            else
+                Call @OnPadDown2
             endif
-        endfor
-        if MIDIByte3=0
-            Call @OnPadUp2
-        else
-            Call @OnPadDown2
-        endif
 
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
-        for i = 9 to 16
-            if MIDIByte2=custom_pads[i]
-                last_pad=i-1
+        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
+            for i = 9 to 16
+                if MIDIByte2=custom_pads[i]
+                    last_pad=i-1
+                endif
+            endfor
+            if MIDIByte3=0
+                Call @OnPadUp2
+            else
+                Call @OnPadDown2
             endif
-        endfor
-        if MIDIByte3=0
-            Call @OnPadUp2
-        else
-            Call @OnPadDown2
-        endif
-		
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
-        if MIDIByte3=0
-            Call @OnShiftUp2
-        else
-            Call @OnShiftDown2
-        endif
+            
+        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
+            if MIDIByte3=0
+                Call @OnShiftUp2
+            else
+                Call @OnShiftDown2
+            endif
 
-    elseif send_keys_thru_on_ch and MidiByte2=1 //# Modwheel;
-        SendMIDIThruOnCh chan_midi_chs[curr_chan]
+        elseif send_keys_thru_on_ch and MidiByte2=1 //# Modwheel;
+            SendMIDIThruOnCh chan_midi_chs[curr_chan]
 
-	endif
+        endif
+    endif
 @End
 
 @OnMidiNote
@@ -467,27 +474,29 @@
             Call @OnPadUp2
         endif
 
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
-        for i = 9 to 16
-            if MIDIByte2=custom_pads[i]
-                last_pad=i-1
+    elseif custom_pads_type=0 //# pads use notes
+        if (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
+            for i = 9 to 16
+                if MIDIByte2=custom_pads[i]
+                    last_pad=i-1
+                endif
+            endfor
+            if MIDICommand=0x90 and MIDIByte3>0 //noteOn
+                Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mozaic
+            elseif MIDICommand=0x80 or MidiByte3=0 //Note off
+                Call @OnPadUp2
             endif
-        endfor
-        if MIDICommand=0x90 and MIDIByte3>0 //noteOn
-            Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mozaic
-        elseif MIDICommand=0x80 or MidiByte3=0 //Note off
-            Call @OnPadUp2
+            
+        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
+            if MIDICommand=0x90 //noteOn	
+                Call @OnShiftDown2
+            elseif MIDICommand=0x80 //Note off
+                Call @OnShiftUp2
+            endif
+        elseif send_keys_thru_on_ch and MidiChannel=keys_in_chan
+            SendMIDIThruOnCh chan_midi_chs[curr_chan]
         endif
-		
-    elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
-        if MIDICommand=0x90 //noteOn	
-            Call @OnShiftDown2
-        elseif MIDICommand=0x80 //Note off
-            Call @OnShiftUp2
-        endif
-    elseif send_keys_thru_on_ch and MidiChannel=keys_in_chan
-        SendMIDIThruOnCh chan_midi_chs[curr_chan]
-	endif
+    endif
 @End
 
 @OnMidiInput
@@ -559,10 +568,14 @@
 
 @OnShiftUp2
     if not in_mode_select
+        knob_set = 0
+        Call @SetupKnobset0
         Call @SetupSettingsLayout
+        if mode=3
+            mode=0 //# don't toggle back to midi learn too many problems
+        endif
     else
         in_mode_select = FALSE
-        log {mode is }, mode
         LabelKnobs { }
         if mode=1 
 			Call @SetupLayoutChannels
