@@ -1,5 +1,4 @@
-//# M:KNTRL
-//# 4 ENCODERS to control 15 channels x 64 params
+//# M:KNTRL - Control surface
 @OnLoad
 	ShowLayout 2
 	SetShortName {MKNTRL}

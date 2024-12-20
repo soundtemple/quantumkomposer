@@ -1,4 +1,4 @@
-//# GENOCHORD
+//# GENOCHORD - Chord generator 
 @OnLoad 
 	ShowLayout 2
 	LabelPads {[ GENOCHORD]}
