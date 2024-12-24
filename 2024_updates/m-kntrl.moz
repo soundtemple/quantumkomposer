@@ -1279,8 +1279,8 @@
     kybd_chan=0
     num_kybd_layouts=11
     kybd_velo=100
-    kybd_layout= [7,1,1,1, 0,0,3,3, 3,3,3,3, 0,0,0,0]
-    kybd_oct=    [0,-1,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+    kybd_layout= [1,1,1,1, 0,0,3,3, 3,3,3,3, 0,0,0,0]
+    kybd_oct=    [-1,-1,-1,-1, 0,0,0,0, 0,0,0,0, 0,0,0,0]
     kybd_txpose= [0, 0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
     kybd_cols=[] //# colors for each pad in each keyboard  
     kybd_notes=[] //# notes for each pad in each keyboard
@@ -1394,6 +1394,9 @@
             curr_chan=kybd_chan
             Call @LabelKeyboardKnobs
             Call @SetupKeyboard
+            SetKnobValue 1, TranslateScale kybd_layout[kybd_chan], 0, num_kybd_layouts-1, 0, 127
+            SetKnobValue 2, TranslateScale kybd_txpose[kybd_chan], 0, 11, 0, 127
+            SetKnobValue 3, TranslateScale kybd_oct[kybd_chan], -2, 2, 0, 127
         endif
     elseif last_knob=1
         val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, num_kybd_layouts-1
@@ -2713,29 +2716,29 @@
         endif
     elseif mode=9
         if kybd_layout[curr_chan]=0
-            LabelPads {[ CHROMATIC KEYBOARD ]}
+            LabelPads {CH}, curr_chan+1, { - [ CHROMATIC KEYBOARD ]}
         elseif kybd_layout[curr_chan]=1
-            LabelPads {[ DRUMS ]}
+            LabelPads {CH}, curr_chan+1, { -  [ DRUMS ]}
         elseif kybd_layout[curr_chan]=2
-            LabelPads {[ MAJOR ]}
+            LabelPads {CH}, curr_chan+1, { -  [ MAJOR ]}
         elseif kybd_layout[curr_chan]=3
-            LabelPads {[ NATURAL MINOR ]}
+            LabelPads {CH}, curr_chan+1, { -  [ NATURAL MINOR ]}
         elseif kybd_layout[curr_chan]=4
-            LabelPads {[ HARMONIC MINOR ]}
+            LabelPads {CH}, curr_chan+1, { -  [ HARMONIC MINOR ]}
         elseif kybd_layout[curr_chan]=5
-            LabelPads {[ MAJOR PENTATONIC ]}
+            LabelPads {CH}, curr_chan+1, { -  [ MAJOR PENTATONIC ]}
         elseif kybd_layout[curr_chan]=6
-            LabelPads {[ MINOR PENTATONIC ]}
+            LabelPads {CH}, curr_chan+1, { -  [ MINOR PENTATONIC ]}
         elseif kybd_layout[curr_chan]=7
-            LabelPads {[ RUISMAKER ]}
+            LabelPads {CH}, curr_chan+1, { -  [ RUISMAKER ]}
         elseif kybd_layout[curr_chan]=8
-            LabelPads {[ CHROMATIC MAJOR HIGHLIGHTS ]}
+            LabelPads {CH}, curr_chan+1, { -  [ CHROMATIC MAJOR HIGHLIGHTS ]}
         elseif kybd_layout[curr_chan]=9
-            LabelPads {[ CHROMATIC NATURAL MINOR HIGHLIGHTS ]}
+            LabelPads {CH}, curr_chan+1, { -  [ CHROMATIC NATURAL MINOR HIGHLIGHTS ]}
         elseif kybd_layout[curr_chan]=10
-            LabelPads {[ CHROMATIC HARMONIC MINOR HIGHLIGHTS ]}
+            LabelPads {CH}, curr_chan+1, { -  [ CHROMATIC HARMONIC MINOR HIGHLIGHTS ]}
         else
-            LabelPads {[ M:KNTRL KEYBOARD ]}
+            LabelPads {CH}, curr_chan+1, { -  [ M:KNTRL KEYBOARD ]}
         endif
     elseif mode=1 or mode=2
         LabelPads {[ CHANNEL SELECT ]}
