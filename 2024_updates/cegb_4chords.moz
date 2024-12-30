@@ -1,0 +1,266 @@
+@OnLoad
+    //# stores last 4 notes on chord channel as current chord notes. so alwas send 4 note chords or triad with root+octave
+    //# CEGB becomes current chord notes. 
+    //# C#=CN1+1 D=CN#1+2 D#=CN#2-1 F=CN#2+1 F#=CN#2+2 G#=CN#3+1 A=CN#3+2 A#=CN#1-1
+	SetShortName {CEGB4C} 
+	LabelPads {[ CEGB FOR CHORD NOTES ]}
+	ShowLayout 2
+    ResetNoteStates // initialize the NoteState array;
+
+    //# options
+    cs = [] //# custom scale array bool for each note from C - B
+    chords_in_chan=1
+    pass_chords_thru = FALSE
+    pass_notes_thru = FALSE
+    vel_scale_max=5
+    vel_chords=1
+    vel_harmony=1
+    log_chord_notes = FALSE
+    log_harmony_notes = FALSE
+
+    //# for managing sorted list of chord notes
+    //# chord notes must be from 36 to 100
+    raw_chrd_note_index=0 //# number of current chord notes held 
+    raw_chord_notes=[127,127,127,127] //# temporary array for storing held chord notes 
+
+    //# Init...
+    Call @SetupKnobset
+    Call @LabelPads
+    for i = 8 to 11
+        ColorPad i, 2
+    endfor
+@End
+
+@OnMidiNoteOn
+    if MidiChannel = chords_in_chan
+        if pass_chords_thru 
+            vel = TranslateCurve MIDIVelocity, vel_chords, 0, 127
+            SendMIDINoteOn MidiChannel, MidiNote, vel
+        endif
+        Call @AddChordNote
+    else
+        if pass_notes_thru
+            SendMIDIThru
+        else
+            Call @TriggerHarmonyNote
+        endif
+    endif
+@End
+
+@OnMidiNoteOff
+    if MidiChannel = chords_in_chan
+        if pass_chords_thru 
+            SendMIDIThru
+        endif
+    else
+        if pass_notes_thru
+            SendMIDIThru
+        else
+            Call @TurnOffHarmonyNote
+        endif
+    endif
+@End
+
+@AddChordNote
+    //# Sorted Chord notes - Tracks last 4 held notes as a chord
+    raw_chord_notes[raw_chrd_note_index] = MidiNote
+    if raw_chrd_note_index = 3
+        Call @SortList
+    endif
+    raw_chrd_note_index = raw_chrd_note_index + 1
+    if raw_chrd_note_index > 3
+        raw_chrd_note_index = 0
+    endif
+@End
+
+@SortList
+    //# Log {List to sort }, raw_chord_notes[0], raw_chord_notes[1], raw_chord_notes[2], raw_chord_notes[3]
+    changed = 1
+    while (changed = 1)
+        changed = 0
+        for i = 0 to raw_chrd_note_index
+        if raw_chord_notes[i] > raw_chord_notes[i+1]
+            changed = 1
+            tmp = raw_chord_notes[i]
+            raw_chord_notes[i] = raw_chord_notes[i+1]
+            raw_chord_notes[i+1] = tmp
+        endif
+        endfor
+    endwhile
+    if log_chord_notes
+        Call @LabelActiveChords
+    endif      
+    Call @BuildCustomScale
+@End
+
+@LabelActiveChords
+    for i = 0 to 3
+        LabelPad i+8, (NoteName raw_chord_notes[i]), { (}, raw_chord_notes[i], {)}
+    endfor
+@End
+
+@BuildCustomScale
+    //# C#=CN1+1 D=CN#1+2 D#=CN#2-1 F=CN#2+1 F#=CN#2+2 G#=CN#3+1 A=CN#3+2 A#=CN#1-1
+    cs[0] = (raw_chord_notes[0]%12)   //# C
+    cs[1] = (raw_chord_notes[0]%12)+1 //# C#
+    cs[2] = (raw_chord_notes[0]%12)+2 //# D
+    cs[3] = (raw_chord_notes[1]%12)-1 //# D#
+    cs[4] = (raw_chord_notes[1]%12)   //# E
+    cs[5] = (raw_chord_notes[1]%12)+1 //# F
+    cs[6] = (raw_chord_notes[1]%12)+2 //# F#
+    cs[7] = (raw_chord_notes[2]%12)   //# G
+    cs[8] = (raw_chord_notes[2]%12)+1 //# G#
+    cs[9] = (raw_chord_notes[2]%12)+2 //# A
+    cs[10] = (raw_chord_notes[0]%12)+11 //# A#
+    cs[11] = (raw_chord_notes[3]%12)   //# B
+@End
+
+@TriggerHarmonyNote
+    vel = TranslateCurve MIDIVelocity, vel_harmony, 0, 127
+    octave = Div MidiNote, 12
+    new_note=(octave*12) + cs[MidiNote%12]
+    SendMIDINoteOn MidiChannel, cs[MidiNote%12], vel
+    SetNoteState MIDIChannel, MIDINote, new_note
+    if log_harmony_notes
+        Call @LogHarmonyNotes
+    endif
+@End
+
+@TurnOffHarmonyNote
+    note_off = GetNoteState MIDIChannel, MIDINote 
+    SendMIDINoteOff MidiChannel, note_off, MIDIVelocity 
+@End
+
+@SetupKnobset
+    LabelKnobs {Settings}
+    LabelKnob 0, {In CH}, chords_in_chan+1
+    LabelKnob 1, { }
+    LabelKnob 2, {VC }, vel_chords
+    LabelKnob 3, {VH }, vel_harmony
+	SetKnobValue 0, TranslateScale chords_in_chan, 0, 15, 0, 127
+	SetKnobValue 2, TranslateScale vel_chords, 0, vel_scale_max, 0, 127
+	SetKnobValue 3, TranslateScale vel_harmony, 0, vel_scale_max, 0, 127
+	Call @LabelPads
+@End
+
+@OnKnobChange
+    if LastKnob = 0
+        val = Round TranslateScale (GetKnobValue 0), 0, 127, 0, 15
+        if val <> chords_in_chan 	
+            chords_in_chan = val
+            LabelKnob 0, {In CH}, chords_in_chan+1
+            Call @LabelPads
+        endif
+    elseif LastKnob = 2
+        vel_chords = TranslateScale (GetKnobValue 2), 0, 127, 0, vel_scale_max
+        LabelKnob 2, {VC }, vel_chords
+    elseif LastKnob = 3
+        vel_harmony = TranslateScale (GetKnobValue 3), 0, 127, 0, vel_scale_max
+        LabelKnob 3, {VH }, vel_harmony
+    endif
+@End
+
+
+@LabelPads
+    ColorPad 0, 6
+    LabelPad 0, {Chords in on ch: }, chords_in_chan+1
+    if pass_chords_thru
+        LabelPad 1, {Chords pass thru}
+        ColorPad 1, 3
+    else
+        LabelPad 1, {Chords NOT passed thru}
+        ColorPad 1, 0
+    endif
+
+    if pass_notes_thru
+        LabelPad 2, {Notes pass thru}
+        ColorPad 2, 1
+    else
+        LabelPad 2, {Notes quantised to chords}
+        ColorPad 2, 3
+    endif
+    ColorPad 3, 6
+    LabelPad 3, {Harmony notes - Any ch. except }, chords_in_chan+1
+    if log_chord_notes
+        LabelPad 5, {Showing chord notes}
+        ColorPad 5, 3
+    else 
+        LabelPad 5, {Show chord notes?}
+        ColorPad 5, 0
+    endif
+    if log_harmony_notes
+        LabelPad 6, {Showing harmony notes}
+        ColorPad 6, 3
+    else 
+        LabelPad 6, {Show harmony notes?}
+        ColorPad 6, 0
+    endif
+    ColorPad 7, 1
+    LabelPad 7, { ALL NOTES OFF }
+    //# Label Chord note pads
+    if log_chord_notes
+        Call @LabelActiveChords
+    endif
+@End
+
+@LogHarmonyNotes
+    log {Note: CH}, MidiChannel, { Note }, MidiNote, { (}, (NoteName MidiNote), {) converted to Note }, new_note, { (}, (NoteName new_note), {)}
+    LabelPad 14, {IN: }, (NoteName MidiNote), { (}, MidiNote, {)}
+    LabelPad 15, { OUT: }, (NoteName new_note), { (}, new_note, {)}
+@End
+
+@OnPadDown
+    if LastPad = 1
+        pass_chords_thru = not pass_chords_thru
+        Call @LabelPads
+        Call @AllCHordNotesOff
+    elseif LastPad = 2 
+        pass_notes_thru = not pass_notes_thru
+        Call @LabelPads
+        Call @AllHarmonyNotesOff
+    elseif LastPad = 5
+        log_chord_notes = not log_chord_notes
+        Call @LabelPads
+        if not log_chord_notes
+            for i = 8 to 13
+                LabelPad i, { }
+            endfor
+        endif
+    elseif LastPad = 6
+        log_harmony_notes = not log_harmony_notes
+        Call @LabelPads
+        if not log_harmony_notes
+            LabelPad 14, { }
+            LabelPad 15, { }
+        endif
+    elseif LastPad = 7
+        Call @AllNotesOff
+    endif
+@End
+
+@AllNotesOff //send midi note off for all channels - handle stuck notes
+	for ch = 0 to 15
+		Call @SendMidiOffForCh
+	endfor
+    LabelPad 7, {DONE!}
+@End
+
+@SendMidiOffForCh //send midi note off for a channel (ch) - handle stuck notes
+	for n = 0 to 127
+		SendMIDINoteOff ch, n, 64, (n*5) //handle stuck notes with 5ms delay on send
+	endfor
+@End
+
+@AllCHordNotesOff
+    ch = chords_in_chan
+    Call @SendMidiOffForCh
+@End 
+
+@AllHarmonyNotesOff
+    for ch = 0 to 15
+        if ch <> chords_in_chan
+    		Call @SendMidiOffForCh
+        endif
+	endfor
+@End
+
