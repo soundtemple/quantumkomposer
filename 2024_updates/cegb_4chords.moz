@@ -15,13 +15,15 @@
     vel_scale_max=5
     vel_chords=1
     vel_harmony=1
-    log_chord_notes = FALSE
-    log_harmony_notes = FALSE
+    log_chord_notes = TRUE
+    log_harmony_notes = TRUE
 
     //# for managing sorted list of chord notes
     //# chord notes must be from 36 to 100
     raw_chrd_note_index=0 //# number of current chord notes held 
     raw_chord_notes=[127,127,127,127] //# temporary array for storing held chord notes 
+    cni = [0,4,7,11]
+    pedal_tone = 0 //# playable using C# - A pedal tone is a single sustained or repeated note that remains constant while the harmonic structure above it changes. It serves as a point of stability or tension, often functioning independently of the chords above it.
 
     //# Init...
     Call @SetupKnobset
@@ -87,27 +89,29 @@
         endif
         endfor
     endwhile
+    Call @BuildCustomScale
     if log_chord_notes
         Call @LabelActiveChords
     endif      
-    Call @BuildCustomScale
 @End
 
 @LabelActiveChords
     for i = 0 to 3
-        LabelPad i+8, (NoteName raw_chord_notes[i]), { (}, raw_chord_notes[i], {)}
+        LabelPad i+8, {.........}, (NoteName cni[i]), {......... }, (NoteName raw_chord_notes[i]), { (}, raw_chord_notes[i], {)}
     endfor
+    LabelPad 13, {D=}, (NoteName cs[2]+12), {       D#=},  (NoteName cs[3]+12), {       F=},  (NoteName cs[5]+12), {       F#=},  (NoteName cs[6]+12)
+    labelPad 14, {G#=},  (NoteName cs[8]+12), {       A=},  (NoteName cs[9]+12), {       A#=}, (NoteName cs[10]+12)   
 @End
 
 @BuildCustomScale
     //# C#=CN1+1 D=CN#1+2 D#=CN#2-1 F=CN#2+1 F#=CN#2+2 G#=CN#3+1 A=CN#3+2 A#=CN#1-1
     cs[0] = (raw_chord_notes[0]%12)   //# C
-    cs[1] = (raw_chord_notes[0]%12)+1 //# C#
+    cs[1] = pedal_tone //# C# - used for pedal tone 
     cs[2] = (raw_chord_notes[0]%12)+2 //# D
     cs[3] = (raw_chord_notes[1]%12)-1 //# D#
     cs[4] = (raw_chord_notes[1]%12)   //# E
     cs[5] = (raw_chord_notes[1]%12)+1 //# F
-    cs[6] = (raw_chord_notes[1]%12)+2 //# F#
+    cs[6] = (raw_chord_notes[2]%12)-1 //# F#
     cs[7] = (raw_chord_notes[2]%12)   //# G
     cs[8] = (raw_chord_notes[2]%12)+1 //# G#
     cs[9] = (raw_chord_notes[2]%12)+2 //# A
@@ -134,10 +138,11 @@
 @SetupKnobset
     LabelKnobs {Settings}
     LabelKnob 0, {In CH}, chords_in_chan+1
-    LabelKnob 1, { }
+    LabelKnob 1, {Pedal }, (NoteName pedal_tone)
     LabelKnob 2, {VC }, vel_chords
     LabelKnob 3, {VH }, vel_harmony
 	SetKnobValue 0, TranslateScale chords_in_chan, 0, 15, 0, 127
+	SetKnobValue 1, TranslateScale pedal_tone, 0, 11, 0, 127
 	SetKnobValue 2, TranslateScale vel_chords, 0, vel_scale_max, 0, 127
 	SetKnobValue 3, TranslateScale vel_harmony, 0, vel_scale_max, 0, 127
 	Call @LabelPads
@@ -149,6 +154,14 @@
         if val <> chords_in_chan 	
             chords_in_chan = val
             LabelKnob 0, {In CH}, chords_in_chan+1
+            Call @LabelPads
+        endif
+    elseif LastKnob = 1
+        val = Round TranslateScale (GetKnobValue 1), 0, 127, 0, 11
+        if val <> pedal_tone 	
+            pedal_tone = val
+            LabelKnob 1, {Pedal }, (NoteName pedal_tone)
+            Call @BuildCustomScale
             Call @LabelPads
         endif
     elseif LastKnob = 2
@@ -201,12 +214,15 @@
     if log_chord_notes
         Call @LabelActiveChords
     endif
+    ColorPad 12, 1
+    ColorPad 13, 1
+    ColorPad 14, 1
+    LabelPad 12, {.........}, (NoteName 1), {........ }, {Pedal }, (NoteName pedal_tone)
 @End
 
 @LogHarmonyNotes
     log {Note: CH}, MidiChannel, { Note }, MidiNote, { (}, (NoteName MidiNote), {) converted to Note }, new_note, { (}, (NoteName new_note), {)}
-    LabelPad 14, {IN: }, (NoteName MidiNote), { (}, MidiNote, {)}
-    LabelPad 15, { OUT: }, (NoteName new_note), { (}, new_note, {)}
+    LabelPad 15, {IN: }, (NoteName MidiNote), { (}, MidiNote, {) }, { OUT: }, (NoteName new_note), { (}, new_note, {)}
 @End
 
 @OnPadDown
@@ -222,7 +238,7 @@
         log_chord_notes = not log_chord_notes
         Call @LabelPads
         if not log_chord_notes
-            for i = 8 to 13
+            for i = 8 to 14
                 LabelPad i, { }
             endfor
         endif
@@ -230,7 +246,6 @@
         log_harmony_notes = not log_harmony_notes
         Call @LabelPads
         if not log_harmony_notes
-            LabelPad 14, { }
             LabelPad 15, { }
         endif
     elseif LastPad = 7
