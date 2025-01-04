@@ -99,8 +99,9 @@
     for i = 0 to 3
         LabelPad i+8, {.........}, (NoteName cni[i]), {......... }, (NoteName raw_chord_notes[i]), { (}, raw_chord_notes[i], {)}
     endfor
-    LabelPad 13, {D=}, (NoteName cs[2]+12), {       D#=},  (NoteName cs[3]+12), {       F=},  (NoteName cs[5]+12), {       F#=},  (NoteName cs[6]+12)
-    labelPad 14, {G#=},  (NoteName cs[8]+12), {       A=},  (NoteName cs[9]+12), {       A#=}, (NoteName cs[10]+12)   
+    LabelPad 13, {D=}, (NoteName cs[2]+12), {            F=},  (NoteName cs[5]+12), {          A=},  (NoteName cs[9]+12)
+    labelPad 14, {D#=},  (NoteName cs[3]+12), {       F#=},  (NoteName cs[6]+12), {      A#=}, (NoteName cs[10]+12)   
+    //# {G#=},  (NoteName cs[8]+12)
 @End
 
 @BuildCustomScale
@@ -113,9 +114,14 @@
     cs[5] = (raw_chord_notes[1]%12)+1 //# F
     cs[6] = (raw_chord_notes[2]%12)-1 //# F#
     cs[7] = (raw_chord_notes[2]%12)   //# G
-    cs[8] = (raw_chord_notes[0]%12)+7 //# G# - Pedal + Perfect 5th
+    cs[8] = pedal_tone+7 //# G# - Pedal + Perfect 5th
     cs[9] = (raw_chord_notes[2]%12)+2 //# A
-    cs[10] = (raw_chord_notes[0]%12)+11 //# A#
+    if ((raw_chord_notes[0]%12)+11) = (raw_chord_notes[3]%12)  
+        interval=10
+    else 
+        interval=11
+    endif
+    cs[10] = (raw_chord_notes[0]%12)+interval //# A#
     cs[11] = (raw_chord_notes[3]%12)   //# B
 @End
 
@@ -186,14 +192,14 @@
     endif
 
     if pass_notes_thru
-        LabelPad 2, {Notes pass thru}
+        LabelPad 2, {Harmony pass thru}
         ColorPad 2, 1
     else
-        LabelPad 2, {Notes quantised to chords}
+        LabelPad 2, {Harmony quantised to chords}
         ColorPad 2, 3
     endif
     ColorPad 3, 6
-    LabelPad 3, {Harmony notes - Any ch. except }, chords_in_chan+1
+    LabelPad 3, {Harmony         Any ch. except }, chords_in_chan+1
     if log_chord_notes
         LabelPad 5, {Showing chord notes}
         ColorPad 5, 3
@@ -217,7 +223,7 @@
     ColorPad 12, 1
     ColorPad 13, 1
     ColorPad 14, 1
-    LabelPad 12, {.........}, (NoteName 1), {........ }, {Pedal }, (NoteName pedal_tone)
+    LabelPad 12, {Pedal     }, (NoteName 1), {=}, (NoteName pedal_tone), {  }, {            Pedal+5th   }, (NoteName 8), {=}, (NoteName pedal_tone+7)
 @End
 
 @LogHarmonyNotes
