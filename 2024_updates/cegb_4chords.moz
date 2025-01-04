@@ -113,7 +113,7 @@
     cs[5] = (raw_chord_notes[1]%12)+1 //# F
     cs[6] = (raw_chord_notes[2]%12)-1 //# F#
     cs[7] = (raw_chord_notes[2]%12)   //# G
-    cs[8] = (raw_chord_notes[2]%12)+1 //# G#
+    cs[8] = (raw_chord_notes[0]%12)+7 //# G# - Pedal + Perfect 5th
     cs[9] = (raw_chord_notes[2]%12)+2 //# A
     cs[10] = (raw_chord_notes[0]%12)+11 //# A#
     cs[11] = (raw_chord_notes[3]%12)   //# B
@@ -123,7 +123,7 @@
     vel = TranslateCurve MIDIVelocity, vel_harmony, 0, 127
     octave = Div MidiNote, 12
     new_note=(octave*12) + cs[MidiNote%12]
-    SendMIDINoteOn MidiChannel, cs[MidiNote%12], vel
+    SendMIDINoteOn MidiChannel, new_note, vel
     SetNoteState MIDIChannel, MIDINote, new_note
     if log_harmony_notes
         Call @LogHarmonyNotes
