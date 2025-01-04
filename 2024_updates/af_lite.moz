@@ -1,0 +1,259 @@
+@OnLoad
+	SetShortName {LITEAF} 
+	LabelPads {LITE AKAI FIRE}
+	ShowLayout 2
+    colours=[]
+    colour_index=[]
+    Call @GetColorArray
+    LabelPad 4, {Get pads ready}
+    ColorPad 4, 3
+    LabelPad 5, {All pads off}
+    ColorPad 5, 1
+    ColorPad 6, 3
+    LabelPad 6, {Get btns ready}
+    ColorPad 7, 1
+    LabelPad 7, {All btns off}
+    def_pad_cols=[]
+    Call @GetDefaultPadColors
+    btn_ccs= [31,32,33,34,35,36,37,38,39,44,45,46,47,48,49,50,51,52,53]
+    btn_cols=[ 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 4, 2, 0, 0, 0, 0]
+    col_pads=[]
+    col_btns=[]
+    clear_pads=[]
+    clear_btns=[]
+    FillArray clear_pads, off, 64
+    FillArray clear_btns, off, 19
+    clip_bank=0
+    knob_mode=0
+    record_on=FALSE //# 53
+    loop_scenes=FALSE //# 33
+    show_shortcuts=FALSE //# 50
+    keybd_octave=2
+    logInfo=FALSE
+    Call @LogInfo
+@End
+
+@GetDefaultPadColors
+    def_pad_cols[0]=[red,orng,yell,yell, prpl,prpl,orng,orng, grn,grn,blu2,blu2, prpl,pink,blu1,off]
+    def_pad_cols[16]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
+    def_pad_cols[32]=[prpl,prpl,prpl,prpl,prpl,prpl,prpl,prpl,orng,orng,orng,orng,orng,orng,orng,orng]
+    def_pad_cols[48]=[whte,prpl,whte,prpl,whte,whte,prpl,whte,prpl,whte,prpl,whte,off,off,off,off]
+    //# shortcuts: 
+    //# VolPan112, SendFilt113, EQ114, FX115, MWMM116, Mute117, Solo118, Arm119,
+    //# Scenes120, Kybd121, MGENGUIS122
+    shortcut_ccs =[61,63,64,65,  66,67,68,69,  70,71,72,-1,  -1,-1,-1,-1]
+    shortcut_cols[0]=[whte,whte,whte,whte, whte,orng,blu2,red, blu1,prpl,orng,off, off,off,off,off]
+    //# Scenes120, Kybd121, MGENGUIS122, AllNotesOff123, MKNTRLSHIFT124, GOC Scenes125, GOCHarmoKybd126, GENOCHORDSHIFT127
+    //# shortcut_ccs[8] =[120, 121,  -1,   -1, -1, 125, 126, 127] - add these to trig
+@End
+
+@OnHostStart
+    //# play button
+    SendMidiCC 0, 51, 3
+@End
+
+@OnHostStop
+    //# play button
+    SendMidiCC 0, 51, 0
+@End
+
+@OnPadDown
+    if LastPad=4
+        CopyArray def_pad_cols, col_pads, 64
+        Call @UpdatePadCols
+    elseif LastPad=5
+        CopyArray clear_pads, col_pads, 64
+        Call @UpdatePadCols
+    elseif LastPad=6
+        CopyArray btn_cols, col_btns, 64
+        led_cols=[0,0,0,0]
+        Call @LightUpButtons
+        Call @UpdateSideLeds
+    elseif LastPad=7
+        CopyArray clear_btns, col_btns, 64
+        led_cols=[2,2,2,2]
+        Call @LightUpButtons
+        Call @UpdateSideLeds
+    elseif LastPad=15
+        LogInfo = not LogInfo
+        Call @LogInfo
+    endif
+@End
+
+@OnMidiNoteOn
+    if MidiNote>=16 and MidiNote<=19
+        Exit
+    elseif MidiNote=26  //#knobbank channel, mixer, user1, user2
+        knob_mode=knob_mode+1
+        if knob_mode>1
+            knob_mode=0
+        endif
+        SendMidiCC 0, 27, 0 //# ALl leds off
+        SendMidiCC 0, 27, 10 //# ALl leds off
+        SendMidiCC 0, 27, knob_mode
+    elseif MidiNote>=36 and MidiNote<=39
+        led_cols=[0,0,0,0]
+        if clip_bank=MidiNote-35
+            clip_bank=0
+        else
+            clip_bank=MidiNote-35
+            led_cols[clip_bank-1]=2
+        endif
+        Call @UpdateSideLeds
+        Call @UpdatePadsForSideMode
+    elseif MidiNote=33 
+        loop_scenes = not loop_scenes
+        if loop_scenes
+            update_col=1
+        else
+            update_col=0
+        endif
+        SendMidiCC 0, 33, update_col
+    elseif MidiNote>=44 and MidiNote<=47
+        SendMidiCC 0, MidiNote, 1
+    elseif MidiNote=50 and clip_bank=0
+        show_shortcuts = not show_shortcuts
+        if show_shortcuts
+            update_col=2
+        else
+            update_col=0
+        endif
+        SendMidiCC 0, 50, update_col
+        Call @UpdatePadsForShortcuts
+    elseif MidiNote=51
+        //# SendMidiCC 0, 51, 3
+    elseif MidiNote=53
+        record_on = not record_on
+        if record_on
+            update_col=3
+        else
+            update_col=0
+        endif
+        SendMidiCC 0, 53, update_col
+    elseif MidiNote=52
+        //# undo on momentary
+        SendMidiCC 0, 52, 1
+    elseif (MidiNote=48 or MidiNote=49)
+        //# shift / alt on
+        SendMidiCC 0, MidiNote, 0
+    elseif MidiChannel=0 and MidiNote>=114 and MidiNote<=117 and not show_shortcuts
+        //# keyboard mode
+        keybd_octave = MidiNote-114
+        Call @UpdatePadsForShortcuts
+    endif
+    Call @LogInfo
+@End
+
+@OnMidiNoteOff
+    if MidiNote>=44 and MidiNote<=47
+        SendMidiCC 0, MidiNote, 0
+    elseif MidiNote=52
+        //# stop momentary
+        SendMidiCC 0, 52, 0
+    elseif (MidiNote=48 or MidiNote=49)
+        //# shift / alt on
+        update_cols=[4,2]
+        SendMidiCC 0, MidiNote, update_cols[MidiNote-48]
+    endif
+@End
+
+@UpdatePadsForShortcuts
+    if show_shortcuts
+        CopyArray shortcut_cols[0], col_pads[48], 16
+    else
+        CopyArray def_pad_cols[48], col_pads[48], 16
+        col_pads[48+12+keybd_octave] = orng
+    endif
+    Call @UpdatePadCols
+@End
+
+@UpdatePadsForSideMode
+    if clip_bank>=1 and clip_bank<=4
+        CopyArray def_pad_cols[0], col_pads[0], 16
+        CopyArray def_pad_cols[0], col_pads[16], 16
+        CopyArray def_pad_cols[0], col_pads[32], 16
+        CopyArray def_pad_cols[0], col_pads[48], 16
+        Call @UpdatePadCols
+    elseif clip_bank=0
+        CopyArray def_pad_cols, col_pads, 64
+        if show_shortcuts
+            CopyArray shortcut_cols[0], col_pads[48], 16
+        endif
+        Call @UpdatePadCols
+    endif
+@end
+
+@UpdatePadCols
+    //# pads 0-15 are for tracks
+    for i = 0 to 63
+        r=colours[col_pads[i]]
+        g=colours[col_pads[i]+1]
+        b=colours[col_pads[i]+2]
+        data = [0xF0, 0x47, 0x7F, 0x43, 0x65, 00, 04, i, r,g,b, 0xF7]
+        SendSysex data, 12
+    endfor
+@End
+
+@LightUpButtons
+    for i=0 to 19
+        SendMidiCC 0, btn_ccs[i], col_btns[i]
+    endfor
+@End
+
+@UpdateSideLeds
+    for i = 40 to 43
+        SendMidiCC 0, i, led_cols[i-40] //Leds
+    endfor
+@end
+
+@GetColorArray
+    a_off=[0,0,0]
+    a_whte=[127,127,127]
+    a_red=[127,0,0]
+    a_orng=[102,32,0]
+    a_yell=[127,127,0]
+    a_grn=[0,127,0]
+    a_blu1=[0,0,127]
+    a_blu2=[0,64,127]
+    a_prpl=[25,0,51]
+    a_pink=[127,0,127]
+    CopyArray a_off, colours[0], 3
+    CopyArray a_whte, colours[3], 3
+    CopyArray a_red, colours[6], 3
+    CopyArray a_orng, colours[9], 3
+    CopyArray a_yell, colours[12], 3
+    CopyArray a_grn, colours[15], 3
+    CopyArray a_blu1, colours[18], 3
+    CopyArray a_blu2, colours[21], 3
+    CopyArray a_prpl, colours[24], 3
+    CopyArray a_pink, colours[27], 3
+    off=0
+    whte=3
+    red=6
+    orng=9
+    yell=12
+    grn=15
+    blu1=18
+    blu2=21
+    prpl=24
+    pink=27
+    colour_index=[0,3,6,9,12,15,18,21,24,27,30,33,36]
+@end
+
+@LogInfo
+    if logInfo
+        if MIDICommand=0x90
+            LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
+            LabelPad 1, { }
+        elseif MIDICommand=0XB0
+            LabelPad 0, { }
+            LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
+        endif
+        LabelPad 8, {ClipMode: }, clip_bank
+        LabelPad 9, {Shortcuts: }, show_shortcuts
+        LabelPad 10, {KnobMode: }, knob_mode
+        LabelPad 15, {LogInfo:}, { ON}
+    else
+        LabelPad 15, {LogInfo:}, { OFF}
+    endif
+@End

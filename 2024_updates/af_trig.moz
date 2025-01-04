@@ -1,0 +1,200 @@
+@OnLoad
+	SetShortName {AFTRIG} 
+	LabelPads {AKAI FIRE TRIGGER}
+	ShowLayout 2
+    btm_btn_cols=[3,3,3,3,4,2]
+    clip_bank=0
+    clip_bank_leds=[1,1,4,4]
+    knob_mode=0
+    knob_ccs=[]
+    sel_enc_val=1
+    knob_chs=[15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15]
+    chords_in_chan=15 //# this is for triggering chords with notes and midi learn pads
+    for i = 0 to 15
+        knob_ccs[i]=73+i
+    endfor
+    for i = 0 to 7
+        midi_learn_pads[i]=48+i         //# MKNTRL LHS
+        midi_learn_pads[i+8]=48+i+16     //# GOC LHS
+        midi_learn_pads[i+16]=48+i+8   //# MKNTRL RHS
+        midi_learn_pads[i+24]=48+i+24   //# GOC RHS
+    endfor
+    mkntrl_shift = 47
+    goc_shift = 80
+    btn_ccs=[31,32,33,34,35,36,37,38,39,44,45,46,47,48,49,50,51,52,53]
+    //# 47	61	SHORTCUTS	SWITCH INSTR CHANNEL
+    //# 62	69	SHORTCUTS	MIXER MODES
+    //# 70	72	SHORTCUTS	SCENES, KEYBD, MGEN GUIS
+    instr_ch_sel_start_cc=47
+    //# sync these with shortcut_cols in AFLITE
+    //# VolPan112, SendFilt113, EQ114, FX115, MWMM116, Mute117, Solo118, Arm119,
+    //# Scenes120, Kybd121, MGENGUIS122
+    shortcut_ccs =[62,63,64,65,  66,67,68,69,  70,71,72,-1,  -1,-1,-1,-1]
+    show_shortcuts=FALSE
+    keybd_octave=2
+    keybd_ch=1
+    keybd_octave_adj=[-24,-12,0,12] //# octave setting for keyboard
+    tempo_slider_cc=4
+    logInfo=FALSE
+    //# transport ccs [0,2,3,106,107,4] //# Stop, Play, Record, Metro, TapTempo, BPM on CH16
+    Call @LogInfo
+@End
+
+@OnPadDown
+    if LastPad=15
+        LogInfo = not LogInfo
+        Call @LogInfo
+    endif
+    Log {Done!}
+@End
+
+@OnMidiCC
+    //# 4 encoders + select encoder
+    if MidiByte2=118 and MidiChannel=0
+        if MidiByte3=1 
+            sel_enc_val = 127
+        elseif MidiByte3=127
+            sel_enc_val = 1
+        endif
+        SendMidiCC 15, 4, sel_enc_val //# select encoder
+    elseif MidiByte2>=16 and MidiByte2<=19
+        knob=MidiByte2-16
+        mc=knob_chs[(knob_mode*4)+knob]
+        mb2=knob_ccs[(knob_mode*4)+knob]
+        SendMidiCC mc, mb2, MidiByte3
+    endif
+    Call @LogInfo
+@End
+
+@OnMidiNoteOn
+    if MidiNote>=16 and MidiNote<=19
+        Exit
+    elseif MidiNote=26  //#knobbank channel, mixer, user1, user2
+        knob_mode=knob_mode+1
+        if knob_mode>1
+            knob_mode=0
+        endif
+    elseif MidiNote>=36 and MidiNote<=39
+        if clip_bank=MidiNote-35
+            clip_bank=0
+        else
+            clip_bank=MidiNote-35
+            SendMidiCC 15, MidiNote, 127    
+        endif
+    elseif clip_bank>=1 and clip_bank<=4 and MidiNote>=54 and MidiNote<=117
+        //# clip mode
+        row = ((RoundDown ((MidiNote-54)/16)) + (clip_bank*4) - 4)
+        col = (MidiNote-54)%16
+        SendMIDINoteOn col, row, 127    
+    elseif MidiChannel=0 and MidiNote>=54 and MidiNote<=69
+        if MidiNote <> 69
+            //# To M:KNTRL to select channel. Only 15 chans so not send last one
+            SendMidiCC 15, MidiNote-54+instr_ch_sel_start_cc, 127  
+        endif
+    elseif MidiChannel=0 and MidiNote>=70 and MidiNote<=101
+        SendMIDINoteOn chords_in_chan,  midi_learn_pads[MidiNote-70]
+    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and show_shortcuts
+        sc_cc=shortcut_ccs[MidiNote-102]
+        if sc_cc>=-1
+            SendMidiCC 15, sc_cc, 127
+        endif
+    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and not show_shortcuts
+        //# keyboard mode
+        if MidiNote>=102 and MidiNote<=113
+            note = MidiNote-42 + keybd_octave_adj[keybd_octave]
+            SendMIDINoteOn keybd_ch, note, MidiVelocity
+        elseif MidiNote>=114 and MidiNote<=117
+            keybd_octave = MidiNote-114
+        endif
+    elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=35
+        if MidiNote=31 //# SceneUp
+            SendMidiCC 15, 106, 127
+        elseif MidiNote=32 //# SceneDn
+            SendMidiCC 15, 107, 127
+        elseif MidiNote=33 //# tap TEMPO
+            SendMidiCC 15, 103, 127
+        elseif  MidiNote=33 //# Grid left
+            //# not implemented
+        elseif  MidiNote=33 //# Grid right
+            //# not implemented
+        endif
+    elseif MidiChannel=0 and MidiNote=48
+        SendMIDINoteOn chords_in_chan, mkntrl_shift, 127
+    elseif MidiChannel=0 and MidiNote=49
+        SendMIDINoteOn chords_in_chan, goc_shift, 127
+    elseif MidiChannel=0 and MidiNote=50 and clip_bank=0
+        show_shortcuts = not show_shortcuts
+        SendMIDIThru
+    elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53
+        if MidiNote=53
+            SendMidiCC 15, 3, 127 //# rec drambo not AUM
+        elseif MidiNote=52
+            SendMidiCC 15, 0, 127 //# stop
+        elseif MidiNote=51
+            SendMidiCC 15, 2, 127 //# play
+        elseif MidiNote=44
+            SendMidiCC 15, 91, 127 //# M:KNTRL GUI
+        elseif MidiNote=45
+            SendMidiCC 15, 92, 127 //#GOC GUI 
+        elseif MidiNote=46
+            SendMidiCC 0, 124, 127 //#DRUMS GUI 
+        elseif MidiNote=47
+            SendMidiCC 15, 93, 127 //# drambo seq gui
+        end
+    endif
+    Call @LogInfo
+@End
+
+@OnMidiNoteOff
+    if clip_bank>=1 and clip_bank<=4 and MidiNote>=54 and MidiNote<=117
+        //# clip mode
+        row = ((RoundDown ((MidiNote-54)/16)) + (clip_bank*4) - 4)
+        col = (MidiNote-54)%16
+        SendMIDINoteOff col, row, 0 
+    elseif MidiChannel=0 and MidiNote>=70 and MidiNote<=101
+        SendMIDINoteOff chords_in_chan,  midi_learn_pads[MidiNote-70] 
+    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and show_shortcuts
+        sc_cc=shortcut_ccs[MidiNote-102]
+        if sc_cc>=-1
+            SendMidiCC 15, sc_cc, 0
+        endif
+    elseif MidiChannel=0 and MidiNote>=102 and MidiNote<=117 and not show_shortcuts
+        //# keyboard mode
+        if MidiNote>=102 and MidiNote<=113
+            note = MidiNote-42 + keybd_octave_adj[keybd_octave]
+            SendMIDINoteOff keybd_ch, note, MidiVelocity
+        endif
+    elseif MidiChannel=0 and MidiNote>=31 and MidiNote<=33
+        Exit //# Send pattern, browser, grid
+    elseif MidiChannel=0 and MidiNote>=34 and MidiNote<=35
+        SendMIDIThru //# Grid buttons need off for some reason
+    elseif MidiChannel=0 and MidiNote=48
+        SendMIDINoteOff chords_in_chan, mkntrl_shift, 127
+    elseif MidiChannel=0 and MidiNote=49
+        SendMIDINoteOff chords_in_chan, goc_shift, 127
+    elseif MidiChannel=0 and MidiNote>=44 and MidiNote<=53
+        Exit //# Send bottom row
+    endif
+    Call @LogInfo
+@End
+
+@LogInfo
+    if logInfo
+        if MIDICommand=0x90
+            LabelPad 0, {IN Note:       }, MidiChannel, {-}, MidiByte2, {-}, MidiByte3
+            LabelPad 1, { }
+        elseif MIDICommand=0XB0
+            LabelPad 0, { }
+            LabelPad 1, {IN  CC:       }, MidiChannel, {-}, MidiByte2,  {-}, MidiByte3
+        endif
+        LabelPad 2, {Select Encoder CH16:}, tempo_slider_cc,{   val:}, sel_enc_val
+        LabelPad 8, {ClipMode: }, clip_bank
+        LabelPad 9, {Shortcuts: }, show_shortcuts
+        LabelPad 10, {KnobMode: }, knob_mode
+        LabelPad 11, {KeybdOct: }, keybd_octave+1
+        LabelPad 12, {KeybdChan: }, keybd_ch+1
+        LabelPad 15, {LogInfo:}, { ON}
+    else
+        LabelPad 15, {LogInfo:}, { OFF}
+    endif
+@End
