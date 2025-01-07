@@ -49,6 +49,9 @@
 		player_mode=1 //# 0. THRU 1. play chords as sequenced on out channel or 2. Trigger chords usign player in channel
 		player_in_channel=0
 		player_out_channel=1
+        harmonize_notes_in=FALSE
+        log_harmony_notes=FALSE
+        pedal_tone = 0 //# playable using C# - sustained note that remains constant while chords change. Scale root
 		Call @TransposeCalcArrays
 	  	Call @InitKnobVariables //# All knob settings on start
 	  	Call @SetupChordsScenes
@@ -302,7 +305,6 @@
     if mode=0
         LabelPads {[ GENOCHORD ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration) 
     endif
-    xxx 
 @End 
 
 @ResetBeatCounts
@@ -468,22 +470,20 @@
 
 @PlayChords
 	// Active channels set to Play Chords mode (4) send out chord notes on that channel
-	if HostRunning and player_mode=1
+	if HostRunning and player_mode=1 and harmonize_notes_in=FALSE
 		chord_slot = (current_scene * 100) + ((current_chord) * 10)
 		current_chord_duration = chord_bank[chord_slot + dur_slot]
 		chord_formed = curr_inv_chord_scale[0]>=0 and curr_inv_chord_scale[4]>=0 and curr_inv_chord_scale[7]>=0
 		if current_chord_duration>0
-			if player_mode=1
-				index_to_chord_notes=[0,4,7,11]
-				Call @TurnOffChordNotes
-				for n = 0 to 3
-					note_to_play = curr_inv_chord_scale[ index_to_chord_notes[n] ] 		
-					if note_to_play > 0
-						SendMIDINoteOn player_out_channel, note_to_play, 100
-						SetNoteState player_out_channel, n, note_to_play
-					endif
-				endfor
-			endif
+            index_to_chord_notes=[0,4,7,11]
+            Call @TurnOffChordNotes
+            for n = 0 to 3
+                note_to_play = curr_inv_chord_scale[ index_to_chord_notes[n] ] 		
+                if note_to_play > 0
+                    SendMIDINoteOn player_out_channel, note_to_play, 100
+                    SetNoteState player_out_channel, n, note_to_play
+                endif
+            endfor
 		endif
 	endif 
 @End
@@ -520,7 +520,7 @@
     if mode=8
         Call @PadDownMidiLearn
 	elseif in_settings_mode 
-		if HostRunning and (last_pad > 1) and (last_pad <> 9)
+		if HostRunning and (last_pad>1 and last_pad<=8)
 			LabelPads {NOT ALLOWED WHEN HOST RUNNING}
 			Exit //# Only return to song allowed in playback
 		elseif last_pad=0
@@ -553,7 +553,23 @@
             mode=last_pad
             in_settings_mode = FALSE
             Call @SetupLayout
-		elseif (last_pad>=10 and last_pad<=13)
+        elseif last_pad=10
+            //# harmonize_notes_in mode
+            harmonize_notes_in = not harmonize_notes_in
+            mode=last_pad
+            Call @SetupSettingsLayout
+            if harmonize_notes_in
+                LabelPads {[ HARMONY MODE ] Chords muted. CEGB play chord notes. C# pedal, G# pedal+5th}
+            endif
+        elseif last_pad=12
+            // log_harmony_notes 
+            log_harmony_notes = not log_harmony_notes
+            mode=last_pad
+            Call @SetupSettingsLayout
+            if log_harmony_notes
+                LabelPad 12, {Logging. Tap to stop}
+            endif
+		elseif (last_pad=11 or last_pad=13)
 			//# midi setup modes - dont exit in_select_mode
 			mode = last_pad
 			Call @SetupSettingsLayout
@@ -1167,15 +1183,15 @@
         Call @SetupPadsLayoutMidiConfig
         custom_pads_type=0 //# notes
         custom_pads[0] = MIDIChannel
-    elseif custom_pads_type=0 //# pads use notes
-        if (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
+    elseif custom_pads_type=0 and (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) //# pads use notes
+        if (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8]) 
             for i = 1 to 8
                 if MIDIByte2=custom_pads[i]
                     last_pad=i-1
                 endif
             endfor
             Call @OnPadDown2
-        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
+        elseif (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16]) 
             for i = 9 to 16
                 if MIDIByte2=custom_pads[i]
                     last_pad=i-1
@@ -1183,21 +1199,52 @@
             endfor
             Call @OnPadDown2 //instead of OnPadDown which is only triggered by touch of GUI pads in Mozaic
             
-        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
+        elseif (MIDIByte2=custom_pads[17]) //SHIFT
             Call @OnShiftDown2
         endif
+    elseif harmonize_notes_in and MidiChannel=player_in_channel and player_mode>0
+        Call @TriggerHarmonyNote       
     endif
 @End
 
+@TriggerHarmonyNote
+    new_note = current_chord_scale[MidiNote%12]-48
+    if MidiNote%12=1
+        new_note = pedal_tone //# scale root
+    elseif MidiNote%12=8
+        new_note = pedal_tone+7 //# perfect 5th
+    endif
+    vel = MIDIVelocity
+    octave = Div MidiNote, 12
+    new_note=(octave*12) + new_note
+    SendMIDINoteOn MidiChannel, new_note, vel
+    SetNoteState MIDIChannel, MIDINote, new_note
+    if log_harmony_notes
+        Call @LogHarmonyNotes
+    endif
+@End
+
+@TurnOffHarmonyNote
+    note_off = GetNoteState MIDIChannel, MIDINote 
+    SendMIDINoteOff MidiChannel, note_off, MIDIVelocity 
+@End
+
+@LogHarmonyNotes
+    log {NoteOn:  CH}, MidiChannel, { Note }, MidiNote, { (}, (NoteName MidiNote), {) converted to Note }, new_note, { (}, (NoteName new_note), {)}
+    if in_settings_mode
+        LabelPad 12, {IN: }, (NoteName MidiNote), { (}, MidiNote, {) }, { OUT: }, (NoteName new_note), { (}, new_note, {)}
+    endif
+@End
+
+
 @SendOutChordNotes
-	//Modes 0:Off 1:Harmonize 2:GatedChord Inv 3:Harmonize2 4:PlayChord 5:OFF
+	//# Send out chord notes 
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	chord_scale_slot = (current_scene * 120) + ((chord_to_set) * 15)
 	CopyArray all_inv_chord_scales[chord_scale_slot], curr_inv_chord_scale, 12 //make sure we have current chord notes
-	CopyArray curr_inv_chord_scale, is, 12
 	
 	note_in_velo = MIDIVelocity // for Humanize Velocity
-	if player_mode=2 //trigger mode
+	if player_mode=2 and harmonize_notes_in=FALSE //trigger mode and not harmonize notes mode
 		if current_chord_scale[0]>=0 and current_chord_scale[4]>=0 and current_chord_scale[7]>=0 
 			//aka chord_formed we can send chord notes
 			index_to_chord_notes=[0,4,7,11]
@@ -1322,24 +1369,26 @@
 			held_chord_notes[player_out_channel] = -1
 			held_chord_oct_adj[player_out_channel] = 0
 		endif
-    elseif custom_pads_type=0 //# pads use notes
-        if (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8])
+    elseif custom_pads_type=0 and (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) //# pads use notes
+        if (MIDIByte2>=custom_pads[1] and MIDIByte2<=custom_pads[8])
             for i = 1 to 8
                 if MIDIByte2=custom_pads[i]
                     last_pad=i-1
                 endif
             endfor
             Call @OnPadUp2
-        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16])
+        elseif (MIDIByte2>=custom_pads[9] and MIDIByte2<=custom_pads[16])
             for i = 9 to 16
                 if MIDIByte2=custom_pads[i]
                     last_pad=i-1
                 endif
             endfor
             Call @OnPadUp2
-        elseif (custom_pads[0] <> -1) and (MIDIChannel=custom_pads[0]) and (MIDIByte2=custom_pads[17]) //SHIFT
+        elseif (MIDIByte2=custom_pads[17]) //SHIFT
             Call @OnShiftUp2
         endif
+    elseif harmonize_notes_in and MidiChannel=player_in_channel and player_mode>0
+        Call @TurnOffHarmonyNote
     endif
 @End
 
@@ -1527,7 +1576,11 @@
 	SetKnobValue 0, TranslateScale player_in_channel, 0, 14, 0, 127
     SetKnobValue 1, TranslateScale player_out_channel, 0, 14, 0, 127
     SetKnobValue 2, TranslateScale player_mode, 0, 2, 0, 127
-    SetKnobValue 3, TranslateScale trigger_pads_val, 0, 72, 0, 127
+    if harmonize_notes_in   
+        SetKnobValue 3, TranslateScale pedal_tone, 0, 11, 0, 127
+    else
+        SetKnobValue 3, TranslateScale trigger_pads_val, 0, 72, 0, 127
+    endif
 	Call @LabelSettingsKnobs
 @End
 @KnobChangeSet99 //settings knobs
@@ -1557,7 +1610,15 @@
                 LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1, { (*CH aka }, player_in_channel, { )} 
             endif
         endif
-    elseif last_knob = 3
+    elseif last_knob = 3 and harmonize_notes_in
+        val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 11
+        if val <> pedal_tone
+            pedal_tone = val
+            LabelPad 11, {Pedal: }, (NoteName pedal_tone)
+            Call @LabelSettingsKnobs
+            LabelPad 15, {TRIGGER CHORDS:         }, (NoteName trigger_pads_val, YES), {-}, (NoteName trigger_pads_val+7, YES)
+        endif
+    elseif last_knob = 3 and not harmonize_notes_in
         val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 72
         if val <> trigger_pads_val
             trigger_pads_val = val
@@ -1577,7 +1638,11 @@
     else
         LabelKnob 2, {TRIGGER}
     endif
-    LabelKnob 3, {Note }, trigger_pads_val
+    if harmonize_notes_in
+        LabelKnob 3, {Pedal }, (NoteName pedal_tone)
+    else
+        LabelKnob 3, {Note }, trigger_pads_val
+    endif
     LabelKnobs {Midi In/Out + Mode}
 	LabelPads {GENOCHORD : [ SETTINGS ]}
 @End
@@ -2246,7 +2311,11 @@
     if player_mode=2
         tc_col=3
     endif
-    settings_pad_cols=[8,4,7,7,7,0,4,1, kc_col,4,0,0,0,0,1,tc_col]
+    hni=0
+    if harmonize_notes_in
+        hni=3
+    endif
+    settings_pad_cols=[8,4,7,7,7,0,4,1, kc_col,4,hni,0,0,0,1,tc_col]
 	if (songmode = 0)
 		LabelPad 0, {PLAYSONG: Active }
 	elseif (songmode = 1)
@@ -2271,9 +2340,19 @@
 	LabelPad 7, {DELETE  }
     LabelPad 8, {MIDI LEARN}
     LabelPad 9, {HARMONY KEYBOARD}
-    LabelPad 10, { }
-    LabelPad 11, { }
-    LabelPad 12, { }
+    if harmonize_notes_in
+        LabelPad 10, {CHORDS MUTED. HARMONY MODE ON}
+        LabelPad 11, {Pedal: }, NoteName pedal_tone
+        if log_harmony_notes
+            LabelPad 12, { }
+        else
+            LabelPad 12, {Log harmony notes?}
+        endif
+    else
+        LabelPad 10, {HARMONIZE NOTES IN?}
+        LabelPad 11, { }
+        LabelPad 12, { }
+    endif
     LabelPad 13, { }
     LabelPad 14, { ALL NOTES OFF }
     if player_mode=0
