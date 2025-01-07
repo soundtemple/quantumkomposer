@@ -42,7 +42,7 @@
         ready_to_rec_pad_vals=FALSE // bool for setting custom pad vals
         custom_knobs = [-1, 1,2,3,4, 5,6,7,8]  // default custom knobs config
         custom_pads = [-1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]  // default custom pads config
-        trigger_pads_val = 36 //# starting note for trigger pads. 8 pads to trigger 8 chords
+        trigger_pads_val = 0 //# starting note for trigger pads. 8 pads to trigger 8 chords
         hmny_kybd_out_ch=6
         hmny_kybd_pad_notes_store=[] //# store playing notes on 16 pads so we can turn them off
         //#player modes
@@ -249,7 +249,7 @@
 @End
 
 @OnHostStart
-	//log {--- HOST START ---}
+	log {--- HOST START ---}
 	//# Start beat count on same beat as host
 	//# In AUM getting HostBeat to start on 0 seems flaky
 	//# Fixed by BramBos in June2020
@@ -287,15 +287,22 @@
 @End
 
 @OnHostStop
-	Call @ResetBeatCounts
-	//Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
-	Call @SetupLayout
+	Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
 	//reset held notes
 	chord_note_off_delay=5
 	Call @TurnOffChordNotes
 	FillArray mel_note_voices, -1, num_mel_voices*16
 	FillArray held_chord_notes, -1, 16 //Tracking the chord note chans. 1 note per chan max IN.
 	FillArray held_chord_oct_adj, 0, 16 	//Harmony note octave in effect octave chord notes are sent out on
+    Call @ResetBeatCounts
+    current_chord=0
+    chord_to_set=0
+    Call @SetChordScale
+    Call @SetupLayout
+    if mode=0
+        LabelPads {[ GENOCHORD ]    Scene}, current_scene+1, {   Bar}, (Div scene_beat_count, HostBeatsPerMeasure)+1, {   Beat }, scene_beat_count+1, {/}, (current_scene_duration) 
+    endif
+    xxx 
 @End 
 
 @ResetBeatCounts
@@ -502,7 +509,7 @@
 @End
 
 @OnPadDown
-    last_pad = LastPad // so midi in can simulate LastPad also see OnMidiIn
+    last_pad = LastPad // so midi in can simulate LastPad
 	Call @OnPadDown2 //midi input cant trigger @OnPadDown, It calls @OnPadDown2
 @End
 
@@ -714,7 +721,7 @@
 	elseif (last_pad >= 8 and last_pad <= 15) 	
   	//# User Chord change 
   	chord_change_requested = last_pad - 8 //# chrd 0-7
-  	songmode=2 //lockt to chord. User pressed chord pad
+  	songmode=2 //locked to chord. User pressed chord pad
 	if NOT HostRunning //# immediate change else newbeat/bar handles
   		Call @HandleChordChange 
   	endif
@@ -1520,7 +1527,7 @@
 	SetKnobValue 0, TranslateScale player_in_channel, 0, 14, 0, 127
     SetKnobValue 1, TranslateScale player_out_channel, 0, 14, 0, 127
     SetKnobValue 2, TranslateScale player_mode, 0, 2, 0, 127
-    SetKnobValue 3, TranslateScale player_mode, 24, 88, 0, 127
+    SetKnobValue 3, TranslateScale trigger_pads_val, 0, 72, 0, 127
 	Call @LabelSettingsKnobs
 @End
 @KnobChangeSet99 //settings knobs
@@ -1541,6 +1548,7 @@
         if val <> player_mode 	
             player_mode = val
             Call @LabelSettingsKnobs
+            Call @SetupSettingsLayout
             if player_mode=0
                 LabelPads {Genochord is off. No chords played or triggered}
             elseif player_mode=1
@@ -1548,10 +1556,9 @@
             else
                 LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1, { (*CH aka }, player_in_channel, { )} 
             endif
-            Call @SetupSettingsLayout
         endif
     elseif last_knob = 3
-        val = Round TranslateScale (GetKnobValue 3), 0, 127, 24, 88
+        val = Round TranslateScale (GetKnobValue 3), 0, 127, 0, 72
         if val <> trigger_pads_val
             trigger_pads_val = val
             Call @LabelSettingsKnobs
@@ -2269,11 +2276,12 @@
     LabelPad 12, { }
     LabelPad 13, { }
     LabelPad 14, { ALL NOTES OFF }
-    if player_mode=2
+    if player_mode=0
+    	LabelPad 15, {Midi Thru}
+    elseif player_mode=1
+    	LabelPad 15, {CHORDS SEQUENCED BY SCENES}
+    elseif player_mode=2
     	LabelPad 15, {TRIGGER CHORDS:         }, (NoteName trigger_pads_val, YES), {-}, (NoteName trigger_pads_val+7, YES)
-    else
-        LabelPad 15, {TRIGGER CHORDS:         }, { N/A }
-
     endif
 	if (mode>=1 and mode<=3)
 		LatchPad mode+1, YES //#shifted +Chords in menu
