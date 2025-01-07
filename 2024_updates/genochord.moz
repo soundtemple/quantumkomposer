@@ -249,7 +249,7 @@
 @End
 
 @OnHostStart
-	log {--- HOST START ---}
+	//# log {--- HOST START ---}
 	//# Start beat count on same beat as host
 	//# In AUM getting HostBeat to start on 0 seems flaky
 	//# Fixed by BramBos in June2020
@@ -287,8 +287,8 @@
 @End
 
 @OnHostStop
-	Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
-	//reset held notes
+	//# Log {---- Host Stopped ---- }, scene_beat_count, { - }, chord_beat_count 
+	//# reset held notes
 	chord_note_off_delay=5
 	Call @TurnOffChordNotes
 	FillArray mel_note_voices, -1, num_mel_voices*16
