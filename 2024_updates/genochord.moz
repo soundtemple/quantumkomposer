@@ -569,7 +569,7 @@
         elseif last_pad=11
             //# pedal tone
             settings_knob3_mode=1
-            Call @LabelSettingsKnobs
+            Call @SetupKnobset99
         elseif last_pad=12
             // log_harmony_notes 
             log_harmony_notes = not log_harmony_notes
@@ -592,8 +592,8 @@
             mode=last_pad
             if player_mode=2
                 settings_knob3_mode=2
-                LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1, { (*CH aka }, player_in_channel, { )} 
-                Call @LabelSettingsKnobs
+                LabelPads {Trigger chords with notes from }, (NoteName trigger_pads_val, YES), { to }, (NoteName trigger_pads_val+7, YES), { on channel }, player_in_channel+1 
+                Call @SetupKnobset99
             elseif player_mode=0
                 Call @LogCurrentSceneToPresetFormat
 	    		LabelPads {Scene preset data printed. Check log!}
@@ -694,6 +694,9 @@
     endif
     if in_settings_mode and player_mode=2 and last_pad=15
         LabelPad 15, {TRIGGER CHORDS:         }, (NoteName trigger_pads_val, YES), {-}, (NoteName trigger_pads_val+7, YES),{ Chan.}, player_in_channel+1
+        Call @SetupKnobset99 
+    elseif in_settings_mode
+        Call @SetupKnobset99 
     endif
 @End
 
@@ -1404,7 +1407,7 @@
         elseif (MIDIByte2=custom_pads[17]) //SHIFT
             Call @OnShiftUp2
         endif
-    elseif harmonize_notes_in and player_mode>0
+    elseif harmonize_notes_in and player_mode>
         Call @TurnOffHarmonyNote
     endif
 @End
@@ -1587,7 +1590,7 @@
 	chrd_to_label = current_chord+8
 	Call @LabelChordPad		
 @End
-xxx
+
 @SetupKnobset99
 	knob_set = 99
 	SetKnobValue 0, TranslateScale player_in_channel, 0, 14, 0, 127
@@ -1595,7 +1598,7 @@ xxx
     SetKnobValue 2, TranslateScale player_mode, 0, 2, 0, 127
     if settings_knob3_mode=1
         SetKnobValue 3, TranslateScale pedal_tone, 0, 11, 0, 127
-    elseif 
+    elseif settings_knob3_mode=2
         SetKnobValue 3, TranslateScale trigger_pads_val, 0, 72, 0, 127
     else
         SetKnobValue 3, 0
@@ -2326,7 +2329,7 @@ xxx
     if harmonize_notes_in
         hni=3
     endif
-    settings_pad_cols=[8,4,7,7,7,0,4,1, kc_col,4,hni,hni,hni,0,1,3]
+    settings_pad_cols=[8,4,7,7,7,0,4,1, kc_col,4,hni,hni,hni,0,1,4]
 	if (songmode = 0)
 		LabelPad 0, {PLAYSONG: Active }
 	elseif (songmode = 1)
