@@ -1,0 +1,61 @@
+@OnLoad
+    for i = 0 to 11
+    cs[i] = NO
+    endfor
+    ShowLayout 2
+    ResetNoteStates -1 
+    LabelPads {KORDTRAK}
+@End
+
+@OnMidiNoteOn
+    incoming_note_pitch = MIDINote % 12
+    incoming_note_octave = Div MIDINote, 12
+    if incoming_note_pitch=0 //C
+        new_pitch = GLOBAL0 
+    elseif incoming_note_pitch=1 //C#
+        new_pitch = GLOBAL1 
+    elseif incoming_note_pitch=2//D
+        new_pitch = GLOBAL2
+    elseif incoming_note_pitch=3 //D#
+        new_pitch = GLOBAL3 
+    elseif incoming_note_pitch=4 //E
+        new_pitch = GLOBAL4 
+    elseif incoming_note_pitch=5 //F
+        new_pitch = GLOBAL5 
+    elseif incoming_note_pitch=6 //F#
+        new_pitch = GLOBAL6 
+    elseif incoming_note_pitch=7 //G
+        new_pitch = GLOBAL7 
+    elseif incoming_note_pitch=8 //G#
+        new_pitch = GLOBAL8 
+    elseif incoming_note_pitch=9 //A
+        new_pitch = GLOBAL9 
+    elseif incoming_note_pitch=10 //A#
+        new_pitch = GLOBAL10 
+    elseif incoming_note_pitch=11 //B
+        new_pitch = GLOBAL11
+    endif
+    note_on = incoming_note_octave + new_pitch
+    SetNoteState MIDIChannel, MIDINote, note_on
+    SendMIDINoteOn MIDIChannel, note_on, MIDIVelocity 
+    LabelPad 14, {NoteOn: }, (NoteName MIDINote, YES), { Qtze: }, (NoteName note_on, YES)  
+    Call @PrintChordNotes
+@End 
+
+@OnMidiNoteOff
+    note_off = GetNoteState MIDIChannel, MIDINote 
+    SendMIDINoteOff MIDIChannel, note_off, MIDIVelocity 
+    LabelPad 15, {NoteOff: }, (NoteName MIDINote, YES), { Stored: }, (NoteName note_off, YES)
+@End 
+
+
+@OnNewBeat
+    Call @PrintChordNotes
+@End
+
+@PrintChordNotes
+    LabelPad 0, (NoteName GLOBAL0, NO)
+    LabelPad 1, (NoteName GLOBAL4, NO)
+    LabelPad 2, (NoteName GLOBAL7, NO)
+    LabelPad 3, (NoteName GLOBAL11, NO)
+@End
