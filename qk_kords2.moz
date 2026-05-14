@@ -1268,7 +1268,6 @@
 	chord_slot = (current_scene * 100) + ((current_chord) * 10)
 	chord_scale_slot = (current_scene * 120) + ((chord_to_set) * 15)
 	CopyArray all_inv_chord_scales[chord_scale_slot], curr_inv_chord_scale, 12 //make sure we have current chord notes
-	CopyArray curr_inv_chord_scale, is, 12
 	//Log {MADE INV CHORD SCALE: [}, (NoteName is[0]),{-},(NoteName is[1]),{-},(NoteName is[2]),{-},(NoteName is[3]),{-},(NoteName is[4]),{-},(NoteName is[5]),{-},(NoteName is[6]),{-},(NoteName is[7]),{-},(NoteName is[8]),{-},(NoteName is[9]),{-},(NoteName is[10]),{-},(NoteName is[11]),{]} 
 	//Log {INV CHORD: },(NoteName is[0]), (NoteName is[4]), (NoteName is[7]), (NoteName is[11])
 	
